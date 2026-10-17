@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ru">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#112a25"><title>АвтоСклад63 · Онлайн-офис</title><link rel="stylesheet" href="style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#112a25"><title>АвтоСклад63 · Онлайн-офис</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="office-map.css"></head>
 <body>
 <aside class="sidebar" id="sidebar">
   <a class="brand" href="#overview"><span class="brandmark">А<span>63</span></span><span>АвтоСклад63<small>ОНЛАЙН-ОФИС</small></span></a>
@@ -24,6 +24,12 @@
  <div class="content">
   <section class="page" data-section="overview">
    <div class="page-heading"><div><div class="eyebrow">ВАШ БИЗНЕС. ОДНО ПРОСТРАНСТВО.</div><h1>Офис под контролем</h1><p>От первого обращения до отгрузки — команда, отделы и рабочие инструменты рядом.</p></div><a class="button primary" data-sheet="710003" target="_blank" rel="noopener">Открыть заказы <span>↗</span></a></div>
+   <section class="office-map" aria-labelledby="officeMapTitle">
+    <div class="map-toolbar"><div><span class="eyebrow">ПЛАН ОФИСА · ЭТАЖ 01</span><h2 id="officeMapTitle">Команда на своих местах</h2></div><div class="map-legend"><span class="legend-seat"></span>9 рабочих мест <span class="legend-idle"></span>0 агентов онлайн</div></div>
+    <div class="office-lobby"><span class="lobby-logo">А63</span><div><strong>АвтоСклад63</strong><small>Учёт · производство · продажи</small></div><span class="lobby-sign">НАЖМИТЕ НА АГЕНТА, ЧТОБЫ ОТКРЫТЬ ЕГО РОЛЬ ↘</span><div class="lobby-plant" aria-hidden="true">♣</div></div>
+    <div class="office-floor" id="officeRooms"></div>
+    <div class="map-caption"><span>◎</span>Персонажи обозначают настроенные роли. Фактические задачи и результаты — в рабочей таблице.<a data-sheet="710004" target="_blank" rel="noopener">Открыть задачи ↗</a></div>
+   </section>
    <div class="metrics">
     <article class="metric"><div class="metric-label">Структура офиса <span>▦</span></div><strong>7 <small>отделов</small></strong><p>Учёт и продажи — в приоритете</p></article>
     <article class="metric"><div class="metric-label">ИИ-команда <span>◎</span></div><strong>9 <small>ролей</small></strong><p>Инструкции подготовлены в GitHub</p></article>
@@ -46,5 +52,6 @@
  </div>
 </main>
 <dialog id="agentDialog"><div class="dialog-top"><span class="eyebrow">КАРТОЧКА РОЛИ</span><button class="icon-button" id="closeDialog" aria-label="Закрыть">×</button></div><div id="dialogContent"></div></dialog>
-<script src="app.js" defer></script>
+<script src="app.js" defer></script><script src="office-map.js" defer></script>
 </body></html>
+
