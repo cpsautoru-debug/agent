@@ -9,3 +9,8 @@ private/
 *.pem
 *.key
 .DS_Store
+**/.sites-checkout/
+**/.sites-runtime/
+
+apps/online-office/
+online-office-deploy.tar.gz
