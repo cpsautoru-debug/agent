@@ -14,3 +14,4 @@ jobs:
         with:
           node-version: '22'
       - run: node --test test.mjs cloud/test.mjs cloud/max.test.mjs
+      - run: node --test ../max-agent/test.mjs
