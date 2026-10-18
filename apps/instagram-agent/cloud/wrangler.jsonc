@@ -5,6 +5,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": false,
+  "keep_vars": true,
   "observability": {"enabled": false},
   "vars": {"INSTAGRAM_ACCOUNT_ID": "17841401788527116"},
   "triggers": {"crons": ["17 2 * * *"]},
