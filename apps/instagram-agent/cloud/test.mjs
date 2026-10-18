@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import worker, {draftRows,revision,sendBlock,autoEligible,autoProcess} from './worker.mjs';
+import worker, {draftRows,revision,sendBlock,autoEligible,autoProcess,firstContact} from './worker.mjs';
+import {dialogueReply} from '../engine.mjs';
+import kb from '../knowledge.json' with {type:'json'};
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 const now=Date.now();
@@ -116,7 +118,10 @@ test('auto FAQ excludes backlog, edits, attachments, comments and unknown condit
 });
 test('auto FAQ sends only once and records automatic approval',async()=>{
   const d=database(),[e]=draftRows(payload,'123');d.put(e);const old=globalThis.fetch;let calls=0;
-  globalThis.fetch=async()=>{calls++;return Response.json({message_id:'auto1'});};
+  globalThis.fetch=async(url,options)=>{
+    if(options.method!=='POST')return Response.json(String(url).includes('/conversations')?{data:[{id:'conversation1'}]}:{messages:{data:[{id:'m1'}]}});
+    calls++;return Response.json({message_id:'auto1'});
+  };
   try{
     const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
     await autoProcess([e.id],env,new URL('https://example.com/webhook'));
@@ -125,7 +130,7 @@ test('auto FAQ sends only once and records automatic approval',async()=>{
     assert.equal(out.status,'sent');assert.equal(out.approvalMode,'automatic-faq');assert.equal(calls,1);
   }finally{globalThis.fetch=old;d.sql.close();}
 });
-test('handoff or owner echo pauses auto FAQ; own outgoing echo does not pause it',async()=>{
+test('existing threads are excluded even when previous echo was from the bot',async()=>{
   const old=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;return Response.json({message_id:'auto2'});};
   try{
     for(const pause of ['handoff','owner-echo','own-echo']){
@@ -134,8 +139,48 @@ test('handoff or owner echo pauses auto FAQ; own outgoing echo does not pause it
       if(pause==='own-echo')d.put({...e,id:'sent-before',at:e.at-2000,status:'sent',sentMid:'previous-out'});
       const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
       await autoProcess([e.id],env,new URL('https://example.com/webhook'));
-      assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(e.id).status,pause==='own-echo'?'sent':'draft');d.sql.close();
+      assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(e.id).status,'draft');d.sql.close();
     }
-    assert.equal(calls,1);
+    assert.equal(calls,0);
   }finally{globalThis.fetch=old;}
+});
+
+test('history admission fails closed for old, missing, paginated or unavailable Meta history',async()=>{
+  const [e]=draftRows(payload,'123');const old=globalThis.fetch;
+  const env={INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+  try{
+    for(const page of [{data:[]},{data:[{id:'old'},{id:'m1'}]},{data:[{id:'m1'}],paging:{next:'more'}},{data:[{id:'different'}]}]){
+      globalThis.fetch=async url=>Response.json(String(url).includes('/conversations')?{data:[{id:'c'}]}:{messages:page});
+      assert.equal(await firstContact(e,env),false);
+    }
+    globalThis.fetch=async()=>Response.json({error:{}},{status:403});assert.equal(await firstContact(e,env),false);
+    globalThis.fetch=async()=>{throw Error('timeout');};assert.equal(await firstContact(e,env),false);
+  }finally{globalThis.fetch=old;}
+});
+
+test('dialogue answers the requested topic and resolves product follow-ups without guessing compatibility',()=>{
+  const h=[{text:'Интересуют накидки'}];
+  assert.match(dialogueReply('Сколько стоят?',kb,h).text,/6\s500/);
+  assert.doesNotMatch(dialogueReply('Сколько стоят?',kb,h).text,/8\s900|3\s500/);
+  assert.doesNotMatch(dialogueReply('Доставка чехлов сколько ждать?',kb,h).text,/8\s900|модель и год/);
+  assert.equal(dialogueReply('Веста 2020',kb,h).needsHuman,true);
+  assert.equal(dialogueReply('Есть накидки в наличии?',kb,h).needsHuman,true);
+});
+
+test('admitted new dialogue continues contextually, owner takeover and unknown questions stop automation',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');const old=globalThis.fetch;let sends=0;
+  globalThis.fetch=async(url,options)=>{
+    if(options.method!=='POST')return Response.json(String(url).includes('/conversations')?{data:[{id:'c'}]}:{messages:{data:[{id:'m1'}]}});
+    sends++;return Response.json({message_id:'out'+sends});
+  };
+  try{
+    const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+    d.put(e);await autoProcess([e.id],env,new URL('https://example.com'));
+    const next={...e,id:'dm:m2',at:e.at+1,text:'Интересуют накидки'};d.put(next);await autoProcess([next.id],env,new URL('https://example.com'));
+    const price={...e,id:'dm:m3',at:e.at+2,text:'Сколько стоят?'};d.put(price);await autoProcess([price.id],env,new URL('https://example.com'));
+    const sent=JSON.parse(d.sql.prepare('SELECT payload FROM events WHERE id=?').get(price.id).payload);assert.equal(sent.status,'sent');assert.match(sent.approvedText,/6\s500/);
+    d.put({...e,id:'echo:owner',kind:'echo',status:'manual_echo',mid:'owner',at:e.at+3});
+    const after={...e,id:'dm:m4',at:e.at+4,text:'Как оплатить?'};d.put(after);await autoProcess([after.id],env,new URL('https://example.com'));assert.equal(sends,3);
+    assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(after.id).status,'draft');
+  }finally{globalThis.fetch=old;d.sql.close();}
 });

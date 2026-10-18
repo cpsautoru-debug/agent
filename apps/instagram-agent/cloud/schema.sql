@@ -9,3 +9,8 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_retention ON events(created_at);
 CREATE INDEX IF NOT EXISTS events_time ON events(event_at);
+CREATE TABLE IF NOT EXISTS auto_dialogues (
+  thread TEXT PRIMARY KEY,
+  first_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);

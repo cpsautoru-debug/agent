@@ -1,4 +1,4 @@
-import { faq, normalize, sameSecret, verifySignature } from '../engine.mjs';
+import { faq, dialogueReply, normalize, sameSecret, verifySignature } from '../engine.mjs';
 import kb from '../knowledge.json' with { type: 'json' };
 import privacy from './privacy.mjs';
 import {createHash} from 'node:crypto';
@@ -17,13 +17,31 @@ export function sendBlock(event,env,now=Date.now()) {
   if(!/^\d+$/.test(event.recipient||'')||!/^\d+$/.test(env.INSTAGRAM_ACCOUNT_ID||'')) return 'Неверный идентификатор аккаунта';
   return null;
 }
-export function autoEligible(e,env,now=Date.now()) {
+export function autoEligible(e,env,now=Date.now(),checked=faq(e.text,kb,'dm')) {
   const since=Number(env.AUTO_REPLY_SINCE);
   if(env.AUTO_REPLY!=='true'||!Number.isFinite(since)||since<=0||e.at<since||e.createdAt<since)return false;
   if(e.kind!=='dm'||e.status!=='draft'||e.attachment||e.needsHuman||e.source!=='faq'||e.updatedAt)return false;
   if(now-e.at>120000||e.at>now+60000)return false;
-  const checked=faq(e.text,kb,'dm');
   return checked.source==='faq'&&!checked.needsHuman&&checked.text===e.draft&&e.draft.length<=1000;
+}
+const cohortSchema='CREATE TABLE IF NOT EXISTS auto_dialogues (thread TEXT PRIMARY KEY, first_id TEXT NOT NULL, created_at INTEGER NOT NULL)';
+async function dialogue(e,env){
+  const rows=await env.DB.prepare("SELECT payload FROM events WHERE thread=? AND kind='dm' AND id<>? AND event_at<=? ORDER BY event_at DESC,id DESC LIMIT 12").bind(e.thread,e.id,e.at).all();
+  return dialogueReply(e.text,kb,rows.results.map(r=>JSON.parse(r.payload)).reverse());
+}
+// Admit only an API-confirmed first-ever visible message. Missing history is not proof.
+export async function firstContact(e,env){
+  if(!env.INSTAGRAM_ACCESS_TOKEN||!/^v\d+\.\d+$/.test(env.META_API_VERSION||'')||!/^\d+$/.test(e.recipient||''))return false;
+  const base='https://graph.instagram.com/'+env.META_API_VERSION+'/';
+  const get=async url=>{const r=await fetch(url,{headers:{Authorization:'Bearer '+env.INSTAGRAM_ACCESS_TOKEN},signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('history unavailable');return r.json();};
+  try{
+    const url=new URL(base+env.INSTAGRAM_ACCOUNT_ID+'/conversations');url.searchParams.set('user_id',e.recipient);url.searchParams.set('fields','id');url.searchParams.set('limit','2');
+    const list=await get(url);
+    if(list.data?.length!==1||list.paging?.next||typeof list.data[0].id!=='string')return false;
+    const messages=new URL(base+encodeURIComponent(list.data[0].id));messages.searchParams.set('fields','messages.limit(2){id}');
+    const data=await get(messages);const page=data.messages;
+    return page?.data?.length===1&&!page.paging?.next&&page.data[0].id===e.id.slice(3);
+  }catch{return false;}
 }
 async function action(request,env,url,automatic=false) {
   if(request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return reply({error:'Недопустимый источник запроса'},403);
@@ -35,7 +53,7 @@ async function action(request,env,url,automatic=false) {
   if(e.status!=='draft'||revision(row.payload)!==input.expected)return reply({error:'Обращение изменилось. Обновите список'},409);
   if(typeof input.text!=='string'||!input.text.trim()||input.text.length>1000)return reply({error:'Ответ должен содержать от 1 до 1000 символов'},400);
   const now=Date.now();
-  if(automatic&&!autoEligible(e,env,now))return reply({error:'Требуется проверка владельца'},409);
+  if(automatic&&(!autoEligible(e,env,now,await dialogue(e,env))||!(await env.DB.prepare('SELECT first_id FROM auto_dialogues WHERE thread=? AND created_at>=?').bind(e.thread,now-30*86400000).first())))return reply({error:'Требуется проверка владельца'},409);
   e.draft=input.text.trim();e.updatedAt=now;
   if(input.action==='send'){
     const blocked=sendBlock(e,env,now);if(blocked)return reply({error:blocked},409);
@@ -62,12 +80,26 @@ async function action(request,env,url,automatic=false) {
 
 export async function autoProcess(ids,env,url) {
   if(env.AUTO_REPLY!=='true')return;
+  await env.DB.prepare(cohortSchema).bind().run();
   for(const id of ids){
     try{
       const row=await env.DB.prepare('SELECT payload FROM events WHERE id=?').bind(id).first();
       if(!row)continue;const e=JSON.parse(row.payload);
-      if(!autoEligible(e,env))continue;
-      const request=new Request(url.origin+'/api/draft-action',{method:'POST',body:JSON.stringify({id:e.id,expected:revision(row.payload),action:'send',text:e.draft})});
+      if(e.kind!=='dm'||e.status!=='draft'||e.updatedAt||e.attachment)continue;
+      const answer=await dialogue(e,env);
+      const revised={...e,draft:answer.text,needsHuman:answer.needsHuman,source:answer.source,reason:answer.reason};
+      const next=JSON.stringify(revised);
+      if(next!==row.payload){const saved=await env.DB.prepare('UPDATE events SET payload=? WHERE id=? AND payload=?').bind(next,id,row.payload).run();if(saved.meta.changes!==1)continue;}
+      if(!autoEligible(revised,env,Date.now(),answer))continue;
+      let admitted=await env.DB.prepare('SELECT first_id FROM auto_dialogues WHERE thread=? AND created_at>=?').bind(e.thread,Date.now()-30*86400000).first();
+      if(!admitted){
+        const prior=await env.DB.prepare('SELECT id FROM events WHERE thread=? AND id<>? LIMIT 1').bind(e.thread,e.id).first();
+        if(prior||!await firstContact(e,env))continue;
+        await env.DB.prepare('INSERT OR IGNORE INTO auto_dialogues (thread,first_id,created_at) VALUES (?,?,?)').bind(e.thread,e.id,Date.now()).run();
+        admitted=await env.DB.prepare('SELECT first_id FROM auto_dialogues WHERE thread=? AND created_at>=?').bind(e.thread,Date.now()-30*86400000).first();
+        if(!admitted)continue;
+      }
+      const request=new Request(url.origin+'/api/draft-action',{method:'POST',body:JSON.stringify({id:e.id,expected:revision(next),action:'send',text:revised.draft})});
       await action(request,env,url,true);
     }catch{/* Keep durable draft/sending state. Never retry an ambiguous send. */}
   }
@@ -109,7 +141,7 @@ export default {
       return new Response(body,{headers:{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'"}});
     }
     if (url.pathname === '/privacy' && (request.method === 'GET' || request.method === 'HEAD')) return new Response(request.method === 'HEAD' ? null : privacy, {headers:{'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});
-    if (url.pathname === '/health') return reply({service:'autosklad63-instagram', mode:'draft-only'});
+    if (url.pathname === '/health') return reply({service:'autosklad63-instagram', policy:'new-dialogues-v1'});
     if (url.pathname === '/webhook' && request.method === 'GET') {
       if (!env.META_VERIFY_TOKEN) return reply({error:'not configured'},503);
       if (url.searchParams.get('hub.mode') === 'subscribe' && sameSecret(url.searchParams.get('hub.verify_token'),env.META_VERIFY_TOKEN)) {
@@ -153,7 +185,7 @@ export default {
         const data = await env.DB.prepare('SELECT payload FROM events WHERE created_at >= ? ORDER BY event_at DESC, id DESC LIMIT 100').bind(Date.now()-30*86400000).all();
         const allowSend=env.ALLOW_SEND==='true'&&Boolean(env.INSTAGRAM_ACCESS_TOKEN)&&/^v\d+\.\d+$/.test(env.META_API_VERSION||'');
         const autoReply=allowSend&&env.AUTO_REPLY==='true'&&Number(env.AUTO_REPLY_SINCE)>0;
-        return reply({mode:autoReply?'auto-faq':allowSend?'manual':'draft-only',allowSend,autoReply, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
+        return reply({mode:autoReply?'auto-faq':allowSend?'manual':'draft-only',policy:'new-dialogues-v1',audience:'verified-new-clients',allowSend,autoReply, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
       } catch {return reply({error:'storage unavailable'},503);}
     }
     return reply({error:'not found'},404);
@@ -161,5 +193,7 @@ export default {
   async scheduled(_event, env) {
     // Erase inbox content after 30 days. Only request errors are logged by the runtime.
     await env.DB.prepare('DELETE FROM events WHERE created_at < ?').bind(Date.now()-30*86400000).run();
+    await env.DB.prepare(cohortSchema).bind().run();
+    await env.DB.prepare('DELETE FROM auto_dialogues WHERE created_at < ?').bind(Date.now()-30*86400000).run();
   }
 };

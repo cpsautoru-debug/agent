@@ -34,6 +34,40 @@ export function faq(text, kb, kind = 'dm') {
   return human('Нет подтверждённого ответа');
 }
 
+// Bounded dialogue logic: history selects a product, never supplies company facts.
+export function dialogueReply(text, kb, history = []) {
+  const t=text.toLowerCase().replaceAll('ё','е');
+  const base=faq(text,kb,'dm');
+  if(base.needsHuman && base.reason!=='Нет подтверждённого ответа')return base;
+  if(word(t,['не надо','не нуж','не хочу','отмен','уже заказ','где мой','трек','статус']))return human('Нужна проверка заказа владельцем');
+  const products=s=>kb.products.filter(p=>p.id==='covers'?word(s,['чех','вест','грант','приор','калин','rio','рио','соляр','solaris']):p.id==='capes'?word(s,['накид']):word(s,['коврик','ева','eva']));
+  const explicit=products(t);
+  let selected=explicit;
+  if(!selected.length){
+    for(const previous of [...history].reverse()){
+      const found=products(String(previous.text||'').toLowerCase().replaceAll('ё','е'));
+      if(found.length){selected=found;break;}
+    }
+  }
+  const price=word(t,['цен','стоит','стоят','стоимост','сколько']);
+  const delivery=word(t,['достав','срок','долго','изготов','когда','ждать','сдэк','озон']);
+  const payment=word(t,['оплат','платить','налож','безопасн']);
+  const warranty=word(t,['гарант']);
+  const order=word(t,['купить','оформ','сайт','ваца','ватс','whatsapp']);
+  const pieces=[];
+  if(price&&!delivery){
+    pieces.push(selected.length?selected.map(p=>`${p.name} — ${p.price.toLocaleString('ru-RU')} ₽ с доставкой.`).join('\n'):faq('Сколько стоит?',kb).text);
+  }
+  if(delivery)pieces.push(faq('Срок доставки',kb).text);
+  if(payment)pieces.push(faq('Как оплатить?',kb).text);
+  if(warranty)pieces.push(faq('Гарантия?',kb).text);
+  if(order)pieces.push(kb.order);
+  if(pieces.length)return {text:pieces.join('\n\n'),needsHuman:false,source:'faq',reason:'Ответ по базе с учётом темы диалога'};
+  // A model/year alone is not a price question or proof of compatibility.
+  if(explicit.length&&/\b(?:19|20)\d{2}\b/u.test(t))return human('Модель и год получены; совместимость подтверждает Антон');
+  return base;
+}
+
 export async function compose(event, kb, history, config, fetcher = fetch) {
   const canned = faq(event.text, kb, event.kind);
   // Only unknown generic questions go to the optional local model; sensitive topics stay with owner.
