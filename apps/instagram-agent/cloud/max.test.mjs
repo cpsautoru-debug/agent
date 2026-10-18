@@ -15,6 +15,7 @@ test('MAX diagnostics accept only the approved bot and redact upstream errors',a
     const valid=await (await call(env)).json();assert.equal(valid.connected,true);assert.equal(valid.sheetsWrite,false);assert.equal(valid.orderIntake,false);
     globalThis.fetch=async()=>Response.json({username:'another',is_bot:true});assert.equal((await (await call(env)).json()).connected,false);
     globalThis.fetch=async()=>Response.json({message:'private-token'},{status:401});assert.doesNotMatch(await (await call(env)).text(),/private-token/);
+    globalThis.fetch=async()=>new Response('',{status:526});const tls=await (await call(env)).json();assert.equal(tls.configured,true);assert.match(tls.reason,/token validity unknown/);
     globalThis.fetch=async()=>{throw Error('private-token');};assert.doesNotMatch(await (await call(env)).text(),/private-token/);
   }finally{globalThis.fetch=original;}
 });
