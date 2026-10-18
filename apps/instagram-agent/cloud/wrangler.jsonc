@@ -1,0 +1,11 @@
+{
+  "name": "autosklad63-instagram",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {"enabled": false},
+  "vars": {"INSTAGRAM_ACCOUNT_ID": "17841401788527116"},
+  "triggers": {"crons": ["17 2 * * *"]},
+  "d1_databases": [{"binding":"DB", "database_name":"autosklad63-instagram", "database_id":"REPLACE_WITH_CREATED_D1_ID"}]
+}

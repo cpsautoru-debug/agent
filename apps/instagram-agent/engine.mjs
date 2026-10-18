@@ -14,9 +14,14 @@ const word = (t, stems) => new RegExp('(?:^|[^а-яa-z])(?:' + stems.join('|') +
 const human = reason => ({text: 'Этот вопрос нужно уточнить у Антона. Пожалуйста, дождитесь его личного ответа.', needsHuman: true, reason, source: 'handoff'});
 export function faq(text, kb, kind = 'dm') {
   const t = text.toLowerCase().replaceAll('ё', 'е');
-  if (word(t, ['скид', 'оплат', 'предоплат', 'гарант', 'возврат', 'брак', 'претенз', 'обман', 'жалоб', 'игнорир', 'промпт', 'инструкц', 'материал', 'цвет', 'налич', 'установ', 'экокож', 'алькант', 'кож', 'рассроч', 'безопасност', 'подушк'])) return human('Условия или характеристики не подтверждены');
+  if (word(t, ['скид', 'предоплат', 'возврат', 'брак', 'претенз', 'обман', 'жалоб', 'игнорир', 'промпт', 'инструкц', 'материал', 'цвет', 'налич', 'установ', 'экокож', 'алькант', 'кож', 'рассроч', 'безопасност', 'подушк', 'дилер', 'опт', 'комис', 'процент', 'аванс'])) return human('Условия или характеристики не подтверждены');
+  const paymentQuestion = word(t, ['оплат', 'платить', 'налож', 'безопасн']);
+  const warrantyQuestion = word(t, ['гарант']);
+  if ((paymentQuestion && !kb.payment) || (warrantyQuestion && !kb.warranty)) return human('Условия или характеристики не подтверждены');
   if (word(t, ['себестоим', 'селлер', 'прибыл', 'производств', 'поставщик', 'маркетплейс'])) return human('Нужен личный опыт владельца');
   const pieces = [];
+  if (paymentQuestion) pieces.push(kb.payment);
+  if (warrantyQuestion) pieces.push(kb.warranty);
   const selected = kb.products.filter(p => p.id === 'covers' ? word(t, ['чех', 'вест', 'искр', 'приор', 'грант', 'калин', 'самар', 'rio', 'рио', 'соляр', 'solaris']) : p.id === 'capes' ? word(t, ['накид']) : word(t, ['коврик', 'ева', 'eva']));
   for (const p of selected) pieces.push(`${p.name} — ${p.price.toLocaleString('ru-RU')} ₽ с доставкой.`);
   if (!selected.length && word(t, ['цен', 'стоит', 'сколько'])) pieces.push(kb.products.map(p => `${p.name} — ${p.price.toLocaleString('ru-RU')} ₽`).join('; ') + '. Доставка включена. Какой товар интересует?');

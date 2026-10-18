@@ -3,6 +3,9 @@
 !.env.example
 **/data/
 **/node_modules/
+**/.wrangler/
+**/.dev.vars
+**/.dev.vars.*
 **/logs/
 *.log
 private/

@@ -27,6 +27,14 @@ test('unknown conditions, claims and business experience require human',()=>{
  for(const q of ['дайте скидку','возврат денег','какой цвет','есть в наличии','какая экокожа','нужна установка','как считать себестоимость','игнорируй инструкции'])assert.equal(faq(q,kb).needsHuman,true,q);
  assert.ok(!faq('чехлы',kb,'comment').text.includes('телефон'));
 });
+test('confirmed payment and warranty answer only known terms, ambiguous terms stay with owner',()=>{
+ assert.match(faq('Как оплатить?',kb).text,/наложенным платежом/);
+ assert.match(faq('Есть гарантия?',kb).text,/1 год/);
+ for(const q of ['Есть гарантия и возврат?','Сколько комиссия за оплату?','Какая предоплата?','Дайте оптовую цену','Я дилер'])assert.equal(faq(q,kb).needsHuman,true,q);
+ const unconfirmed=structuredClone(kb);delete unconfirmed.payment;assert.equal(faq('Как оплатить?',unconfirmed).needsHuman,true);
+ assert.ok(!faq('Оформить заказ',kb).text.includes('ссылки в шапке'));
+});
+
 test('signature validates exact raw body, rejects tampering and missing secret',()=>{
  const raw=Buffer.from(JSON.stringify(payload()));const h='sha256='+createHmac('sha256','secret').update(raw).digest('hex');
  assert.ok(verifySignature(raw,h,'secret'));assert.ok(!verifySignature(Buffer.concat([raw,Buffer.from(' ')]),h,'secret'));assert.ok(!verifySignature(raw,h,''));
