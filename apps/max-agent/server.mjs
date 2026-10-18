@@ -3,6 +3,7 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {setupSubscription,receiveSetup,ownerConfigured,workChatConfigured} from './setup.mjs';
+import {bridgeConfigured,bridgeRequest} from './intake.mjs';
 
 export const EXPECTED_BOT='id632135065259_2_bot';
 const certificates=['russian-root.crt','russian-sub.crt'].map(file=>readFileSync(new URL('./certs/'+file,import.meta.url),'utf8'));
@@ -56,7 +57,8 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
       try{return respond(await receiveSetup(req,env,api,seen,setupState),{received:true});}catch{return respond(503,{error:'unavailable'});}
     }
     if(req.method!=='GET')return respond(405,{error:'method-not-allowed'});
-    const stage={service:'autosklad63-max',stage:'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:false,sheetsWrite:false};
+    const ready=bridgeConfigured(env)&&setupState.bridgeReady===true&&ownerConfigured(env)&&workChatConfigured(env)&&setupState.registered;
+    const stage={service:'autosklad63-max',stage:ready?'owner-confirmed-intake':'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:ready,sheetsWrite:ready,confirmationRequired:true};
     if(url.pathname==='/health')return respond(200,stage);
     if(url.pathname==='/api/connection')return respond(200,{...stage,...await status()});
     if(url.pathname==='/'){
@@ -72,6 +74,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   makeServer(process.env,queryBot,maxApi,setupState).listen(port,'0.0.0.0',async()=>{
     console.log('MAX setup service started');
     const result=await setupSubscription(process.env,maxApi).catch(()=>({registered:false}));setupState.registered=result.registered;
+    if(bridgeConfigured(process.env)){const check=await bridgeRequest(process.env,{action:'ping'});setupState.bridgeReady=Boolean(check.ok&&check.spreadsheetMatches);}
     console.log(result.registered?'MAX setup webhook registered':'MAX setup webhook not registered');
   });
 }

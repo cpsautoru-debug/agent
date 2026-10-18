@@ -1,4 +1,5 @@
 import {createHmac,timingSafeEqual} from 'node:crypto';
+import {bridgeConfigured,bridgeRequest,intakeCommand,reviewText} from './intake.mjs';
 const EXPECTED='id632135065259_2_bot';
 export const webhookSecret=token=>createHmac('sha256',token).update('autosklad63/max/setup-webhook/v1').digest('hex');
 export async function setupSubscription(env,api){
@@ -26,9 +27,21 @@ export async function receiveSetup(req,env,api,seen,state){
   if(!env.MAX_BOT_TOKEN||!state.registered)return 503;
   const expected=Buffer.from(webhookSecret(env.MAX_BOT_TOKEN)),provided=Buffer.from(String(req.headers['x-max-bot-api-secret']||''));
   if(provided.length!==expected.length||!timingSafeEqual(provided,expected))return 403;
-  let raw='',size=0;
-  for await(const chunk of req){size+=chunk.length;if(size>32768)return 413;raw+=chunk.toString();}
+  const chunks=[];let size=0;
+  for await(const chunk of req){size+=chunk.length;if(size>32768)return 413;chunks.push(Buffer.from(chunk));}
+  const raw=Buffer.concat(chunks).toString('utf8');
   let event;try{event=JSON.parse(raw);}catch{return 400;}
+  for(const [key,expires] of seen){if(expires<=Date.now())seen.delete(key);}
+  const command=intakeCommand(event,env);
+  if(command){
+    const key='intake:'+event.message.body.mid;
+    if(seen.has(key))return 200;
+    seen.set(key,Date.now()+3600000);
+    const ready=bridgeConfigured(env)&&state.bridgeReady===true;
+    const result=ready?await bridgeRequest(env,command):null;
+    await api(env.MAX_BOT_TOKEN,'/messages?user_id='+env.MAX_OWNER_ID,{text:ready?reviewText(result):'Приём заявок ещё выключен: постоянный доступ к Google Таблице не проверен. Список не сохранён и не записан.'});
+    return 200;
+  }
   const identity=setupIdentity(event,Date.now(),env);if(!identity)return 200;
   const now=Date.now();for(const [id,expires] of seen){if(expires<=now)seen.delete(id);}
   const throttle='user:'+identity.user+':'+(identity.kind==='status'?'status':identity.chatId===undefined?'start':'chatid');
@@ -37,7 +50,7 @@ export async function receiveSetup(req,env,api,seen,state){
   seen.set(identity.id,now+3600000);seen.set(throttle,now+60000);
   const owner=ownerConfigured(env)&&identity.user===Number(env.MAX_OWNER_ID);
   const configured=workChatConfigured(env);
-  const statusText='АвтоСклад63: владелец привязан. '+(configured?'Рабочая группа привязана.':'Рабочая группа ещё не привязана.')+' Приём заявок и запись в Google Таблицу пока выключены: постоянный доступ к таблице ещё не настроен.';
+  const statusText='АвтоСклад63: владелец привязан. '+(configured?'Рабочая группа привязана.':'Рабочая группа ещё не привязана.')+(bridgeConfigured(env)&&state.bridgeReady===true?' Мост Google проверен. Заявка: «Принять заявку», новая строка и список. Запись — только после /confirm от владельца.':' Приём заявок и запись в Google Таблицу пока выключены: постоянный доступ к таблице ещё не проверен.');
   const text=identity.kind==='status'?statusText:identity.chatId!==undefined?'ID рабочего чата MAX: '+identity.chatId+'. '+(configured&&identity.chatId===Number(env.MAX_WORK_CHAT_ID)?'Эта группа уже привязана.':'Пришлите этот ID в чат настройки для привязки.')+' Обычная переписка пока игнорируется.':owner?statusText+(configured?' Для проверки отправьте /status в рабочей группе.':' Добавьте бота в рабочую группу и отправьте там /chatid.'): 'АвтоСклад63: соединение работает. Ваш ID в MAX: '+identity.user+'. Передайте этот ID Антону для настройки доступа. Приём заявок и запись в таблицу пока не включены.';
   await api(env.MAX_BOT_TOKEN,'/messages?user_id='+identity.user,{text});
   return 200;
