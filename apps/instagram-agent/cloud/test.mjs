@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import worker, {draftRows,revision,sendBlock} from './worker.mjs';
+import worker, {draftRows,revision,sendBlock,autoEligible,autoProcess} from './worker.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 const now=Date.now();
@@ -102,5 +102,40 @@ test('connection diagnostics redact Meta response and reject a different account
     const other=await (await worker.fetch(req(),env)).json();assert.equal(other.accountMatches,false);assert.equal(other.connected,false);
     globalThis.fetch=async()=>Response.json({user_id:'123'});
     assert.equal((await (await worker.fetch(req(),env)).json()).connected,true);
+  }finally{globalThis.fetch=old;}
+});
+test('auto FAQ excludes backlog, edits, attachments, comments and unknown conditions',()=>{
+  const now=Date.now(),[e]=draftRows({...payload,entry:[{...payload.entry[0],messaging:[{...payload.entry[0].messaging[0],timestamp:now}]}]},'123',now);
+  const env={AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(now-1000)};
+  assert.equal(autoEligible(e,env,now),true);
+  for(const patch of [{at:now-200000},{createdAt:now-200000},{updatedAt:now},{attachment:true},{kind:'comment'},{needsHuman:true},{draft:'Изменённый ответ'},{source:'model'}])assert.equal(autoEligible({...e,...patch},env,now),false);
+  assert.equal(autoEligible(e,{AUTO_REPLY:'true'},now),false);
+  assert.equal(autoEligible(e,{...env,AUTO_REPLY:'false'},now),false);
+  const [unknown]=draftRows({object:'instagram',entry:[{id:'123',messaging:[{sender:{id:'456'},recipient:{id:'123'},timestamp:now,message:{mid:'discount',text:'Какая скидка дилерам?'}}]}]},'123',now);
+  assert.equal(autoEligible(unknown,env,now),false);
+});
+test('auto FAQ sends only once and records automatic approval',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');d.put(e);const old=globalThis.fetch;let calls=0;
+  globalThis.fetch=async()=>{calls++;return Response.json({message_id:'auto1'});};
+  try{
+    const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+    await autoProcess([e.id],env,new URL('https://example.com/webhook'));
+    await autoProcess([e.id],env,new URL('https://example.com/webhook'));
+    const out=JSON.parse(d.sql.prepare('SELECT payload FROM events').get().payload);
+    assert.equal(out.status,'sent');assert.equal(out.approvalMode,'automatic-faq');assert.equal(calls,1);
+  }finally{globalThis.fetch=old;d.sql.close();}
+});
+test('handoff or owner echo pauses auto FAQ; own outgoing echo does not pause it',async()=>{
+  const old=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;return Response.json({message_id:'auto2'});};
+  try{
+    for(const pause of ['handoff','owner-echo','own-echo']){
+      const d=database(),[e]=draftRows(payload,'123');d.put(e);
+      const before={...e,id:'previous',at:e.at-1000,status:pause==='handoff'?'handoff':'manual_echo',kind:pause==='handoff'?'dm':'echo',mid:'previous-out'};d.put(before);
+      if(pause==='own-echo')d.put({...e,id:'sent-before',at:e.at-2000,status:'sent',sentMid:'previous-out'});
+      const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+      await autoProcess([e.id],env,new URL('https://example.com/webhook'));
+      assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(e.id).status,pause==='own-echo'?'sent':'draft');d.sql.close();
+    }
+    assert.equal(calls,1);
   }finally{globalThis.fetch=old;}
 });

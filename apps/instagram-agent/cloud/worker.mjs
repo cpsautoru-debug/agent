@@ -17,7 +17,15 @@ export function sendBlock(event,env,now=Date.now()) {
   if(!/^\d+$/.test(event.recipient||'')||!/^\d+$/.test(env.INSTAGRAM_ACCOUNT_ID||'')) return 'Неверный идентификатор аккаунта';
   return null;
 }
-async function action(request,env,url) {
+export function autoEligible(e,env,now=Date.now()) {
+  const since=Number(env.AUTO_REPLY_SINCE);
+  if(env.AUTO_REPLY!=='true'||!Number.isFinite(since)||since<=0||e.at<since||e.createdAt<since)return false;
+  if(e.kind!=='dm'||e.status!=='draft'||e.attachment||e.needsHuman||e.source!=='faq'||e.updatedAt)return false;
+  if(now-e.at>120000||e.at>now+60000)return false;
+  const checked=faq(e.text,kb,'dm');
+  return checked.source==='faq'&&!checked.needsHuman&&checked.text===e.draft&&e.draft.length<=1000;
+}
+async function action(request,env,url,automatic=false) {
   if(request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return reply({error:'Недопустимый источник запроса'},403);
   let input;try{input=JSON.parse(new TextDecoder().decode(await boundedBody(request,16384)));}catch{return reply({error:'Неверный запрос'},400);}
   if(!['save','handoff','reject','send'].includes(input.action)||typeof input.id!=='string')return reply({error:'Неизвестное действие'},400);
@@ -26,14 +34,17 @@ async function action(request,env,url) {
   const e=JSON.parse(row.payload);
   if(e.status!=='draft'||revision(row.payload)!==input.expected)return reply({error:'Обращение изменилось. Обновите список'},409);
   if(typeof input.text!=='string'||!input.text.trim()||input.text.length>1000)return reply({error:'Ответ должен содержать от 1 до 1000 символов'},400);
-  const now=Date.now();e.draft=input.text.trim();e.updatedAt=now;
+  const now=Date.now();
+  if(automatic&&!autoEligible(e,env,now))return reply({error:'Требуется проверка владельца'},409);
+  e.draft=input.text.trim();e.updatedAt=now;
   if(input.action==='send'){
     const blocked=sendBlock(e,env,now);if(blocked)return reply({error:blocked},409);
-    e.status='sending';e.approvedText=e.draft;e.attemptAt=now;
+    e.status='sending';e.approvedText=e.draft;e.attemptAt=now;e.approvalMode=automatic?'automatic-faq':'owner';
   }else if(input.action==='handoff')e.status='handoff';else if(input.action==='reject')e.status='rejected';
   const changed=JSON.stringify(e);
   // A single conditional UPDATE claims the message, serializes the daily limit and rejects stale drafts.
-  const guard=input.action==='send' ? " AND NOT EXISTS (SELECT 1 FROM events other WHERE other.thread=events.thread AND other.id<>events.id AND other.event_at>=events.event_at) AND (SELECT count(*) FROM events attempts WHERE json_extract(attempts.payload,'$.attemptAt')>=?)<30" : '';
+  let guard=input.action==='send' ? " AND NOT EXISTS (SELECT 1 FROM events other WHERE other.thread=events.thread AND other.id<>events.id AND other.event_at>=events.event_at) AND (SELECT count(*) FROM events attempts WHERE json_extract(attempts.payload,'$.attemptAt')>=?)<30" : '';
+  if(automatic)guard+=" AND NOT EXISTS (SELECT 1 FROM events p WHERE p.thread=events.thread AND (p.status='handoff' OR (p.status='draft' AND json_extract(p.payload,'$.needsHuman')=1) OR (p.kind='echo' AND NOT EXISTS (SELECT 1 FROM events s WHERE json_extract(s.payload,'$.sentMid')=json_extract(p.payload,'$.mid')))))";
   const args=[changed,e.status,e.id,row.payload];if(input.action==='send')args.push(Date.parse(new Date(now).toISOString().slice(0,10)+'T00:00:00Z'));
   const claim=await env.DB.prepare('UPDATE events SET payload=?,status=? WHERE id=? AND payload=?'+guard).bind(...args).run();
   if(claim.meta.changes!==1)return reply({error:'Есть новое сообщение, ручной ответ или достигнут дневной лимит. Обновите список'},409);
@@ -47,6 +58,19 @@ async function action(request,env,url) {
   // If this write fails, the durable 'sending' claim still prevents another attempt.
   await env.DB.prepare('UPDATE events SET payload=?,status=? WHERE id=? AND payload=?').bind(JSON.stringify(e),e.status,e.id,changed).run();
   return reply({ok:true,status:e.status});
+}
+
+export async function autoProcess(ids,env,url) {
+  if(env.AUTO_REPLY!=='true')return;
+  for(const id of ids){
+    try{
+      const row=await env.DB.prepare('SELECT payload FROM events WHERE id=?').bind(id).first();
+      if(!row)continue;const e=JSON.parse(row.payload);
+      if(!autoEligible(e,env))continue;
+      const request=new Request(url.origin+'/api/draft-action',{method:'POST',body:JSON.stringify({id:e.id,expected:revision(row.payload),action:'send',text:e.draft})});
+      await action(request,env,url,true);
+    }catch{/* Keep durable draft/sending state. Never retry an ambiguous send. */}
+  }
 }
 
 const reply = (value, status = 200) => new Response(JSON.stringify(value), {
@@ -78,7 +102,7 @@ export function draftRows(payload, accountId, now = Date.now()) {
   });
 }
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if(request.method==='GET'&&['/panel','/panel.js','/panel.css'].includes(url.pathname)){
       const [body,type]=url.pathname==='/panel'?[panelHtml,'text/html']:url.pathname==='/panel.js'?[panelJs,'text/javascript']:[panelCss,'text/css'];
@@ -105,6 +129,10 @@ export default {
         if (rows.length) await env.DB.batch(rows.map(e => env.DB.prepare(
           'INSERT OR IGNORE INTO events (id,thread,kind,event_at,created_at,status,payload) VALUES (?,?,?,?,?,?,?)'
         ).bind(e.id,e.thread,e.kind,e.at,e.createdAt,e.status,JSON.stringify(e))));
+        if(env.AUTO_REPLY==='true'){
+          const work=autoProcess(rows.map(e=>e.id),env,url);
+          if(ctx?.waitUntil)ctx.waitUntil(work);else await work;
+        }
         return reply({received:true});
       } catch {return reply({error:'storage unavailable'},503);}
     }
@@ -124,7 +152,8 @@ export default {
         if(url.pathname!=='/api/drafts'||request.method!=='GET')return reply({error:'not found'},404);
         const data = await env.DB.prepare('SELECT payload FROM events WHERE created_at >= ? ORDER BY event_at DESC, id DESC LIMIT 100').bind(Date.now()-30*86400000).all();
         const allowSend=env.ALLOW_SEND==='true'&&Boolean(env.INSTAGRAM_ACCESS_TOKEN)&&/^v\d+\.\d+$/.test(env.META_API_VERSION||'');
-        return reply({mode:allowSend?'manual':'draft-only',allowSend, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
+        const autoReply=allowSend&&env.AUTO_REPLY==='true'&&Number(env.AUTO_REPLY_SINCE)>0;
+        return reply({mode:autoReply?'auto-faq':allowSend?'manual':'draft-only',allowSend,autoReply, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
       } catch {return reply({error:'storage unavailable'},503);}
     }
     return reply({error:'not found'},404);
