@@ -1,6 +1,49 @@
 import { faq, normalize, sameSecret, verifySignature } from '../engine.mjs';
 import kb from '../knowledge.json' with { type: 'json' };
 import privacy from './privacy.mjs';
+import {createHash} from 'node:crypto';
+import {outgoing} from '../engine.mjs';
+import {panelHtml, panelCss, panelJs} from './panel.mjs';
+
+export const revision = text => createHash('sha256').update(text).digest('hex');
+export function sendBlock(event,env,now=Date.now()) {
+  if(env.ALLOW_SEND!=='true'||!env.INSTAGRAM_ACCESS_TOKEN||!/^v\d+\.\d+$/.test(env.META_API_VERSION||'')) return 'Отправка ещё не подключена';
+  if(event.kind!=='dm'&&event.kind!=='comment') return 'Неподдерживаемое обращение';
+  if(!event.at||now-event.at>=86400000||event.at>now+60000) return 'Истекло время ответа. Откройте Instagram вручную';
+  if(!/^\d+$/.test(event.recipient||'')||!/^\d+$/.test(env.INSTAGRAM_ACCOUNT_ID||'')) return 'Неверный идентификатор аккаунта';
+  return null;
+}
+async function action(request,env,url) {
+  if(request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return reply({error:'Недопустимый источник запроса'},403);
+  let input;try{input=JSON.parse(new TextDecoder().decode(await boundedBody(request,16384)));}catch{return reply({error:'Неверный запрос'},400);}
+  if(!['save','handoff','reject','send'].includes(input.action)||typeof input.id!=='string')return reply({error:'Неизвестное действие'},400);
+  const row=await env.DB.prepare('SELECT payload FROM events WHERE id = ? AND created_at >= ?').bind(input.id,Date.now()-30*86400000).first();
+  if(!row)return reply({error:'Обращение не найдено'},404);
+  const e=JSON.parse(row.payload);
+  if(e.status!=='draft'||revision(row.payload)!==input.expected)return reply({error:'Обращение изменилось. Обновите список'},409);
+  if(typeof input.text!=='string'||!input.text.trim()||input.text.length>1000)return reply({error:'Ответ должен содержать от 1 до 1000 символов'},400);
+  const now=Date.now();e.draft=input.text.trim();e.updatedAt=now;
+  if(input.action==='send'){
+    const blocked=sendBlock(e,env,now);if(blocked)return reply({error:blocked},409);
+    e.status='sending';e.approvedText=e.draft;e.attemptAt=now;
+  }else if(input.action==='handoff')e.status='handoff';else if(input.action==='reject')e.status='rejected';
+  const changed=JSON.stringify(e);
+  // A single conditional UPDATE claims the message, serializes the daily limit and rejects stale drafts.
+  const guard=input.action==='send' ? " AND NOT EXISTS (SELECT 1 FROM events other WHERE other.thread=events.thread AND other.id<>events.id AND other.event_at>=events.event_at) AND (SELECT count(*) FROM events attempts WHERE json_extract(attempts.payload,'$.attemptAt')>=?)<30" : '';
+  const args=[changed,e.status,e.id,row.payload];if(input.action==='send')args.push(Date.parse(new Date(now).toISOString().slice(0,10)+'T00:00:00Z'));
+  const claim=await env.DB.prepare('UPDATE events SET payload=?,status=? WHERE id=? AND payload=?'+guard).bind(...args).run();
+  if(claim.meta.changes!==1)return reply({error:'Есть новое сообщение, ручной ответ или достигнут дневной лимит. Обновите список'},409);
+  if(input.action!=='send')return reply({ok:true});
+  const target=outgoing(e,e.approvedText,{accountId:env.INSTAGRAM_ACCOUNT_ID,apiVersion:env.META_API_VERSION});
+  try{
+    const r=await fetch(target.url,{method:'POST',headers:{Authorization:'Bearer '+env.INSTAGRAM_ACCESS_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(target.body),signal:AbortSignal.timeout(15000)});
+    if(!r.ok){e.status=r.status>=500?'uncertain':'failed';e.error='Meta HTTP '+r.status+'. Автоматического повтора нет';}
+    else{const data=await r.json();const mid=data.message_id||data.id;e.status=mid?'sent':'uncertain';if(mid){e.sentMid=String(mid);e.sentAt=Date.now();}else e.error='Meta не подтвердила доставку. Проверьте Instagram';}
+  }catch{e.status='uncertain';e.error='Результат отправки неизвестен. Проверьте Instagram; повтор выключен';}
+  // If this write fails, the durable 'sending' claim still prevents another attempt.
+  await env.DB.prepare('UPDATE events SET payload=?,status=? WHERE id=? AND payload=?').bind(JSON.stringify(e),e.status,e.id,changed).run();
+  return reply({ok:true,status:e.status});
+}
 
 const reply = (value, status = 200) => new Response(JSON.stringify(value), {
   status, headers: {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}
@@ -33,6 +76,10 @@ export function draftRows(payload, accountId, now = Date.now()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if(request.method==='GET'&&['/panel','/panel.js','/panel.css'].includes(url.pathname)){
+      const [body,type]=url.pathname==='/panel'?[panelHtml,'text/html']:url.pathname==='/panel.js'?[panelJs,'text/javascript']:[panelCss,'text/css'];
+      return new Response(body,{headers:{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'"}});
+    }
     if (url.pathname === '/privacy' && (request.method === 'GET' || request.method === 'HEAD')) return new Response(request.method === 'HEAD' ? null : privacy, {headers:{'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});
     if (url.pathname === '/health') return reply({service:'autosklad63-instagram', mode:'draft-only'});
     if (url.pathname === '/webhook' && request.method === 'GET') {
@@ -57,12 +104,15 @@ export default {
         return reply({received:true});
       } catch {return reply({error:'storage unavailable'},503);}
     }
-    if (url.pathname === '/api/drafts' && request.method === 'GET') {
+    if (url.pathname.startsWith('/api/')) {
       if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN.length < 32 || !sameSecret(request.headers.get('authorization'),'Bearer '+env.ADMIN_TOKEN)) return reply({error:'unauthorized'},401);
       if (!env.DB) return reply({error:'not configured'},503);
       try {
+        if(url.pathname==='/api/draft-action'&&request.method==='POST')return await action(request,env,url);
+        if(url.pathname!=='/api/drafts'||request.method!=='GET')return reply({error:'not found'},404);
         const data = await env.DB.prepare('SELECT payload FROM events WHERE created_at >= ? ORDER BY event_at DESC, id DESC LIMIT 100').bind(Date.now()-30*86400000).all();
-        return reply({mode:'draft-only', events:data.results.map(r=>JSON.parse(r.payload))});
+        const allowSend=env.ALLOW_SEND==='true'&&Boolean(env.INSTAGRAM_ACCESS_TOKEN)&&/^v\d+\.\d+$/.test(env.META_API_VERSION||'');
+        return reply({mode:allowSend?'manual':'draft-only',allowSend, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
       } catch {return reply({error:'storage unavailable'},503);}
     }
     return reply({error:'not found'},404);

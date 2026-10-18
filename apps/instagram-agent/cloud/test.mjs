@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import worker, {draftRows} from './worker.mjs';
+import worker, {draftRows,revision,sendBlock} from './worker.mjs';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
 const now=Date.now();
 const payload={object:'instagram',entry:[{id:'123',messaging:[{sender:{id:'456'},recipient:{id:'123'},timestamp:now,message:{mid:'m1',text:'Как оплатить?'}}]}]};
 test('only own account; FAQ stays a draft; expired messages cannot become current drafts',()=>{
@@ -29,4 +31,63 @@ test('webhook verifies original bytes, saves atomically, and does not acknowledg
 test('oversized body is rejected before parsing and saving',async()=>{
   const response=await worker.fetch(new Request('https://example.com/webhook',{method:'POST',body:'x'.repeat(262145)}),{DB:{},META_APP_SECRET:'secret',INSTAGRAM_ACCOUNT_ID:'123'});
   assert.equal(response.status,413);
+});
+function database(){
+  const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
+  const DB={prepare(text){return {bind(...args){return {
+    first:async()=>sql.prepare(text).get(...args),
+    all:async()=>({results:sql.prepare(text).all(...args)}),
+    run:async()=>({meta:{changes:Number(sql.prepare(text).run(...args).changes)}})
+  };}};}};
+  const put=e=>sql.prepare('INSERT INTO events VALUES (?,?,?,?,?,?,?)').run(e.id,e.thread,e.kind,e.at,e.createdAt,e.status,JSON.stringify(e));
+  return {sql,DB,put};
+}
+const admin='a'.repeat(64);
+const callAction=(env,e,action,text='Проверенный ответ',expected=revision(JSON.stringify(e)))=>worker.fetch(new Request('https://example.com/api/draft-action',{method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'application/json'},body:JSON.stringify({id:e.id,expected,action,text})}),{ADMIN_TOKEN:admin,...env});
+test('edit persists, stale edit conflicts, and handoff cannot be sent',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');d.put(e);
+  assert.equal((await callAction(d,e,'save')).status,200);
+  assert.equal((await callAction(d,e,'save')).status,409);
+  const edited=JSON.parse(d.sql.prepare('SELECT payload FROM events').get().payload);
+  assert.equal(edited.draft,'Проверенный ответ');
+  assert.equal((await callAction(d,edited,'handoff')).status,200);
+  const handed=JSON.parse(d.sql.prepare('SELECT payload FROM events').get().payload);
+  assert.equal((await callAction(d,handed,'send')).status,409);d.sql.close();
+});
+test('panel serves no inbox data; API rejects unauthorized and cross-origin edits',async()=>{
+  const panel=await worker.fetch(new Request('https://example.com/panel'),{});
+  assert.equal(panel.status,200);assert.match(panel.headers.get('content-security-policy'),/connect-src 'self'/);
+  assert.doesNotMatch(await panel.text(),/Тест 2/);
+  assert.equal((await worker.fetch(new Request('https://example.com/api/draft-action',{method:'POST'}),{})).status,401);
+  const r=await worker.fetch(new Request('https://example.com/api/draft-action',{method:'POST',headers:{Authorization:'Bearer '+admin,Origin:'https://other.example'}}),{ADMIN_TOKEN:admin,DB:{}});
+  assert.equal(r.status,403);
+});
+test('send guard refuses unconfigured or expired messages',()=>{
+  const [e]=draftRows(payload,'123');assert.ok(sendBlock(e,{}));
+  assert.ok(sendBlock(e,{ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'},now+86400001));
+});
+test('newer message and manual echo prevent sending an old draft',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');d.put(e);d.put({...e,id:'echo:new',at:e.at+1,kind:'echo',status:'manual_echo'});
+  const env={DB:d.DB,ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+  assert.equal((await callAction(env,e,'send')).status,409);d.sql.close();
+});
+test('successful send is durable and double-click cannot send twice',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');d.put(e);let calls=0;
+  const old=globalThis.fetch;globalThis.fetch=async()=>{calls++;return Response.json({message_id:'m-out'});};
+  try{
+    const env={DB:d.DB,ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+    assert.equal((await callAction(env,e,'send')).status,200);
+    assert.equal((await callAction(env,e,'send')).status,409);assert.equal(calls,1);
+    assert.equal(d.sql.prepare('SELECT status FROM events').get().status,'sent');
+  }finally{globalThis.fetch=old;d.sql.close();}
+});
+test('ambiguous send is recorded without automatic retry and daily cap is enforced',async()=>{
+  const d=database(),[e]=draftRows(payload,'123');d.put(e);const old=globalThis.fetch;
+  globalThis.fetch=async()=>{throw Error('timeout');};
+  try{
+    const env={DB:d.DB,ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+    assert.equal((await callAction(env,e,'send')).status,200);assert.equal(d.sql.prepare('SELECT status FROM events').get().status,'uncertain');
+    for(let i=0;i<29;i++)d.put({...e,id:'attempt:'+i,thread:'other:'+i,status:'failed',attemptAt:Date.now()});
+    const next={...e,id:'next',thread:'next'};d.put(next);assert.equal((await callAction(env,next,'send')).status,409);
+  }finally{globalThis.fetch=old;d.sql.close();}
 });
