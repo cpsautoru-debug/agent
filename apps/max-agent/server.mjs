@@ -2,7 +2,7 @@ import https from 'node:https';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
-import {setupSubscription,receiveSetup,ownerConfigured} from './setup.mjs';
+import {setupSubscription,receiveSetup,ownerConfigured,workChatConfigured} from './setup.mjs';
 
 export const EXPECTED_BOT='id632135065259_2_bot';
 const certificates=['russian-root.crt','russian-sub.crt'].map(file=>readFileSync(new URL('./certs/'+file,import.meta.url),'utf8'));
@@ -56,7 +56,7 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
       try{return respond(await receiveSetup(req,env,api,seen,setupState),{received:true});}catch{return respond(503,{error:'unavailable'});}
     }
     if(req.method!=='GET')return respond(405,{error:'method-not-allowed'});
-    const stage={service:'autosklad63-max',stage:'owner-and-chat-setup',ownerConfigured:ownerConfigured(env),webhookRegistered:setupState.registered,orderIntake:false,sheetsWrite:false};
+    const stage={service:'autosklad63-max',stage:'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:false,sheetsWrite:false};
     if(url.pathname==='/health')return respond(200,stage);
     if(url.pathname==='/api/connection')return respond(200,{...stage,...await status()});
     if(url.pathname==='/'){

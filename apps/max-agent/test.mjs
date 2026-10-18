@@ -4,7 +4,7 @@ import {EventEmitter} from 'node:events';
 import {X509Certificate} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {queryBot,makeServer,EXPECTED_BOT} from './server.mjs';
-import {setupSubscription,setupIdentity,webhookSecret} from './setup.mjs';
+import {setupSubscription,setupIdentity,webhookSecret,workChatConfigured,isWorkChat} from './setup.mjs';
 function fake(data,status=200){return (url,options,cb)=>{
   assert.equal(url,'https://platform-api2.max.ru/me');assert.equal(options.rejectUnauthorized,true);
   assert.equal(options.ca.length,2);assert.equal(options.headers.Authorization,'secret');
@@ -36,6 +36,20 @@ test('only configured owner can request group ID, group orders stay ignored',()=
   assert.equal(setupIdentity(event,Date.now(),{MAX_OWNER_ID:'999'}),null);
   assert.equal(setupIdentity(event,Date.now(),{}),null);
   assert.equal(setupIdentity({...event,message:{...event.message,body:{mid:'group-order',text:'Принять заявку'}}},Date.now(),{MAX_OWNER_ID:'123'}),null);
+});
+test('work group is exact, unknown groups and invalid IDs are not admitted',()=>{
+  const env={MAX_WORK_CHAT_ID:'-456'};
+  assert.equal(workChatConfigured(env),true);assert.equal(workChatConfigured({MAX_WORK_CHAT_ID:'0'}),false);assert.equal(workChatConfigured({MAX_WORK_CHAT_ID:'-456junk'}),false);
+  assert.equal(isWorkChat({recipient:{chat_type:'chat',chat_id:-456}},env),true);
+  assert.equal(isWorkChat({recipient:{chat_type:'chat',chat_id:-457}},env),false);
+  assert.equal(isWorkChat({recipient:{chat_type:'dialog',chat_id:-456}},env),false);
+});
+test('status command admits only owner in the linked group or private chat',()=>{
+  const env={MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'};
+  const e={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'chat',chat_id:-456},body:{mid:'status',text:'/status'}}};
+  assert.equal(setupIdentity(e,Date.now(),env).kind,'status');
+  assert.equal(setupIdentity({...e,message:{...e.message,recipient:{chat_type:'chat',chat_id:-789}}},Date.now(),env),null);
+  assert.equal(setupIdentity({...e,message:{...e.message,sender:{user_id:999}}},Date.now(),env),null);
 });
 test('webhook rejects forged requests and sends only one self-ID acknowledgement',async()=>{
   let sends=0;const env={MAX_BOT_TOKEN:'secret'};
