@@ -6,6 +6,10 @@ import {outgoing} from '../engine.mjs';
 import {panelHtml, panelCss, panelJs} from './panel.mjs';
 
 export const revision = text => createHash('sha256').update(text).digest('hex');
+export function metaError(data) {
+  const e=data?.error||{};
+  return {code:Number.isInteger(e.code)?e.code:null,subcode:Number.isInteger(e.error_subcode)?e.error_subcode:null};
+}
 export function sendBlock(event,env,now=Date.now()) {
   if(env.ALLOW_SEND!=='true'||!env.INSTAGRAM_ACCESS_TOKEN||!/^v\d+\.\d+$/.test(env.META_API_VERSION||'')) return 'Отправка ещё не подключена';
   if(event.kind!=='dm'&&event.kind!=='comment') return 'Неподдерживаемое обращение';
@@ -37,7 +41,7 @@ async function action(request,env,url) {
   const target=outgoing(e,e.approvedText,{accountId:env.INSTAGRAM_ACCOUNT_ID,apiVersion:env.META_API_VERSION});
   try{
     const r=await fetch(target.url,{method:'POST',headers:{Authorization:'Bearer '+env.INSTAGRAM_ACCESS_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(target.body),signal:AbortSignal.timeout(15000)});
-    if(!r.ok){e.status=r.status>=500?'uncertain':'failed';e.error='Meta HTTP '+r.status+'. Автоматического повтора нет';}
+    if(!r.ok){let info;try{info=metaError(await r.json());}catch{info={};}e.status=r.status>=500?'uncertain':'failed';e.metaError=info;e.error='Meta HTTP '+r.status+(info.code?' (код '+info.code+(info.subcode?', подкод '+info.subcode:'')+')':'')+'. Автоматического повтора нет';}
     else{const data=await r.json();const mid=data.message_id||data.id;e.status=mid?'sent':'uncertain';if(mid){e.sentMid=String(mid);e.sentAt=Date.now();}else e.error='Meta не подтвердила доставку. Проверьте Instagram';}
   }catch{e.status='uncertain';e.error='Результат отправки неизвестен. Проверьте Instagram; повтор выключен';}
   // If this write fails, the durable 'sending' claim still prevents another attempt.
@@ -108,6 +112,14 @@ export default {
       if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN.length < 32 || !sameSecret(request.headers.get('authorization'),'Bearer '+env.ADMIN_TOKEN)) return reply({error:'unauthorized'},401);
       if (!env.DB) return reply({error:'not configured'},503);
       try {
+        if(url.pathname==='/api/connection'&&request.method==='GET'){
+          if(!env.INSTAGRAM_ACCESS_TOKEN||!/^v\d+\.\d+$/.test(env.META_API_VERSION||''))return reply({connected:false,reason:'missing configuration'});
+          const r=await fetch('https://graph.instagram.com/'+env.META_API_VERSION+'/me?fields=user_id,username',{headers:{Authorization:'Bearer '+env.INSTAGRAM_ACCESS_TOKEN},signal:AbortSignal.timeout(10000)});
+          let data;try{data=await r.json();}catch{return reply({connected:false,http:r.status,reason:'invalid response'});}
+          if(!r.ok)return reply({connected:false,http:r.status,...metaError(data)});
+          const accountMatches=String(data.user_id||'')===env.INSTAGRAM_ACCOUNT_ID;
+          return reply({connected:accountMatches,http:r.status,accountMatches});
+        }
         if(url.pathname==='/api/draft-action'&&request.method==='POST')return await action(request,env,url);
         if(url.pathname!=='/api/drafts'||request.method!=='GET')return reply({error:'not found'},404);
         const data = await env.DB.prepare('SELECT payload FROM events WHERE created_at >= ? ORDER BY event_at DESC, id DESC LIMIT 100').bind(Date.now()-30*86400000).all();

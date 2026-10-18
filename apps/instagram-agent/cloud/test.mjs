@@ -91,3 +91,16 @@ test('ambiguous send is recorded without automatic retry and daily cap is enforc
     const next={...e,id:'next',thread:'next'};d.put(next);assert.equal((await callAction(env,next,'send')).status,409);
   }finally{globalThis.fetch=old;d.sql.close();}
 });
+test('connection diagnostics redact Meta response and reject a different account',async()=>{
+  const old=globalThis.fetch;
+  const env={ADMIN_TOKEN:admin,DB:{},INSTAGRAM_ACCESS_TOKEN:'private-token',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+  const req=()=>new Request('https://example.com/api/connection',{headers:{Authorization:'Bearer '+admin}});
+  try{
+    globalThis.fetch=async()=>Response.json({error:{code:190,error_subcode:463,message:'private-token'}},{status:401});
+    const bad=await (await worker.fetch(req(),env)).json();assert.equal(bad.code,190);assert.equal(bad.subcode,463);assert.doesNotMatch(JSON.stringify(bad),/private-token/);
+    globalThis.fetch=async()=>Response.json({user_id:'999',username:'private-account'});
+    const other=await (await worker.fetch(req(),env)).json();assert.equal(other.accountMatches,false);assert.equal(other.connected,false);
+    globalThis.fetch=async()=>Response.json({user_id:'123'});
+    assert.equal((await (await worker.fetch(req(),env)).json()).connected,true);
+  }finally{globalThis.fetch=old;}
+});
