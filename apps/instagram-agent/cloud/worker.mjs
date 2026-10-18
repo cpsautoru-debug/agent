@@ -20,14 +20,19 @@ export function sendBlock(event,env,now=Date.now()) {
 export function autoEligible(e,env,now=Date.now(),checked=faq(e.text,kb,'dm')) {
   const since=Number(env.AUTO_REPLY_SINCE);
   if(env.AUTO_REPLY!=='true'||!Number.isFinite(since)||since<=0||e.at<since||e.createdAt<since)return false;
-  if(e.kind!=='dm'||e.status!=='draft'||e.attachment||e.needsHuman||e.source!=='faq'||e.updatedAt)return false;
+  if(e.kind!=='dm'||e.status!=='draft'||e.attachment||e.updatedAt)return false;
   if(now-e.at>120000||e.at>now+60000)return false;
-  return checked.source==='faq'&&!checked.needsHuman&&checked.text===e.draft&&e.draft.length<=1000;
+  const safe=checked.source==='faq'&&!checked.needsHuman||checked.source==='fallback'&&checked.needsHuman&&checked.text===kb.fallbackReply;
+  return safe&&e.source===checked.source&&e.needsHuman===checked.needsHuman&&checked.text===e.draft&&e.draft.length<=1000;
+}
+export function cloudReply(text,history=[]){
+  const answer=dialogueReply(text,kb,history);
+  return answer.needsHuman?{...answer,text:kb.fallbackReply,source:'fallback'}:answer;
 }
 const cohortSchema='CREATE TABLE IF NOT EXISTS auto_dialogues (thread TEXT PRIMARY KEY, first_id TEXT NOT NULL, created_at INTEGER NOT NULL)';
 async function dialogue(e,env){
   const rows=await env.DB.prepare("SELECT payload FROM events WHERE thread=? AND kind='dm' AND id<>? AND event_at<=? ORDER BY event_at DESC,id DESC LIMIT 12").bind(e.thread,e.id,e.at).all();
-  return dialogueReply(e.text,kb,rows.results.map(r=>JSON.parse(r.payload)).reverse());
+  return cloudReply(e.text,rows.results.map(r=>JSON.parse(r.payload)).reverse());
 }
 // Admit only an API-confirmed first-ever visible message. Missing history is not proof.
 export async function firstContact(e,env){
@@ -62,7 +67,7 @@ async function action(request,env,url,automatic=false) {
   const changed=JSON.stringify(e);
   // A single conditional UPDATE claims the message, serializes the daily limit and rejects stale drafts.
   let guard=input.action==='send' ? " AND NOT EXISTS (SELECT 1 FROM events other WHERE other.thread=events.thread AND other.id<>events.id AND other.event_at>=events.event_at) AND (SELECT count(*) FROM events attempts WHERE json_extract(attempts.payload,'$.attemptAt')>=?)<30" : '';
-  if(automatic)guard+=" AND NOT EXISTS (SELECT 1 FROM events p WHERE p.thread=events.thread AND (p.status='handoff' OR (p.status='draft' AND json_extract(p.payload,'$.needsHuman')=1) OR (p.kind='echo' AND NOT EXISTS (SELECT 1 FROM events s WHERE json_extract(s.payload,'$.sentMid')=json_extract(p.payload,'$.mid')))))";
+  if(automatic)guard+=" AND NOT EXISTS (SELECT 1 FROM events p WHERE p.thread=events.thread AND p.id<>events.id AND (p.status='handoff' OR json_extract(p.payload,'$.needsHuman')=1 OR (p.kind='echo' AND NOT EXISTS (SELECT 1 FROM events s WHERE json_extract(s.payload,'$.sentMid')=json_extract(p.payload,'$.mid')))))";
   const args=[changed,e.status,e.id,row.payload];if(input.action==='send')args.push(Date.parse(new Date(now).toISOString().slice(0,10)+'T00:00:00Z'));
   const claim=await env.DB.prepare('UPDATE events SET payload=?,status=? WHERE id=? AND payload=?'+guard).bind(...args).run();
   if(claim.meta.changes!==1)return reply({error:'Есть новое сообщение, ручной ответ или достигнут дневной лимит. Обновите список'},409);
@@ -141,7 +146,7 @@ export default {
       return new Response(body,{headers:{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'"}});
     }
     if (url.pathname === '/privacy' && (request.method === 'GET' || request.method === 'HEAD')) return new Response(request.method === 'HEAD' ? null : privacy, {headers:{'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});
-    if (url.pathname === '/health') return reply({service:'autosklad63-instagram', policy:'new-dialogues-v1'});
+    if (url.pathname === '/health') return reply({service:'autosklad63-instagram', policy:'new-dialogues-v2'});
     if (url.pathname === '/webhook' && request.method === 'GET') {
       if (!env.META_VERIFY_TOKEN) return reply({error:'not configured'},503);
       if (url.searchParams.get('hub.mode') === 'subscribe' && sameSecret(url.searchParams.get('hub.verify_token'),env.META_VERIFY_TOKEN)) {
@@ -185,7 +190,7 @@ export default {
         const data = await env.DB.prepare('SELECT payload FROM events WHERE created_at >= ? ORDER BY event_at DESC, id DESC LIMIT 100').bind(Date.now()-30*86400000).all();
         const allowSend=env.ALLOW_SEND==='true'&&Boolean(env.INSTAGRAM_ACCESS_TOKEN)&&/^v\d+\.\d+$/.test(env.META_API_VERSION||'');
         const autoReply=allowSend&&env.AUTO_REPLY==='true'&&Number(env.AUTO_REPLY_SINCE)>0;
-        return reply({mode:autoReply?'auto-faq':allowSend?'manual':'draft-only',policy:'new-dialogues-v1',audience:'verified-new-clients',allowSend,autoReply, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
+        return reply({mode:autoReply?'auto-faq':allowSend?'manual':'draft-only',policy:'new-dialogues-v2',audience:'verified-new-clients',allowSend,autoReply, events:data.results.map(r=>({...JSON.parse(r.payload),revision:revision(r.payload)}))});
       } catch {return reply({error:'storage unavailable'},503);}
     }
     return reply({error:'not found'},404);

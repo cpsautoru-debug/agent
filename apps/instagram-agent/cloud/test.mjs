@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
-import worker, {draftRows,revision,sendBlock,autoEligible,autoProcess,firstContact} from './worker.mjs';
+import worker, {draftRows,revision,sendBlock,autoEligible,autoProcess,firstContact,cloudReply} from './worker.mjs';
 import {dialogueReply} from '../engine.mjs';
 import kb from '../knowledge.json' with {type:'json'};
 import {DatabaseSync} from 'node:sqlite';
@@ -182,5 +182,25 @@ test('admitted new dialogue continues contextually, owner takeover and unknown q
     d.put({...e,id:'echo:owner',kind:'echo',status:'manual_echo',mid:'owner',at:e.at+3});
     const after={...e,id:'dm:m4',at:e.at+4,text:'Как оплатить?'};d.put(after);await autoProcess([after.id],env,new URL('https://example.com'));assert.equal(sends,3);
     assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(after.id).status,'draft');
+  }finally{globalThis.fetch=old;d.sql.close();}
+});
+
+test('unknown question sends exact owner fallback once and pauses the new dialogue',async()=>{
+  const d=database(),[original]=draftRows(payload,'123');const e={...original,text:'Как дела?'};d.put(e);
+  const old=globalThis.fetch;let sends=0;
+  globalThis.fetch=async(url,options)=>{
+    if(options.method!=='POST')return Response.json(String(url).includes('/conversations')?{data:[{id:'c'}]}:{messages:{data:[{id:'m1'}]}});
+    sends++;assert.equal(JSON.parse(options.body).message.text,'Сейчас я не в сети. Как только буду здесь, сразу вам отвечу');return Response.json({message_id:'fallback1'});
+  };
+  try{
+    const env={DB:d.DB,AUTO_REPLY:'true',AUTO_REPLY_SINCE:String(e.at-1),ALLOW_SEND:'true',INSTAGRAM_ACCESS_TOKEN:'test',META_API_VERSION:'v26.0',INSTAGRAM_ACCOUNT_ID:'123'};
+    await autoProcess([e.id],env,new URL('https://example.com'));
+    await autoProcess([e.id],env,new URL('https://example.com'));
+    const sent=JSON.parse(d.sql.prepare('SELECT payload FROM events WHERE id=?').get(e.id).payload);
+    assert.equal(sent.status,'sent');assert.equal(sent.needsHuman,true);assert.equal(sent.source,'fallback');
+    const next={...original,id:'dm:later',at:e.at+1};d.put(next);await autoProcess([next.id],env,new URL('https://example.com'));
+    assert.equal(sends,1);assert.equal(d.sql.prepare('SELECT status FROM events WHERE id=?').get(next.id).status,'draft');
+    assert.equal(cloudReply('Сделаете скидку?').text,kb.fallbackReply);
+    assert.equal(cloudReply('Как оплатить?').source,'faq');
   }finally{globalThis.fetch=old;d.sql.close();}
 });
