@@ -4,6 +4,7 @@ import privacy from './privacy.mjs';
 import {createHash} from 'node:crypto';
 import {outgoing} from '../engine.mjs';
 import {panelHtml, panelCss, panelJs} from './panel.mjs';
+import {maxRoute} from './max.mjs';
 
 export const revision = text => createHash('sha256').update(text).digest('hex');
 export function metaError(data) {
@@ -141,6 +142,7 @@ export function draftRows(payload, accountId, now = Date.now()) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const maxResponse=await maxRoute(request,env,url);if(maxResponse)return maxResponse;
     if(request.method==='GET'&&['/panel','/panel.js','/panel.css'].includes(url.pathname)){
       const [body,type]=url.pathname==='/panel'?[panelHtml,'text/html']:url.pathname==='/panel.js'?[panelJs,'text/javascript']:[panelCss,'text/css'];
       return new Response(body,{headers:{'Content-Type':type+'; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'"}});
