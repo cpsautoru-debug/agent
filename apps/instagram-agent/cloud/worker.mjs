@@ -1,5 +1,6 @@
 import { faq, normalize, sameSecret, verifySignature } from '../engine.mjs';
 import kb from '../knowledge.json' with { type: 'json' };
+import privacy from './privacy.mjs';
 
 const reply = (value, status = 200) => new Response(JSON.stringify(value), {
   status, headers: {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}
@@ -32,6 +33,7 @@ export function draftRows(payload, accountId, now = Date.now()) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/privacy' && (request.method === 'GET' || request.method === 'HEAD')) return new Response(request.method === 'HEAD' ? null : privacy, {headers:{'Content-Type':'text/html; charset=utf-8','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'"}});
     if (url.pathname === '/health') return reply({service:'autosklad63-instagram', mode:'draft-only'});
     if (url.pathname === '/webhook' && request.method === 'GET') {
       if (!env.META_VERIFY_TOKEN) return reply({error:'not configured'},503);
