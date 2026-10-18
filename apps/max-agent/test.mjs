@@ -30,6 +30,13 @@ test('identity setup ignores normal text, groups, bots and stale events',()=>{
   assert.equal(setupIdentity(event).user,123);
   for(const patch of [{...event,timestamp:1},{...event,message:{...event.message,body:{mid:'test',text:'Список заказов'}}},{...event,message:{...event.message,recipient:{chat_type:'chat'}}},{...event,message:{...event.message,sender:{user_id:123,is_bot:true}}}])assert.equal(setupIdentity(patch),null);
 });
+test('only configured owner can request group ID, group orders stay ignored',()=>{
+  const event={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'chat',chat_id:-456},body:{mid:'group-test',text:'/chatid'}}};
+  assert.equal(setupIdentity(event,Date.now(),{MAX_OWNER_ID:'123'}).chatId,-456);
+  assert.equal(setupIdentity(event,Date.now(),{MAX_OWNER_ID:'999'}),null);
+  assert.equal(setupIdentity(event,Date.now(),{}),null);
+  assert.equal(setupIdentity({...event,message:{...event.message,body:{mid:'group-order',text:'Принять заявку'}}},Date.now(),{MAX_OWNER_ID:'123'}),null);
+});
 test('webhook rejects forged requests and sends only one self-ID acknowledgement',async()=>{
   let sends=0;const env={MAX_BOT_TOKEN:'secret'};
   const server=makeServer(env,async()=>({connected:true}),async(_token,path,body)=>{sends++;assert.equal(path,'/messages?user_id=123');assert.match(body.text,/Ваш ID в MAX: 123/);return {ok:true,data:{}};},{registered:true});
