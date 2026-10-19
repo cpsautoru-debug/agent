@@ -58,7 +58,7 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
     }
     if(req.method!=='GET')return respond(405,{error:'method-not-allowed'});
     const ready=bridgeConfigured(env)&&setupState.bridgeReady===true&&ownerConfigured(env)&&workChatConfigured(env)&&setupState.registered;
-    const stage={service:'autosklad63-max',stage:ready?'owner-confirmed-intake':'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:ready,sheetsWrite:ready,confirmationRequired:true};
+    const stage={service:'autosklad63-max',stage:ready?'owner-confirmed-intake':'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:ready,sheetsWrite:ready,confirmationRequired:true,intakeChannel:'owner-private-dialog'};
     if(url.pathname==='/health')return respond(200,stage);
     if(url.pathname==='/api/connection')return respond(200,{...stage,...await status()});
     if(url.pathname==='/'){

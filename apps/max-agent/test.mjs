@@ -44,10 +44,11 @@ test('work group is exact, unknown groups and invalid IDs are not admitted',()=>
   assert.equal(isWorkChat({recipient:{chat_type:'chat',chat_id:-457}},env),false);
   assert.equal(isWorkChat({recipient:{chat_type:'dialog',chat_id:-456}},env),false);
 });
-test('status command admits only owner in the linked group or private chat',()=>{
+test('status command admits only owner in private chat',()=>{
   const env={MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'};
   const e={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'chat',chat_id:-456},body:{mid:'status',text:'/status'}}};
-  assert.equal(setupIdentity(e,Date.now(),env).kind,'status');
+  assert.equal(setupIdentity(e,Date.now(),env),null);
+  assert.equal(setupIdentity({...e,message:{...e.message,recipient:{chat_type:'dialog',chat_id:456}}},Date.now(),env).kind,'status');
   assert.equal(setupIdentity({...e,message:{...e.message,recipient:{chat_type:'chat',chat_id:-789}}},Date.now(),env),null);
   assert.equal(setupIdentity({...e,message:{...e.message,sender:{user_id:999}}},Date.now(),env),null);
 });

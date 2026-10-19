@@ -17,12 +17,13 @@ export function parseList(raw){
 }
 export function intakeCommand(event,env){
   const m=event?.message;
-  if(event?.update_type!=='message_created'||!Number.isFinite(event.timestamp)||Math.abs(Date.now()-event.timestamp)>300000||m?.recipient?.chat_type!=='chat'||String(m.recipient.chat_id)!==env.MAX_WORK_CHAT_ID||String(m.sender?.user_id)!==env.MAX_OWNER_ID||m.sender?.is_bot||typeof m.body?.mid!=='string')return null;
+  if(event?.update_type!=='message_created'||!Number.isFinite(event.timestamp)||Math.abs(Date.now()-event.timestamp)>300000||m?.recipient?.chat_type!=='dialog'||!env.MAX_WORK_CHAT_ID||String(m.sender?.user_id)!==env.MAX_OWNER_ID||m.sender?.is_bot||typeof m.body?.mid!=='string')return null;
+  // Legacy chatId identifies the configured bridge workspace, not the event's source chat.
   const text=m.body.text||'';
   const command=text.match(/^(?:\/заявка|\/order|Принять заявку)\s*\n([\s\S]+)$/iu);
   if(command){
     const raw=command[1].trim(),parsed=parseList(raw);
-    return {action:'draft',id:hash(env.MAX_WORK_CHAT_ID+'\n'+m.body.mid).slice(0,24),chatId:env.MAX_WORK_CHAT_ID,userId:env.MAX_OWNER_ID,messageId:m.body.mid,raw,items:parsed.items,issues:parsed.issues};
+    return {action:'draft',id:hash('dialog:'+env.MAX_OWNER_ID+'\n'+m.body.mid).slice(0,24),chatId:env.MAX_WORK_CHAT_ID,userId:env.MAX_OWNER_ID,messageId:m.body.mid,raw,items:parsed.items,issues:parsed.issues};
   }
   const confirm=text.match(/^\/confirm\s+([a-f0-9]{24})\s+([a-f0-9]{12})\s*$/u);
   return confirm?{action:'confirm',id:confirm[1],expected:confirm[2],chatId:env.MAX_WORK_CHAT_ID,userId:env.MAX_OWNER_ID}:null;
@@ -42,7 +43,7 @@ export function reviewText(result){
   if(result.status==='confirmed')return 'Заявка '+result.id+' подтверждена и записана в лист «Заявки MAX». Это сводная заявка; остатки и списания не менялись.';
   const rows=result.items.map(p=>p.number+') '+p.title+' — '+p.quantity+' шт. '+p.notes);
   const warnings=result.issues?.length?'\nУточнения:\n'+result.issues.join('\n'):'\nПроверьте количество и все примечания. Наличие, производство и запас остаются примечаниями, без складских операций.';
-  const confirm=result.issues?.length?'\nИсправьте список и отправьте новой командой «Принять заявку». Предыдущий черновик не подтверждайте.':'\nДля записи отправьте в группе:\n/confirm '+result.id+' '+result.revision;
+  const confirm=result.issues?.length?'\nИсправьте список и отправьте новой командой «Принять заявку». Предыдущий черновик не подтверждайте.':'\nДля записи отправьте здесь, в личном диалоге с ботом:\n/confirm '+result.id+' '+result.revision;
   const text='Черновик '+result.id+'\n'+rows.join('\n')+warnings+confirm;
   return text.length<=3900?text:'Черновик сохранён, но список слишком длинный для полного показа в MAX. Разбейте его на несколько небольших заявок. Подтверждение обрезанного списка не предлагается.';
 }

@@ -51,11 +51,13 @@ test('parser keeps notes, flags extra goods and requires quantities',()=>{
   assert.ok(parseList('1) Тестовый товар — 2 шт. + 1 деталь').issues.length);
   assert.ok(parseList('1) Товар без количества').issues.length);
 });
-test('intake is owner-only, bound-group-only and exact confirmation revision',()=>{
+test('intake is owner-only, private-dialog-only and exact confirmation revision',()=>{
   const env={MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'};
-  const e={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'chat',chat_id:-456},body:{mid:'test',text:'Принять заявку\n1) Тестовый товар — 2 шт.'}}};
-  assert.equal(intakeCommand(e,env).action,'draft');assert.equal(intakeCommand(e,{...env,MAX_WORK_CHAT_ID:'-789'}),null);assert.equal(intakeCommand(e,{...env,MAX_OWNER_ID:'999'}),null);
+  const e={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'dialog',chat_id:456},body:{mid:'test',text:'Принять заявку\n1) Тестовый товар — 2 шт.'}}};
+  assert.equal(intakeCommand(e,env).action,'draft');assert.equal(intakeCommand(e,{...env,MAX_WORK_CHAT_ID:''}),null);assert.equal(intakeCommand(e,{...env,MAX_OWNER_ID:'999'}),null);
+  for(const chat_id of [-456,-789])assert.equal(intakeCommand({...e,message:{...e.message,recipient:{chat_type:'chat',chat_id}}},env),null);
   assert.equal(intakeCommand({...e,message:{...e.message,body:{mid:'confirm',text:'/confirm '+ 'a'.repeat(24)+' '+ 'b'.repeat(12)}}},env).action,'confirm');
+  assert.equal(intakeCommand({...e,message:{...e.message,recipient:{chat_type:'chat',chat_id:-456},body:{mid:'confirm',text:'/confirm '+ 'a'.repeat(24)+' '+ 'b'.repeat(12)}}},env),null);
 });
 test('bridge signature binds complete body and no secret is sent in URL',async()=>{
   const env={SHEETS_BRIDGE_URL:'https://script.google.com/macros/s/test/exec',SHEETS_BRIDGE_KEY:'k'.repeat(64)};
