@@ -42,7 +42,7 @@ export async function bridgeRequest(env,data,fetcher=fetch){
 }
 export function reviewText(result){
   if(!result.ok)return 'Google Таблица не подтвердила операцию. Не считаю заявку записанной. Повторите ту же команду: проверка ID защитит от дубля.';
-  if(result.status==='confirmed')return 'Заявка '+result.id+' подтверждена и записана в лист «Заявки MAX». Это сводная заявка; остатки и списания не менялись.';
+  if(result.status==='confirmed')return 'Заявка '+result.id+' подтверждена и записана в лист «Заявки MAX».'+(result.routing?' Распределено: «Заказы» — '+result.routing.covers+', «Заказы ковры» — '+result.routing.carpets+'.'+(result.routing.unclassified?.length?' Требуют категории позиции: '+result.routing.unclassified.join(', ')+'. Они остаются только в «Заявки MAX».':''):'')+' Остатки и списания не менялись.';
   const rows=result.items.map(p=>p.number+') '+p.title+' — '+p.quantity+' шт. '+p.notes);
   const warnings=result.issues?.length?'\nУточнения:\n'+result.issues.join('\n'):'\nПроверьте количество и все примечания. Наличие, производство и запас остаются примечаниями, без складских операций.';
   const confirm=result.issues?.length?'\nИсправьте список и отправьте новой командой «Принять заявку». Предыдущий черновик не подтверждайте.':'\nДля записи отправьте здесь, в личном диалоге с ботом:\n/confirm '+result.id+' '+result.revision;

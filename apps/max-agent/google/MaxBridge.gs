@@ -51,7 +51,55 @@ function maxBridgeProcess_(d,p){
     if(output.getLastRow()+notes.length>5000)throw Error('capacity-limit');
     maxBridgeCapacity_(output,output.getLastRow()+notes.length);output.getRange(output.getLastRow()+1,1,notes.length,8).setValues(notes);SpreadsheetApp.flush();
   }
-  queue.getRange(index+2,3).setValue('confirmed');SpreadsheetApp.flush();return {ok:true,id:d.id,status:'confirmed'};
+  queue.getRange(index+2,3).setValue('confirmed');SpreadsheetApp.flush();
+  var routing=maxBridgeRoute_(book,d.id,payload);
+  return {ok:true,id:d.id,status:'confirmed',routing:routing};
+}
+function maxBridgeCategory_(item,raw){
+  function category(text){
+    text=String(text||'').toLowerCase().replace(/ё/g,'е');
+    var covers=/чехл/.test(text),carpets=/ковр|ковер/.test(text);
+    return covers===carpets?null:(covers?'Заказы':'Заказы ковры');
+  }
+  var direct=category(item.title);
+  if(direct)return direct;
+  if(/чехл|ковр|ковер/i.test(item.title))return null;
+  return category(String(raw||'').split(/\r?\n/).filter(function(line){return !/^\s*\d+[.)]/.test(line);}).join('\n'));
+}
+function maxBridgeRoute_(book,batchId,payload){
+  var counts={covers:0,carpets:0,unclassified:[]},plans=[],targets={};
+  payload.items.forEach(function(item){
+    var target=maxBridgeCategory_(item,payload.raw);
+    if(!target){counts.unclassified.push(item.number);return;}
+    if(!targets[target]){
+      var sheet=book.getSheetByName(target);
+      if(!sheet)throw Error('routing-schema-mismatch');
+      var headers=sheet.getRange(1,1,1,20).getValues()[0];
+      var expected={0:'ID позиции',1:'ID заказа',6:'Товар / артикул',8:'Количество',10:'Сумма, ₽',11:'Статус',13:'Долг, ₽',19:'Контроль'};
+      Object.keys(expected).forEach(function(c){if(headers[Number(c)]!==expected[c])throw Error('routing-schema-mismatch');});
+      if(sheet.getLastRow()>5000)throw Error('capacity-limit');
+      var rows=sheet.getRange(2,1,Math.min(4999,sheet.getMaxRows()-1),20).getValues();
+      targets[target]={sheet:sheet,rows:rows,claimed:{}};
+    }
+    var state=targets[target],id='MAX-'+batchId+'-'+item.number;
+    var found=state.rows.filter(function(r){return r[0]===id;});
+    if(found.length>1||found.length===1&&(found[0][1]!=='MAX-'+batchId||found[0][6]!==item.title||found[0][8]!==item.quantity))throw Error('routing-record-changed');
+    counts[target==='Заказы'?'covers':'carpets']++;
+    if(found.length)return;
+    var free=state.rows.findIndex(function(r,i){return !state.claimed[i]&&[0,1,2,3,4,5,6,7,8,9,11,12,14,15,16,17,18].every(function(c){return r[c]===''||r[c]===null;});});
+    if(free<0)throw Error('capacity-limit');
+    state.claimed[free]=true;plans.push({state:state,row:free+2,id:id,item:item});
+  });
+  plans.forEach(function(plan){
+    var r=plan.row,item=plan.item,values=[plan.id,'MAX-'+batchId,new Date(),'MAX','','',maxBridgeSafe_(item.title),'',item.quantity,'',
+      '=IF(OR(A'+r+'="";I'+r+'="";J'+r+'="");"";I'+r+'*J'+r+')','Уточнение','',
+      '=IF(OR(A'+r+'="";K'+r+'="";M'+r+'="";L'+r+'="Отменён");"";MAX(0;K'+r+'-M'+r+'))','',
+      'Менеджер продаж','Не проверено','MAX: '+batchId+' / '+item.number,
+      maxBridgeSafe_('Уточнить клиента, контакт, цену, оплату и срок. '+item.notes),
+      '=IF(A'+r+'="";"";IF(COUNTIF(A$2:A$'+plan.state.sheet.getMaxRows()+';A'+r+')>1;"Дубликат ID";IF(OR(B'+r+'="";C'+r+'="";E'+r+'="";F'+r+'="";G'+r+'="";I'+r+'="";J'+r+'="";L'+r+'="";O'+r+'="";P'+r+'="");"Заполнить поля";"")))'];
+    plan.state.sheet.getRange(r,1,1,20).setValues([values]);SpreadsheetApp.flush();
+  });
+  return counts;
 }
 function doPost(e){
   try{

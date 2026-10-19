@@ -20,9 +20,28 @@ function fixture(){
   const values={MAX_BRIDGE_KEY:'k'.repeat(64),MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'};const props={getProperty:name=>values[name]};
   const context=vm.createContext({Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_a,text)=>[...createHash('sha256').update(text).digest()],computeHmacSha256Signature:(text,key)=>[...createHmac('sha256',key).update(text).digest()]},SpreadsheetApp:{openById:id=>{assert.equal(id,book.getId());return book;},flush(){if(flushFail){flushFail=false;throw Error('simulated failure');}}},PropertiesService:{getScriptProperties:()=>props},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},ContentService:{MimeType:{JSON:'json'},createTextOutput:text=>({text,setMimeType(){return this;}})}});
   vm.runInContext(readFileSync(new URL('./google/MaxBridge.gs',import.meta.url),'utf8'),context);
-  return {sheets,props,context,process:d=>context.maxBridgeProcess_(d,props),failFlush:()=>{flushFail=true;}};
+  return {book,sheets,props,context,process:d=>context.maxBridgeProcess_(d,props),failFlush:()=>{flushFail=true;}};
 }
 const draft=()=>({action:'draft',id:'a'.repeat(24),chatId:'-456',userId:'123',messageId:'sample-mid',raw:'1) Тестовый товар A — 2 шт. (запас отдельно)',items:[{number:1,title:'Тестовый товар A',quantity:2,notes:'(запас отдельно)'}],issues:[]});
+test('confirmed mixed orders route by item, retry keeps one row and prices stay blank',()=>{
+  const f=fixture();
+  for(const name of ['Заказы','Заказы ковры']){
+    const h=Array(20).fill('');Object.assign(h,{0:'ID позиции',1:'ID заказа',6:'Товар / артикул',8:'Количество',10:'Сумма, ₽',11:'Статус',13:'Долг, ₽',19:'Контроль'});
+    f.book.insertSheet(name).getRange(1,1,1,20).setValues([h]);
+  }
+  const d=draft();d.items=[{number:1,title:'Чехлы Веста',quantity:2,notes:'(на завтра)'},{number:2,title:'Коврики EVA',quantity:1,notes:''},{number:3,title:'Неизвестный товар',quantity:1,notes:''}];
+  const first=f.process(d),confirm={action:'confirm',id:d.id,chatId:d.chatId,userId:d.userId,expected:first.revision};
+  const routed=f.process(confirm).routing;assert.equal(routed.covers,1);assert.equal(routed.carpets,1);assert.equal(routed.unclassified[0],3);
+  f.process(confirm);
+  for(const name of ['Заказы','Заказы ковры']){const rows=f.sheets.get(name).rows;assert.equal(rows.length,2);assert.equal(rows[1][9],'');assert.equal(rows[1][14],'');assert.match(rows[1][10],/^=IF/);}
+});
+test('category uses explicit item before header and holds ambiguous products',()=>{
+  const f=fixture(),classify=(title,raw)=>f.context.maxBridgeCategory_({title},raw);
+  assert.equal(classify('Веста №2','Отгрузки по чехлам:\n1) Веста №2 — 1 шт.'),'Заказы');
+  assert.equal(classify('Ковёр EVA','Отгрузки по чехлам:'),'Заказы ковры');
+  assert.equal(classify('Чехлы и коврики','Отгрузки по чехлам:'),null);
+  assert.equal(classify('Подлокотник','Список:'),null);
+});
 test('draft repeat and copied message reuse record; confirmation writes once',()=>{
   const f=fixture(),d=draft(),first=f.process(d);assert.equal(first.status,'draft');
   assert.equal(f.process({...d,id:'b'.repeat(24),messageId:'another-mid'}).id,d.id);
