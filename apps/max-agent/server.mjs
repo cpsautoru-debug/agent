@@ -74,7 +74,8 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   makeServer(process.env,queryBot,maxApi,setupState).listen(port,'0.0.0.0',async()=>{
     console.log('MAX setup service started');
     const result=await setupSubscription(process.env,maxApi).catch(()=>({registered:false}));setupState.registered=result.registered;
-    if(bridgeConfigured(process.env)){const check=await bridgeRequest(process.env,{action:'ping'});setupState.bridgeReady=Boolean(check.ok&&check.spreadsheetMatches);}
+    if(bridgeConfigured(process.env)){const check=await bridgeRequest(process.env,{action:'ping'});setupState.bridgeReady=Boolean(check.ok&&check.spreadsheetMatches);console.log(setupState.bridgeReady?'Google bridge ready':'Google bridge check failed: '+(['unauthorized','bridge-http-error','bridge-result-unknown','bridge-failed'].includes(check.error)?check.error:'invalid-response'));}
+    else console.log('Google bridge configuration missing or invalid');
     console.log(result.registered?'MAX setup webhook registered':'MAX setup webhook not registered');
   });
 }
