@@ -66,3 +66,14 @@ test('bridge signature binds complete body and no secret is sent in URL',async()
   });assert.equal(result.ok,true);
   assert.doesNotMatch(reviewText({ok:true,status:'draft',id:'a'.repeat(24),revision:'b'.repeat(12),items:[{number:1,title:'x'.repeat(4000),quantity:1,notes:''}],issues:[]}),/\/confirm/);
 });
+test('Cyrillic and emoji survive an ASCII-only signed wire payload',async()=>{
+  const env={SHEETS_BRIDGE_URL:'https://script.google.com/macros/s/test/exec',SHEETS_BRIDGE_KEY:'k'.repeat(64)};
+  const data={action:'draft',raw:'Чехлы — 2 шт. 🚗',items:[{title:'Алька чёрная',quantity:2}]};
+  await bridgeRequest(env,data,async(_url,options)=>{
+    assert.match(options.body,/^[\x00-\x7f]*$/);
+    const envelope=JSON.parse(Buffer.from(options.body,'utf8').toString('latin1'));
+    assert.equal(envelope.signature,createHmac('sha256',env.SHEETS_BRIDGE_KEY).update(envelope.timestamp+'\n'+envelope.body).digest('hex'));
+    assert.deepEqual(JSON.parse(envelope.body),data);
+    return Response.json({ok:true});
+  });
+});

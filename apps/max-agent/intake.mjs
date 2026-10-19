@@ -31,7 +31,9 @@ export function intakeCommand(event,env){
 export const bridgeConfigured=env=>Boolean(env.SHEETS_BRIDGE_KEY?.length>=32&&/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/u.test(env.SHEETS_BRIDGE_URL||''));
 export async function bridgeRequest(env,data,fetcher=fetch){
   if(!bridgeConfigured(env))return {ok:false,error:'bridge-not-configured'};
-  const timestamp=Date.now(),body=JSON.stringify(data),signature=createHmac('sha256',env.SHEETS_BRIDGE_KEY).update(timestamp+'\n'+body).digest('hex');
+  // ASCII wire representation keeps signatures stable across gateway charset decoding.
+  // JSON.parse in Apps Script restores the original Cyrillic and surrogate pairs.
+  const timestamp=Date.now(),body=JSON.stringify(data).replace(/[\u007f-\uffff]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0')),signature=createHmac('sha256',env.SHEETS_BRIDGE_KEY).update(timestamp+'\n'+body).digest('hex');
   try{
     const r=await fetcher(env.SHEETS_BRIDGE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({timestamp,body,signature}),signal:AbortSignal.timeout(20000)});
     if(!r.ok)return {ok:false,error:'bridge-http-error'};
