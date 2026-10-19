@@ -39,6 +39,7 @@ export async function receiveSetup(req,env,api,seen,state){
     seen.set(key,Date.now()+3600000);
     const ready=bridgeConfigured(env)&&state.bridgeReady===true;
     const result=ready?await bridgeRequest(env,command):null;
+    if(ready&&!result.ok){const safe=['unauthorized','forbidden-source','bad-draft','bad-item','schema-mismatch','capacity-limit','bridge-http-error','bridge-result-unknown','bridge-failed','busy','stale-revision','clarification-required','partial-or-changed-record'];console.log('MAX intake bridge rejected: '+(safe.includes(result.error)?result.error:'invalid-response'));}
     await api(env.MAX_BOT_TOKEN,'/messages?user_id='+env.MAX_OWNER_ID,{text:ready?reviewText(result):'Приём заявок ещё выключен: постоянный доступ к Google Таблице не проверен. Список не сохранён и не записан.'});
     return 200;
   }
