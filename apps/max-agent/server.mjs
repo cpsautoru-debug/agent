@@ -5,6 +5,7 @@ import {pathToFileURL} from 'node:url';
 import {setupSubscription,receiveSetup,ownerConfigured,workChatConfigured} from './setup.mjs';
 import {bridgeConfigured,bridgeRequest} from './intake.mjs';
 import {vkStatus,receiveVk} from './vk.mjs';
+import {createMoyskladClient,handleMoyskladRead} from './moysklad.mjs';
 
 export const EXPECTED_BOT='id632135065259_2_bot';
 const certificates=['russian-root.crt','russian-sub.crt'].map(file=>readFileSync(new URL('./certs/'+file,import.meta.url),'utf8'));
@@ -38,7 +39,7 @@ export async function queryBot(token,transport=https.request){
   return {connected:matches,accountMatches:matches,...(matches?{username:EXPECTED_BOT}:{reason:'different-bot'})};
 }
 
-export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState={registered:false}){
+export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState={registered:false},moyskladClient=createMoyskladClient()){
   const seen=new Map();
   let cached=null,pending=null,expires=0;
   const status=async()=>{
@@ -54,6 +55,7 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
     res.setHeader('Content-Security-Policy',"default-src 'none'; frame-ancestors 'none'");
     const respond=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
     const url=new URL(req.url,'http://localhost');
+    if(await handleMoyskladRead(req,res,url,env,moyskladClient))return;
     if(url.pathname==='/vk/webhook'&&req.method==='POST'){
       try{const result=await receiveVk(req,env);res.writeHead(result.code,{'Content-Type':'text/plain; charset=utf-8'});return res.end(result.text);}catch{return respond(503,{error:'unavailable'});}
     }
