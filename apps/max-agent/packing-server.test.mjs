@@ -18,8 +18,10 @@ test('register only verified separate bot; account mismatch never changes subscr
  assert.equal(await startPackingWebhook(c,async(_t,path,body)=>{calls.push(path);if(path==='/me')return {ok:true,data:{username:c.username,is_bot:true}};if(!body)return {ok:true,data:{subscriptions:[]}};assert.equal(body.url,c.url+'/max/webhook');return {ok:true,data:{success:true}};}),true);
  assert.deepEqual(calls,['/me','/subscriptions','/subscriptions']);
  let writes=0;
- assert.equal(await startPackingWebhook(c,async(_t,path,body)=>{if(body)writes++;return path==='/me'?{ok:true,data:{username:c.username,is_bot:true}}:{ok:true,data:{subscriptions:[{url:'https://other-service.invalid/webhook'}]}};}),false);
+ const codes=[];
+ assert.equal(await startPackingWebhook(c,async(_t,path,body)=>{if(body)writes++;return path==='/me'?{ok:true,data:{username:c.username,is_bot:true}}:{ok:true,data:{subscriptions:[{url:'https://other-service.invalid/webhook'}]}};},code=>codes.push(code)),false);
  assert.equal(writes,0);
+ assert.deepEqual(codes,['existing-subscription']);
 });
 test('test server accepts only signed owner test commands, exposes no business routes',async()=>{
  const dir=mkdtempSync(join(tmpdir(),'packing-live-adapter-'));

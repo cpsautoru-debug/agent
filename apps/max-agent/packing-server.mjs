@@ -13,13 +13,17 @@ export function packingConfig(env){
  if(!token||!/^\w{3,80}$/.test(username||'')||username==='id632135065259_2_bot'||!/^\d+$/.test(owner||'')||!Number.isSafeInteger(Number(owner))||Number(owner)<=0||!dir||!isAbsolute(dir)||url!=='https://autosklad63-max-packing-test.onrender.com')throw Error('invalid packing test configuration');
  return Object.freeze({token,username,owner,dir,url});
 }
-export async function startPackingWebhook(config,api=maxApi){
+export async function startPackingWebhook(config,api=maxApi,report=()=>{}){
+ const fail=(code,result)=>{report(code,Number.isInteger(result?.http)?result.http:undefined);return false;};
  const bot=await api(config.token,'/me');
- if(!bot.ok||bot.data?.username!==config.username||bot.data?.username==='id632135065259_2_bot'||bot.data?.is_bot!==true)return false;
+ if(!bot.ok)return fail('identity-api-error',bot);
+ if(bot.data?.username!==config.username||bot.data?.username==='id632135065259_2_bot'||bot.data?.is_bot!==true)return fail('identity-mismatch');
  const subscriptions=await api(config.token,'/subscriptions');
- if(!subscriptions.ok||!Array.isArray(subscriptions.data?.subscriptions)||subscriptions.data.subscriptions.some(s=>s.url!==config.url+'/max/webhook'))return false;
+ if(!subscriptions.ok)return fail('subscriptions-api-error',subscriptions);
+ if(!Array.isArray(subscriptions.data?.subscriptions))return fail('subscriptions-invalid-response');
+ if(subscriptions.data.subscriptions.some(s=>s.url!==config.url+'/max/webhook'))return fail('existing-subscription');
  const result=await api(config.token,'/subscriptions',{url:config.url+'/max/webhook',update_types:['message_created'],secret:packingSecret(config.token)});
- return result.ok===true&&result.data?.success===true;
+ return result.ok===true&&result.data?.success===true?true:fail('registration-api-error',result);
 }
 export function makePackingServer(config,api=maxApi,state={registered:false}){
  const env={MAX_OWNER_ID:config.owner,MAX_PACKING_TEST_ENABLED:'true',MAX_PACKING_TEST_DIR:config.dir};
@@ -48,7 +52,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   // Verify the separate identity before publishing any callback URL.
   const server=makePackingServer(config,maxApi,state);
   server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
-   void startPackingWebhook(config).then(registered=>{
+   void startPackingWebhook(config,maxApi,(code,http)=>console.log('Packing setup: '+code+(http?' HTTP '+http:''))).then(registered=>{
     state.registered=registered;
     console.log(registered?'Packing sandbox ready; no business integrations':'Packing sandbox not ready; check separate identity and subscriptions');
    }).catch(()=>console.error('Packing sandbox registration unavailable'));
