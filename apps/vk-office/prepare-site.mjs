@@ -1,0 +1,30 @@
+// Copies only reviewed application sources; runtime data and secrets are excluded.
+import fs from 'node:fs';
+import path from 'node:path';
+const site=path.resolve('apps/online-office');
+fs.mkdirSync(path.join(site,'worker'),{recursive:true});
+fs.mkdirSync(path.join(site,'drizzle/meta'),{recursive:true});
+fs.copyFileSync('apps/vk-office/worker.mjs',path.join(site,'worker/vk.mjs'));
+const engine=fs.readFileSync('apps/instagram-agent/engine.mjs','utf8');
+fs.writeFileSync(path.join(site,'worker/faq.mjs'),engine.slice(engine.indexOf('const word'),engine.indexOf('// Bounded dialogue logic')));
+fs.copyFileSync('apps/instagram-agent/knowledge.json',path.join(site,'worker/knowledge.json'));
+fs.copyFileSync('apps/vk-office/schema.sql',path.join(site,'drizzle/0000_vk_records.sql'));
+fs.writeFileSync(path.join(site,'drizzle/meta/_journal.json'),JSON.stringify({version:'7',dialect:'sqlite',entries:[{idx:0,version:'6',when:1792512000000,tag:'0000_vk_records',breakpoints:true}]},null,2));
+const manifest=JSON.parse(fs.readFileSync(path.join(site,'.openai/hosting.json')));delete manifest.static;manifest.d1='DB';manifest.r2='BUCKET';
+fs.writeFileSync(path.join(site,'.openai/hosting.json'),JSON.stringify(manifest,null,2));
+fs.writeFileSync(path.join(site,'build.mjs'),`import fs from 'node:fs';
+import path from 'node:path';
+const assets={};
+function walk(dir){for(const f of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,f.name);if(f.isDirectory()){if(!f.name.startsWith('.'))walk(p);}else if(!f.name.startsWith('.')){const key='/'+path.relative('public',p).replaceAll('\\\\','/');assets[key]=fs.readFileSync(p).toString('base64');}}}
+walk('public');
+const source=fs.readFileSync('worker/vk.mjs','utf8').replace('export function','function')+'\\n'+fs.readFileSync('worker/faq.mjs','utf8').replace('export function','function');
+const entry=source+'\\nconst kb='+fs.readFileSync('worker/knowledge.json','utf8')+';\\nconst assets='+JSON.stringify(assets)+';\\n'+fs.readFileSync('worker/static.mjs','utf8');
+fs.mkdirSync('dist/server',{recursive:true});fs.mkdirSync('dist/.openai',{recursive:true});
+fs.writeFileSync('dist/server/index.js',entry);fs.copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');
+console.log('Worker built; static assets:',Object.keys(assets).length);
+`);
+fs.writeFileSync(path.join(site,'worker/static.mjs'),`const route=createVkOffice({faq,kb});
+const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.ico':'image/x-icon'};
+export default {async fetch(request,env){const response=await route(request,env);if(response)return response;const u=new URL(request.url),key=u.pathname==='/'?'/index.html':u.pathname;if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405});if(!Object.hasOwn(assets,key))return new Response('Not found',{status:404});const data=Uint8Array.from(atob(assets[key]),c=>c.charCodeAt(0));return new Response(request.method==='HEAD'?null:data,{headers:{'Content-Type':mime[key.slice(key.lastIndexOf('.'))]||'application/octet-stream','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin'}});}};
+`);
+console.log('Prepared owner-private office Worker');
