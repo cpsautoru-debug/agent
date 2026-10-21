@@ -7,7 +7,7 @@ const help='ТЕСТ. /test role olga|alexandra|irina|dmitry; /test plan; /test 
 export async function packingTest(event,env){
  const m=event?.message,text=m?.body?.text||'';
  if(!/^\/test(?:\s|$)/u.test(text))return null;
- if(event.update_type!=='message_created'||!Number.isFinite(event.timestamp)||Math.abs(Date.now()-event.timestamp)>300000||!/^\d+$/.test(env.MAX_OWNER_ID||'')||m.sender?.user_id!==Number(env.MAX_OWNER_ID)||m.sender?.is_bot||m.recipient?.chat_type!=='dialog'||typeof m.body?.mid!=='string'||!m.body.mid||m.body.mid.length>200)return {ignored:true};
+ if(event.update_type!=='message_created'||!Number.isFinite(event.timestamp)||Math.abs(Date.now()-event.timestamp)>300000||!/^\d+$/.test(env.MAX_OWNER_ID||'')||!Number.isSafeInteger(Number(env.MAX_OWNER_ID))||Number(env.MAX_OWNER_ID)<=0||m.sender?.user_id!==Number(env.MAX_OWNER_ID)||m.sender?.is_bot||m.recipient?.chat_type!=='dialog'||typeof m.body?.mid!=='string'||!m.body.mid||m.body.mid.length>200)return {ignored:true};
  if(env.MAX_PACKING_TEST_ENABLED!=='true')return {text:'Тестовый режим выключен.'};
  const dir=env.MAX_PACKING_TEST_DIR;
  if(!dir||!isAbsolute(dir))return {text:'Тестовое хранилище не настроено. Данные не изменены.'};

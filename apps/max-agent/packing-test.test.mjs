@@ -55,4 +55,33 @@ test('webhook authenticates first; failed delivery retries only owner response w
   e.message.sender.user_id=456;assert.equal(await receiveSetup(req(),env,api,seen,state),200);assert.equal(calls,2);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('all invalid transitions, wrong roles and duplicate actions preserve counters',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'packing-sandbox-'));
+ const env={MAX_OWNER_ID:'123',MAX_PACKING_TEST_ENABLED:'true',MAX_PACKING_TEST_DIR:dir};let n=0;
+ const run=text=>packingTest(event('/test '+text,String(++n)),env);
+ const rejects=async actions=>{for(const a of actions)assert.match((await run(a)).text,/неверная роль/);};
+ try{
+  await rejects(['produce 1','pack','handover','accept','role unknown','private text']);
+  await run('plan');await rejects(['plan','produce 1','pack','handover','accept']);
+  await run('role alexandra');await rejects(['plan','pack','handover','accept']);
+  await run('produce 1');await rejects(['produce 1','produce 5','pack']);
+  for(let i=2;i<=4;i++)await run('produce '+i);
+  await run('role irina');await rejects(['produce 1','accept','handover']);
+  await run('pack');await rejects(['pack','accept']);await run('handover');await rejects(['handover','accept']);
+  await run('role dmitry');await rejects(['pack','handover','produce 1']);await run('accept');await rejects(['accept']);
+  const s=JSON.parse(readFileSync(join(dir,'packing-test-v1.json')));
+  assert.equal(s.produced,16);assert.equal(s.accepted,15);assert.equal(new Set(s.journal.map(x=>x.id)).size,s.journal.length);
+  assert.equal(JSON.stringify(s).includes('private text'),false);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+test('busy storage and invalid configuration fail closed',async()=>{
+ const dir=mkdtempSync(join(tmpdir(),'packing-sandbox-'));
+ const env={MAX_OWNER_ID:'123',MAX_PACKING_TEST_ENABLED:'true',MAX_PACKING_TEST_DIR:dir};
+ try{
+  writeFileSync(join(dir,'packing-test-v1.lock'),'operator must inspect');
+  await assert.rejects(packingTest(event('/test plan','locked'),env));
+  assert.match((await packingTest(event('/test','relative'),{...env,MAX_PACKING_TEST_DIR:'relative'})).text,/не настроено/);
+  assert.deepEqual(await packingTest(event('/test','zero'),{...env,MAX_OWNER_ID:'0'}),{ignored:true});
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
 
