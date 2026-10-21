@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {EventEmitter} from 'node:events';
+import {deleteMaxSubscription} from './max-api.mjs';
 import {packingConfig,startPackingWebhook,makePackingServer,packingSecret} from './packing-server.mjs';
 const config=()=>({MAX_TEST_BOT_TOKEN:'fixture',MAX_TEST_BOT_USERNAME:'fixture_test_bot',MAX_TEST_OWNER_ID:'123',MAX_TEST_PUBLIC_URL:'https://autosklad63-max-packing-test.onrender.com',MAX_PACKING_TEST_DIR:join(tmpdir(),'packing-fixture')});
 test('sandbox refuses production identity, production credentials and invalid configuration',()=>{
@@ -38,4 +40,33 @@ test('test server accepts only signed owner test commands, exposes no business r
   assert.equal((await fetch(base+'/api/moysklad')).status,404);
   assert.equal((await fetch(base+'/health')).status,200);
  }finally{await new Promise(r=>server.close(r));rmSync(dir,{recursive:true,force:true});}
+});
+test('explicit takeover removes old subscription only after exact identity verification and verifies removal',async()=>{
+ const c=packingConfig({...config(),MAX_TEST_REPLACE_SUBSCRIPTIONS_FOR:'fixture_test_bot'});
+ const calls=[];let reads=0;
+ const api=async(_t,path,body)=>{
+  calls.push(body?'subscribe':path);
+  if(path==='/me')return {ok:true,data:{username:c.username,is_bot:true}};
+  if(!body)return {ok:true,data:{subscriptions:++reads===1?[{url:'https://retired.invalid/webhook'}]:[]}};
+  return {ok:true,data:{success:true}};
+ };
+ const remove=async(_t,url)=>{assert.equal(url,'https://retired.invalid/webhook');calls.push('delete');return {ok:true,data:{success:true}};};
+ assert.equal(await startPackingWebhook(c,api,()=>{},remove),true);
+ assert.deepEqual(calls,['/me','/subscriptions','delete','/subscriptions','subscribe']);
+ let removed=0;
+ assert.equal(await startPackingWebhook(c,async()=>({ok:true,data:{username:'id632135065259_2_bot',is_bot:true}}),()=>{},async()=>{removed++;}),false);
+ assert.equal(removed,0);
+ assert.throws(()=>packingConfig({...config(),MAX_TEST_REPLACE_SUBSCRIPTIONS_FOR:'different_bot'}));
+ const failedCalls=[];
+ assert.equal(await startPackingWebhook(c,async(_t,path,body)=>{failedCalls.push(body?'subscribe':path);return path==='/me'?{ok:true,data:{username:c.username,is_bot:true}}:{ok:true,data:{subscriptions:[{url:'https://retired.invalid/webhook'}]}};},()=>{},async()=>({ok:false,http:500})),false);
+ assert.deepEqual(failedCalls,['/me','/subscriptions']);
+});
+test('unsubscribe transport uses DELETE to fixed MAX origin and encodes entire callback URL',async()=>{
+ const callback='https://retired.invalid/hook?secret=fixture&x=1';
+ const result=await deleteMaxSubscription('fixture',callback,(url,options,cb)=>{
+  assert.equal(url,'https://platform-api2.max.ru/subscriptions?url='+encodeURIComponent(callback));
+  assert.equal(options.method,'DELETE');assert.equal(options.rejectUnauthorized,true);
+  const req=new EventEmitter();req.setTimeout=()=>{};req.end=()=>{const res=new EventEmitter();res.statusCode=200;res.setEncoding=()=>{};cb(res);res.emit('data','{"success":true}');res.emit('end');};return req;
+ });
+ assert.equal(result.data.success,true);
 });

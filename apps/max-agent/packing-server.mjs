@@ -4,16 +4,18 @@ import {createHmac,timingSafeEqual} from 'node:crypto';
 import {isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {packingTest} from './packing-test.mjs';
-import {maxApi} from './max-api.mjs';
+import {maxApi,deleteMaxSubscription} from './max-api.mjs';
 export const packingSecret=token=>createHmac('sha256',token).update('autosklad63/packing-test/webhook/v1').digest('hex');
 export function packingConfig(env){
  // Do not clone a production environment or attach its secret groups.
  if(Object.entries(env).some(([key,value])=>value&&(/^(?:MOYSKLAD_|VK_|INSTAGRAM_|META_|GOOGLE_|SHEETS_)/.test(key)||['MAX_BOT_TOKEN','MAX_OWNER_ID','MAX_WORK_CHAT_ID'].includes(key))))throw Error('production credentials forbidden');
  const token=env.MAX_TEST_BOT_TOKEN,username=env.MAX_TEST_BOT_USERNAME,owner=env.MAX_TEST_OWNER_ID,dir=env.MAX_PACKING_TEST_DIR,url=env.MAX_TEST_PUBLIC_URL;
  if(!token||!/^\w{3,80}$/.test(username||'')||username==='id632135065259_2_bot'||!/^\d+$/.test(owner||'')||!Number.isSafeInteger(Number(owner))||Number(owner)<=0||!dir||!isAbsolute(dir)||url!=='https://autosklad63-max-packing-test.onrender.com')throw Error('invalid packing test configuration');
- return Object.freeze({token,username,owner,dir,url});
+ const replacement=env.MAX_TEST_REPLACE_SUBSCRIPTIONS_FOR;
+ if(replacement&&replacement!==username)throw Error('takeover identity mismatch');
+ return Object.freeze({token,username,owner,dir,url,replaceSubscriptions:replacement===username});
 }
-export async function startPackingWebhook(config,api=maxApi,report=()=>{}){
+export async function startPackingWebhook(config,api=maxApi,report=()=>{},remove=deleteMaxSubscription){
  const fail=(code,result)=>{report(code,Number.isInteger(result?.http)?result.http:undefined);return false;};
  const bot=await api(config.token,'/me');
  if(!bot.ok)return fail('identity-api-error',bot);
@@ -21,7 +23,18 @@ export async function startPackingWebhook(config,api=maxApi,report=()=>{}){
  const subscriptions=await api(config.token,'/subscriptions');
  if(!subscriptions.ok)return fail('subscriptions-api-error',subscriptions);
  if(!Array.isArray(subscriptions.data?.subscriptions))return fail('subscriptions-invalid-response');
- if(subscriptions.data.subscriptions.some(s=>s.url!==config.url+'/max/webhook'))return fail('existing-subscription');
+ const old=subscriptions.data.subscriptions.filter(s=>s.url!==config.url+'/max/webhook');
+ if(old.length){
+  if(!config.replaceSubscriptions)return fail('existing-subscription');
+  if(old.some(s=>typeof s.url!=='string'||!/^https?:\/\//.test(s.url)))return fail('subscriptions-invalid-response');
+  for(const subscription of old){
+   const removed=await remove(config.token,subscription.url);
+   if(!removed.ok||removed.data?.success!==true)return fail('unsubscribe-api-error',removed);
+  }
+  const check=await api(config.token,'/subscriptions');
+  if(!check.ok||!Array.isArray(check.data?.subscriptions)||check.data.subscriptions.some(s=>s.url!==config.url+'/max/webhook'))return fail('unsubscribe-not-confirmed',check);
+  report('authorized-old-subscription-removed');
+ }
  const result=await api(config.token,'/subscriptions',{url:config.url+'/max/webhook',update_types:['message_created'],secret:packingSecret(config.token)});
  return result.ok===true&&result.data?.success===true?true:fail('registration-api-error',result);
 }
