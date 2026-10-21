@@ -14,5 +14,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --test test.mjs cloud/test.mjs cloud/max.test.mjs
-      - run: node --test ../max-agent/test.mjs ../max-agent/bridge.test.mjs ../max-agent/vk.test.mjs ../max-agent/moysklad.test.mjs ../max-agent/moysklad-reconcile.test.mjs
+      - run: node --test ../max-agent/test.mjs ../max-agent/bridge.test.mjs ../max-agent/vk.test.mjs ../max-agent/moysklad.test.mjs ../max-agent/moysklad-reconcile.test.mjs ../max-agent/readiness.test.mjs ../max-agent/audit-ledger.test.mjs
       - run: node --test ../sheets-agents/test.mjs

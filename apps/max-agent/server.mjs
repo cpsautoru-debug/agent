@@ -6,6 +6,33 @@ import {setupSubscription,receiveSetup,ownerConfigured,workChatConfigured} from 
 import {bridgeConfigured,bridgeRequest} from './intake.mjs';
 import {vkStatus,receiveVk} from './vk.mjs';
 import {createMoyskladClient,handleMoyskladRead} from './moysklad.mjs';
+import {createStartupChecks} from './readiness.mjs';
+
+export function startupChecks(env,state,api=maxApi,bridge=bridgeRequest,options){
+  const checks=createStartupChecks({
+    webhook:async()=>{
+      if(!env.MAX_BOT_TOKEN||env.RENDER_EXTERNAL_URL!=='https://autosklad63-max.onrender.com')return {ok:false,terminal:true,code:'configuration-invalid'};
+      let failure=null;
+      const result=await setupSubscription(env,async(...args)=>{
+        let value;
+        try{value=await api(...args);}catch{failure={ok:false,terminal:args[1]==='/subscriptions',code:'unavailable'};return {ok:false};}
+        if(!value.ok)failure={ok:false,terminal:[400,401,403,404].includes(value.http)||args[1]==='/subscriptions',code:[401,403].includes(value.http)?'unauthorized':'unavailable'};
+        else if(args[1]==='/me'&&(value.data?.username!==EXPECTED_BOT||value.data?.is_bot!==true))failure={ok:false,terminal:true,code:'account-mismatch'};
+        return value;
+      });
+      state.registered=result.registered===true;
+      return state.registered?{ok:true}:failure||{ok:false,terminal:true,code:'invalid-response'};
+    },
+    bridge:async()=>{
+      if(!bridgeConfigured(env))return {ok:false,terminal:true,code:'configuration-invalid'};
+      const result=await bridge(env,{action:'ping'});
+      state.bridgeReady=Boolean(result.ok&&result.spreadsheetMatches);
+      return state.bridgeReady?{ok:true}:{ok:false,terminal:result.error==='unauthorized'||result.ok===true,code:result.error==='unauthorized'?'unauthorized':result.ok===true?'account-mismatch':'unavailable'};
+    }
+  },options);
+  state.startup=checks;
+  return checks;
+}
 
 export const EXPECTED_BOT='id632135065259_2_bot';
 const certificates=['russian-root.crt','russian-sub.crt'].map(file=>readFileSync(new URL('./certs/'+file,import.meta.url),'utf8'));
@@ -66,11 +93,11 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
     if(url.pathname==='/vk/health')return respond(200,vkStatus(env));
     const ready=bridgeConfigured(env)&&setupState.bridgeReady===true&&ownerConfigured(env)&&workChatConfigured(env)&&setupState.registered;
     const stage={service:'autosklad63-max',stage:ready?'owner-confirmed-intake':'workspace-bound',ownerConfigured:ownerConfigured(env),workChatConfigured:workChatConfigured(env),webhookRegistered:setupState.registered,orderIntake:ready,sheetsWrite:ready,confirmationRequired:true,intakeChannel:'owner-private-dialog'};
-    if(url.pathname==='/health')return respond(200,stage);
+    if(url.pathname==='/health'||url.pathname==='/ready')return respond(url.pathname==='/ready'&&!ready?503:200,{...stage,liveness:true,readiness:ready,startup:setupState.startup?.snapshot()||{started:false,ready:false,checks:{}}});
     if(url.pathname==='/api/connection')return respond(200,{...stage,...await status()});
     if(url.pathname==='/'){
       res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
-      return res.end('<!doctype html><html lang="ru"><meta charset="utf-8"><title>АвтоСклад63 — MAX</title><h1>Менеджер продаж MAX</h1><p>Первый этап: проверка подключения бота.</p><p><a href="/api/connection">Проверить подключение</a></p><p>Приём заявок и запись в таблицу ещё не подключены.</p></html>');
+      return res.end('<!doctype html><html lang="ru"><meta charset="utf-8"><title>АвтоСклад63 — MAX</title><h1>Менеджер продаж MAX</h1><p><a href="/api/connection">Проверить подключение</a></p><p>'+(ready?'Приём заявок владельца подключён. Запись в таблицу — после подтверждения.':'Приём заявок пока не готов. Проверьте состояние запуска.')+'</p></html>');
     }
     respond(404,{error:'not-found'});
   });
@@ -78,11 +105,13 @@ export function makeServer(env=process.env,probe=queryBot,api=maxApi,setupState=
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const port=Number(process.env.PORT||3000);
   const setupState={registered:false};
-  makeServer(process.env,queryBot,maxApi,setupState).listen(port,'0.0.0.0',async()=>{
+  const checks=startupChecks(process.env,setupState);
+  const server=makeServer(process.env,queryBot,maxApi,setupState);
+  server.on('close',()=>checks.stop());
+  const shutdown=()=>{checks.stop();server.close();};
+  process.once('SIGTERM',shutdown);process.once('SIGINT',shutdown);
+  server.listen(port,'0.0.0.0',()=>{
     console.log('MAX setup service started');
-    const result=await setupSubscription(process.env,maxApi).catch(()=>({registered:false}));setupState.registered=result.registered;
-    if(bridgeConfigured(process.env)){const check=await bridgeRequest(process.env,{action:'ping'});setupState.bridgeReady=Boolean(check.ok&&check.spreadsheetMatches);console.log(setupState.bridgeReady?'Google bridge ready':'Google bridge check failed: '+(['unauthorized','bridge-http-error','bridge-result-unknown','bridge-failed'].includes(check.error)?check.error:'invalid-response'));}
-    else console.log('Google bridge configuration missing or invalid');
-    console.log(result.registered?'MAX setup webhook registered':'MAX setup webhook not registered');
+    void checks.start();
   });
 }

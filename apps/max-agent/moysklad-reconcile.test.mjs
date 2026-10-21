@@ -1,9 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildMoyskladDiscrepancyReport as report,reviewDocumentIdentities,SHEET_MAPPING,WORKBOOK_ID} from './moysklad-reconcile.mjs';
+import {buildMoyskladDiscrepancyReport as report,reviewDocumentIdentities,moyskladId,SHEET_MAPPING,WORKBOOK_ID} from './moysklad-reconcile.mjs';
 const uid=n=>'00000000-0000-0000-0000-'+String(n).padStart(12,'0');
 const ref=(type,n)=>({meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/'+type+'/'+uid(n)}});
 const at='2026-10-20T08:00:00+04:00';
+test('identity accepts expanded trusted references and rejects ambiguous or unsafe URLs',()=>{
+  const href=ref('product',1).meta.href;
+  assert.equal(moyskladId({meta:{href:href+'?expand=supplier'}}),uid(1));
+  assert.equal(moyskladId({id:uid(1),meta:{href:href+'?expand=supplier'}}),uid(1));
+  assert.equal(moyskladId({id:uid(1)}),uid(1));
+  for(const bad of [href.replace('api.moysklad.ru','example.invalid'),href.replace('https://','https://user:pass@'),href+'#fragment',href+'#',href.replace('/product/','/%70roduct/'),href.replace('/product/','/other/../product/'),href.replace('/product/','/product%2f'),href+'/extra','not-a-url']){
+    assert.equal(moyskladId({meta:{href:bad}}),null,bad);
+    assert.equal(moyskladId({id:uid(1),meta:{href:bad}}),null,bad);
+  }
+  assert.equal(moyskladId({id:uid(2),meta:{href}}),null);
+  assert.equal(moyskladId({id:'invalid',meta:{href}}),null);
+});
+test('move document identity is reviewable and repeat-safe without writes',()=>{
+  const doc={id:uid(5),accountId:uid(6),meta:{type:'move'},applied:true};
+  const first=reviewDocumentIdentities([doc]);
+  assert.equal(first.proposedLedger.length,1);
+  assert.deepEqual(first.writeOperations,[]);
+  assert.equal(reviewDocumentIdentities([doc],first.proposedLedger).proposedLedger[0].state,'already-reviewed');
+});
+test('document applied state uses API applicable and fails closed on conflicting legacy state',()=>{
+  const base={id:uid(5),accountId:uid(6),meta:{type:'move'}};
+  for(const applicable of [true,false]){
+    const result=reviewDocumentIdentities([{...base,applicable}]);
+    assert.equal(result.proposedLedger[0].applied,applicable);
+    assert.equal(result.issues.some(i=>i.code==='DOCUMENT_NOT_APPLIED'),!applicable);
+  }
+  for(const applied of [true,false])assert.equal(reviewDocumentIdentities([{...base,applied}]).proposedLedger[0].applied,applied);
+  for(const applicable of [true,false]){
+    const result=reviewDocumentIdentities([{...base,applicable,applied:!applicable}]);
+    assert.ok(result.issues.some(i=>i.code==='DOCUMENT_APPLIED_CONFLICT'));
+    assert.ok(result.issues.some(i=>i.code==='DOCUMENT_NOT_APPLIED'));
+    assert.equal(result.proposedLedger[0].applied,false);
+  }
+});
 function input(){
   const sheets=Object.entries(SHEET_MAPPING).map(([title,s])=>{const rows=Array.from({length:s.headerRow},()=>[]);for(const [c,h] of Object.entries(s.headers))rows[s.headerRow-1][c]=h;for(const [c,h] of Object.entries(s.headerPrefixes||{}))rows[s.headerRow-1][c]=h+' (пример)';return {title,asOf:at,rows};});
   sheets.find(s=>s.title==='Остаток').rows.push(['Материал А','м',15,2,3,10,100]);

@@ -11,6 +11,18 @@ function setup(t,options={}){
   process.env.MOYSKLAD_API_TOKEN=TOKEN;
   return createMoyskladClient({minIntervalMs:0,retries:0,...options});
 }
+test('moves collections, documents and positions use only bounded fixed-host GET requests',async t=>{
+  const calls=[],client=setup(t,{fetcher:async(url,options)=>{calls.push({url,options});return json(new URL(url).pathname.endsWith('/'+id)?{id}:{rows:[],meta:{size:0,offset:0}});}});
+  assert.equal((await client.all('moves')).complete,true);
+  assert.equal((await client.document('moves',id)).id,id);
+  assert.equal((await client.positions('moves',id)).complete,true);
+  assert.deepEqual(calls.map(c=>new URL(c.url).pathname),['/api/remap/1.2/entity/move','/api/remap/1.2/entity/move/'+id,'/api/remap/1.2/entity/move/'+id+'/positions']);
+  for(const c of calls){assert.equal(c.options.method,'GET');assert.equal(c.options.redirect,'error');assert.equal(new URL(c.url).origin,'https://api.moysklad.ru');}
+  assert.equal(new URL(calls[0].url).searchParams.get('limit'),'100');
+  assert.equal(new URL(calls[2].url).searchParams.get('limit'),'100');
+  await assert.rejects(()=>client.positions('moves',id,'materials'),/invalid-document-part/);
+  assert.equal(calls.length,3);
+});
 test('only GET, fixed host, environment-only bearer and gzip; assortment excludes stock',async t=>{
   const calls=[],client=setup(t,{fetcher:async(url,options)=>{calls.push({url,options});return json({rows:[],meta:{size:0,offset:0}});}});
   await client.page('assortment');await client.page('stockByStore',{filter:'moment=2026-10-20 08:00:00'});
