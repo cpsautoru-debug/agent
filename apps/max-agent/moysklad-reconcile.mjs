@@ -15,9 +15,18 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
 const sameTime=(a,b)=>typeof a==='string'&&typeof b==='string'&&/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(a)&&/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(b)&&Number.isFinite(Date.parse(a))&&Date.parse(a)===Date.parse(b);
 export function moyskladId(value){
-  if(UUID.test(value?.id||''))return value.id.toLowerCase();
-  const match=String(value?.meta?.href||'').match(/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/[a-z]+\/([a-f0-9-]{36})$/i);
-  return match&&UUID.test(match[1])?match[1].toLowerCase():null;
+  const id=value?.id;
+  if(id!==undefined&&(typeof id!=='string'||!UUID.test(id)))return null;
+  const href=value?.meta?.href;
+  if(href===undefined)return id?.toLowerCase()||null;
+  if(typeof href!=='string'||/[\s\\#]/.test(href))return null;
+  // Check the original path too: URL parsing normalizes dot segments and escapes.
+  const raw=href.match(/^https:\/\/api\.moysklad\.ru(\/api\/remap\/1\.2\/entity\/[a-z]+\/([a-f0-9-]{36}))(?:\?[^#]*)?$/i);
+  if(!raw||!UUID.test(raw[2]))return null;
+  let url;try{url=new URL(href);}catch{return null;}
+  if(url.origin!=='https://api.moysklad.ru'||url.username||url.password||url.hash||url.pathname!==raw[1])return null;
+  const referenced=raw[2].toLowerCase();
+  return id!==undefined&&id.toLowerCase()!==referenced?null:referenced;
 }
 const normalize=name=>String(name||'').trim().toLocaleLowerCase('ru');
 const canonical=value=>JSON.stringify(value&&typeof value==='object'?Array.isArray(value)?value.map(v=>JSON.parse(canonical(v))):Object.fromEntries(Object.keys(value).sort().map(k=>[k,JSON.parse(canonical(value[k]))])):value??null);
@@ -27,13 +36,17 @@ export function reviewDocumentIdentities(documents=[],previous=[]){
   for(const entry of previous){if(!entry||typeof entry.key!=='string'||!/^[a-f0-9]{64}$/.test(entry.hash||'')){issues.push({code:'INVALID_LEDGER'});continue;}if(prior.has(entry.key))issues.push({code:'DUPLICATE_LEDGER_KEY',key:entry.key});prior.set(entry.key,entry.hash);}
   for(const doc of documents){
     const type=doc?.meta?.type;
-    if(!UUID.test(doc?.accountId||'')||!UUID.test(doc?.id||'')||!['supply','demand','loss','purchaseorder','customerorder','processing','processingorder','productiontask','productionstagecompletion'].includes(type)){issues.push({code:'DOCUMENT_IDENTITY_MISSING'});continue;}
+    if(!UUID.test(doc?.accountId||'')||!UUID.test(doc?.id||'')||!['supply','demand','loss','move','purchaseorder','customerorder','processing','processingorder','productiontask','productionstagecompletion'].includes(type)){issues.push({code:'DOCUMENT_IDENTITY_MISSING'});continue;}
     const key=doc.accountId.toLowerCase()+':'+type+':'+doc.id.toLowerCase(),hash=createHash('sha256').update(canonical(doc)).digest('hex');
     if(seen.has(key)){issues.push({code:seen.get(key)===hash?'DUPLICATE_DOCUMENT':'CONFLICTING_DOCUMENT_VERSION',key});continue;}
     seen.set(key,hash);const state=prior.has(key)?prior.get(key)===hash?'already-reviewed':'changed-needs-review':'new-needs-review';
     if(state==='changed-needs-review')issues.push({code:'DOCUMENT_CHANGED',key});
-    if(doc.applied!==true)issues.push({code:'DOCUMENT_NOT_APPLIED',key});
-    proposedLedger.push({key,hash,state,updated:doc.updated||null,applied:doc.applied===true});
+    const hasApplicable=Object.hasOwn(doc,'applicable');
+    const conflict=hasApplicable&&Object.hasOwn(doc,'applied')&&doc.applicable!==doc.applied;
+    const applied=!conflict&&(hasApplicable?doc.applicable:doc.applied)===true;
+    if(conflict)issues.push({code:'DOCUMENT_APPLIED_CONFLICT',key});
+    if(!applied)issues.push({code:'DOCUMENT_NOT_APPLIED',key});
+    proposedLedger.push({key,hash,state,updated:doc.updated||null,applied});
   }
   return {issues,proposedLedger,writeOperations:[]};
 }

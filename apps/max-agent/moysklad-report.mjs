@@ -4,6 +4,7 @@ import {resolve,relative,isAbsolute,join} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {buildMoyskladDiscrepancyReport} from './moysklad-reconcile.mjs';
 import {createMoyskladClient} from './moysklad.mjs';
+import {observeDocument} from './audit-ledger.mjs';
 
 // Explicit local operator command; never started by server.mjs or a scheduler.
 try{
@@ -19,6 +20,11 @@ try{
     if(isAbsolute(sourceRelative)||sourceRelative==='..'||sourceRelative.startsWith('..\\')||sourceRelative.startsWith('../'))throw Error('input-must-be-in-private-moysklad');
     const raw=await readFile(source);if(raw.length>20*1024*1024)throw Error('input-too-large');
     const report=buildMoyskladDiscrepancyReport(JSON.parse(raw.toString('utf8')));
+    report.localObservations=[];
+    for(const entry of report.documentReview?.proposedLedger||[]){
+      const [accountId,type,documentId]=entry.key.split(':');
+      report.localObservations.push(await observeDocument(join(safeRoot,'audit-ledger'),{accountId,type,documentId,hash:entry.hash,updated:entry.updated,applied:entry.applied}));
+    }
     const output=join(safeRoot,'reconciliation-'+randomUUID()+'.json');
     await writeFile(output,JSON.stringify(report,null,2),{flag:'wx',mode:0o600});
     console.log(JSON.stringify({readOnly:true,report:output,commercialDataInOutput:true}));

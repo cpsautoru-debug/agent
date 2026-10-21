@@ -102,7 +102,7 @@ export function normalize(payload, owner, now = Date.now()) {
         continue;
       }
       if (e.message.is_deleted || e.message.is_unsupported) continue;
-      result.push({id:'dm:'+e.message.mid,kind:'dm',thread:'dm:'+sender,recipient:sender,text:typeof e.message.text === 'string' ? e.message.text.slice(0,3000) : '[Вложение: требуется просмотр человеком]',attachment:!e.message.text,at:Number(e.timestamp)||0});
+      result.push({id:'dm:'+e.message.mid,kind:'dm',thread:'dm:'+sender,recipient:sender,text:typeof e.message.text === 'string' ? e.message.text.slice(0,3000) : '[Вложение: требуется просмотр человеком]',attachment:!e.message.text || Boolean(e.message.attachments && (!Array.isArray(e.message.attachments) || e.message.attachments.length)),at:Number(e.timestamp)||0});
     }
     for (const change of entry.changes || []) {
       if (change.field !== 'comments') continue;

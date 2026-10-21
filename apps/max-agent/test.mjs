@@ -4,7 +4,29 @@ import {EventEmitter} from 'node:events';
 import {X509Certificate} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {queryBot,makeServer,EXPECTED_BOT} from './server.mjs';
-import {setupSubscription,setupIdentity,webhookSecret,workChatConfigured,isWorkChat} from './setup.mjs';
+import {setupSubscription,setupIdentity,webhookSecret,workChatConfigured,isWorkChat,receiveSetup} from './setup.mjs';
+test('intake does not acknowledge failed MAX delivery or suppress its retry',async()=>{
+ const env={MAX_BOT_TOKEN:'secret',MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'},seen=new Map(),state={registered:true,bridgeReady:false};
+ const event={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'dialog'},body:{mid:'retry-fixture',text:'Принять заявку\n1) Тест — 1 шт.'}}};
+ const req=()=>({headers:{'x-max-bot-api-secret':webhookSecret('secret')},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify(event));}});
+ let sends=0;const api=async()=>({ok:++sends>1});
+ assert.equal(await receiveSetup(req(),env,api,seen,state),503);
+ assert.equal(await receiveSetup(req(),env,api,seen,state),200);
+ assert.equal(sends,2);
+ assert.equal(await receiveSetup(req(),env,api,seen,state),200);
+ assert.equal(sends,2);
+});
+test('intake concurrent delivery and thrown delivery remain retryable',async()=>{
+ const env={MAX_BOT_TOKEN:'secret',MAX_OWNER_ID:'123',MAX_WORK_CHAT_ID:'-456'},seen=new Map(),state={registered:true,bridgeReady:false};
+ const event={update_type:'message_created',timestamp:Date.now(),message:{sender:{user_id:123},recipient:{chat_type:'dialog'},body:{mid:'concurrent-fixture',text:'Принять заявку\n1) Тест — 1 шт.'}}};
+ const req=()=>({headers:{'x-max-bot-api-secret':webhookSecret('secret')},async *[Symbol.asyncIterator](){yield Buffer.from(JSON.stringify(event));}});
+ let release,started;const startedPromise=new Promise(r=>started=r),gate=new Promise(r=>release=r);
+ const first=receiveSetup(req(),env,async()=>{started();await gate;throw Error('fixture');},seen,state);
+ await startedPromise;
+ assert.equal(await receiveSetup(req(),env,async()=>{throw Error('must not send concurrently');},seen,state),503);
+ release();assert.equal(await first,503);assert.equal(seen.size,0);
+ assert.equal(await receiveSetup(req(),env,async()=>({ok:true}),seen,state),200);
+});
 function fake(data,status=200){return (url,options,cb)=>{
   assert.equal(url,'https://platform-api2.max.ru/me');assert.equal(options.rejectUnauthorized,true);
   assert.equal(options.ca.length,2);assert.equal(options.headers.Authorization,'secret');

@@ -4,11 +4,11 @@ export const MOYSKLAD_BASE='https://api.moysklad.ru/api/remap/1.2';
 export const MOYSKLAD_RESOURCES=Object.freeze({
   assortment:'/entity/assortment',products:'/entity/product',variants:'/entity/variant',bundles:'/entity/bundle',units:'/entity/uom',stores:'/entity/store',
   stock:'/report/stock/all',stockByStore:'/report/stock/bystore',
-  purchaseOrders:'/entity/purchaseorder',supplies:'/entity/supply',customerOrders:'/entity/customerorder',demands:'/entity/demand',losses:'/entity/loss',
+  purchaseOrders:'/entity/purchaseorder',supplies:'/entity/supply',customerOrders:'/entity/customerorder',demands:'/entity/demand',losses:'/entity/loss',moves:'/entity/move',
   processingOrders:'/entity/processingorder',processings:'/entity/processing',processingPlans:'/entity/processingplan',
   productionTasks:'/entity/productiontask',productionStageCompletions:'/entity/productionstagecompletion',
 });
-const parts=Object.freeze({supplies:['positions'],demands:['positions'],purchaseOrders:['positions'],customerOrders:['positions'],losses:['positions'],processings:['materials','products'],processingPlans:['materials','products','stages'],productionStageCompletions:['materials','products']});
+const parts=Object.freeze({supplies:['positions'],demands:['positions'],purchaseOrders:['positions'],customerOrders:['positions'],losses:['positions'],moves:['positions'],processings:['materials','products'],processingPlans:['materials','products','stages'],productionStageCompletions:['materials','products']});
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const queryKeys=new Set(['limit','offset','filter','order','search']);
 const int=(n,min,max)=>Number.isSafeInteger(n)&&n>=min&&n<=max;
