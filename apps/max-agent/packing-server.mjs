@@ -4,6 +4,7 @@ import {createHmac,timingSafeEqual} from 'node:crypto';
 import {isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {packingTest} from './packing-test.mjs';
+import {sheetsTestConfig,flushSyntheticJournal} from './packing-sheets-bridge.mjs';
 import {maxApi,deleteMaxSubscription} from './max-api.mjs';
 export const packingSecret=token=>createHmac('sha256',token).update('autosklad63/packing-test/webhook/v1').digest('hex');
 export function packingConfig(env){
@@ -13,7 +14,7 @@ export function packingConfig(env){
  if(!token||!/^\w{3,80}$/.test(username||'')||username==='id632135065259_2_bot'||!/^\d+$/.test(owner||'')||!Number.isSafeInteger(Number(owner))||Number(owner)<=0||!dir||!isAbsolute(dir)||url!=='https://autosklad63-max-packing-test.onrender.com')throw Error('invalid packing test configuration');
  const replacement=env.MAX_TEST_REPLACE_SUBSCRIPTIONS_FOR;
  if(replacement&&replacement!==username)throw Error('takeover identity mismatch');
- return Object.freeze({token,username,owner,dir,url,replaceSubscriptions:replacement===username});
+ return Object.freeze({token,username,owner,dir,url,replaceSubscriptions:replacement===username,sheets:sheetsTestConfig(env)});
 }
 export async function startPackingWebhook(config,api=maxApi,report=()=>{},remove=deleteMaxSubscription){
  const fail=(code,result)=>{report(code,Number.isInteger(result?.http)?result.http:undefined);return false;};
@@ -64,6 +65,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const config=packingConfig(process.env),state={registered:false};
   // Verify the separate identity before publishing any callback URL.
   const server=makePackingServer(config,maxApi,state);
+  // Independent best-effort sync: never blocks MAX webhook acknowledgements.
+  if(config.sheets){
+   const sync=()=>void flushSyntheticJournal(config.dir,config.sheets).catch(()=>console.error('Test sheets sync deferred'));
+   setInterval(sync,30000).unref();sync();
+  }
   server.listen(Number(process.env.PORT||3000),'0.0.0.0',()=>{
    void startPackingWebhook(config,maxApi,(code,http)=>console.log('Packing setup: '+code+(http?' HTTP '+http:''))).then(registered=>{
     state.registered=registered;
