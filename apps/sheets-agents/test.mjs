@@ -10,6 +10,29 @@ const stockH=['Название материала','Ед.','Приход все
 const row=()=>['P1','O1','','Дилеры — Пламя','Дилер','контакт','Товар','вариант',1,5500,5500,'Подтверждён',0,5500,'2026-10-20','Менеджер продаж','Зарезервировано'];
 const codes=issues=>Array.from(issues,x=>x.code);
 const day=v=>/^\d{4}-\d\d-\d\d$/.test(v)?v:null;
+
+test('controllers include carpet orders and retain their source sheet',()=>{
+ const carpet=row();carpet[0]='CARPET-1';carpet[5]='';carpet[12]='';
+ const grids={'Заказы':[h],'Заказы ковры':[h,carpet],'Отгрузка':[sh]};
+ const book={getSheetByName:name=>({getLastRow:()=>grids[name].length,getMaxColumns:()=>26,getRange:()=>({getValues:()=>grids[name]})})};
+ const sales=api.officeSalesAll_(book,'2026-10-17',day),finance=api.officeFinanceAll_(book);
+ assert.ok(sales.some(x=>x.code==='INCOMPLETE_ORDER'&&x.source.startsWith('Заказы ковры!')));
+ assert.ok(finance.some(x=>x.code==='PAYMENT_UNKNOWN'&&x.source.startsWith('Заказы ковры!')));
+});
+
+test('order position identifiers must be unique across covers and carpets',()=>{
+ const grids={'Заказы':[h,row()],'Заказы ковры':[h,row()]};
+ const book={getSheetByName:name=>({getLastRow:()=>grids[name].length,getMaxColumns:()=>26,getRange:()=>({getValues:()=>grids[name]})})};
+ assert.ok(codes(api.officeSalesAll_(book,'2026-10-17',day)).includes('CROSS_SHEET_DUPLICATE_ID'));
+});
+
+test('finance reports shipment cost once while checking both order sheets',()=>{
+ const grids={'Заказы':[h],'Заказы ковры':[h],'Отгрузка':[sh,['','','Тестовая отгрузка','Разовый',1,100,100,0]]};
+ const book={getSheetByName:name=>({getLastRow:()=>grids[name].length,getMaxColumns:()=>26,getRange:()=>({getValues:()=>grids[name]})})};
+ assert.equal(codes(api.officeFinanceAll_(book)).filter(code=>code==='SHIPMENT_COST_UNKNOWN').length,1);
+ delete grids['Заказы ковры'];
+ assert.throws(()=>api.officeFinanceAll_(book));
+});
 test('blank payment is unknown; explicit zero is known',()=>{const a=row();a[12]='';assert.ok(codes(api.officeFinance_([h,a],[sh])).includes('PAYMENT_UNKNOWN'));a[12]=0;assert.equal(api.officeFinance_([h,a],[sh]).length,0);});
 test('two order positions do not duplicate their order ID',()=>{const a=row(),b=row();b[0]='P2';assert.equal(api.officeSales_([h,a,b],'2026-10-17',day).length,0);assert.equal(api.officeFinance_([h,a,b],[sh]).length,0);});
 test('duplicate position, missing fields and unknown availability detected',()=>{const a=row(),b=row();a[5]='';b[16]='Не проверено';const c=codes(api.officeSales_([h,a,b],'2026-10-17',day));for(const expected of ['DUPLICATE_ID','INCOMPLETE_ORDER','STOCK_NOT_CONFIRMED'])assert.ok(c.includes(expected));});

@@ -34,9 +34,9 @@ function runOfficeAgents() {
     var now = new Date();
     var today = Utilities.formatDate(now, book.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
     var specs = [
-      {name: 'Менеджер продаж', evaluate: function() {return officeSales_(officeRead_(book, 'Заказы', 20), today, function(d) {return officeDay_(d, book.getSpreadsheetTimeZone());});}},
+      {name: 'Менеджер продаж', evaluate: function() {return officeSalesAll_(book, today, function(d) {return officeDay_(d, book.getSpreadsheetTimeZone());});}},
       {name: 'Кладовщик', evaluate: function() {return officeStock_(officeRead_(book, 'Остаток', 7));}},
-      {name: 'Финансовый управляющий', evaluate: function() {return officeFinance_(officeRead_(book, 'Заказы', 20), officeRead_(book, 'Отгрузка', 10));}}
+      {name: 'Финансовый управляющий', evaluate: function() {return officeFinanceAll_(book);}}
     ];
     var reports = [], logs = [], states = [];
     specs.forEach(function(spec) {
@@ -113,12 +113,36 @@ function officeDay_(value, zone) {return value instanceof Date && !isNaN(value.g
 function officeIssue_(code, source, description, action, level) {return {level:level||'Внимание',code:code,source:source,description:description,action:action};}
 function officeOrdersHeader_(grid) {officeHeader_(grid,{0:'ID позиции',1:'ID заказа',3:'Канал',8:'Количество',9:'Цена за ед., ₽',10:'Сумма, ₽',11:'Статус',12:'Оплачено, ₽',14:'Обещанная дата'});}
 
-function officeSales_(grid, today, dateFn) {
+function officeSalesAll_(book, today, dateFn) {
+  var issues=[], ids={};
+  ['Заказы','Заказы ковры'].forEach(function(name){
+    var grid=officeRead_(book,name,20);
+    issues=issues.concat(officeSales_(grid,today,dateFn,name));
+    grid.slice(1).forEach(function(row,i){
+      if(officeBlank_(row[0]))return;
+      var key=String(row[0]), source=name+'!A'+(i+2);
+      if(Object.prototype.hasOwnProperty.call(ids,key)&&ids[key].sheet!==name)issues.push(officeIssue_('CROSS_SHEET_DUPLICATE_ID',source,'ID позиции уже есть в '+ids[key].source+'.','Сверить источник; не удалять и не переносить запись автоматически.'));
+      else ids[key]={sheet:name,source:source};
+    });
+  });
+  return issues;
+}
+
+function officeFinanceAll_(book) {
+  var shipments=officeRead_(book,'Отгрузка',10), issues=[];
+  ['Заказы','Заказы ковры'].forEach(function(name,index){
+    issues=issues.concat(officeFinance_(officeRead_(book,name,20),index===0?shipments:[shipments[0]],name));
+  });
+  return issues;
+}
+
+function officeSales_(grid, today, dateFn, sheetName) {
+  sheetName = sheetName || 'Заказы';
   officeOrdersHeader_(grid);
   var issues=[], ids={};
   grid.slice(1).forEach(function(r,i){
-    if (officeBlank_(r[0])) {if ([1,4,6,8,9].some(function(c){return !officeBlank_(r[c]);})) issues.push(officeIssue_('MISSING_ID','Заказы!A'+(i+2),'Заполнена позиция без ID.','Назначить уникальный ID позиции.'));return;}
-    var source='Заказы!A'+(i+2)+':T'+(i+2);
+    if (officeBlank_(r[0])) {if ([1,4,6,8,9].some(function(c){return !officeBlank_(r[c]);})) issues.push(officeIssue_('MISSING_ID',sheetName+'!A'+(i+2),'Заполнена позиция без ID.','Назначить уникальный ID позиции.'));return;}
+    var source=sheetName+'!A'+(i+2)+':T'+(i+2);
     if (ids[String(r[0])]) issues.push(officeIssue_('DUPLICATE_ID',source,'Повторяется ID позиции.','Проверить дубликат, не создавать новый заказ автоматически.'));
     ids[String(r[0])]=true;
     if (['Завершён','Отменён'].indexOf(r[11])>=0) return;
@@ -143,10 +167,11 @@ function officeStock_(grid) {
   });return issues;
 }
 
-function officeFinance_(orders, shipments) {
+function officeFinance_(orders, shipments, sheetName) {
+  sheetName = sheetName || 'Заказы';
   officeOrdersHeader_(orders);officeHeader_(shipments,{2:'Название чехла',4:'Кол-во',6:'Выручка',7:'Себестоимость'});
   var issues=[];
-  orders.slice(1).forEach(function(r,i){if(officeBlank_(r[0])||r[11]==='Отменён')return;var source='Заказы!I'+(i+2)+':N'+(i+2);
+  orders.slice(1).forEach(function(r,i){if(officeBlank_(r[0])||r[11]==='Отменён')return;var source=sheetName+'!I'+(i+2)+':N'+(i+2);
     if(officeBlank_(r[12]))issues.push(officeIssue_('PAYMENT_UNKNOWN',source,'Сумма оплаты неизвестна; долг не подтверждён.','Уточнить фактическую оплату. Пустое поле не заменять нулём.'));
     else if(!officeNumber_(r[12])||r[12]<0)issues.push(officeIssue_('INVALID_PAYMENT',source,'Оплата не является допустимым числом.','Проверить первичный документ.'));
     if(officeNumber_(r[8])&&officeNumber_(r[9])){var expected=r[8]*r[9];if(!officeNumber_(r[10])||Math.abs(expected-r[10])>0.01)issues.push(officeIssue_('TOTAL_MISMATCH',source,'Сумма позиции не совпадает с количеством × ценой.','Проверить формулу суммы.'));if(officeNumber_(r[12])&&r[12]>expected+0.01)issues.push(officeIssue_('OVERPAYMENT',source,'Указанная оплата превышает сумму позиции.','Проверить распределение оплаты по позициям.'));}
