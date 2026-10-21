@@ -35,13 +35,20 @@ export async function receiveSetup(req,env,api,seen,state){
   const command=intakeCommand(event,env);
   if(command){
     const key='intake:'+event.message.body.mid;
-    if(seen.has(key))return 200;
-    seen.set(key,Date.now()+3600000);
+    if(seen.has(key))return seen.get(key)===Infinity?503:200;
+    if(seen.size>=1000)return 503;
+    // In-flight is not delivered. A concurrent webhook must remain retryable.
+    seen.set(key,Infinity);
+    try {
     const ready=bridgeConfigured(env)&&state.bridgeReady===true;
     const result=ready?await bridgeRequest(env,command):null;
     if(ready&&!result.ok){const safe=['unauthorized','forbidden-source','bad-draft','bad-item','schema-mismatch','capacity-limit','bridge-http-error','bridge-result-unknown','bridge-failed','busy','stale-revision','clarification-required','partial-or-changed-record'];console.log('MAX intake bridge rejected: '+(safe.includes(result.error)?result.error:'invalid-response'));}
-    await api(env.MAX_BOT_TOKEN,'/messages?user_id='+env.MAX_OWNER_ID,{text:ready?reviewText(result):'Приём заявок ещё выключен: постоянный доступ к Google Таблице не проверен. Список не сохранён и не записан.'});
+    const delivery=await api(env.MAX_BOT_TOKEN,'/messages?user_id='+env.MAX_OWNER_ID,{text:ready?reviewText(result):'Приём заявок ещё выключен: постоянный доступ к Google Таблице не проверен. Список не сохранён и не записан.'});
+    if(delivery?.ok!==true)return 503;
+    seen.set(key,Date.now()+3600000);
     return 200;
+    } catch { return 503; }
+    finally { if(seen.get(key)===Infinity)seen.delete(key); }
   }
   const identity=setupIdentity(event,Date.now(),env);if(!identity)return 200;
   const now=Date.now();for(const [id,expires] of seen){if(expires<=now)seen.delete(id);}

@@ -10,6 +10,11 @@ const kb=JSON.parse(fs.readFileSync(new URL('./knowledge.json',import.meta.url),
 const now=1800000000000;
 const payload=(text='Цена чехлов?',mid='m1',timestamp=now)=>({object:'instagram',entry:[{id:'123',time:now/1000,messaging:[{sender:{id:'456'},recipient:{id:'123'},timestamp,message:{mid,text}}]}]});
 const cfg=overrides=>({...configuration({}),adminToken:'test-admin-key-at-least-thirty-two-characters',secret:'test-secret',verifyToken:'test-verify',accountId:'123',accessToken:'test-access',apiVersion:'v25.0',...overrides});
+test('caption does not hide an attachment from automatic reply guards',()=>{
+ const p=payload();p.entry[0].messaging[0].message.attachments=[{type:'image',payload:{url:'https://example.invalid/photo'}}];
+ assert.equal(normalize(p,'123')[0].attachment,true);
+ assert.equal(normalize(payload(),'123')[0].attachment,false);
+});
 function setup(overrides={},fetcher=async()=>{throw Error('Unexpected network request');}){
  const scratch=new URL('../../work/agent-tests/',import.meta.url);fs.mkdirSync(scratch,{recursive:true});
  const dir=fs.mkdtempSync(path.join(fileURLToPath(scratch),'anton-agent-'));
