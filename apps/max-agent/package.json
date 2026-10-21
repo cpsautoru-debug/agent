@@ -3,5 +3,5 @@
   "private": true,
   "type": "module",
   "engines": {"node": ">=22"},
-  "scripts": {"start": "node server.mjs", "start:packing-test": "node packing-server.mjs", "test": "node --test test.mjs bridge.test.mjs vk.test.mjs moysklad.test.mjs moysklad-reconcile.test.mjs readiness.test.mjs audit-ledger.test.mjs packing-test.test.mjs packing-server.test.mjs"}
+  "scripts": {"start": "node server.mjs", "start:packing-test": "node packing-server.mjs", "test": "node --test test.mjs bridge.test.mjs vk.test.mjs moysklad.test.mjs moysklad-reconcile.test.mjs readiness.test.mjs audit-ledger.test.mjs packing-test.test.mjs packing-server.test.mjs packing-orders.test.mjs"}
 }

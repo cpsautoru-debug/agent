@@ -2,6 +2,7 @@
 import {mkdirSync,openSync,closeSync,readFileSync,writeFileSync,renameSync,unlinkSync,lstatSync,fsyncSync} from 'node:fs';
 import {join,isAbsolute} from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
+import {packingOrders} from './packing-orders.mjs';
 const roles=['olga','alexandra','irina','dmitry'];
 const help='ТЕСТ. /test role olga|alexandra|irina|dmitry; /test plan; /test produce 1|2|3|4; /test pack; /test handover; /test accept; /test status. Только вымышленные данные.';
 export async function packingTest(event,env){
@@ -11,6 +12,7 @@ export async function packingTest(event,env){
  if(env.MAX_PACKING_TEST_ENABLED!=='true')return {text:'Тестовый режим выключен.'};
  const dir=env.MAX_PACKING_TEST_DIR;
  if(!dir||!isAbsolute(dir))return {text:'Тестовое хранилище не настроено. Данные не изменены.'};
+ if(/^\/test\s+orders(?:\s|$)/u.test(text))return packingOrders(event,env);
  mkdirSync(dir,{recursive:true,mode:0o700});
  if(lstatSync(dir).isSymbolicLink())throw Error('unsafe sandbox');
  const file=join(dir,'packing-test-v1.json'),lock=join(dir,'packing-test-v1.lock'),temp=join(dir,'packing-test-v1.tmp');
