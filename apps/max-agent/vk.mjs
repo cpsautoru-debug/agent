@@ -1,4 +1,5 @@
 import {timingSafeEqual} from 'node:crypto';
+import {forwardVkEvent} from './vk-office.mjs';
 
 const equal=(a,b)=>{const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length>0&&x.length===y.length&&timingSafeEqual(x,y);};
 export function vkStatus(env){
@@ -15,6 +16,10 @@ export async function receiveVk(req,env){
     return {code:200,text:env.VK_CONFIRMATION_CODE};
   }
   if(!vkStatus(env).callbackSecretConfigured||!equal(event.secret,env.VK_CALLBACK_SECRET))return {code:403,text:'forbidden'};
+  if(event.type==='message_new'&&env.VK_OFFICE_SERVICE_TOKEN&&env.VK_OFFICE_BRIDGE_KEY){
+    const {secret,...safeEvent}=event;
+    return await forwardVkEvent(safeEvent,env)?{code:200,text:'ok'}:{code:503,text:'retry'};
+  }
   // Connection stage only: acknowledge authenticated callbacks without storing private
   // conversations or sending replies. Publication and replies remain disabled.
   if(event.type==='message_new')console.log('VK authenticated message event received; replies disabled');
