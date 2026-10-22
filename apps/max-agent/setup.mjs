@@ -1,5 +1,6 @@
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import {bridgeConfigured,bridgeRequest,intakeCommand,reviewText} from './intake.mjs';
+import {packingTest} from './packing-test.mjs';
 const EXPECTED='id632135065259_2_bot';
 export const webhookSecret=token=>createHmac('sha256',token).update('autosklad63/max/setup-webhook/v1').digest('hex');
 export async function setupSubscription(env,api){
@@ -31,6 +32,14 @@ export async function receiveSetup(req,env,api,seen,state){
   for await(const chunk of req){size+=chunk.length;if(size>32768)return 413;chunks.push(Buffer.from(chunk));}
   const raw=Buffer.concat(chunks).toString('utf8');
   let event;try{event=JSON.parse(raw);}catch{return 400;}
+  try{
+    const sandbox=await packingTest(event,env);
+    if(sandbox){
+      if(sandbox.ignored)return 200;
+      const delivered=await api(env.MAX_BOT_TOKEN,'/messages?user_id='+env.MAX_OWNER_ID,{text:sandbox.text});
+      return delivered?.ok===true?200:503;
+    }
+  }catch{return 503;}
   for(const [key,expires] of seen){if(expires<=Date.now())seen.delete(key);}
   const command=intakeCommand(event,env);
   if(command){
