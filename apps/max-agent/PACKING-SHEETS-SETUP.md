@@ -1,6 +1,6 @@
 # MAX synthetic orders → Google Sheets (staging only)
 
-**Status:** code prepared, NOT deployed. No production environment, sheet, or branch `main` changes.
+**Status (2026-10-22):** isolated live bridge verified on the staging service. Render runs `58ec538`; standalone GAS deployment version 2 adds conflicting-event detection. Production environment, sheets, and branch `main` were not changed. Test results and remaining deployment limits: `../../docs/max-packing-sheets-staging-report.md`.
 
 ## Architecture
 
@@ -22,3 +22,5 @@ The existing `packing-orders-v1.json` remains authoritative for synthetic bot re
 - If Google receives an event but fails before updating the reconciliation sheet, retries repair it.
 - If the test journal is lost or reset, this design cannot reconstruct missing events from Google or automatically resolve session replacement. Persistent disk and manual review are required.
 - The standalone GAS does not access other workbook tabs, real orders, payroll, inventory, or marketplace APIs.
+- Reusing an event ID with changed payload is rejected as `event-conflict`. An exact replay repairs the reconciliation if necessary and does not append another event.
+- `packing-gas.test.mjs` runs the actual standalone Apps Script in a VM with an isolated SpreadsheetApp implementation. Both this suite and `packing-sheets-bridge.test.mjs` are included in the package test command and CI.

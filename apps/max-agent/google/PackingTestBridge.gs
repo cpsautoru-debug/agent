@@ -20,6 +20,10 @@ function packingApply_(e){
  var last=events.getLastRow();if(last>2000)throw Error('capacity-limit');
  var rows=last>1?events.getRange(2,1,last-1,12).getValues():[];
  var already=rows.some(function(r){return r[0]===e.id;});
+ if(already){
+  var previous=rows.filter(function(r){return r[0]===e.id;})[0];
+  if([previous[1],previous[3],previous[4],previous[5],previous[6],Number(previous[7]),previous[8],previous[10]].join('|')!==[e.date,e.role,e.action,e.orderId,e.positionId,e.quantity,e.shipmentId,e.operationId].join('|'))throw Error('event-conflict');
+ }
  if(!already&&rows.some(function(r){return r[10]===e.operationId;}))throw Error('operation-reused');
  // Rebuild all synthetic balances from the immutable event journal; never touch business tabs.
  var next=rows.map(function(r){return r.slice();});
@@ -59,5 +63,5 @@ function doPost(request){
   var data=JSON.parse(env.body);if(data.action!=='test-event')throw Error('bad-action');
   var lock=LockService.getScriptLock();if(!lock.tryLock(10000))throw Error('busy');
   try{return packingJson_(packingApply_(data.event));}finally{lock.releaseLock();}
- }catch(error){return packingJson_({ok:false,error:['unauthorized','bad-request','bad-action','bad-test-event','bad-test-role','bad-test-position','bad-test-accept','bad-test-shipment','missing-test-sheet','schema-mismatch','operation-reused','capacity-limit','invalid-test-history','shipment-not-prepared','shipment-already-accepted','overproduction','overpacking','overhandover','overaccept','busy'].includes(error.message)?error.message:'test-bridge-failed'});}
+ }catch(error){return packingJson_({ok:false,error:['unauthorized','bad-request','bad-action','bad-test-event','bad-test-role','bad-test-position','bad-test-accept','bad-test-shipment','missing-test-sheet','schema-mismatch','operation-reused','event-conflict','capacity-limit','invalid-test-history','shipment-not-prepared','shipment-already-accepted','overproduction','overpacking','overhandover','overaccept','busy'].includes(error.message)?error.message:'test-bridge-failed'});}
 }
