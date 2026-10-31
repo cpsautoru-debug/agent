@@ -1,6 +1,45 @@
 
 const API = "https://api-seller.ozon.ru";
 
+const FINANCE_REFERENCE = {
+  date: "2026-10-30",
+  totalKopecks: 4108800,
+  categories: {
+    POSTING: 6322841,
+    ITEM: -164263,
+    NON_ITEM: -2049778
+  }
+};
+
+function reconcileFinanceReport(date, totalKopecks, totalsByType) {
+  if (date !== FINANCE_REFERENCE.date) {
+    return {
+      status: "not_checked",
+      reason: "No reference for this date"
+    };
+  }
+
+  const differences = [];
+
+  if (totalKopecks !== FINANCE_REFERENCE.totalKopecks) {
+    differences.push("control_total_mismatch");
+  }
+
+  for (const [category, expected] of Object.entries(
+    FINANCE_REFERENCE.categories
+  )) {
+    if ((totalsByType.get(category) ?? 0) !== expected) {
+      differences.push(`${category}_mismatch`);
+    }
+  }
+
+  return {
+    status: differences.length === 0 ? "matched" : "mismatch",
+    differences
+  };
+}
+
+
 export async function buildOzonFinanceReport() {
   if (process.env.OZON_READ_ONLY !== "true") {
     throw new Error("Read-only mode required");
@@ -172,6 +211,7 @@ export async function buildOzonFinanceReport() {
         complete: true,
         currency: "RUB",
         controlTotal: totalKopecks / 100,
+        reconciliation: reconcileFinanceReport(date, totalKopecks, totalsByType),
         
 categories: Object.fromEntries(
   [...totalsByType].map(([name, amount]) => [
