@@ -1,0 +1,38 @@
+
+name: Ozon Ingest Auth Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.ref == 'refs/heads/feature/marketplace-agents-staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    environment: ozon-finance-staging
+    steps:
+      - name: Check Cloudflare authentication
+        env:
+          INGEST_TOKEN: ${{ secrets.OZON_FINANCE_INGEST_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$INGEST_TOKEN"
+
+          status=$(curl --silent --show-error \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            --max-time 20 \
+            --request POST \
+            --header "Authorization: Bearer $INGEST_TOKEN" \
+            https://autosklad63-office-staging.pages.dev/api/ozon/ingest)
+
+          if [ "$status" != "200" ]; then
+            echo "Authentication test failed: HTTP $status"
+            exit 1
+          fi
+
+          echo "Cloudflare authentication: OK (HTTP 200)"
+          echo "Financial records sent: 0"
