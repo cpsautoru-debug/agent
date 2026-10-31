@@ -13,8 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     environment: ozon-finance-staging
+
     steps:
-      - name: Check Cloudflare authentication
+      - name: Test invalid financial report
         env:
           INGEST_TOKEN: ${{ secrets.OZON_FINANCE_INGEST_TOKEN }}
         run: |
@@ -26,15 +27,15 @@ jobs:
             --write-out '%{http_code}' \
             --max-time 20 \
             --request POST \
-            --header "Content-Type: application/json" \
---data '{"period":"2026-10","currency":"RUB","processedDays":31,"records":947,"postingKopecks":100,"itemKopecks":0,"nonItemKopecks":0,"controlTotalKopecks":200,"complete":true,"reconciled":false,"final":false}' \
             --header "Authorization: Bearer $INGEST_TOKEN" \
-            https://autosklad63-office-staging.pages.dev/api/ozon/ingest)
+            --header "Content-Type: application/json" \
+            --data '{"period":"2026-10","currency":"RUB","processedDays":31,"records":947,"postingKopecks":100,"itemKopecks":0,"nonItemKopecks":0,"controlTotalKopecks":200,"complete":true,"reconciled":false,"final":false}' \
+            "https://autosklad63-office-staging.pages.dev/api/ozon/ingest")
 
           if [ "$status" != "400" ]; then
-            echo "Invalid financial report correctly rejected (HTTP 400)"
+            echo "Validation test failed: HTTP $status"
             exit 1
           fi
 
-          echo "Cloudflare authentication: OK (HTTP 200)"
+          echo "Invalid financial report correctly rejected (HTTP 400)"
           echo "Financial records sent: 0"
