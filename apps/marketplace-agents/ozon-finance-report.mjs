@@ -40,7 +40,9 @@ function reconcileFinanceReport(date, totalKopecks, totalsByType) {
 }
 
 
-export async function buildOzonFinanceReport() {
+export async function buildOzonFinanceReport(
+  date = "2026-10-30"
+) {
   if (process.env.OZON_READ_ONLY !== "true") {
     throw new Error("Read-only mode required");
   }
@@ -52,7 +54,6 @@ export async function buildOzonFinanceReport() {
     throw new Error("Missing Ozon credentials");
   }
 
-  const date = "2026-10-30";
   const totalsByType = new Map();
   const feeDetails = new Map();
   const usedCursors = new Set();
