@@ -65,3 +65,42 @@ function navigate(){const [requested,filter]=location.hash.slice(1).split('/');c
 $('#menuButton').addEventListener('click',()=>{const open=$('#sidebar').classList.toggle('open');$('#menuButton').setAttribute('aria-expanded',String(open));});document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#sidebar').classList.remove('open');$('#menuButton').setAttribute('aria-expanded','false');}});document.addEventListener('click',e=>{if(!e.target.closest('.sidebar')&&!e.target.closest('#menuButton')){$('#sidebar').classList.remove('open');$('#menuButton').setAttribute('aria-expanded','false');}});
 window.addEventListener('hashchange',navigate);navigate();
 
+;(() => {
+  function openOfficePage() {
+    const requested = location.hash.slice(1).split("/")[0] || "overview";
+    const sections = document.querySelectorAll("[data-section]");
+    const target = document.querySelector(
+      `[data-section="${CSS.escape(requested)}"]`
+    );
+
+    if (!target) return;
+
+    sections.forEach(section => {
+      section.hidden = section !== target;
+    });
+
+    document.querySelectorAll("[data-page]").forEach(link => {
+      const active = link.dataset.page === requested;
+      link.classList.toggle("active", active);
+      if (active) {
+        link.setAttribute("aria-current", "page");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    });
+
+    const breadcrumb = document.getElementById("breadcrumb");
+    if (breadcrumb) {
+      breadcrumb.textContent =
+        document.querySelector(`[data-page="${CSS.escape(requested)}"]`)
+          ?.textContent.trim() || "Обзор";
+    }
+
+    document.getElementById("sidebar")?.classList.remove("open");
+  }
+
+  window.addEventListener("hashchange", openOfficePage);
+  document.addEventListener("DOMContentLoaded", openOfficePage);
+  openOfficePage();
+})();
+
