@@ -68,4 +68,4 @@ return {
     description: type.description
   }))
 };
-
+}
