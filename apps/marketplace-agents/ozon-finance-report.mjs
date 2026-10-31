@@ -250,3 +250,88 @@ feeDetails: [...feeDetails.values()]
     complete: false
   };
 }
+
+export async function buildOzonMonthlyReport(
+  year = 2026,
+  month = 10
+) {
+  if (!Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      month < 1 || month > 12) {
+    throw new Error("Invalid reporting period");
+  }
+
+  const daysInMonth = new Date(
+    Date.UTC(year, month, 0)
+  ).getUTCDate();
+
+  const dailyReports = [];
+  const categoryTotals = new Map();
+
+  let totalKopecks = 0;
+  let totalRecords = 0;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = [
+      year,
+      String(month).padStart(2, "0"),
+      String(day).padStart(2, "0")
+    ].join("-");
+
+    const result = await buildOzonFinanceReport(date);
+
+    if (!result.complete || result.httpStatus !== 200) {
+      return {
+        check: "ozon_monthly_finance",
+        period: `${year}-${String(month).padStart(2, "0")}`,
+        complete: false,
+        failedDate: date,
+        processedDays: dailyReports.length
+      };
+    }
+
+    const toKopecks = (value) => {
+      const n = Math.round(value * 100);
+      if (!Number.isSafeInteger(n)) {
+        throw new Error("Invalid monthly amount");
+      }
+      return n;
+    };
+
+    totalKopecks += toKopecks(result.controlTotal);
+    totalRecords += result.records;
+
+    for (const [category, amount] of Object.entries(
+      result.categories
+    )) {
+      categoryTotals.set(
+        category,
+        (categoryTotals.get(category) ?? 0) +
+        toKopecks(amount)
+      );
+    }
+
+    dailyReports.push({
+      date,
+      records: result.records,
+      controlTotal: result.controlTotal,
+      reconciliation: result.reconciliation
+    });
+  }
+
+  return {
+    check: "ozon_monthly_finance",
+    period: `${year}-${String(month).padStart(2, "0")}`,
+    complete: true,
+    processedDays: dailyReports.length,
+    records: totalRecords,
+    currency: "RUB",
+    controlTotal: totalKopecks / 100,
+    categories: Object.fromEntries(
+      [...categoryTotals].map(([name, amount]) => [
+        name, amount / 100
+      ])
+    ),
+    dailyReports
+  };
+}
