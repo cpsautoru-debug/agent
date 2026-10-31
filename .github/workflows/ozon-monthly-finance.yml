@@ -1,0 +1,32 @@
+
+name: Ozon Monthly Finance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/feature/marketplace-agents-staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate finance scripts
+        run: |
+          node --check apps/marketplace-agents/run-monthly.mjs
+          node --check apps/marketplace-agents/ozon-finance-report.mjs
+          node --check apps/marketplace-agents/server.js
+
+      - name: Validation result
+        run: echo "Ozon finance syntax checks passed"
