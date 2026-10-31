@@ -9,6 +9,7 @@
   <nav aria-label="Основная навигация">
     <a href="#overview" data-page="overview"><span>◫</span>Обзор офиса</a>
     <a href="#departments" data-page="departments"><span>▦</span>Отделы <b>7</b></a>
+    <a href="#ozonFinance" data-page="ozonFinance"><span>◴</span>Финансы · Ozon</a>
     <a href="#agents" data-page="agents"><span>◎</span>ИИ-команда <b>12</b></a>
     <a href="#workflow" data-page="workflow"><span>⇄</span>Как идёт заказ</a>
     <a href="#studio" data-page="studio"><span>✧</span>Контент-студия</a>
@@ -47,6 +48,65 @@
    <div class="department-grid" id="homeDepartments"></div>
    <div class="notice"><span>i</span><p><strong>Статус системы прозрачен.</strong> Рабочие заказы открываются в Google Таблицах. MAX принимает и распределяет подтверждённые заявки. Контент-студия работает в браузере; ВК ожидает подключения API.</p><a href="#connections">Подключения →</a></div>
   </section>
+   
+<section class="page" data-section="ozonFinance" hidden>
+  <div class="page-heading">
+    <div>
+      <div class="eyebrow">ФИНАНСОВЫЙ ОТДЕЛ · OZON</div>
+      <h1>Финансовая аналитика Ozon</h1>
+      <p>Прибыль по товарам, комиссии, логистика и реклама.</p>
+    </div>
+  </div>
+
+  <div class="notice">
+    <span>i</span>
+    <p>
+      <strong>Демонстрационный режим.</strong>
+      Финансовые данные пока не подключены.
+      Все показатели появятся после настройки
+      защищённого источника данных.
+    </p>
+  </div>
+
+  <div class="metrics">
+    <article class="metric">
+      <div class="metric-label">Начисления Ozon</div>
+      <strong class="text-metric">—</strong>
+      <p>Ожидает подключения API</p>
+    </article>
+
+    <article class="metric">
+      <div class="metric-label">Себестоимость</div>
+      <strong class="text-metric">—</strong>
+      <p>Справочник SKU</p>
+    </article>
+
+    <article class="metric">
+      <div class="metric-label">Прибыль</div>
+      <strong class="text-metric">—</strong>
+      <p>После сверки расходов</p>
+    </article>
+
+    <article class="metric">
+      <div class="metric-label">Маржинальность</div>
+      <strong class="text-metric">—</strong>
+      <p>После расчёта прибыли</p>
+    </article>
+  </div>
+
+  <article class="panel">
+    <div class="panel-heading">
+      <h2>Прибыль по артикулам</h2>
+      <span class="subtle">Ожидает подключения</span>
+    </div>
+    <p>
+      Здесь появится таблица SKU с продажами,
+      себестоимостью, комиссиями, рекламой,
+      логистикой и прибылью.
+    </p>
+  </article>
+</section>
+
   <section class="page" data-section="departments" hidden><div class="page-heading"><div><div class="eyebrow">СТРУКТУРА КОМАНДЫ</div><h1>Отделы</h1><p>Продажи, производство и учёт соединены одним рабочим процессом.</p></div></div><div class="department-grid all-departments" id="allDepartments"></div></section>
   <section class="page" data-section="agents" hidden><div class="page-heading"><div><div class="eyebrow">ЛЮДИ ЗАДАЮТ ЦЕЛЬ. ИИ ПОМОГАЕТ.</div><h1>ИИ-команда</h1><p>12 ролей · MAX распределяет заявки · дизайнер собирает макеты · ВК ожидает API.</p></div><a class="button primary" data-sheet="710004" target="_blank" rel="noopener">Задачи команды ↗</a></div><div class="filter-bar"><label class="search"><span>⌕</span><input id="agentSearch" type="search" placeholder="Найти роль или задачу…" aria-label="Найти агента"></label><label class="select-label">Отдел <select id="departmentFilter"><option value="all">Все отделы</option></select></label><div class="result-count" id="resultCount"></div></div><div class="agent-grid" id="agentGrid"></div><div class="empty-state" id="emptyState" hidden>Таких ролей пока нет. Попробуйте другой запрос.</div></section>
   <section class="page" data-section="workflow" hidden><div class="page-heading"><div><div class="eyebrow">ОТ ОБРАЩЕНИЯ ДО РЕЗУЛЬТАТА</div><h1>Как идёт заказ</h1><p>Продажи: дилеры с «Пламя», Авито и Instagram; ВБ и Ozon — после подключения API.</p></div><a class="button primary" data-sheet="710003" target="_blank" rel="noopener">Журнал заказов ↗</a></div><div class="workflow" id="workflowSteps"></div><div class="notice"><span>i</span><p>После подключения API агенты ВБ и Ozon передадут заказы менеджеру продаж для записи в таблицу. Сверка по внешнему ID исключит дубли; отмены обновят существующие записи. До запуска учёт маркетплейсов остаётся в прежнем режиме.</p></div></section>
