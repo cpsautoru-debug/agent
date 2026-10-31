@@ -15,6 +15,7 @@ export async function buildOzonFinanceReport() {
 
   const date = "2026-10-30";
   const totalsByType = new Map();
+  const feeDetails = new Map();
   const usedCursors = new Set();
 
   let lastId = "";
@@ -84,6 +85,79 @@ export async function buildOzonFinanceReport() {
         category,
         (totalsByType.get(category) || 0) + kopecks
       );
+      
+      // Детализация для анализа, не добавляется
+      // повторно в контрольный финансовый итог.
+      function collectFee(fee) {
+        if (!fee || typeof fee !== "object") return;
+
+        const typeId = fee.type_id;
+        const money = fee.accrued;
+
+        if (!Number.isInteger(typeId) || !money) return;
+
+        const value = money.amount;
+
+        if (money.currency !== "RUB" ||
+            typeof value !== "string" ||
+            !/^-?\d+(\.\d{1,2})?$/.test(value)) {
+          throw new Error("Invalid fee amount");
+        }
+
+        const negative = value.startsWith("-");
+        const [rubles, decimals = ""] =
+          value.replace("-", "").split(".");
+
+        const cents =
+          (Number(rubles) * 100 +
+          Number(decimals.padEnd(2, "0"))) *
+          (negative ? -1 : 1);
+
+        if (!Number.isSafeInteger(cents)) {
+          throw new Error("Fee amount out of range");
+        }
+
+        const key = `${category}:${typeId}`;
+        const previous = feeDetails.get(key) || {
+          category,
+          typeId,
+          count: 0,
+          kopecks: 0
+        };
+
+        previous.count++;
+        previous.kopecks += cents;
+
+        if (!Number.isSafeInteger(previous.kopecks)) {
+          throw new Error("Fee total out of range");
+        }
+
+        feeDetails.set(key, previous);
+      }
+
+      for (const group of item.container_fees?.fees ?? []) {
+        collectFee(group);
+      }
+
+      for (const group of item.item_fees?.fees ?? []) {
+        for (const fee of group.fees ?? []) {
+          collectFee(fee);
+        }
+      }
+
+      if (item.non_item_fee?.type_id !== undefined) {
+        collectFee({
+          type_id: item.non_item_fee.type_id,
+          accrued: item.non_item_fee.accrued
+        });
+      }
+
+      for (const product of item.posting?.products ?? []) {
+        for (const service of product.delivery?.services ?? []) {
+          collectFee(service);
+        }
+      }
+
     }
 
     const nextId = data.last_id || "";
@@ -98,11 +172,24 @@ export async function buildOzonFinanceReport() {
         complete: true,
         currency: "RUB",
         controlTotal: totalKopecks / 100,
-        categories: Object.fromEntries(
-          [...totalsByType].map(([name, amount]) => [
-            name, amount / 100
-          ])
-        )
+        
+categories: Object.fromEntries(
+  [...totalsByType].map(([name, amount]) => [
+    name, amount / 100
+  ])
+),
+feeDetails: [...feeDetails.values()]
+  .sort((a, b) =>
+    a.category.localeCompare(b.category) ||
+    a.typeId - b.typeId
+  )
+  .map(({ category, typeId, count, kopecks }) => ({
+    category,
+    typeId,
+    count,
+    amount: kopecks / 100
+  }))
+
       };
     }
 
