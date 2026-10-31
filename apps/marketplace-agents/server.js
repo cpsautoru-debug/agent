@@ -3,6 +3,7 @@ import http from "node:http";
 import { checkOzonConnection } from "./ozon.js";
 import { checkFboOrders } from "./ozon-orders.mjs";
 import { checkFbsOrders } from "./ozon-fbs.mjs";
+import { checkOzonFinance } from "./ozon-finance.mjs";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -98,6 +99,31 @@ if (process.env.OZON_FBS_CHECK === "true") {
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "FBS check failed"
+      }));
+    });
+}
+
+if (process.env.OZON_FINANCE_CHECK === "true") {
+  checkOzonFinance()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_finance",
+        connected: result.connected,
+        httpStatus: result.httpStatus,
+        date: result.date,
+        pages: result.pages,
+        records: result.records,
+        complete: result.complete
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_finance",
+        connected: false,
+        complete: false,
+        error: error.name === "TimeoutError"
+          ? "Request timeout"
+          : "Finance check failed"
       }));
     });
 }
