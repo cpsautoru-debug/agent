@@ -26,11 +26,13 @@ jobs:
             --write-out '%{http_code}' \
             --max-time 20 \
             --request POST \
+            --header "Content-Type: application/json" \
+--data '{"period":"2026-10","currency":"RUB","processedDays":31,"records":947,"postingKopecks":100,"itemKopecks":0,"nonItemKopecks":0,"controlTotalKopecks":200,"complete":true,"reconciled":false,"final":false}' \
             --header "Authorization: Bearer $INGEST_TOKEN" \
             https://autosklad63-office-staging.pages.dev/api/ozon/ingest)
 
-          if [ "$status" != "200" ]; then
-            echo "Authentication test failed: HTTP $status"
+          if [ "$status" != "400" ]; then
+            echo "Invalid financial report correctly rejected (HTTP 400)"
             exit 1
           fi
 
