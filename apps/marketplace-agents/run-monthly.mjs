@@ -17,16 +17,13 @@ const timeout = setTimeout(() => {
 }, 180000);
 
 try {
-  const report = await Promise.race([
-    buildOzonMonthlyReport(2026, 10),
-    new Promise((_, reject) => {
-      controller.signal.addEventListener(
-        "abort",
-        () => reject(new Error("Monthly timeout")),
-        { once: true }
-      );
-    })
-  ]);
+  
+const report = await buildOzonMonthlyReport(
+  2026,
+  10,
+  controller.signal
+);
+
 
   console.log(JSON.stringify({
     check: report.check,
