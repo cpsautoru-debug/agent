@@ -3,9 +3,19 @@ name: Ozon Monthly Finance
 
 on:
   workflow_dispatch:
+    inputs:
+      execute_finance:
+        description: "Run real Ozon finance report"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
+
+concurrency:
+  group: ozon-monthly-finance
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -17,16 +27,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Validate finance scripts
+      - name: Check syntax
         run: |
           node --check apps/marketplace-agents/run-monthly.mjs
           node --check apps/marketplace-agents/ozon-finance-report.mjs
           node --check apps/marketplace-agents/server.js
 
-      - name: Validation result
-        run: echo "Ozon finance syntax checks passed"
+  finance:
+    needs: validate
+    if: inputs.execute_finance == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    environment: ozon-finance-staging
+
+    defaults:
+      run:
+        working-directory: apps/marketplace-agents
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run monthly finance
+        env:
+          OZON_CLIENT_ID: ${{ secrets.OZON_CLIENT_ID }}
+          OZON_API_KEY: ${{ secrets.OZON_API_KEY }}
+          OZON_READ_ONLY: "true"
+          OZON_MONTHLY_RUN: "true"
+        run: node run-monthly.mjs
