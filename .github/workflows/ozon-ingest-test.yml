@@ -1,0 +1,15 @@
+
+name: Ozon Ingest Auth Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Register workflow
+        run: echo "Workflow registered"
