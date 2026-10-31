@@ -10,349 +10,996 @@
 <link rel="stylesheet" href="office-map.css">
 </head>
 <body>
+
 <aside class="sidebar" id="sidebar">
-  <a class="brand" href="#overview"><span class="brandmark">А<span>63</span></span><span>АвтоСклад63<small>ОНЛАЙН-ОФИС</small></span></a>
-  <div class="workspace"><span class="presence"></span>Рабочее пространство <span class="version">v1</span></div>
+  <a class="brand" href="#overview">
+    <span class="brandmark">А<span>63</span></span>
+    <span>АвтоСклад63<small>ОНЛАЙН-ОФИС</small></span>
+  </a>
+
+  <div class="workspace">
+    <span class="presence"></span>
+    Рабочее пространство
+    <span class="version">v1</span>
+  </div>
+
   <div class="navlabel">РАБОЧИЙ СТОЛ</div>
+
   <nav aria-label="Основная навигация">
-    <a href="#overview" data-page="overview"><span>◫</span>Обзор офиса</a>
-    <a href="#departments" data-page="departments"><span>▦</span>Отделы <b>7</b></a>
-    <a href="#ozonFinance" data-page="ozonFinance"><span>◴</span>Финансы · Ozon</a>
-    <a href="#agents" data-page="agents"><span>◎</span>ИИ-команда <b>12</b></a>
-    <a href="#workflow" data-page="workflow"><span>⇄</span>Как идёт заказ</a>
-    <a href="#studio" data-page="studio"><span>✧</span>Контент-студия</a>
-    <a href="#production" data-page="production"><span>▧</span>Запуск производства</a>
-    <a href="#connections" data-page="connections"><span>⌘</span>Подключения</a>
+    <a href="#overview" data-page="overview">
+      <span>◫</span>Обзор офиса
+    </a>
+    <a href="#departments" data-page="departments">
+      <span>▦</span>Отделы <b>7</b>
+    </a>
+    <a href="#ozonFinance" data-page="ozonFinance">
+      <span>◴</span>Финансы · Ozon
+    </a>
+    <a href="#agents" data-page="agents">
+      <span>◎</span>ИИ-команда <b>12</b>
+    </a>
+    <a href="#workflow" data-page="workflow">
+      <span>⇄</span>Как идёт заказ
+    </a>
+    <a href="#studio" data-page="studio">
+      <span>✧</span>Контент-студия
+    </a>
+    <a href="#production" data-page="production">
+      <span>▧</span>Запуск производства
+    </a>
+    <a href="#connections" data-page="connections">
+      <span>⌘</span>Подключения
+    </a>
   </nav>
+
   <div class="navlabel">БЫСТРЫЙ ДОСТУП</div>
-  <a class="quick" href="https://autosklad63-instagram.cpsautoru.workers.dev/panel" target="_blank" rel="noopener noreferrer">Instagram · входящие <span>↗</span></a>
-  <a class="quick" data-sheet="710003" target="_blank" rel="noopener">Заказы <span>↗</span></a>
-  <a class="quick" data-sheet="710004" target="_blank" rel="noopener">Задачи команды <span>↗</span></a>
-  <a class="quick" href="https://github.com/cpsautoru-debug/agent" target="_blank" rel="noopener">Репозиторий GitHub <span>↗</span></a>
-  <div class="sidebar-bottom"><span class="avatar">А</span><div>Антон<small>Владелец пространства</small></div><span class="lock">♧</span></div>
+
+  <a class="quick"
+     href="https://autosklad63-instagram.cpsautoru.workers.dev/panel"
+     target="_blank"
+     rel="noopener noreferrer">
+    Instagram · входящие <span>↗</span>
+  </a>
+
+  <a class="quick" data-sheet="710003"
+     target="_blank" rel="noopener">
+    Заказы <span>↗</span>
+  </a>
+
+  <a class="quick" data-sheet="710004"
+     target="_blank" rel="noopener">
+    Задачи команды <span>↗</span>
+  </a>
+
+  <a class="quick"
+     href="https://github.com/cpsautoru-debug/agent"
+     target="_blank" rel="noopener">
+    Репозиторий GitHub <span>↗</span>
+  </a>
+
+  <div class="sidebar-bottom">
+    <span class="avatar">А</span>
+    <div>
+      Антон
+      <small>Владелец пространства</small>
+    </div>
+    <span class="lock">♧</span>
+  </div>
 </aside>
 
 <main>
- <header class="topbar">
-  <button class="menu-button" id="menuButton" aria-label="Открыть меню" aria-expanded="false">☰</button>
-  <div>Рабочее пространство <span>/</span> <strong id="breadcrumb">Обзор</strong></div>
-  <div class="top-right"><span class="private-label">Доступ владельца</span><time id="today"></time></div>
- </header>
 
- <div class="content">
+  <header class="topbar">
+    <button class="menu-button"
+            id="menuButton"
+            aria-label="Открыть меню"
+            aria-expanded="false">☰</button>
 
-  <section class="page" data-section="overview">
-   <div class="page-heading">
     <div>
-     <div class="eyebrow">ВАШ БИЗНЕС. ОДНО ПРОСТРАНСТВО.</div>
-     <h1>Офис под контролем</h1>
-     <p>От первого обращения до отгрузки — команда, отделы и рабочие инструменты рядом.</p>
-    </div>
-    <a class="button primary" data-sheet="710003" target="_blank" rel="noopener">Открыть заказы <span>↗</span></a>
-   </div>
-
-   <section class="office-map" aria-labelledby="officeMapTitle">
-    <div class="map-toolbar">
-     <div>
-      <span class="eyebrow">ПЛАН ОФИСА · ЭТАЖ 01</span>
-      <h2 id="officeMapTitle">Команда на своих местах</h2>
-     </div>
-     <div class="map-legend">
-      <span class="legend-seat"></span>12 рабочих мест
-      <span class="legend-idle"></span>MAX · заказы / дизайнер · шаблоны / ВК · подготовка
-     </div>
-    </div>
-    <div class="office-lobby">
-     <span class="lobby-logo">А63</span>
-     <div><strong>АвтоСклад63</strong><small>Учёт · производство · продажи</small></div>
-     <span class="lobby-sign">НАЖМИТЕ НА АГЕНТА, ЧТОБЫ ОТКРЫТЬ ЕГО РОЛЬ ↘</span>
-     <div class="lobby-plant" aria-hidden="true">♣</div>
-    </div>
-    <div class="office-floor" id="officeRooms"></div>
-    <div class="map-caption">
-     <span>◎</span>MAX — приём и распределение заказов; дизайнер — шаблоны с фото; маркетолог — по запросу. ВК ожидает API.
-     <a data-sheet="710004" target="_blank" rel="noopener">Открыть задачи ↗</a>
-    </div>
-   </section>
-
-   <div class="metrics">
-    <article class="metric">
-     <div class="metric-label">Рабочие инструменты</div>
-     <strong class="text-metric">Офис</strong>
-     <p>Быстрый доступ к учёту и задачам</p>
-    </article>
-    <article class="metric">
-     <div class="metric-label">Команда</div>
-     <strong class="text-metric">12</strong>
-     <p>Роли и ответственные</p>
-    </article>
-    <article class="metric">
-     <div class="metric-label">Отделы</div>
-     <strong class="text-metric">7</strong>
-     <p>Направления работы</p>
-    </article>
-   </div>
-
-   <div class="section-title"><h2>Рабочие инструменты</h2></div>
-   <div class="tool-grid" id="toolList"></div>
-
-   <div class="section-title"><h2>Отделы</h2><a href="#departments">Все отделы →</a></div>
-   <div class="department-grid" id="homeDepartments"></div>
-  </section>
-
-  <section class="page" data-section="ozonFinance" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">ФИНАНСОВЫЙ ОТДЕЛ · OZON</div>
-     <h1>Финансовая аналитика Ozon</h1>
-     <p>Начисления, себестоимость и прибыль по товарам.</p>
-    </div>
-   </div>
-   <div class="notice">
-    <span>i</span>
-    <p><strong>Финансовый отчёт Ozon.</strong> Данные доступны после входа владельца через Google. Октябрь 2026 — предварительный отчёт. Независимая сверка ещё не завершена. Себестоимость и чистая прибыль пока не рассчитаны.</p>
-   </div>
-   <div class="metrics">
-    <article class="metric">
-     <div class="metric-label">Начисления Ozon</div>
-     <strong class="text-metric" id="ozonTotal">—</strong>
-     <p id="ozonTotalNote">Требуется вход владельца</p>
-    </article>
-    <article class="metric">
-     <div class="metric-label">Себестоимость</div>
-     <strong class="text-metric">—</strong>
-     <p>Ожидает подтверждённых затрат по SKU</p>
-    </article>
-    <article class="metric">
-     <div class="metric-label">Прибыль</div>
-     <strong class="text-metric">—</strong>
-     <p>После сверки расходов и себестоимости</p>
-    </article>
-    <article class="metric">
-     <div class="metric-label">Маржинальность</div>
-     <strong class="text-metric">—</strong>
-     <p>После расчёта прибыли</p>
-    </article>
-   </div>
-
-   <article class="panel">
-    <div class="panel-heading">
-     <h2>Начисления по артикулам Ozon</h2>
-     <span class="subtle">1–29 октября 2026</span>
+      Рабочее пространство
+      <span>/</span>
+      <strong id="breadcrumb">Обзор</strong>
     </div>
 
-    <p>Сальдо начислений и удержаний по артикулам. Это не чистая прибыль и не количество проданных комплектов. Данные предварительные.</p>
-
-    <div style="overflow-x:auto">
-     <table class="finance-table" style="width:100%;border-collapse:collapse">
-      <thead>
-       <tr>
-        <th scope="col" style="padding:12px;text-align:left;border-bottom:1px solid #ddd">Артикул</th>
-        <th scope="col" style="padding:12px;text-align:right;border-bottom:1px solid #ddd">Операций</th>
-        <th scope="col" style="padding:12px;text-align:right;border-bottom:1px solid #ddd">Сумма, ₽</th>
-       </tr>
-      </thead>
-      <tbody id="ozonArticlesBody">
-       <tr>
-        <td colspan="3" style="padding:16px">Требуется вход владельца</td>
-       </tr>
-      </tbody>
-     </table>
+    <div class="top-right">
+      <span class="private-label">Доступ владельца</span>
+      <time id="today"></time>
     </div>
-    <p class="subtle" id="ozonArticlesNote">Детализация: 01.10.2026–29.10.2026. Общая сводка выше: 01.10.2026–31.10.2026.</p>
-   </article>
-  </section>
+  </header>
 
-  <section class="page" data-section="departments" hidden>
-   <div class="page-heading">
-    <div><div class="eyebrow">СТРУКТУРА КОМАНДЫ</div><h1>Отделы</h1><p>Продажи, производство и учёт соединены одним рабочим процессом.</p></div>
-   </div>
-   <div class="department-grid all-departments" id="allDepartments"></div>
-  </section>
+  <div class="content">
 
-  <section class="page" data-section="agents" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">ЛЮДИ ЗАДАЮТ ЦЕЛЬ. ИИ ПОМОГАЕТ.</div>
-     <h1>ИИ-команда</h1>
-     <p>12 ролей · MAX распределяет заявки · дизайнер собирает макеты · ВК ожидает API.</p>
-    </div>
-    <a class="button primary" data-sheet="710004" target="_blank" rel="noopener">Задачи команды ↗</a>
-   </div>
-   <div class="filter-bar">
-    <label class="search"><span>⌕</span><input id="agentSearch" type="search" placeholder="Найти роль или задачу…" aria-label="Найти агента"></label>
-    <label class="select-label">Отдел
-     <select id="departmentFilter"><option value="all">Все отделы</option></select>
-    </label>
-    <div class="result-count" id="resultCount"></div>
-   </div>
-   <div class="agent-grid" id="agentGrid"></div>
-   <div class="empty-state" id="emptyState" hidden>Таких ролей пока нет. Попробуйте другой запрос.</div>
-  </section>
+    <!-- ОБЗОР ОФИСА -->
 
-  <section class="page" data-section="workflow" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">ОТ ОБРАЩЕНИЯ ДО РЕЗУЛЬТАТА</div>
-     <h1>Как идёт заказ</h1>
-     <p>Продажи: дилеры с «Пламя», Авито и Instagram; ВБ и Ozon — после подключения API.</p>
-    </div>
-    <a class="button primary" data-sheet="710003" target="_blank" rel="noopener">Журнал заказов ↗</a>
-   </div>
-   <div class="workflow" id="workflowSteps"></div>
-   <div class="notice">
-    <span>i</span>
-    <p>После подключения API агенты ВБ и Ozon передадут заказы менеджеру продаж для записи в таблицу. Сверка по внешнему ID исключит дубли; отмены обновят существующие записи. До запуска учёт маркетплейсов остаётся в прежнем режиме.</p>
-   </div>
-  </section>
+    <section class="page" data-section="overview">
 
-  <section class="page" data-section="connections" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">ИНФРАСТРУКТУРА ОФИСА</div>
-     <h1>Подключения</h1>
-     <p>Что уже доступно и что предстоит включить.</p>
-    </div>
-   </div>
-   <div class="connection-grid" id="connectionGrid"></div>
-   <article class="panel explanation">
-    <h2>Что означает «агент подключён»?</h2>
-    <p>Instagram-сервис подключён к Meta: приём и автоматический ответ подтверждены 18.10.2026. Он отвечает по базе условий компании; языковая модель не подключена. Остальные роли показывают свой фактический этап подготовки.</p>
-    <p>Статусы офиса отражают проверенные настройки и не обновляются в реальном времени. Текущие обращения и результаты Instagram открываются в защищённой панели. Общий диспетчер команды пока не подключён.</p>
-   </article>
-  </section>
-
-  <section class="page" data-section="studio" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">МАРКЕТОЛОГ → ДИЗАЙНЕР → ВК</div>
-     <h1>Контент-студия</h1>
-     <p>Реальное фото, понятный текст и проверенные условия. Сообщество: vk.ru/autosklad63.</p>
-    </div>
-    <a class="button primary" href="https://vk.ru/autosklad63" target="_blank" rel="noopener">Открыть сообщество ↗</a>
-   </div>
-
-   <div class="studio-flow">
-    <article><small>01 · МАРКЕТОЛОГ</small><h3>Бриф и текст</h3><p class="studio-note">Тема, товар, задача поста и подтверждённые факты.</p></article>
-    <article><small>02 · ДИЗАЙНЕР</small><h3>Макет с фото</h3><p class="studio-note">Бесплатный шаблон. Квадрат или вертикальный PNG.</p></article>
-    <article><small>03 · ПРОВЕРКА</small><h3>Товар и условия</h3><p class="studio-note">Цена, характеристики, фото и права на материалы.</p></article>
-    <article><small>04 · ВК-АГЕНТ</small><h3>Публикация</h3><p class="studio-note">Ожидает API сообщества. Готовый материал ещё не опубликован.</p></article>
-   </div>
-
-   <p class="studio-message" id="studioMessage" role="status" aria-live="polite">Создайте бриф или выберите материал из очереди. Черновики хранятся только в этом браузере; фото не отправляются на сервер.</p>
-
-   <div class="studio-layout">
-    <article class="studio-panel">
-     <h2>Задание дизайнеру</h2>
-     <form id="studioBrief">
-      <label>Заголовок материала<input id="briefTitle" required maxlength="70" placeholder="Например: чехлы для Lada Vesta"></label>
-      <label>Текст поста и задача<textarea id="briefText" required maxlength="3500" placeholder="Что показываем, кому и какие условия уже подтверждены"></textarea></label>
-      <button class="button primary" type="submit">Создать бриф →</button>
-     </form>
-     <p class="studio-note">Не указывайте здесь клиентские переписки или финансовые строки. Это локальная студия, а не общий журнал команды.</p>
-     <h3>Материал: <span id="selectedBrief">не выбран</span></h3>
-     <label>Текст для ВК<textarea id="postCopy" maxlength="3500" placeholder="Выберите бриф"></textarea></label>
-     <label class="checkline"><input id="termsChecked" type="checkbox">Товар, цена и условия проверены по базе компании</label>
-     <label class="checkline"><input id="photoChecked" type="checkbox">Фото реальное, права на его использование есть</label>
-     <div class="studio-buttons">
-      <button class="button" id="approveCreative" type="button" disabled>Готово для ВК</button>
-      <button class="button" id="copyCreative" type="button">Скопировать текст</button>
-      <button class="button" id="exportBrief" type="button">Скачать бриф JSON</button>
-     </div>
-    </article>
-
-    <article class="studio-panel">
-     <h2>Дизайнер · шаблоны с фото</h2>
-     <label>Фото товара · JPG, PNG или WebP<input id="designPhoto" type="file" accept="image/jpeg,image/png,image/webp"></label>
-     <label>Формат
-      <select id="designFormat">
-       <option value="square">Квадрат · 1080 × 1080</option>
-       <option value="portrait">Вертикальный · 1080 × 1350</option>
-      </select>
-     </label>
-     <label>Заголовок на макете<input id="designTitle" maxlength="70" placeholder="Ваш товар — в деталях"></label>
-     <label>Подпись<input id="designSubtitle" maxlength="65" placeholder="Подберём вариант для вашего автомобиля"></label>
-     <canvas id="designCanvas" width="1080" height="1080" aria-label="Предпросмотр макета с фото товара"></canvas>
-     <div class="studio-buttons"><button class="button primary" id="downloadDesign" type="button" disabled>Скачать PNG</button></div>
-     <p class="studio-note">Фото размещается целиком, без выдуманных деталей товара. Скачанный PNG и бриф можно передать в публикацию после подключения API. Фото нужно выбирать заново после перезагрузки страницы.</p>
-    </article>
-   </div>
-
-   <div class="section-title">
-    <h2>Очередь материалов · <span id="studioCount">0</span></h2>
-    <span class="subtle">На этом устройстве</span>
-   </div>
-   <div class="studio-queue" id="studioQueue"></div>
-  </section>
-
-  <section class="page" data-section="production" hidden>
-   <div class="page-heading">
-    <div>
-     <div class="eyebrow">ПРИОРИТЕТ ИЗ «ВТОРОГО МОЗГА»</div>
-     <h1>Запуск производственного учёта</h1>
-     <p>Материал → крой → пошив → готовый комплект → отгрузка. Физические операции фиксируют сотрудники, контролёр проверяет записи.</p>
-    </div>
-    <a class="button primary" data-sheet="710009" target="_blank" rel="noopener">Контроль производства ↗</a>
-   </div>
-   <div class="workflow">
-    <article class="workflow-step">
-     <span class="step-number">01</span>
-     <div>
-      <h3>Подтвердить фактические остатки</h3>
-      <p>Кладовщик и старшая производства: пересчитать материалы, крой, выданное швеям и готовые комплекты. Расчётные остатки не заменяют пересчёт.</p>
-      <a data-sheet="414775231" target="_blank" rel="noopener">Открыть остатки ↗</a>
-     </div>
-    </article>
-    <article class="workflow-step">
-     <span class="step-number">02</span>
-     <div>
-      <h3>Закрепить ответственность и сроки</h3>
-      <p>Менеджер проектов и старшая: у каждой позиции должны быть этап, исполнитель, срок и ID заказа или партии.</p>
-      <a data-sheet="710009" target="_blank" rel="noopener">Проверить маршрут производства ↗</a>
-     </div>
-    </article>
-    <article class="workflow-step">
-     <span class="step-number">03</span>
-     <div>
-      <h3>Фиксировать каждую передачу</h3>
-      <p>Сотрудники записывают фактическую выдачу, раскрой, пошив, готовность и отгрузку. Повторный учёт одного расхода запрещён.</p>
-      <div class="production-links">
-       <a data-sheet="218679490" target="_blank" rel="noopener">Раскрой ↗</a>
-       <a data-sheet="32853933" target="_blank" rel="noopener">Пошив ↗</a>
-       <a data-sheet="115686972" target="_blank" rel="noopener">Отгрузка ↗</a>
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ВАШ БИЗНЕС. ОДНО ПРОСТРАНСТВО.
+          </div>
+          <h1>Офис под контролем</h1>
+          <p>
+            От первого обращения до отгрузки —
+            команда, отделы и рабочие инструменты рядом.
+          </p>
+        </div>
+        <a class="button primary"
+           data-sheet="710003"
+           target="_blank"
+           rel="noopener">
+          Открыть заказы <span>↗</span>
+        </a>
       </div>
-     </div>
-    </article>
-    <article class="workflow-step">
-     <span class="step-number">04</span>
-     <div>
-      <h3>Проверять исключения</h3>
-      <p>Контролёры в таблице запускаются вручную. Общего расписания и автоматических уведомлений ещё нет. Вопросы по расхождениям передаются ответственному; цены и списания не меняются автоматически.</p>
-      <a data-sheet="248682278" target="_blank" rel="noopener">Отчёты контролёров ↗</a>
-     </div>
-    </article>
-   </div>
-  </section>
 
-  <footer>
-   <span>АвтоСклад63 <b>·</b> Онлайн-офис</span>
-   <span>Версия 1.1 <b>·</b> Контент и производство</span>
-  </footer>
- </div>
+      <section class="office-map"
+               aria-labelledby="officeMapTitle">
+
+        <div class="map-toolbar">
+          <div>
+            <span class="eyebrow">
+              ПЛАН ОФИСА · ЭТАЖ 01
+            </span>
+            <h2 id="officeMapTitle">
+              Команда на своих местах
+            </h2>
+          </div>
+
+          <div class="map-legend">
+            <span class="legend-seat"></span>
+            12 рабочих мест
+            <span class="legend-idle"></span>
+            MAX · заказы / дизайнер · шаблоны /
+            ВК · подготовка
+          </div>
+        </div>
+
+        <div class="office-lobby">
+          <span class="lobby-logo">А63</span>
+
+          <div>
+            <strong>АвтоСклад63</strong>
+            <small>Учёт · производство · продажи</small>
+          </div>
+
+          <span class="lobby-sign">
+            НАЖМИТЕ НА АГЕНТА,
+            ЧТОБЫ ОТКРЫТЬ ЕГО РОЛЬ ↘
+          </span>
+
+          <div class="lobby-plant"
+               aria-hidden="true">♣</div>
+        </div>
+
+        <div class="office-floor"
+             id="officeRooms"></div>
+
+        <div class="map-caption">
+          <span>◎</span>
+          MAX — приём и распределение заказов;
+          дизайнер — шаблоны с фото;
+          маркетолог — по запросу.
+          ВК ожидает API.
+          <a data-sheet="710004"
+             target="_blank"
+             rel="noopener">
+            Открыть задачи ↗
+          </a>
+        </div>
+      </section>
+
+      <div class="metrics">
+
+        <article class="metric">
+          <div class="metric-label">
+            Рабочие инструменты
+          </div>
+          <strong class="text-metric">Офис</strong>
+          <p>Быстрый доступ к учёту и задачам</p>
+        </article>
+
+        <article class="metric">
+          <div class="metric-label">Команда</div>
+          <strong class="text-metric">12</strong>
+          <p>Роли и ответственные</p>
+        </article>
+
+        <article class="metric">
+          <div class="metric-label">Отделы</div>
+          <strong class="text-metric">7</strong>
+          <p>Направления работы</p>
+        </article>
+
+      </div>
+
+      <div class="section-title">
+        <h2>Рабочие инструменты</h2>
+      </div>
+
+      <div class="tool-grid" id="toolList"></div>
+
+      <div class="section-title">
+        <h2>Отделы</h2>
+        <a href="#departments">Все отделы →</a>
+      </div>
+
+      <div class="department-grid"
+           id="homeDepartments"></div>
+
+    </section>
+
+    <!-- ФИНАНСЫ OZON -->
+
+    <section class="page"
+             data-section="ozonFinance"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ФИНАНСОВЫЙ ОТДЕЛ · OZON
+          </div>
+          <h1>Финансовая аналитика Ozon</h1>
+          <p>
+            Начисления, себестоимость
+            и прибыль по товарам.
+          </p>
+        </div>
+      </div>
+
+      <div class="notice">
+        <span>i</span>
+        <p>
+          <strong>Финансовый отчёт Ozon.</strong>
+          Данные доступны после входа владельца через Google.
+          Октябрь 2026 — предварительный отчёт.
+          Независимая сверка ещё не завершена.
+          Себестоимость и чистая прибыль пока не рассчитаны.
+        </p>
+      </div>
+
+      <div class="metrics">
+
+        <article class="metric">
+          <div class="metric-label">
+            Начисления Ozon
+          </div>
+          <strong class="text-metric"
+                  id="ozonTotal">—</strong>
+          <p id="ozonTotalNote">
+            Требуется вход владельца
+          </p>
+        </article>
+
+        <article class="metric">
+          <div class="metric-label">
+            Себестоимость
+          </div>
+          <strong class="text-metric">—</strong>
+          <p>
+            Ожидает подтверждённых затрат по SKU
+          </p>
+        </article>
+
+        <article class="metric">
+          <div class="metric-label">
+            Прибыль
+          </div>
+          <strong class="text-metric">—</strong>
+          <p>
+            После сверки расходов и себестоимости
+          </p>
+        </article>
+
+        <article class="metric">
+          <div class="metric-label">
+            Маржинальность
+          </div>
+          <strong class="text-metric">—</strong>
+          <p>После расчёта прибыли</p>
+        </article>
+
+      </div>
+
+      <!-- НАЧИСЛЕНИЯ ПО АРТИКУЛАМ -->
+
+      <article class="panel">
+
+        <div class="panel-heading">
+          <h2>Начисления по артикулам Ozon</h2>
+          <span class="subtle">
+            1–29 октября 2026
+          </span>
+        </div>
+
+        <p>
+          Сальдо начислений и удержаний по артикулам.
+          Это не чистая прибыль и не количество
+          проданных комплектов.
+          Данные предварительные.
+        </p>
+
+        <div style="overflow-x:auto">
+
+          <table class="finance-table"
+                 style="width:100%;border-collapse:collapse">
+
+            <thead>
+              <tr>
+                <th scope="col"
+                    style="padding:12px;text-align:left;border-bottom:1px solid #ddd">
+                  Артикул
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:right;border-bottom:1px solid #ddd">
+                  Операций
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:right;border-bottom:1px solid #ddd">
+                  Сумма, ₽
+                </th>
+              </tr>
+            </thead>
+
+            <tbody id="ozonArticlesBody">
+              <tr>
+                <td colspan="3" style="padding:16px">
+                  Требуется вход владельца
+                </td>
+              </tr>
+            </tbody>
+
+          </table>
+        </div>
+
+        <p class="subtle" id="ozonArticlesNote">
+          Детализация: 01.10.2026–29.10.2026.
+          Общая сводка выше: 01.10.2026–31.10.2026.
+        </p>
+
+      </article>
+
+      <!-- УПРАВЛЕНИЕ СЕБЕСТОИМОСТЬЮ -->
+
+      <article class="panel">
+
+        <div class="panel-heading">
+          <h2>Себестоимость товаров Ozon</h2>
+          <span class="subtle">
+            Редактирование владельцем
+          </span>
+        </div>
+
+        <p>
+          Выберите товар по SKU и укажите
+          себестоимость одного комплекта.
+          Предварительные оценки не считаются
+          подтверждённой прибылью.
+        </p>
+
+        <form id="ozonCostForm"
+              style="display:grid;gap:16px;max-width:650px">
+
+          <label style="display:grid;gap:8px">
+            SKU товара
+            <select id="costSku" required
+                    style="width:100%;padding:12px;border:1px solid #d9dfda;border-radius:8px">
+              <option value="">
+                Выберите товар
+              </option>
+            </select>
+          </label>
+
+          <label style="display:grid;gap:8px">
+            Себестоимость комплекта, ₽
+            <input
+              id="costRubles"
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              placeholder="Например, 4200"
+              style="width:100%;padding:12px;border:1px solid #d9dfda;border-radius:8px"
+            >
+          </label>
+
+          <label style="display:grid;gap:8px">
+            Статус себестоимости
+            <select id="costStatus"
+                    style="width:100%;padding:12px;border:1px solid #d9dfda;border-radius:8px">
+              <option value="preliminary">
+                Предварительная оценка
+              </option>
+              <option value="confirmed">
+                Подтверждённая себестоимость
+              </option>
+            </select>
+          </label>
+
+          <button class="button primary"
+                  type="submit">
+            Сохранить себестоимость
+          </button>
+
+          <p id="costMessage"
+             role="status"
+             aria-live="polite">
+            Выберите товар и укажите себестоимость.
+          </p>
+
+        </form>
+
+        <p class="subtle">
+          Предварительные ориентиры:
+          Vesta — 4 200 ₽;
+          Vesta Cross — 4 500 ₽;
+          Iskra — 4 697 ₽;
+          Priora — 3 199 ₽.
+          Эти суммы пока не подтверждены.
+        </p>
+
+      </article>
+
+    </section>
+
+    <!-- ОТДЕЛЫ -->
+
+    <section class="page"
+             data-section="departments"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            СТРУКТУРА КОМАНДЫ
+          </div>
+          <h1>Отделы</h1>
+          <p>
+            Продажи, производство и учёт соединены
+            одним рабочим процессом.
+          </p>
+        </div>
+      </div>
+
+      <div class="department-grid all-departments"
+           id="allDepartments"></div>
+
+    </section>
+
+    <!-- ИИ-КОМАНДА -->
+
+    <section class="page"
+             data-section="agents"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ЛЮДИ ЗАДАЮТ ЦЕЛЬ. ИИ ПОМОГАЕТ.
+          </div>
+          <h1>ИИ-команда</h1>
+          <p>
+            12 ролей · MAX распределяет заявки ·
+            дизайнер собирает макеты ·
+            ВК ожидает API.
+          </p>
+        </div>
+
+        <a class="button primary"
+           data-sheet="710004"
+           target="_blank"
+           rel="noopener">
+          Задачи команды ↗
+        </a>
+      </div>
+
+      <div class="filter-bar">
+
+        <label class="search">
+          <span>⌕</span>
+          <input id="agentSearch"
+                 type="search"
+                 placeholder="Найти роль или задачу…"
+                 aria-label="Найти агента">
+        </label>
+
+        <label class="select-label">
+          Отдел
+          <select id="departmentFilter">
+            <option value="all">
+              Все отделы
+            </option>
+          </select>
+        </label>
+
+        <div class="result-count"
+             id="resultCount"></div>
+
+      </div>
+
+      <div class="agent-grid" id="agentGrid"></div>
+
+      <div class="empty-state"
+           id="emptyState"
+           hidden>
+        Таких ролей пока нет.
+        Попробуйте другой запрос.
+      </div>
+
+    </section>
+
+    <!-- ПУТЬ ЗАКАЗА -->
+
+    <section class="page"
+             data-section="workflow"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ОТ ОБРАЩЕНИЯ ДО РЕЗУЛЬТАТА
+          </div>
+          <h1>Как идёт заказ</h1>
+          <p>
+            Продажи: дилеры с «Пламя»,
+            Авито и Instagram;
+            ВБ и Ozon — после подключения API.
+          </p>
+        </div>
+
+        <a class="button primary"
+           data-sheet="710003"
+           target="_blank"
+           rel="noopener">
+          Журнал заказов ↗
+        </a>
+      </div>
+
+      <div class="workflow"
+           id="workflowSteps"></div>
+
+      <div class="notice">
+        <span>i</span>
+        <p>
+          После подключения API агенты ВБ и Ozon
+          передадут заказы менеджеру продаж
+          для записи в таблицу.
+          Сверка по внешнему ID исключит дубли;
+          отмены обновят существующие записи.
+          До запуска учёт маркетплейсов
+          остаётся в прежнем режиме.
+        </p>
+      </div>
+
+    </section>
+
+    <!-- ПОДКЛЮЧЕНИЯ -->
+
+    <section class="page"
+             data-section="connections"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ИНФРАСТРУКТУРА ОФИСА
+          </div>
+          <h1>Подключения</h1>
+          <p>
+            Что уже доступно и что предстоит включить.
+          </p>
+        </div>
+      </div>
+
+      <div class="connection-grid"
+           id="connectionGrid"></div>
+
+      <article class="panel explanation">
+        <h2>Что означает «агент подключён»?</h2>
+        <p>
+          Instagram-сервис подключён к Meta:
+          приём и автоматический ответ подтверждены
+          18.10.2026.
+          Он отвечает по базе условий компании;
+          языковая модель не подключена.
+          Остальные роли показывают свой
+          фактический этап подготовки.
+        </p>
+        <p>
+          Статусы офиса отражают проверенные настройки
+          и не обновляются в реальном времени.
+          Текущие обращения и результаты Instagram
+          открываются в защищённой панели.
+          Общий диспетчер команды пока не подключён.
+        </p>
+      </article>
+
+    </section>
+
+    <!-- КОНТЕНТ-СТУДИЯ -->
+
+    <section class="page"
+             data-section="studio"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            МАРКЕТОЛОГ → ДИЗАЙНЕР → ВК
+          </div>
+          <h1>Контент-студия</h1>
+          <p>
+            Реальное фото, понятный текст
+            и проверенные условия.
+            Сообщество: vk.ru/autosklad63.
+          </p>
+        </div>
+
+        <a class="button primary"
+           href="https://vk.ru/autosklad63"
+           target="_blank"
+           rel="noopener">
+          Открыть сообщество ↗
+        </a>
+      </div>
+
+      <div class="studio-flow">
+
+        <article>
+          <small>01 · МАРКЕТОЛОГ</small>
+          <h3>Бриф и текст</h3>
+          <p class="studio-note">
+            Тема, товар, задача поста
+            и подтверждённые факты.
+          </p>
+        </article>
+
+        <article>
+          <small>02 · ДИЗАЙНЕР</small>
+          <h3>Макет с фото</h3>
+          <p class="studio-note">
+            Бесплатный шаблон.
+            Квадрат или вертикальный PNG.
+          </p>
+        </article>
+
+        <article>
+          <small>03 · ПРОВЕРКА</small>
+          <h3>Товар и условия</h3>
+          <p class="studio-note">
+            Цена, характеристики,
+            фото и права на материалы.
+          </p>
+        </article>
+
+        <article>
+          <small>04 · ВК-АГЕНТ</small>
+          <h3>Публикация</h3>
+          <p class="studio-note">
+            Ожидает API сообщества.
+            Готовый материал ещё не опубликован.
+          </p>
+        </article>
+
+      </div>
+
+      <p class="studio-message"
+         id="studioMessage"
+         role="status"
+         aria-live="polite">
+        Создайте бриф или выберите материал из очереди.
+        Черновики хранятся только в этом браузере;
+        фото не отправляются на сервер.
+      </p>
+
+      <div class="studio-layout">
+
+        <article class="studio-panel">
+          <h2>Задание дизайнеру</h2>
+
+          <form id="studioBrief">
+
+            <label>
+              Заголовок материала
+              <input id="briefTitle"
+                     required
+                     maxlength="70"
+                     placeholder="Например: чехлы для Lada Vesta">
+            </label>
+
+            <label>
+              Текст поста и задача
+              <textarea id="briefText"
+                        required
+                        maxlength="3500"
+                        placeholder="Что показываем, кому и какие условия уже подтверждены"></textarea>
+            </label>
+
+            <button class="button primary"
+                    type="submit">
+              Создать бриф →
+            </button>
+
+          </form>
+
+          <p class="studio-note">
+            Не указывайте здесь клиентские переписки
+            или финансовые строки.
+            Это локальная студия,
+            а не общий журнал команды.
+          </p>
+
+          <h3>
+            Материал:
+            <span id="selectedBrief">не выбран</span>
+          </h3>
+
+          <label>
+            Текст для ВК
+            <textarea id="postCopy"
+                      maxlength="3500"
+                      placeholder="Выберите бриф"></textarea>
+          </label>
+
+          <label class="checkline">
+            <input id="termsChecked"
+                   type="checkbox">
+            Товар, цена и условия проверены
+            по базе компании
+          </label>
+
+          <label class="checkline">
+            <input id="photoChecked"
+                   type="checkbox">
+            Фото реальное,
+            права на его использование есть
+          </label>
+
+          <div class="studio-buttons">
+            <button class="button"
+                    id="approveCreative"
+                    type="button"
+                    disabled>
+              Готово для ВК
+            </button>
+
+            <button class="button"
+                    id="copyCreative"
+                    type="button">
+              Скопировать текст
+            </button>
+
+            <button class="button"
+                    id="exportBrief"
+                    type="button">
+              Скачать бриф JSON
+            </button>
+          </div>
+
+        </article>
+
+        <article class="studio-panel">
+          <h2>Дизайнер · шаблоны с фото</h2>
+
+          <label>
+            Фото товара · JPG, PNG или WebP
+            <input id="designPhoto"
+                   type="file"
+                   accept="image/jpeg,image/png,image/webp">
+          </label>
+
+          <label>
+            Формат
+            <select id="designFormat">
+              <option value="square">
+                Квадрат · 1080 × 1080
+              </option>
+              <option value="portrait">
+                Вертикальный · 1080 × 1350
+              </option>
+            </select>
+          </label>
+
+          <label>
+            Заголовок на макете
+            <input id="designTitle"
+                   maxlength="70"
+                   placeholder="Ваш товар — в деталях">
+          </label>
+
+          <label>
+            Подпись
+            <input id="designSubtitle"
+                   maxlength="65"
+                   placeholder="Подберём вариант для вашего автомобиля">
+          </label>
+
+          <canvas id="designCanvas"
+                  width="1080"
+                  height="1080"
+                  aria-label="Предпросмотр макета с фото товара"></canvas>
+
+          <div class="studio-buttons">
+            <button class="button primary"
+                    id="downloadDesign"
+                    type="button"
+                    disabled>
+              Скачать PNG
+            </button>
+          </div>
+
+          <p class="studio-note">
+            Фото размещается целиком,
+            без выдуманных деталей товара.
+            Скачанный PNG и бриф можно передать
+            в публикацию после подключения API.
+            Фото нужно выбирать заново
+            после перезагрузки страницы.
+          </p>
+
+        </article>
+
+      </div>
+
+      <div class="section-title">
+        <h2>
+          Очередь материалов ·
+          <span id="studioCount">0</span>
+        </h2>
+        <span class="subtle">
+          На этом устройстве
+        </span>
+      </div>
+
+      <div class="studio-queue"
+           id="studioQueue"></div>
+
+    </section>
+
+    <!-- ПРОИЗВОДСТВО -->
+
+    <section class="page"
+             data-section="production"
+             hidden>
+
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">
+            ПРИОРИТЕТ ИЗ «ВТОРОГО МОЗГА»
+          </div>
+          <h1>Запуск производственного учёта</h1>
+          <p>
+            Материал → крой → пошив →
+            готовый комплект → отгрузка.
+            Физические операции фиксируют сотрудники,
+            контролёр проверяет записи.
+          </p>
+        </div>
+
+        <a class="button primary"
+           data-sheet="710009"
+           target="_blank"
+           rel="noopener">
+          Контроль производства ↗
+        </a>
+      </div>
+
+      <div class="workflow">
+
+        <article class="workflow-step">
+          <span class="step-number">01</span>
+          <div>
+            <h3>Подтвердить фактические остатки</h3>
+            <p>
+              Кладовщик и старшая производства:
+              пересчитать материалы, крой,
+              выданное швеям и готовые комплекты.
+              Расчётные остатки не заменяют пересчёт.
+            </p>
+            <a data-sheet="414775231"
+               target="_blank"
+               rel="noopener">
+              Открыть остатки ↗
+            </a>
+          </div>
+        </article>
+
+        <article class="workflow-step">
+          <span class="step-number">02</span>
+          <div>
+            <h3>Закрепить ответственность и сроки</h3>
+            <p>
+              Менеджер проектов и старшая:
+              у каждой позиции должны быть этап,
+              исполнитель, срок и ID заказа или партии.
+            </p>
+            <a data-sheet="710009"
+               target="_blank"
+               rel="noopener">
+              Проверить маршрут производства ↗
+            </a>
+          </div>
+        </article>
+
+        <article class="workflow-step">
+          <span class="step-number">03</span>
+          <div>
+            <h3>Фиксировать каждую передачу</h3>
+            <p>
+              Сотрудники записывают фактическую выдачу,
+              раскрой, пошив, готовность и отгрузку.
+              Повторный учёт одного расхода запрещён.
+            </p>
+            <div class="production-links">
+              <a data-sheet="218679490"
+                 target="_blank" rel="noopener">
+                Раскрой ↗
+              </a>
+              <a data-sheet="32853933"
+                 target="_blank" rel="noopener">
+                Пошив ↗
+              </a>
+              <a data-sheet="115686972"
+                 target="_blank" rel="noopener">
+                Отгрузка ↗
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <article class="workflow-step">
+          <span class="step-number">04</span>
+          <div>
+            <h3>Проверять исключения</h3>
+            <p>
+              Контролёры в таблице запускаются вручную.
+              Общего расписания и автоматических
+              уведомлений ещё нет.
+              Вопросы по расхождениям передаются
+              ответственному; цены и списания
+              не меняются автоматически.
+            </p>
+            <a data-sheet="248682278"
+               target="_blank"
+               rel="noopener">
+              Отчёты контролёров ↗
+            </a>
+          </div>
+        </article>
+
+      </div>
+
+    </section>
+
+    <footer>
+      <span>
+        АвтоСклад63 <b>·</b> Онлайн-офис
+      </span>
+      <span>
+        Версия 1.1 <b>·</b> Контент и производство
+      </span>
+    </footer>
+
+  </div>
+
 </main>
 
 <dialog id="agentDialog">
- <div class="dialog-top">
-  <span class="eyebrow">КАРТОЧКА РОЛИ</span>
-  <button class="icon-button" id="closeDialog" aria-label="Закрыть">×</button>
- </div>
- <div id="dialogContent"></div>
+  <div class="dialog-top">
+    <span class="eyebrow">КАРТОЧКА РОЛИ</span>
+    <button class="icon-button"
+            id="closeDialog"
+            aria-label="Закрыть">×</button>
+  </div>
+  <div id="dialogContent"></div>
 </dialog>
 
 <link rel="stylesheet" href="studio.css">
+
 <script src="app.js" defer></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
+
 </body>
 </html>
