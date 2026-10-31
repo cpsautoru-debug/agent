@@ -1,5 +1,6 @@
 
 import http from "node:http";
+import { checkOzonConnection } from "./ozon.js";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -9,7 +10,9 @@ const server = http.createServer((req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
 
-  if (req.method === "GET" && req.url === "/health") {
+  const pathname = new URL(req.url, "http://localhost").pathname;
+
+  if (req.method === "GET" && pathname === "/health") {
     res.writeHead(200);
     res.end(JSON.stringify({
       status: "ok",
@@ -25,3 +28,23 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log("Marketplace staging server listening");
 });
+
+if (process.env.OZON_CONNECTION_CHECK === "true") {
+  checkOzonConnection()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_connection",
+        connected: result.connected,
+        httpStatus: result.httpStatus
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_connection",
+        connected: false,
+        error: error.name === "TimeoutError"
+          ? "Request timeout"
+          : "Connection check failed"
+      }));
+    });
+}
