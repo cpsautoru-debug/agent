@@ -50,6 +50,7 @@ if (process.env.OZON_CONNECTION_CHECK === "true") {
     });
 }
 
+
 if (process.env.OZON_ORDERS_CHECK === "true") {
   checkFboOrders()
     .then((result) => {
@@ -57,14 +58,17 @@ if (process.env.OZON_ORDERS_CHECK === "true") {
         check: "ozon_fbo_orders",
         connected: result.connected,
         httpStatus: result.httpStatus,
-        fetched: result.fetched,
-        hasMore: result.hasMore
+        pages: result.pages,
+        total: result.total,
+        complete: result.complete,
+        statuses: result.statuses ?? {}
       }));
     })
     .catch((error) => {
       console.error(JSON.stringify({
         check: "ozon_fbo_orders",
         connected: false,
+        complete: false,
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "Order check failed"
