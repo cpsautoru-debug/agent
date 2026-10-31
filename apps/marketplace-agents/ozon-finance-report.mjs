@@ -323,6 +323,8 @@ export async function buildOzonMonthlyReport(
     check: "ozon_monthly_finance",
     period: `${year}-${String(month).padStart(2, "0")}`,
     complete: true,
+    reconciled: false,
+final: false,
     processedDays: dailyReports.length,
     records: totalRecords,
     currency: "RUB",
