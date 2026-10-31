@@ -4,6 +4,7 @@ import { checkOzonConnection } from "./ozon.js";
 import { checkFboOrders } from "./ozon-orders.mjs";
 import { checkFbsOrders } from "./ozon-fbs.mjs";
 import { checkOzonFinance } from "./ozon-finance.mjs";
+import { checkFinanceTypes } from "./ozon-finance-types.mjs";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -124,6 +125,29 @@ if (process.env.OZON_FINANCE_CHECK === "true") {
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "Finance check failed"
+      }));
+    });
+}
+
+if (process.env.OZON_FINANCE_TYPES_CHECK === "true") {
+  checkFinanceTypes()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_finance_types",
+        connected: result.connected,
+        httpStatus: result.httpStatus,
+        totalTypes: result.totalTypes,
+        complete: result.complete
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_finance_types",
+        connected: false,
+        complete: false,
+        error: error.name === "TimeoutError"
+          ? "Request timeout"
+          : "Finance types check failed"
       }));
     });
 }
