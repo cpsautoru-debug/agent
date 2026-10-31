@@ -1,6 +1,7 @@
 
 import http from "node:http";
 import { checkOzonConnection } from "./ozon.js";
+import { checkFboOrders } from "./ozon-orders.mjs";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -45,6 +46,28 @@ if (process.env.OZON_CONNECTION_CHECK === "true") {
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "Connection check failed"
+      }));
+    });
+}
+
+if (process.env.OZON_ORDERS_CHECK === "true") {
+  checkFboOrders()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_fbo_orders",
+        connected: result.connected,
+        httpStatus: result.httpStatus,
+        fetched: result.fetched,
+        hasMore: result.hasMore
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_fbo_orders",
+        connected: false,
+        error: error.name === "TimeoutError"
+          ? "Request timeout"
+          : "Order check failed"
       }));
     });
 }
