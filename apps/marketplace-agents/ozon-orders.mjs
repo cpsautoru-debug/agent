@@ -53,6 +53,6 @@ export async function checkFboOrders() {
     connected: true,
     httpStatus: response.status,
     fetched: data.postings?.length ?? null,
-    hasMore: Boolean(data.cursor)
+    hasMore: data.has_next === true
   };
 }
