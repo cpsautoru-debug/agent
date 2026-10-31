@@ -1,4 +1,6 @@
 
+import { createSession } from "../session.js";
+
 const ORIGIN = "https://autosklad63-office-staging.pages.dev";
 
 function getCookie(request, name) {
@@ -92,13 +94,18 @@ export async function onRequestGet({ request, env }) {
     "oauth_verifier=; Max-Age=0; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax"
   ];
 
-  function reply(message, status) {
+  function reply(message, status, sessionCookie = null) {
     const headers = new Headers({
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "Referrer-Policy": "no-referrer"
     });
     for (const cookie of clearCookies) {
+      
+    if (sessionCookie) {
+      headers.append("Set-Cookie", sessionCookie);
+    }
+
       headers.append("Set-Cookie", cookie);
     }
     return new Response(message, { status, headers });
@@ -184,12 +191,28 @@ export async function onRequestGet({ request, env }) {
       "SELECT google_sub FROM office_authorized_users WHERE role = 'owner' LIMIT 1"
     ).first();
 
+    
     if (owner) {
+      if (owner.google_sub !== claims.sub) {
+        return reply("Account not permitted", 403);
+      }
+
+      if (!env.OFFICE_SESSION_SECRET) {
+        return reply("Session configuration unavailable", 503);
+      }
+
+      const sessionCookie = await createSession(
+        claims.sub,
+        env.OFFICE_SESSION_SECRET
+      );
+
       return reply(
-        "Owner already registered. Session is not enabled yet.",
-        200
+        "Owner session established.",
+        200,
+        sessionCookie
       );
     }
+
 
     await env.OZON_FINANCE_DB.prepare(`
       INSERT INTO office_pending_users (google_sub, email)
