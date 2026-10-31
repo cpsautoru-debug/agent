@@ -213,7 +213,8 @@ if (process.env.OZON_FINANCE_REPORT === "true") {
         complete: result.complete,
         currency: result.currency,
         controlTotal: result.controlTotal,
-        categories: result.categories ?? {}
+        categories: result.categories ?? {},
+        feeDetails: result.feeDetails ?? []
       }));
     })
     .catch((error) => {
