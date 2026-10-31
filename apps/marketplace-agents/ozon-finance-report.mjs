@@ -41,7 +41,8 @@ function reconcileFinanceReport(date, totalKopecks, totalsByType) {
 
 
 export async function buildOzonFinanceReport(
-  date = "2026-10-30"
+  date = "2026-10-30",
+  signal
 ) {
   if (process.env.OZON_READ_ONLY !== "true") {
     throw new Error("Read-only mode required");
@@ -74,7 +75,9 @@ export async function buildOzonFinanceReport(
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ date, last_id: lastId }),
-        signal: AbortSignal.timeout(20000)
+        signal: signal
+  ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
+  : AbortSignal.timeout(20000)
       }
     );
 
@@ -253,7 +256,8 @@ feeDetails: [...feeDetails.values()]
 
 export async function buildOzonMonthlyReport(
   year = 2026,
-  month = 10
+  month = 10,
+  signal
 ) {
   if (!Number.isInteger(year) ||
       !Number.isInteger(month) ||
@@ -278,7 +282,11 @@ export async function buildOzonMonthlyReport(
       String(day).padStart(2, "0")
     ].join("-");
 
-    const result = await buildOzonFinanceReport(date);
+   if (signal?.aborted) {
+  throw new Error("Monthly run aborted");
+}
+
+const result = await buildOzonFinanceReport(date, signal);
 
     if (!result.complete || result.httpStatus !== 200) {
       return {
