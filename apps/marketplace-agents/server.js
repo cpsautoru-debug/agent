@@ -7,6 +7,7 @@ import { checkOzonFinance } from "./ozon-finance.mjs";
 import { checkFinanceTypes } from "./ozon-finance-types.mjs";
 import { inspectFinanceCategories } from "./ozon-finance-classifier.mjs";
 import { inspectFinanceStructure } from "./ozon-finance-inspect.mjs";
+import { buildOzonFinanceReport } from "./ozon-finance-report.mjs";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -196,6 +197,32 @@ if (process.env.OZON_FINANCE_INSPECT === "true") {
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "Finance inspection failed"
+      }));
+    });
+}
+
+if (process.env.OZON_FINANCE_REPORT === "true") {
+  buildOzonFinanceReport()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_finance_report",
+        date: result.date,
+        httpStatus: result.httpStatus,
+        pages: result.pages,
+        records: result.records,
+        complete: result.complete,
+        currency: result.currency,
+        controlTotal: result.controlTotal,
+        categories: result.categories ?? {}
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_finance_report",
+        complete: false,
+        error: error.name === "TimeoutError"
+          ? "Request timeout"
+          : "Finance report failed"
       }));
     });
 }
