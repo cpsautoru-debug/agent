@@ -175,10 +175,37 @@ export async function onRequestGet({ request, env }) {
       return reply("Account not permitted", 403);
     }
 
+    
+    if (!env.OZON_FINANCE_DB) {
+      return reply("Database unavailable", 503);
+    }
+
+    const owner = await env.OZON_FINANCE_DB.prepare(
+      "SELECT google_sub FROM office_authorized_users WHERE role = 'owner' LIMIT 1"
+    ).first();
+
+    if (owner) {
+      return reply(
+        "Owner already registered. Session is not enabled yet.",
+        200
+      );
+    }
+
+    await env.OZON_FINANCE_DB.prepare(`
+      INSERT INTO office_pending_users (google_sub, email)
+      VALUES (?, ?)
+      ON CONFLICT(google_sub) DO UPDATE SET
+        email = excluded.email
+    `).bind(
+      claims.sub,
+      claims.email
+    ).run();
+
     return reply(
-      "Google identity verified. Session is not enabled yet.",
+      "Google identity verified. Owner approval pending.",
       200
     );
+
   } catch {
     return reply("Google identity verification failed", 401);
   }
