@@ -308,6 +308,15 @@ const result = await buildOzonFinanceReport(date, signal);
 
     totalKopecks += toKopecks(result.controlTotal);
     totalRecords += result.records;
+    
+if (!Number.isSafeInteger(totalKopecks)) {
+  throw new Error("Monthly total out of range");
+}
+
+if (!Number.isSafeInteger(totalRecords)) {
+  throw new Error("Monthly record count out of range");
+}
+
 
     for (const [category, amount] of Object.entries(
       result.categories
@@ -340,6 +349,14 @@ const result = await buildOzonFinanceReport(date, signal);
     }
 
   }
+
+  
+const monthlyCategoryKopecks = [...categoryTotals.values()]
+  .reduce((sum, value) => sum + value, 0);
+
+if (monthlyCategoryKopecks !== totalKopecks) {
+  throw new Error("Monthly category reconciliation failed");
+}
 
   return {
     check: "ozon_monthly_finance",
