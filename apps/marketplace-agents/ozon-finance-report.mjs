@@ -317,6 +317,20 @@ export async function buildOzonMonthlyReport(
       controlTotal: result.controlTotal,
       reconciliation: result.reconciliation
     });
+    
+    const categoryKopecks = Object.values(
+      result.categories
+    ).reduce(
+      (sum, amount) => sum + toKopecks(amount),
+      0
+    );
+
+    if (categoryKopecks !== toKopecks(result.controlTotal)) {
+      throw new Error(
+        `Financial category mismatch for ${date}`
+      );
+    }
+
   }
 
   return {
