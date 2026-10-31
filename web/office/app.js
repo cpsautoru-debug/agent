@@ -46,7 +46,7 @@ function openAgentCard(a){
 }
 document.querySelectorAll('[data-sheet]').forEach(a=>a.href=sheetLink(a.dataset.sheet));
 $('#today').textContent=new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',timeZone:'Europe/Samara'}).format(new Date());
-$('#toolList').innerHTML=tools.map(([icon,title,desc,gid])=>`<a class="tool" href="${sheetLink(gid)}" target="_blank" rel="noopener"><span class="tool-icon">${icon}</span><div><strong>${title}</strong><p>${desc}</p></div><span class="tool-arrow">↗</span></a>`).join('');
+if ($('#toolList')) $('#toolList').innerHTML=tools.map(([icon,title,desc,gid])=>`<a class="tool" href="${sheetLink(gid)}" target="_blank" rel="noopener"><span class="tool-icon">${icon}</span><div><strong>${title}</strong><p>${desc}</p></div><span class="tool-arrow">↗</span></a>`).join('');
 function departmentCard(d){return `<article class="department-card"><div class="department-top"><span class="department-icon">${d.icon}</span><span class="role-count">${d.roles} ${d.roles===1?'роль':'роли'}</span></div><h3>${d.name}</h3><p>${d.description}</p><div class="card-footer"><a href="${sheetLink(d.sheet)}" target="_blank" rel="noopener">${d.tool} ↗</a><a href="#agents/${d.id}">Команда →</a></div></article>`;}
 $('#homeDepartments').innerHTML=departments.slice(0,3).map(departmentCard).join('');
 $('#allDepartments').innerHTML=departments.map(departmentCard).join('');
