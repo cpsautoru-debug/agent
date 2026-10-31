@@ -5,6 +5,7 @@ import { checkFboOrders } from "./ozon-orders.mjs";
 import { checkFbsOrders } from "./ozon-fbs.mjs";
 import { checkOzonFinance } from "./ozon-finance.mjs";
 import { checkFinanceTypes } from "./ozon-finance-types.mjs";
+import { inspectFinanceCategories } from "./ozon-finance-classifier.mjs";
 
 const HOST = "0.0.0.0";
 const PORT = Number(process.env.PORT || 10000);
@@ -148,6 +149,28 @@ if (process.env.OZON_FINANCE_TYPES_CHECK === "true") {
         error: error.name === "TimeoutError"
           ? "Request timeout"
           : "Finance types check failed"
+      }));
+    });
+}
+
+if (process.env.OZON_CLASSIFIER_CHECK === "true") {
+  inspectFinanceCategories()
+    .then((result) => {
+      console.log(JSON.stringify({
+        check: "ozon_classifier",
+        connected: result.connected,
+        complete: result.complete,
+        totalTypes: result.totalTypes,
+        unclassified: result.unclassified,
+        types: (result.categories?.unclassified ?? [])
+          .map(({ id, name }) => ({ id, name }))
+      }));
+    })
+    .catch((error) => {
+      console.error(JSON.stringify({
+        check: "ozon_classifier",
+        connected: false,
+        error: "Classifier check failed"
       }));
     });
 }
