@@ -1,8 +1,16 @@
 
 name: Ozon Ingest Auth Test
 
+
 on:
   workflow_dispatch:
+    inputs:
+      upload_october:
+        description: "Upload October 2026 financial summary to D1"
+        type: boolean
+        required: true
+        default: false
+
 
 permissions:
   contents: read
@@ -39,3 +47,45 @@ jobs:
 
           echo "Invalid financial report correctly rejected (HTTP 400)"
           echo "Financial records sent: 0"
+          
+  upload_october:
+    if: github.ref == 'refs/heads/feature/marketplace-agents-staging' && inputs.upload_october == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    environment: ozon-finance-staging
+    steps:
+      - name: Upload October financial summary
+        env:
+          INGEST_TOKEN: ${{ secrets.OZON_FINANCE_INGEST_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$INGEST_TOKEN"
+
+          payload='{"period":"2026-10","currency":"RUB","processedDays":31,"records":947,"postingKopecks":184014311,"itemKopecks":-3408258,"nonItemKopecks":-47114907,"controlTotalKopecks":133491146,"complete":true,"reconciled":false,"final":false}'
+
+          response=$(curl --silent --show-error \
+            --write-out '\n%{http_code}' \
+            --max-time 20 \
+            --request POST \
+            --header "Authorization: Bearer $INGEST_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "https://autosklad63-office-staging.pages.dev/api/ozon/ingest")
+
+          status=$(printf '%s\n' "$response" | tail -n 1)
+          body=$(printf '%s\n' "$response" | sed '$d')
+
+          if [ "$status" != "200" ]; then
+            echo "Upload failed: HTTP $status"
+            exit 1
+          fi
+
+          if [ "$body" != '{"status":"stored","period":"2026-10","databaseWrites":true}' ]; then
+            echo "Unexpected server response"
+            exit 1
+          fi
+
+          echo "October financial summary stored successfully"
+          echo "Period: 2026-10"
+          echo "Database write: confirmed"
+
