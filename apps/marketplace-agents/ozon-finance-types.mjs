@@ -56,10 +56,16 @@ export async function checkFinanceTypes() {
     ids.add(type.id);
   }
 
-  return {
-    connected: true,
-    httpStatus: 200,
-    totalTypes: types.length,
-    complete: true
-  };
-}
+ 
+return {
+  connected: true,
+  httpStatus: 200,
+  totalTypes: types.length,
+  complete: true,
+  types: types.map((type) => ({
+    id: type.id,
+    name: type.name,
+    description: type.description
+  }))
+};
+
