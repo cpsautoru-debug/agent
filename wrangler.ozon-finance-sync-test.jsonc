@@ -1,0 +1,20 @@
+{
+  "name": "autosklad63-ozon-sync-worker-test",
+  "main": "./workers/ozon-finance-sync.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "triggers": {
+    "crons": []
+  },
+  "vars": {
+    "OZON_FINANCE_SYNC_TEST_DATE": "2026-10-28",
+    "OZON_FINANCE_SYNC_TEST_MAX_PAGES": "2"
+  },
+  "d1_databases": [
+    {
+      "binding": "OZON_FINANCE_DB",
+      "database_name": "autosklad63-ozon-finance-sync-test",
+      "database_id": "ce9dd331-929d-4c3e-9073-368de3346bc9"
+    }
+  ]
+}

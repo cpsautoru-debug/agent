@@ -8,6 +8,7 @@
 <title>АвтоСклад63 · Онлайн-офис</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="office-map.css">
+<link rel="stylesheet" href="ozon-finance.css">
 </head>
 <body>
 
@@ -257,6 +258,190 @@
           Себестоимость и чистая прибыль пока не рассчитаны.
         </p>
       </div>
+
+      <article class="panel"
+               aria-labelledby="ozonApiSyncTitle">
+        <div class="panel-heading">
+          <h2 id="ozonApiSyncTitle">
+            Начисления Seller API · отдельный источник
+          </h2>
+          <span class="subtle" id="ozonApiSyncPeriod">
+            Последние даты · не сверено
+          </span>
+        </div>
+        <p id="ozonApiSyncSummary">
+          Требуется вход владельца
+        </p>
+        <p id="ozonLastSuccessfulSync" class="subtle">
+          Последнее успешное обновление: нет данных
+        </p>
+        <p id="ozonReconciliationSummary" class="subtle">
+          Нетто-сверка и детализация пока не подтверждены.
+        </p>
+        <div class="ozon-controls">
+          <form id="ozonPeriodForm" class="ozon-period-form">
+            <label>
+              С даты
+              <input id="ozonPeriodStart" type="date">
+            </label>
+            <label>
+              По дату
+              <input id="ozonPeriodEnd" type="date">
+            </label>
+            <button class="button light" type="submit">
+              Показать период
+            </button>
+          </form>
+          <button class="button primary"
+                  id="ozonRefreshButton"
+                  type="button"
+                  disabled>
+            Обновить Ozon
+          </button>
+        </div>
+        <p id="ozonRefreshMessage"
+           class="subtle"
+           role="status"
+           aria-live="polite">
+          Ручное обновление доступно владельцу.
+        </p>
+        <div style="overflow-x:auto">
+          <table class="finance-table"
+                 style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th scope="col"
+                    style="padding:12px;text-align:left;border-bottom:1px solid #ddd">
+                  Дата
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:right;border-bottom:1px solid #ddd">
+                  Начислений
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:right;border-bottom:1px solid #ddd">
+                  Плюс, ₽
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:left;border-bottom:1px solid #ddd">
+                  Минус, ₽
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:right;border-bottom:1px solid #ddd">
+                  Сальдо, ₽
+                </th>
+                <th scope="col"
+                    style="padding:12px;text-align:left;border-bottom:1px solid #ddd">
+                  Загрузка · сверка
+                </th>
+              </tr>
+            </thead>
+            <tbody id="ozonApiSyncBody">
+              <tr>
+                <td colspan="6" style="padding:16px">
+                  Требуется вход владельца
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="subtle">
+          Данные Seller API хранятся отдельно от октябрьского отчёта.
+          Полная загрузка страниц не означает финансовую сверку или чистую прибыль.
+        </p>
+      </article>
+
+      <div class="metrics ozon-api-metrics">
+        <article class="metric">
+          <div class="metric-label">Сальдо начислений API</div>
+          <strong class="text-metric" id="ozonApiTotal">—</strong>
+          <p>Только Seller API · не прибыль и не выплата</p>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Положительные операции</div>
+          <strong class="text-metric" id="ozonApiPositive">—</strong>
+          <p id="ozonApiPositiveNote">Начисления с плюсовым знаком</p>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Отрицательные операции</div>
+          <strong class="text-metric" id="ozonApiNegative">—</strong>
+          <p id="ozonApiNegativeNote">Удержания с минусовым знаком</p>
+        </article>
+        <article class="metric">
+          <div class="metric-label">Покрытие периода</div>
+          <strong class="text-metric" id="ozonApiCoverage">—</strong>
+          <p id="ozonApiCoverageNote">Загрузка и сверка</p>
+        </article>
+      </div>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Динамика сальдо по дням</h2>
+          <span class="subtle">Источник: Ozon Seller API</span>
+        </div>
+        <div id="ozonApiChart"
+             class="ozon-api-chart"
+             aria-label="Сальдо начислений по дням">
+          Требуется вход владельца
+        </div>
+        <p class="subtle">
+          Компоненты комиссий и услуг — детализация начислений и не
+          прибавляются повторно к итоговым суммам операций.
+        </p>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Категории начислений</h2>
+          <span class="subtle">Категория Ozon, без пересчёта компонентов</span>
+        </div>
+        <div class="table-scroll">
+          <table class="finance-table ozon-data-table">
+            <thead>
+              <tr>
+                <th scope="col">Категория API</th>
+                <th scope="col">Операций</th>
+                <th scope="col">Плюс, ₽</th>
+                <th scope="col">Минус, ₽</th>
+                <th scope="col">Сальдо, ₽</th>
+              </tr>
+            </thead>
+            <tbody id="ozonCategoriesBody">
+              <tr><td colspan="5">Требуется вход владельца</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Операции Seller API</h2>
+          <span class="subtle" id="ozonOperationsNote">
+            Прибыль пока не рассчитана
+          </span>
+        </div>
+        <p>
+          Суммы операций берутся из total_amount. Комиссии и SKU-компоненты
+          отображаются отдельно. Неопознанные расходы не распределяются
+          по товарам.
+        </p>
+        <div class="table-scroll">
+          <table class="finance-table ozon-data-table ozon-operations-table">
+            <thead>
+              <tr>
+                <th scope="col">Дата · ID начисления</th>
+                <th scope="col">Категория · отправление</th>
+                <th scope="col">Сумма, ₽</th>
+                <th scope="col">Детализация SKU</th>
+                <th scope="col">Достоверность</th>
+              </tr>
+            </thead>
+            <tbody id="ozonOperationsBody">
+              <tr><td colspan="5">Требуется вход владельца</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
 
       <div class="metrics">
 
