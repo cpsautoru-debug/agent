@@ -332,7 +332,7 @@ export function getOzonDateWindow(
   const dates = [];
 
   for (let offset = days - 1; offset >= 0; offset--) {
-    const date = new Date(Date.UTC(year, month - 1, day - offset));
+    const date = new Date(Date.UTC(year, month - 1, day - offset - 1));
     dates.push(date.toISOString().slice(0, 10));
   }
 
@@ -608,7 +608,9 @@ export async function syncOzonFinance(
     sleep = milliseconds =>
       new Promise(resolve => setTimeout(resolve, milliseconds)),
     minRequestIntervalMs = MIN_REQUEST_INTERVAL_MS,
-    maxPagesPerDay = DEFAULT_MAX_PAGES_PER_DAY
+    maxPagesPerDay = DEFAULT_MAX_PAGES_PER_DAY,
+    lockToken: requestedLockToken,
+    runAlreadyCreated = false
   } = {}
 ) {
   const db = env?.OZON_FINANCE_DB;
@@ -639,6 +641,16 @@ export async function syncOzonFinance(
         .test(runId)) {
     throw new FinanceSyncError("invalid_run_id");
   }
+  if (
+    requestedLockToken !== undefined &&
+    (typeof requestedLockToken !== "string" ||
+      !/^[0-9a-f-]{36}$/i.test(requestedLockToken))
+  ) {
+    throw new FinanceSyncError("invalid_sync_lock_token");
+  }
+  if (runAlreadyCreated && !requestedLockToken) {
+    throw new FinanceSyncError("invalid_sync_lock_token");
+  }
   const nowText = now.toISOString();
   const nowMilliseconds = now.getTime();
   const startDate = dates[0];
@@ -652,35 +664,46 @@ export async function syncOzonFinance(
     errorCode: null
   };
 
-  await db.prepare(`
-    INSERT INTO ozon_api_sync_runs (
-      run_id,
-      source,
-      period_start,
-      period_end,
-      status,
-      started_at
-    )
-    VALUES (?, ?, ?, ?, 'running', ?)
-  `).bind(runId, SOURCE, startDate, endDate, nowText).run();
+  if (!runAlreadyCreated) {
+    await db.prepare(`
+      INSERT INTO ozon_api_sync_runs (
+        run_id,
+        source,
+        period_start,
+        period_end,
+        status,
+        started_at
+      )
+      VALUES (?, ?, ?, ?, 'running', ?)
+    `).bind(runId, SOURCE, startDate, endDate, nowText).run();
+  }
 
-  const lockToken = crypto.randomUUID();
+  const lockToken = requestedLockToken || crypto.randomUUID();
+  let ownsLock = false;
 
   try {
-    const lock = await db.prepare(`
-      INSERT INTO ozon_api_sync_lock (
-        lock_id,
-        lock_token,
-        locked_until
-      )
-      VALUES (1, ?, datetime('now', '+15 minutes'))
-      ON CONFLICT(lock_id) DO UPDATE SET
-        lock_token = excluded.lock_token,
-        locked_until = excluded.locked_until
-      WHERE datetime(ozon_api_sync_lock.locked_until)
-        <= CURRENT_TIMESTAMP
-      RETURNING lock_token
-    `).bind(lockToken).first();
+    const lock = requestedLockToken
+      ? await db.prepare(`
+          SELECT lock_token
+          FROM ozon_api_sync_lock
+          WHERE lock_id = 1
+            AND lock_token = ?
+            AND datetime(locked_until) > CURRENT_TIMESTAMP
+        `).bind(lockToken).first()
+      : await db.prepare(`
+          INSERT INTO ozon_api_sync_lock (
+            lock_id,
+            lock_token,
+            locked_until
+          )
+          VALUES (1, ?, datetime('now', '+20 minutes'))
+          ON CONFLICT(lock_id) DO UPDATE SET
+            lock_token = excluded.lock_token,
+            locked_until = excluded.locked_until
+          WHERE datetime(ozon_api_sync_lock.locked_until)
+            <= CURRENT_TIMESTAMP
+          RETURNING lock_token
+        `).bind(lockToken).first();
 
     if (!lock) {
       await finishRun(db, runId, counters, "skipped", "sync_already_running");
@@ -690,6 +713,7 @@ export async function syncOzonFinance(
         errorCode: "sync_already_running"
       };
     }
+    ownsLock = true;
 
     try {
       if (!env.OZON_CLIENT_ID || !env.OZON_API_KEY) {
@@ -1075,13 +1099,15 @@ export async function syncOzonFinance(
       errorCode: counters.errorCode
     };
   } finally {
-    await db.prepare(`
-      UPDATE ozon_api_sync_lock
-      SET lock_token = NULL,
-          locked_until = '1970-01-01 00:00:00'
-      WHERE lock_id = 1
-        AND lock_token = ?
-    `).bind(lockToken).run();
+    if (ownsLock) {
+      await db.prepare(`
+        UPDATE ozon_api_sync_lock
+        SET lock_token = NULL,
+            locked_until = '1970-01-01 00:00:00'
+        WHERE lock_id = 1
+          AND lock_token = ?
+      `).bind(lockToken).run();
+    }
   }
 }
 

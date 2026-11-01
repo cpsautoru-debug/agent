@@ -5,7 +5,7 @@ import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";
 const TEST_DATE = "2026-10-28";
 const TEST_MAX_PAGES = 2;
 const SOURCE = "ozon_seller_api";
-const DAILY_CRON = "0 3 * * *";
+const DAILY_CRON = "0 6 * * *";
 const MAX_DASHBOARD_DAYS = 31;
 const MAX_DASHBOARD_OPERATIONS = 500;
 const OCTOBER_BACKFILL_START = "2026-10-01";
@@ -539,11 +539,101 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
 
     const dates = getOzonDateWindow();
     const runId = crypto.randomUUID();
+    const lockToken = crypto.randomUUID();
+    const db = this.env.OZON_FINANCE_DB;
+    const lock = await db.prepare(`
+      INSERT INTO ozon_api_sync_lock (
+        lock_id,
+        lock_token,
+        locked_until
+      )
+      VALUES (1, ?, datetime('now', '+20 minutes'))
+      ON CONFLICT(lock_id) DO UPDATE SET
+        lock_token = excluded.lock_token,
+        locked_until = excluded.locked_until
+      WHERE datetime(ozon_api_sync_lock.locked_until)
+        <= CURRENT_TIMESTAMP
+      RETURNING lock_token
+    `).bind(lockToken).first();
+
+    if (!lock) {
+      return {
+        status: "rejected",
+        errorCode: "sync_already_running"
+      };
+    }
+
+    try {
+      await db.prepare(`
+        INSERT INTO ozon_api_sync_runs (
+          run_id,
+          source,
+          period_start,
+          period_end,
+          status,
+          started_at
+        )
+        VALUES (?, ?, ?, ?, 'running', ?)
+      `).bind(
+        runId,
+        SOURCE,
+        dates[0],
+        dates[dates.length - 1],
+        new Date().toISOString()
+      ).run();
+    } catch {
+      await db.prepare(`
+        UPDATE ozon_api_sync_lock
+        SET lock_token = NULL,
+            locked_until = '1970-01-01 00:00:00'
+        WHERE lock_id = 1 AND lock_token = ?
+      `).bind(lockToken).run();
+      return {
+        status: "unavailable",
+        errorCode: "sync_run_unavailable"
+      };
+    }
+
     this.ctx.waitUntil(
-      syncOzonFinance(this.env, { dates, runId }).catch(error => {
+      syncOzonFinance(this.env, {
+        dates,
+        runId,
+        lockToken,
+        runAlreadyCreated: true
+      }).catch(async error => {
+        const errorCode = safeErrorCode(error);
+        const finishedAt = new Date().toISOString();
+        try {
+          await db.batch([
+            db.prepare(`
+              UPDATE ozon_api_sync_runs
+              SET status = 'failed',
+                  error_code = ?,
+                  finished_at = ?
+              WHERE run_id = ? AND status = 'running'
+            `).bind(errorCode, finishedAt, runId),
+            db.prepare(`
+              UPDATE ozon_api_sync_state
+              SET status = 'failed',
+                  page_complete = 0,
+                  last_error_code = ?,
+                  last_completed_at = ?,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE source = ?
+                AND sync_date >= ?
+                AND sync_date <= ?
+                AND status = 'running'
+            `).bind(errorCode, finishedAt, SOURCE, dates[0], dates.at(-1))
+          ]);
+        } catch {
+          console.error("Ozon sync failure could not be recorded", {
+            runId,
+            errorCode: "sync_result_unavailable"
+          });
+        }
         console.error("Ozon scheduled sync failed", {
           runId,
-          errorCode: safeErrorCode(error)
+          errorCode
         });
       })
     );
@@ -771,7 +861,13 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     if (controller?.cron !== DAILY_CRON) {
       return { status: "ignored", errorCode: "unexpected_schedule" };
     }
-    return syncOzonFinance(this.env);
+    const scheduledTime = Number(controller.scheduledTime);
+    if (!Number.isFinite(scheduledTime)) {
+      return { status: "failed", errorCode: "invalid_scheduled_time" };
+    }
+    return syncOzonFinance(this.env, {
+      dates: getOzonDateWindow(new Date(scheduledTime))
+    });
   }
 
   async startOneShotSync() {

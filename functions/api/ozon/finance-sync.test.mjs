@@ -60,7 +60,7 @@ const workerModuleSource = workerSource.replace(
   }`
 ).replace(
   'import { syncOzonFinance } from "../functions/api/ozon/finance-sync.js";',
-  `const { syncOzonFinance } = await import("${moduleUrl}");`
+  `const { getOzonDateWindow, syncOzonFinance } = await import("${moduleUrl}");`
 ).replace(
   'import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";',
   `const { claimOzonOneShotGate } = await import("${gateModuleUrl}");`
@@ -118,6 +118,12 @@ class MockStatement {
       if (this.db.locked) return null;
       this.db.locked = true;
       return { lock_token: this.values[0] };
+    }
+
+    if (this.sql.startsWith("select lock_token from ozon_api_sync_lock")) {
+      return this.db.locked
+        ? { lock_token: this.values[0] }
+        : null;
     }
 
     if (this.sql.includes("from ozon_api_sync_state")) {
@@ -464,14 +470,26 @@ test("parses exact signed kopecks without floating-point rounding", () => {
   assert.throws(() => moneyToKopecks("1.00", "USD"));
 });
 
-test("uses a bounded Moscow calendar window including month rollover", () => {
+test("uses the last three completed Moscow dates across month rollover", () => {
   assert.deepEqual(
     getOzonDateWindow(new Date("2026-11-01T12:00:00Z")),
+    ["2026-10-29", "2026-10-30", "2026-10-31"]
+  );
+  assert.deepEqual(
+    getOzonDateWindow(new Date("2026-11-01T06:00:00Z")),
+    ["2026-10-29", "2026-10-30", "2026-10-31"]
+  );
+  assert.deepEqual(
+    getOzonDateWindow(new Date("2026-11-02T06:00:00Z")),
     ["2026-10-30", "2026-10-31", "2026-11-01"]
   );
   assert.deepEqual(
+    getOzonDateWindow(new Date("2026-11-02T06:00:00Z"), 1),
+    ["2026-11-01"]
+  );
+  assert.deepEqual(
     getOzonDateWindow(new Date("2026-11-01T00:30:00Z")),
-    ["2026-10-30", "2026-10-31", "2026-11-01"]
+    ["2026-10-29", "2026-10-30", "2026-10-31"]
   );
 });
 
@@ -537,6 +555,7 @@ test("paginates by last_id, upserts stable accrual IDs, and updates details", as
   };
   const options = {
     now: new Date("2026-10-28T12:00:00Z"),
+    dates: ["2026-10-28"],
     fetchImpl,
     minRequestIntervalMs: 0,
     sleep: async () => {}
@@ -544,7 +563,7 @@ test("paginates by last_id, upserts stable accrual IDs, and updates details", as
 
   const first = await syncOzonFinance(environment(db), options);
   assert.equal(first.status, "complete");
-  assert.equal(first.pageCount, 4);
+  assert.equal(first.pageCount, 2);
   assert.equal(first.recordCount, 2);
   assert.equal(db.accruals.size, 2);
   assert.equal(
@@ -1247,6 +1266,81 @@ test("scheduled handler ignores unconfigured Cron expressions", async () => {
     { status: "ignored", errorCode: "unexpected_schedule" }
   );
   assert.equal(db.runs.size, 0);
+});
+
+test("staging Worker keeps the daily Cron disabled until explicit approval", async () => {
+  const config = JSON.parse(await readFile(
+    new URL("../../../wrangler.ozon-finance-sync-test.jsonc", import.meta.url),
+    "utf8"
+  ));
+  assert.deepEqual(config.triggers.crons, []);
+  assert.match(workerSource, /const DAILY_CRON = "0 6 \* \* \*"/);
+});
+
+test("daily schedule loads the last three completed Moscow dates without using the gate", async () => {
+  const db = new MockD1();
+  db.gate.status = "claimed";
+  const dates = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/accrual/types")) {
+      return response({ accrual_types: [] });
+    }
+    dates.push(JSON.parse(options.body).date);
+    return response({ accruals: [], last_id: "" });
+  };
+
+  try {
+    const { worker } = makeManualWorker(db);
+    const result = await worker.scheduled({
+      cron: "0 6 * * *",
+      scheduledTime: Date.parse("2026-11-01T06:00:00Z")
+    });
+
+    assert.equal(result.status, "complete");
+    assert.deepEqual([...new Set(dates)], [
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31"
+    ]);
+    assert.equal(db.states.size, 3);
+    assert.equal(db.gate.status, "claimed");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("manual recent sync reserves the global lock before accepting and rejects duplicates", async () => {
+  const db = new MockD1();
+  const originalFetch = globalThis.fetch;
+  const requestedDates = [];
+  globalThis.fetch = async (url, options) => {
+    if (new URL(url).pathname.endsWith("/accrual/types")) {
+      return response({ accrual_types: [] });
+    }
+    requestedDates.push(JSON.parse(options.body).date);
+    return response({ accruals: [], last_id: "" });
+  };
+
+  try {
+    const invocation = makeManualWorker(db);
+    const first = await invocation.worker.startRecentSync();
+    const second = await invocation.worker.startRecentSync();
+
+    assert.equal(first.status, "started");
+    assert.equal(second.status, "rejected");
+    assert.equal(second.errorCode, "sync_already_running");
+    assert.equal(db.runs.size, 1);
+    assert.equal(db.gate.status, "disarmed");
+
+    await invocation.task;
+    assert.equal(db.locked, false);
+    assert.equal(db.runs.get(first.runId).status, "complete");
+    assert.equal(new Set(requestedDates).size, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("records network failures after bounded retries", async () => {

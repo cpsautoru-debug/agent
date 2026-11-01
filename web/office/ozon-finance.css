@@ -17,7 +17,7 @@
   display: grid;
   gap: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 13px;
 }
 
 .ozon-period-form input {
@@ -33,6 +33,108 @@
   margin-top: 20px;
 }
 
+.ozon-sync-window {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ozon-sync-summary {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.ozon-sync-note {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ozon-status-legend,
+.ozon-status-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ozon-status-legend {
+  margin: 12px 0;
+}
+
+.ozon-sync-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.ozon-sync-table {
+  min-width: 760px;
+  font-size: 13px;
+}
+
+.ozon-sync-table th,
+.ozon-sync-table td {
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.ozon-sync-table td:first-child {
+  white-space: nowrap;
+}
+
+.ozon-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ozon-status-badge.is-loaded {
+  background: #e7f4eb;
+  color: #22623c;
+}
+
+.ozon-status-badge.is-unverified {
+  background: #fff3d7;
+  color: #745300;
+}
+
+.ozon-status-badge.is-verified {
+  background: #e7f4eb;
+  color: #22623c;
+}
+
+.ozon-status-badge.is-error {
+  background: #fde9e7;
+  color: #8a2921;
+}
+
+.ozon-status-badge.is-pending,
+.ozon-status-badge.is-muted {
+  background: #edf0f3;
+  color: #46505a;
+}
+
+.ozon-status-error-code {
+  width: 100%;
+  color: #8a2921;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ozon-controls #ozonRefreshButton.is-running {
+  cursor: progress;
+  opacity: 0.8;
+}
+
 .ozon-api-chart {
   display: grid;
   gap: 10px;
@@ -43,7 +145,7 @@
   grid-template-columns: minmax(78px, 110px) minmax(60px, 1fr) minmax(90px, 130px);
   align-items: center;
   gap: 12px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .ozon-chart-date,
@@ -106,7 +208,7 @@
   display: grid;
   gap: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .ozon-credibility {
@@ -115,7 +217,7 @@
   border-radius: 6px;
   background: #f2f4ed;
   color: #64725d;
-  font-size: 9px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -141,6 +243,15 @@
   .ozon-chart-row {
     grid-template-columns: 76px minmax(45px, 1fr) 92px;
     gap: 8px;
-    font-size: 9px;
+    font-size: 11px;
+  }
+
+  .ozon-sync-table {
+    font-size: 12px;
+  }
+
+  .ozon-sync-table th,
+  .ozon-sync-table td {
+    padding: 10px;
   }
 }

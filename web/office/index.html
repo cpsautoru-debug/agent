@@ -269,15 +269,30 @@
             Последние даты · не сверено
           </span>
         </div>
-        <p id="ozonApiSyncSummary">
+        <p id="ozonApiSyncSummary"
+           class="ozon-sync-summary"
+           role="status"
+           aria-live="polite">
           Требуется вход владельца
         </p>
-        <p id="ozonLastSuccessfulSync" class="subtle">
+        <p id="ozonLastSuccessfulSync" class="subtle ozon-sync-note">
           Последнее успешное обновление: нет данных
         </p>
-        <p id="ozonReconciliationSummary" class="subtle">
+        <p id="ozonReconciliationSummary"
+           class="subtle ozon-sync-note">
           Нетто-сверка и детализация пока не подтверждены.
         </p>
+        <p class="ozon-sync-window">
+          Автоматическое расписание пока не включено. Ручное обновление
+          владельцем загружает три последних завершённых календарных дня
+          по московскому времени.
+        </p>
+        <div class="ozon-status-legend"
+             aria-label="Обозначения статусов начислений">
+          <span class="ozon-status-badge is-loaded">Загружено</span>
+          <span class="ozon-status-badge is-unverified">Не сверено</span>
+          <span class="ozon-status-badge is-error">Ошибка</span>
+        </div>
         <div class="ozon-controls">
           <form id="ozonPeriodForm" class="ozon-period-form">
             <label>
@@ -300,14 +315,13 @@
           </button>
         </div>
         <p id="ozonRefreshMessage"
-           class="subtle"
+           class="subtle ozon-sync-note"
            role="status"
            aria-live="polite">
           Ручное обновление доступно владельцу.
         </p>
-        <div style="overflow-x:auto">
-          <table class="finance-table"
-                 style="width:100%;border-collapse:collapse">
+        <div class="ozon-sync-table-wrap">
+          <table class="finance-table ozon-data-table ozon-sync-table">
             <thead>
               <tr>
                 <th scope="col"

@@ -92,6 +92,16 @@ export async function onRequestPost({ request, env }) {
 
     const result = await service.startRecentSync();
     if (
+      result?.status === "rejected" &&
+      result.errorCode === "sync_already_running"
+    ) {
+      return json({
+        status: "rejected",
+        errorCode: "sync_already_running"
+      }, 409);
+    }
+
+    if (
       !result ||
       result.status !== "started" ||
       typeof result.runId !== "string" ||

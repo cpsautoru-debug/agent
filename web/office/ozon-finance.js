@@ -105,6 +105,7 @@
   let authorized = false;
   let requestId = 0;
   let latestApiRunStatus = "not_started";
+  let refreshInProgress = false;
 
   function tableMessage(message) {
     const tr = document.createElement("tr");
@@ -295,7 +296,7 @@
       `${data.periodStart} — ${data.periodEnd} · Seller API`;
 
     const statusLabels = {
-      complete: "Страницы API загружены",
+      complete: "Данные загружены",
       partial: "Загрузка неполная",
       failed: "Последняя загрузка завершилась ошибкой",
       running: "Синхронизация выполняется",
@@ -410,24 +411,12 @@
       }
 
       const tr = document.createElement("tr");
-      const state = day.complete ? "Полная загрузка" : day.status;
-      const reconciliation = day.discrepancyCount > 0
-        ? `Расхождений: ${number(day.discrepancyCount)}`
-        : day.reconciled
-          ? "Сверено"
-          : day.netStatus === "verified"
-            ? "Нетто сверено · детали не сверены"
-            : "Не сверено";
-      const dayStatus = day.errorCode
-        ? `${state} · ${day.errorCode} · ${reconciliation}`
-        : `${state} · ${reconciliation}`;
       const cells = [
         day.date,
         number(day.recordCount),
         money(day.positiveKopecks),
         money(day.negativeKopecks),
-        money(day.totalKopecks),
-        dayStatus
+        money(day.totalKopecks)
       ];
 
       cells.forEach((value, index) => {
@@ -440,6 +429,44 @@
         tr.append(td);
       });
 
+      const statusCell = document.createElement("td");
+      statusCell.className = "ozon-status-cell";
+      const addStatus = (label, className) => {
+        const badge = document.createElement("span");
+        badge.className = `ozon-status-badge ${className}`;
+        badge.textContent = label;
+        statusCell.append(badge);
+      };
+      if (day.errorCode || day.status === "failed") {
+        addStatus("Ошибка", "is-error");
+      } else if (day.complete) {
+        addStatus("Загружено", "is-loaded");
+      } else if (day.status === "partial") {
+        addStatus("Частично", "is-pending");
+      } else if (day.status === "running") {
+        addStatus("Загрузка", "is-pending");
+      } else {
+        addStatus("Нет данных", "is-muted");
+      }
+
+      if (day.discrepancyCount > 0) {
+        addStatus(
+          `Расхождений: ${number(day.discrepancyCount)}`,
+          "is-error"
+        );
+      } else {
+        addStatus(
+          day.reconciled ? "Сверено" : "Не сверено",
+          day.reconciled ? "is-verified" : "is-unverified"
+        );
+      }
+      if (day.errorCode) {
+        const errorCode = document.createElement("span");
+        errorCode.className = "ozon-status-error-code";
+        errorCode.textContent = day.errorCode;
+        statusCell.append(errorCode);
+      }
+      tr.append(statusCell);
       fragment.append(tr);
     }
 
@@ -621,8 +648,12 @@
   });
 
   async function startRecentSync() {
-    if (!authorized) return;
+    if (!authorized || refreshInProgress) return;
+    refreshInProgress = true;
     refreshButton.disabled = true;
+    refreshButton.setAttribute("aria-busy", "true");
+    refreshButton.textContent = "Обновление…";
+    refreshButton.classList.add("is-running");
     refreshMessage.textContent = "Запрашиваем защищённую синхронизацию…";
     try {
       const response = await fetch("/api/ozon/sync", {
@@ -632,7 +663,16 @@
         headers: { "Content-Type": "application/json" },
         body: "{}"
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
+      if (
+        response.status === 409 &&
+        result.errorCode === "sync_already_running"
+      ) {
+        refreshMessage.textContent =
+          "Синхронизация уже выполняется в другой вкладке или по расписанию.";
+        await loadApiSyncStatus({ recent: true });
+        return;
+      }
       if (response.status !== 202 || result.status !== "started") {
         throw new Error(result.errorCode || `HTTP ${response.status}`);
       }
@@ -642,21 +682,45 @@
         "История операций сохраняется отдельно.";
       for (let attempt = 0; attempt < 20; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 3000));
-        await loadApiSyncStatus();
+        await loadApiSyncStatus({ recent: true });
         if (latestApiRunStatus !== "running") break;
       }
       if (latestApiRunStatus === "running") {
         refreshMessage.textContent =
           "Синхронизация продолжается в фоне. Обновите статус позже.";
       } else {
-        refreshMessage.textContent =
+        const finalLabels = {
+          complete: "Обновление завершено. Данные загружены, но не сверены.",
+          partial: "Обновление частичное: часть страниц или дат не загружена.",
+          failed: "Обновление завершилось ошибкой. Смотрите код в статусе."
+        };
+        refreshMessage.textContent = finalLabels[latestApiRunStatus] ||
           `Последний статус: ${latestApiRunStatus}.`;
       }
-    } catch {
-      refreshMessage.textContent =
-        "Не удалось обновить Ozon. Проверьте статус синхронизации.";
+    } catch (error) {
+      const errorCode = error instanceof Error ? error.message : "";
+      const messages = {
+        ozon_credentials_missing: "Не настроены серверные ключи Ozon.",
+        ozon_rate_limited: "Ozon ограничил частоту запросов. Повторите позже.",
+        ozon_request_timeout: "Ozon не ответил вовремя. Повторите позже.",
+        ozon_network_error: "Не удалось связаться с Ozon.",
+        sync_already_running:
+          "Синхронизация уже выполняется по расписанию или в другой вкладке."
+      };
+      refreshMessage.textContent = messages[errorCode] ||
+        "Не удалось обновить Ozon. Проверьте статус и код ошибки.";
+      try {
+        await loadApiSyncStatus({ recent: true });
+      } catch {
+        apiSyncSummary.textContent =
+          "Не удалось получить статус последней синхронизации.";
+      }
     } finally {
+      refreshInProgress = false;
       refreshButton.disabled = !authorized;
+      refreshButton.removeAttribute("aria-busy");
+      refreshButton.classList.remove("is-running");
+      refreshButton.textContent = "Обновить Ozon";
     }
   }
 

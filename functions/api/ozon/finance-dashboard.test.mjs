@@ -221,3 +221,29 @@ test("manual sync rejects caller-supplied dates and unsafe service results", asy
   });
   assert.equal(response.status, 400);
 });
+
+test("manual sync reports an active run as a conflict without starting another", async () => {
+  let starts = 0;
+  const { env } = environment({
+    service: {
+      async startRecentSync() {
+        starts++;
+        return {
+          status: "rejected",
+          errorCode: "sync_already_running"
+        };
+      }
+    }
+  });
+  const response = await syncRoute.onRequestPost({
+    request: postRequest({ cookie: await ownerCookie() }),
+    env
+  });
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), {
+    status: "rejected",
+    errorCode: "sync_already_running"
+  });
+  assert.equal(starts, 1);
+});
