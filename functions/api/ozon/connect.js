@@ -13,16 +13,41 @@ function json(data, status = 200) {
   });
 }
 
+function diagnostic(
+  connected,
+  status,
+  httpStatus,
+  errorCode,
+  stage,
+  ozonHttpStatus = null
+) {
+  return json({
+    connected,
+    status,
+    errorCode,
+    stage,
+    ozonHttpStatus
+  }, httpStatus);
+}
+
+function isTimeout(error) {
+  return error?.name === "TimeoutError" ||
+    error?.name === "AbortError";
+}
+
 export async function onRequestGet({ request, env }) {
   if (
     !env.OFFICE_SESSION_SECRET ||
     !env.OFFICE_ALLOWED_EMAIL ||
     !env.OZON_FINANCE_DB
   ) {
-    return json({
-      connected: false,
-      status: "unavailable"
-    }, 503);
+    return diagnostic(
+      false,
+      "unavailable",
+      503,
+      "office_configuration_missing",
+      "configuration"
+    );
   }
 
   let googleSub;
@@ -35,10 +60,13 @@ export async function onRequestGet({ request, env }) {
     );
 
     if (!googleSub) {
-      return json({
-        connected: false,
-        status: "unauthorized"
-      }, 401);
+      return diagnostic(
+        false,
+        "unauthorized",
+        401,
+        "google_session_missing_or_invalid",
+        "authorization"
+      );
     }
 
     owner = await env.OZON_FINANCE_DB.prepare(`
@@ -53,28 +81,49 @@ export async function onRequestGet({ request, env }) {
       env.OFFICE_ALLOWED_EMAIL
     ).first();
   } catch {
-    return json({
-      connected: false,
-      status: "unavailable"
-    }, 503);
+    return diagnostic(
+      false,
+      "unavailable",
+      503,
+      "owner_authorization_unavailable",
+      "authorization"
+    );
   }
 
   if (!owner) {
-    return json({
-      connected: false,
-      status: "forbidden"
-    }, 403);
+    return diagnostic(
+      false,
+      "forbidden",
+      403,
+      "owner_access_required",
+      "authorization"
+    );
   }
 
-  if (!env.OZON_CLIENT_ID || !env.OZON_API_KEY) {
-    return json({
-      connected: false,
-      status: "unavailable"
-    }, 503);
+  if (!env.OZON_CLIENT_ID) {
+    return diagnostic(
+      false,
+      "unavailable",
+      503,
+      "ozon_client_id_missing",
+      "configuration"
+    );
   }
+
+  if (!env.OZON_API_KEY) {
+    return diagnostic(
+      false,
+      "unavailable",
+      503,
+      "ozon_api_key_missing",
+      "configuration"
+    );
+  }
+
+  let response;
 
   try {
-    const response = await fetch(
+    response = await fetch(
       "https://api-seller.ozon.ru/v3/product/list",
       {
         method: "POST",
@@ -93,36 +142,109 @@ export async function onRequestGet({ request, env }) {
         signal: AbortSignal.timeout(15000)
       }
     );
-
-    if (!response.ok) {
-      return json({
-        connected: false,
-        status: "disconnected"
-      }, 502);
+  } catch (error) {
+    if (isTimeout(error)) {
+      return diagnostic(
+        false,
+        "disconnected",
+        504,
+        "ozon_request_timeout",
+        "ozon_request"
+      );
     }
 
-    const data = await response.json();
-
-    if (
-      !data ||
-      typeof data !== "object" ||
-      Array.isArray(data) ||
-      !Array.isArray(data.items)
-    ) {
-      return json({
-        connected: false,
-        status: "disconnected"
-      }, 502);
-    }
-
-    return json({
-      connected: true,
-      status: "connected"
-    });
-  } catch {
-    return json({
-      connected: false,
-      status: "disconnected"
-    }, 502);
+    return diagnostic(
+      false,
+      "disconnected",
+      502,
+      "ozon_network_error",
+      "ozon_request"
+    );
   }
+
+  if (!response.ok) {
+    const errorCode = response.status === 401
+      ? "ozon_unauthorized"
+      : response.status === 403
+        ? "ozon_forbidden"
+        : "ozon_http_error";
+
+    return diagnostic(
+      false,
+      "disconnected",
+      502,
+      errorCode,
+      "ozon_http",
+      response.status
+    );
+  }
+
+  let responseBody;
+
+  try {
+    responseBody = await response.text();
+  } catch (error) {
+    if (isTimeout(error)) {
+      return diagnostic(
+        false,
+        "disconnected",
+        504,
+        "ozon_request_timeout",
+        "ozon_response",
+        response.status
+      );
+    }
+
+    return diagnostic(
+      false,
+      "disconnected",
+      502,
+      "ozon_network_error",
+      "ozon_response",
+      response.status
+    );
+  }
+
+  let data;
+
+  try {
+    data = JSON.parse(responseBody);
+  } catch {
+    return diagnostic(
+      false,
+      "disconnected",
+      502,
+      "ozon_invalid_api_response",
+      "ozon_response",
+      response.status
+    );
+  }
+
+  if (
+    !data ||
+    typeof data !== "object" ||
+    Array.isArray(data) ||
+    !data.result ||
+    typeof data.result !== "object" ||
+    Array.isArray(data.result) ||
+    !Array.isArray(data.result.items)
+  ) {
+    return diagnostic(
+      false,
+      "disconnected",
+      502,
+      "ozon_invalid_api_response",
+      "ozon_response",
+      response.status
+    );
+  }
+
+  return diagnostic(
+    true,
+    "connected",
+    200,
+    null,
+    "complete",
+    response.status
+  );
 }
