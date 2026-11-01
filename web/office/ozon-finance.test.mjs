@@ -111,6 +111,7 @@ function createOffice({
   } },
   statusResponse = dashboard(),
   statusHttpStatus = 200,
+  holdAuth,
   holdPost
 } = {}) {
   const ids = [
@@ -132,6 +133,14 @@ function createOffice({
   );
   const requests = [];
   const windowListeners = new Map();
+  let authStarted;
+  const authStartedPromise = new Promise(resolve => {
+    authStarted = resolve;
+  });
+  let releaseAuth;
+  const authRelease = holdAuth
+    ? new Promise(resolve => { releaseAuth = resolve; })
+    : Promise.resolve();
   let postStarted;
   const postStartedPromise = new Promise(resolve => {
     postStarted = resolve;
@@ -160,6 +169,8 @@ function createOffice({
   const fetch = async (path, options = {}) => {
     requests.push({ path, options });
     if (path === "/api/auth/me") {
+      authStarted();
+      await authRelease;
       const status = identity.authenticated ? 200 : 401;
       return response(status, identity);
     }
@@ -238,6 +249,8 @@ function createOffice({
   return {
     elements,
     requests,
+    authStartedPromise,
+    releaseAuth,
     postStartedPromise,
     releasePost,
     windowListeners
@@ -346,14 +359,19 @@ test("malformed financial status never enables the refresh button", async () => 
   );
 });
 
-test("initial navigation and pageshow do not race duplicate authorization checks", async () => {
-  const office = createOffice();
-  await office.windowListeners.get("pageshow")({ persisted: false });
+test("concurrent page events share one owner authorization check", async () => {
+  const office = createOffice({ holdAuth: true });
+  await office.authStartedPromise;
+  office.windowListeners.get("hashchange")();
+  office.windowListeners.get("pageshow")({ persisted: true });
+  office.releaseAuth();
   await settle();
   assert.equal(
     office.requests.filter(request => request.path === "/api/auth/me").length,
     1
   );
+  assert.equal(office.elements.get("ozonPeriodStart").disabled, false);
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, false);
 });
 
 test("rapid repeated clicks issue exactly one protected POST", async () => {
