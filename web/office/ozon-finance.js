@@ -34,6 +34,10 @@
   const periodEndInput = document.getElementById("ozonPeriodEnd");
   const refreshButton = document.getElementById("ozonRefreshButton");
   const refreshMessage = document.getElementById("ozonRefreshMessage");
+  const authRequired = document.getElementById("ozonAuthRequired");
+  const authMessage = document.getElementById("ozonAuthMessage");
+  const retryAuthButton = document.getElementById("ozonRetryAuthButton");
+  const syncReadiness = document.getElementById("ozonSyncReadiness");
 
   const costForm = document.getElementById("ozonCostForm");
   const costSku = document.getElementById("costSku");
@@ -49,7 +53,8 @@
       !apiCoverage || !apiCoverageNote || !apiChart ||
       !categoriesBody || !operationsBody || !operationsNote ||
       !periodForm || !periodStartInput || !periodEndInput ||
-      !refreshButton || !refreshMessage ||
+      !refreshButton || !refreshMessage || !authRequired ||
+      !authMessage || !retryAuthButton || !syncReadiness ||
       !costForm || !costSku || !costRubles ||
       !costStatus || !costMessage) return;
 
@@ -103,9 +108,11 @@
   const catalog = new Map();
   const savedCosts = new Map();
   let authorized = false;
+  let syncReady = false;
   let requestId = 0;
   let latestApiRunStatus = "not_started";
   let refreshInProgress = false;
+  let financeLoadPromise = null;
 
   function tableMessage(message) {
     const tr = document.createElement("tr");
@@ -117,7 +124,7 @@
     articlesBody.replaceChildren(tr);
   }
 
-  function setFormEnabled(enabled) {
+  function setOwnerControlsEnabled(enabled) {
     costSku.disabled = !enabled;
     costRubles.disabled = !enabled;
     costStatus.disabled = !enabled;
@@ -127,11 +134,35 @@
     periodEndInput.disabled = !enabled;
     periodForm.querySelector('button[type="submit"]').disabled =
       !enabled;
-    refreshButton.disabled = !enabled;
+    updateRefreshButton();
+  }
+
+  function updateRefreshButton() {
+    refreshButton.disabled =
+      !authorized || !syncReady || refreshInProgress;
+  }
+
+  function showAuthenticationRequired(message) {
+    authorized = false;
+    syncReady = false;
+    setOwnerControlsEnabled(false);
+    authRequired.hidden = false;
+    authMessage.textContent = message;
+    syncReadiness.hidden = true;
+    refreshMessage.textContent = "Требуется вход владельца.";
+    apiSyncSummary.textContent = "Требуется вход владельца";
+  }
+
+  function showSyncUnavailable(message) {
+    syncReady = false;
+    updateRefreshButton();
+    syncReadiness.hidden = false;
+    syncReadiness.textContent = message;
   }
 
   function reset() {
     authorized = false;
+    syncReady = false;
     total.textContent = "—";
     totalNote.textContent = "Требуется вход владельца";
     tableMessage("Требуется вход владельца");
@@ -142,7 +173,9 @@
     costSku.replaceChildren(new Option("Выберите товар", ""));
     costRubles.value = "";
     costStatus.value = "preliminary";
-    setFormEnabled(false);
+    authRequired.hidden = true;
+    syncReadiness.hidden = true;
+    setOwnerControlsEnabled(false);
   }
 
   async function getJSON(path, options = {}) {
@@ -479,6 +512,11 @@
     renderApiChart(data.daily);
     renderApiCategories(data.categories);
     renderApiOperations(data.operations, data.truncated);
+    syncReady = true;
+    updateRefreshButton();
+    syncReadiness.hidden = false;
+    syncReadiness.textContent =
+      "Защищённый сервис синхронизации готов к ручному запуску.";
   }
 
   function renderApiChart(days) {
@@ -641,11 +679,27 @@
     }
     try {
       await loadApiSyncStatus();
-    } catch {
-      apiSyncSummary.textContent =
-        "Не удалось загрузить период. Проверьте даты и доступ.";
+    } catch (error) {
+      handleSyncStatusError(error);
     }
   });
+
+  function handleSyncStatusError(error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/HTTP 401|HTTP 403/.test(message)) {
+      showAuthenticationRequired(
+        "Требуется вход владельца. Войдите через Google и проверьте доступ снова."
+      );
+      return;
+    }
+
+    showSyncUnavailable(
+      "Статус финансового сервиса недоступен. Поля периода остаются доступны; " +
+      "повторите проверку позже."
+    );
+    apiSyncSummary.textContent =
+      "Не удалось загрузить статус синхронизации.";
+  }
 
   async function startRecentSync() {
     if (!authorized || refreshInProgress) return;
@@ -670,7 +724,11 @@
       ) {
         refreshMessage.textContent =
           "Синхронизация уже выполняется в другой вкладке или по расписанию.";
-        await loadApiSyncStatus({ recent: true });
+        try {
+          await loadApiSyncStatus({ recent: true });
+        } catch (error) {
+          handleSyncStatusError(error);
+        }
         return;
       }
       if (response.status !== 202 || result.status !== "started") {
@@ -711,13 +769,12 @@
         "Не удалось обновить Ozon. Проверьте статус и код ошибки.";
       try {
         await loadApiSyncStatus({ recent: true });
-      } catch {
-        apiSyncSummary.textContent =
-          "Не удалось получить статус последней синхронизации.";
+      } catch (statusError) {
+        handleSyncStatusError(statusError);
       }
     } finally {
       refreshInProgress = false;
-      refreshButton.disabled = !authorized;
+      updateRefreshButton();
       refreshButton.removeAttribute("aria-busy");
       refreshButton.classList.remove("is-running");
       refreshButton.textContent = "Обновить Ozon";
@@ -896,57 +953,81 @@
   });
 
   async function loadFinance() {
+    if (financeLoadPromise) return financeLoadPromise;
+
     const current = ++requestId;
     reset();
 
-    try {
-      const identity = await getJSON("/api/auth/me");
+    financeLoadPromise = (async () => {
+      try {
+        authMessage.textContent = "Проверяем вход владельца…";
+        const identity = await getJSON("/api/auth/me");
 
-      if (current !== requestId) return;
+        if (current !== requestId) return;
 
-      if (identity.authenticated !== true ||
-          identity.role !== "owner") return;
+        if (identity.authenticated !== true ||
+            identity.role !== "owner") {
+          showAuthenticationRequired(
+            "Требуется вход владельца. Войдите через Google, затем проверьте доступ снова."
+          );
+          return;
+        }
 
-      authorized = true;
-      setFormEnabled(true);
+        authorized = true;
+        authRequired.hidden = true;
+        syncReady = false;
+        setOwnerControlsEnabled(true);
+        showSyncUnavailable(
+          "Проверяем готовность защищённого сервиса синхронизации…"
+        );
+        refreshMessage.textContent =
+          "Ручной запуск станет доступен после проверки защищённого сервиса.";
 
-      const results = await Promise.allSettled([
-        loadMonthly(),
-        loadArticles(),
-        loadCatalog(),
-        loadApiSyncStatus()
-      ]);
+        const results = await Promise.allSettled([
+          loadMonthly(),
+          loadArticles(),
+          loadCatalog(),
+          loadApiSyncStatus()
+        ]);
 
-      if (current !== requestId) return;
+        if (current !== requestId) return;
 
-      if (results[0].status === "rejected") {
-        totalNote.textContent = "Отчёт недоступен";
+        if (results[0].status === "rejected") {
+          totalNote.textContent = "Отчёт недоступен";
+        }
+
+        if (results[1].status === "rejected") {
+          tableMessage("Ошибка загрузки начислений");
+        }
+
+        if (results[2].status === "rejected") {
+          costMessage.textContent =
+            "Ошибка загрузки справочника себестоимости";
+        }
+
+        if (results[3].status === "rejected") {
+          handleSyncStatusError(results[3].reason);
+          apiSyncTableMessage("Проверьте доступ и состояние сервиса");
+        }
+      } catch (error) {
+        if (current !== requestId) return;
+        const message = error instanceof Error ? error.message : "";
+        if (/HTTP 401|HTTP 403/.test(message)) {
+          showAuthenticationRequired(
+            "Требуется вход владельца. Войдите через Google, затем проверьте доступ снова."
+          );
+        } else {
+          showAuthenticationRequired(
+            "Не удалось подтвердить вход владельца. Проверьте соединение и повторите авторизацию."
+          );
+        }
       }
+    })().finally(() => {
+      financeLoadPromise = null;
+    });
 
-      if (results[1].status === "rejected") {
-        tableMessage("Ошибка загрузки начислений");
-      }
-
-      if (results[2].status === "rejected") {
-        costMessage.textContent =
-          "Ошибка загрузки справочника себестоимости";
-      }
-
-      if (results[3].status === "rejected") {
-        apiSyncSummary.textContent =
-          "Не удалось загрузить статус синхронизации";
-        apiSyncTableMessage("Проверьте доступ и состояние сервиса");
-      }
-    } catch {
-      if (current !== requestId) return;
-      costMessage.textContent =
-        "Требуется вход владельца";
-    }
+    return financeLoadPromise;
   }
-
-  document.querySelectorAll(
-    '[data-page="ozonFinance"]'
-  ).forEach(link => link.addEventListener("click", loadFinance));
 
   window.addEventListener("hashchange", () => {
     if (location.hash.startsWith("#ozonFinance")) {
@@ -954,10 +1035,14 @@
     }
   });
 
-  window.addEventListener("pageshow", () => {
-    if (location.hash.startsWith("#ozonFinance")) {
+  window.addEventListener("pageshow", event => {
+    if (event.persisted && location.hash.startsWith("#ozonFinance")) {
       loadFinance();
     }
+  });
+
+  retryAuthButton.addEventListener("click", () => {
+    loadFinance();
   });
 
   if (location.hash.startsWith("#ozonFinance")) {

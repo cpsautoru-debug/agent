@@ -275,6 +275,25 @@
            aria-live="polite">
           Требуется вход владельца
         </p>
+        <div id="ozonAuthRequired"
+             class="ozon-auth-required"
+             role="alert"
+             hidden>
+          <span id="ozonAuthMessage">Требуется вход владельца.</span>
+          <a class="button light" href="/api/auth/google/start">
+            Войти через Google
+          </a>
+          <button class="button light"
+                  id="ozonRetryAuthButton"
+                  type="button">
+            Проверить вход снова
+          </button>
+        </div>
+        <p id="ozonSyncReadiness"
+           class="subtle ozon-sync-note"
+           role="status"
+           aria-live="polite"
+           hidden></p>
         <p id="ozonLastSuccessfulSync" class="subtle ozon-sync-note">
           Последнее успешное обновление: нет данных
         </p>

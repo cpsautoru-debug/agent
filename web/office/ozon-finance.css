@@ -51,6 +51,29 @@
   line-height: 1.5;
 }
 
+.ozon-auth-required {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid #e6c6a5;
+  border-radius: 10px;
+  background: #fff8ed;
+  color: #60431e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ozon-auth-required[hidden] {
+  display: none;
+}
+
+.ozon-auth-required .button {
+  min-height: 40px;
+}
+
 .ozon-status-legend,
 .ozon-status-cell {
   display: flex;
