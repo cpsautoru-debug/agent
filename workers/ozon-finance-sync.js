@@ -258,6 +258,7 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
                  error_code, started_at, finished_at
           FROM ozon_api_sync_runs
           WHERE source = ? AND period_start <= ? AND period_end >= ?
+            AND status != 'skipped'
           ORDER BY started_at DESC
           LIMIT 1
         `).bind(SOURCE, end, start).first(),

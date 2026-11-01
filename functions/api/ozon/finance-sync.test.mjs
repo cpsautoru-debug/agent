@@ -1160,6 +1160,7 @@ test("dashboard keeps components separate and flags unresolved drift", async () 
           if (normalized.includes("status = 'complete'")) {
             return { finished_at: "2026-10-28T12:01:00.000Z" };
           }
+          assert.match(normalized, /status != 'skipped'/);
           return {
             run_id: "run-1",
             status: "complete",
