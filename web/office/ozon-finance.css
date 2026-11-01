@@ -70,7 +70,7 @@
   border-radius: 10px;
 }
 
-.ozon-sync-table {
+.ozon-data-table.ozon-sync-table {
   min-width: 760px;
   font-size: 13px;
 }
@@ -246,7 +246,7 @@
     font-size: 11px;
   }
 
-  .ozon-sync-table {
+  .ozon-data-table.ozon-sync-table {
     font-size: 12px;
   }
 
