@@ -119,6 +119,9 @@ class MockStatement {
     }
 
     if (this.sql.startsWith("insert into ozon_api_sync_lock")) {
+      if (this.db.failLockClaim) {
+        throw new Error("local D1 lock failure");
+      }
       if (this.db.locked) return null;
       this.db.locked = true;
       return { lock_token: this.values[0] };
@@ -198,6 +201,9 @@ class MockStatement {
     const values = this.values;
 
     if (this.sql.startsWith("insert into ozon_api_sync_runs")) {
+      if (this.db.failRunInsert) {
+        throw new Error("local D1 run insert failure");
+      }
       this.db.runs.set(values[0], {
         runId: values[0],
         status: "running",
@@ -323,7 +329,25 @@ class MockD1 {
     const results = [];
     for (const statement of statements) {
       const { sql, values } = statement;
-      if (sql.startsWith("delete from ozon_api_accrual_components")) {
+      if (
+        sql.startsWith("update ozon_api_sync_runs") &&
+        sql.includes("where run_id = ? and status = 'running'")
+      ) {
+        const [finishedAt, runId] = values;
+        const run = this.runs.get(runId);
+        if (run?.status === "running") {
+          Object.assign(run, {
+            status: "failed",
+            errorCode: "background_sync_unavailable",
+            finishedAt
+          });
+        }
+      } else if (
+        sql.startsWith("update ozon_api_sync_lock") &&
+        sql.includes("where lock_id = 1 and lock_token = ?")
+      ) {
+        this.locked = false;
+      } else if (sql.startsWith("delete from ozon_api_accrual_components")) {
         const [accrualId] = values;
         const accrual = this.accruals.get(accrualId);
         if (accrual?.reconciled === 1) {
@@ -427,6 +451,7 @@ function armTestGate(db) {
 
 function makeManualWorker(db, overrides = {}) {
   let task;
+  let waitUntilCalls = 0;
   const worker = new OzonFinanceSyncWorker({
     env: {
       ...environment(db),
@@ -436,11 +461,33 @@ function makeManualWorker(db, overrides = {}) {
     },
     ctx: {
       waitUntil(promise) {
+        waitUntilCalls++;
         task = promise;
       }
     }
   });
-  return { worker, get task() { return task; } };
+  return {
+    worker,
+    get task() { return task; },
+    get waitUntilCalls() { return waitUntilCalls; }
+  };
+}
+
+async function completesWithin(promise) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("RPC did not complete in time")),
+          1000
+        );
+      })
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function ownerCookie() {
@@ -1338,11 +1385,105 @@ test("manual recent sync reserves the global lock before accepting and rejects d
     assert.equal(second.errorCode, "sync_already_running");
     assert.equal(db.runs.size, 1);
     assert.equal(db.gate.status, "disarmed");
+    assert.equal(invocation.waitUntilCalls, 1);
 
     await invocation.task;
     assert.equal(db.locked, false);
     assert.equal(db.runs.get(first.runId).status, "complete");
     assert.equal(new Set(requestedDates).size, 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("manual recent sync completes its RPC when D1 lock acquisition fails", async () => {
+  const db = new MockD1();
+  db.failLockClaim = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.startRecentSync()
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    errorCode: "sync_lock_unavailable"
+  });
+  assert.equal(db.locked, false);
+  assert.equal(db.runs.size, 0);
+  assert.equal(invocation.waitUntilCalls, 0);
+});
+
+test("manual recent sync releases the D1 lock when run creation fails", async () => {
+  const db = new MockD1();
+  db.failRunInsert = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.startRecentSync()
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    errorCode: "sync_run_unavailable"
+  });
+  assert.equal(db.locked, false);
+  assert.equal(db.runs.size, 0);
+  assert.equal(invocation.waitUntilCalls, 0);
+});
+
+test("manual recent sync rejects a busy lock without registering background work", async () => {
+  const db = new MockD1();
+  db.locked = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.startRecentSync()
+  );
+
+  assert.deepEqual(result, {
+    status: "rejected",
+    errorCode: "sync_already_running"
+  });
+  assert.equal(db.runs.size, 0);
+  assert.equal(invocation.waitUntilCalls, 0);
+});
+
+test("manual recent sync cleans up when waitUntil registration throws", async () => {
+  const db = new MockD1();
+  let registeredTask;
+  let ozonCalls = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    ozonCalls++;
+    throw new Error("Ozon must not be called");
+  };
+  const worker = new OzonFinanceSyncWorker({
+    env: {
+      ...environment(db),
+      OZON_FINANCE_SYNC_TEST_DATE: "2026-10-28",
+      OZON_FINANCE_SYNC_TEST_MAX_PAGES: "2"
+    },
+    ctx: {
+      waitUntil(promise) {
+        registeredTask = promise;
+        throw new Error("local waitUntil failure");
+      }
+    }
+  });
+
+  try {
+    const result = await completesWithin(worker.startRecentSync());
+    await registeredTask;
+
+    assert.deepEqual(result, {
+      status: "unavailable",
+      errorCode: "background_sync_unavailable"
+    });
+    assert.equal(db.locked, false);
+    assert.equal(db.runs.size, 1);
+    assert.equal([...db.runs.values()][0].status, "failed");
+    assert.equal(ozonCalls, 0);
   } finally {
     globalThis.fetch = originalFetch;
   }

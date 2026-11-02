@@ -173,6 +173,10 @@ function finiteInteger(value, field) {
   return number;
 }
 
+function logRecentSyncStage(stage) {
+  console.info("Ozon recent sync RPC", { stage });
+}
+
 export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
   async fetch() {
     return new Response(null, { status: 404 });
@@ -579,10 +583,13 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
   }
 
   async startRecentSync() {
+    logRecentSyncStage("entry");
     if (!this.env.OZON_FINANCE_DB) {
+      logRecentSyncStage("database_unavailable");
       return { status: "unavailable", errorCode: "database_unavailable" };
     }
     if (typeof this.ctx?.waitUntil !== "function") {
+      logRecentSyncStage("wait_until_unavailable");
       return { status: "unavailable", errorCode: "background_sync_unavailable" };
     }
 
@@ -590,22 +597,34 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     const runId = crypto.randomUUID();
     const lockToken = crypto.randomUUID();
     const db = this.env.OZON_FINANCE_DB;
-    const lock = await db.prepare(`
-      INSERT INTO ozon_api_sync_lock (
-        lock_id,
-        lock_token,
-        locked_until
-      )
-      VALUES (1, ?, datetime('now', '+20 minutes'))
-      ON CONFLICT(lock_id) DO UPDATE SET
-        lock_token = excluded.lock_token,
-        locked_until = excluded.locked_until
-      WHERE datetime(ozon_api_sync_lock.locked_until)
-        <= CURRENT_TIMESTAMP
-      RETURNING lock_token
-    `).bind(lockToken).first();
+    let lock;
+    logRecentSyncStage("lock_await_start");
+    try {
+      lock = await db.prepare(`
+        INSERT INTO ozon_api_sync_lock (
+          lock_id,
+          lock_token,
+          locked_until
+        )
+        VALUES (1, ?, datetime('now', '+20 minutes'))
+        ON CONFLICT(lock_id) DO UPDATE SET
+          lock_token = excluded.lock_token,
+          locked_until = excluded.locked_until
+        WHERE datetime(ozon_api_sync_lock.locked_until)
+          <= CURRENT_TIMESTAMP
+        RETURNING lock_token
+      `).bind(lockToken).first();
+      logRecentSyncStage("lock_await_end");
+    } catch {
+      logRecentSyncStage("lock_await_error");
+      return {
+        status: "unavailable",
+        errorCode: "sync_lock_unavailable"
+      };
+    }
 
     if (!lock) {
+      logRecentSyncStage("lock_busy");
       return {
         status: "rejected",
         errorCode: "sync_already_running"
@@ -613,6 +632,7 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     }
 
     try {
+      logRecentSyncStage("run_insert_await_start");
       await db.prepare(`
         INSERT INTO ozon_api_sync_runs (
           run_id,
@@ -630,20 +650,77 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
         dates[dates.length - 1],
         new Date().toISOString()
       ).run();
+      logRecentSyncStage("run_insert_await_end");
     } catch {
-      await db.prepare(`
-        UPDATE ozon_api_sync_lock
-        SET lock_token = NULL,
-            locked_until = '1970-01-01 00:00:00'
-        WHERE lock_id = 1 AND lock_token = ?
-      `).bind(lockToken).run();
+      logRecentSyncStage("run_insert_await_error");
+      try {
+        logRecentSyncStage("run_insert_lock_release_await_start");
+        await db.prepare(`
+          UPDATE ozon_api_sync_lock
+          SET lock_token = NULL,
+              locked_until = '1970-01-01 00:00:00'
+          WHERE lock_id = 1 AND lock_token = ?
+        `).bind(lockToken).run();
+        logRecentSyncStage("run_insert_lock_release_await_end");
+      } catch {
+        logRecentSyncStage("run_insert_lock_release_await_error");
+        return {
+          status: "unavailable",
+          errorCode: "sync_lock_cleanup_failed"
+        };
+      }
       return {
         status: "unavailable",
         errorCode: "sync_run_unavailable"
       };
     }
 
-    this.ctx.waitUntil(
+    let startBackgroundTask;
+    const backgroundTask = new Promise(resolve => {
+      startBackgroundTask = resolve;
+    });
+
+    try {
+      logRecentSyncStage("wait_until_register_start");
+      this.ctx.waitUntil(backgroundTask);
+      logRecentSyncStage("wait_until_register_end");
+    } catch {
+      logRecentSyncStage("wait_until_register_error");
+      try {
+        logRecentSyncStage("wait_until_cleanup_await_start");
+        await db.batch([
+          db.prepare(`
+            UPDATE ozon_api_sync_runs
+            SET status = 'failed',
+                error_code = 'background_sync_unavailable',
+                finished_at = ?
+            WHERE run_id = ? AND status = 'running'
+          `).bind(new Date().toISOString(), runId),
+          db.prepare(`
+            UPDATE ozon_api_sync_lock
+            SET lock_token = NULL,
+                locked_until = '1970-01-01 00:00:00'
+            WHERE lock_id = 1 AND lock_token = ?
+          `).bind(lockToken)
+        ]);
+        logRecentSyncStage("wait_until_cleanup_await_end");
+      } catch {
+        logRecentSyncStage("wait_until_cleanup_await_error");
+        startBackgroundTask();
+        return {
+          status: "unavailable",
+          errorCode: "sync_schedule_cleanup_failed"
+        };
+      }
+      startBackgroundTask();
+      return {
+        status: "unavailable",
+        errorCode: "background_sync_unavailable"
+      };
+    }
+
+    logRecentSyncStage("background_task_start");
+    startBackgroundTask(
       syncOzonFinance(this.env, {
         dates,
         runId,
@@ -686,6 +763,7 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
         });
       })
     );
+    logRecentSyncStage("rpc_return");
     return {
       status: "started",
       runId,
