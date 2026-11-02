@@ -47,6 +47,13 @@ const gateSource = await readFile(
   new URL("../../../workers/ozon-one-shot-gate.js", import.meta.url),
   "utf8"
 );
+const reconciliationSource = await readFile(
+  new URL("./reconciliation-core.js", import.meta.url),
+  "utf8"
+);
+const reconciliationModuleUrl = `data:text/javascript;base64,${Buffer
+  .from(reconciliationSource)
+  .toString("base64")}`;
 const gateModuleUrl = `data:text/javascript;base64,${Buffer
   .from(gateSource)
   .toString("base64")}`;
@@ -64,6 +71,9 @@ const workerModuleSource = workerSource.replace(
 ).replace(
   'import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";',
   `const { claimOzonOneShotGate } = await import("${gateModuleUrl}");`
+).replace(
+  /import\s*\{\s*previewOzonDay,\s*reconcileOzonDay\s*\}\s*from\s*"\.\.\/functions\/api\/ozon\/reconciliation-core\.js";/,
+  `const { previewOzonDay, reconcileOzonDay } = await import("${reconciliationModuleUrl}");`
 );
 const { default: OzonFinanceSyncWorker } = await import(
   `data:text/javascript;base64,${Buffer
@@ -468,6 +478,96 @@ function environment(db) {
 function armTestGate(db) {
   db.gate.status = "armed";
   db.gate.armedAt = new Date().toISOString();
+}
+
+const reconciliationManifest = {
+  operationDate: "2026-10-28",
+  report: {
+    name: "local-test-report.xlsx",
+    sha256: "b".repeat(64),
+    detailRows: 1
+  },
+  expectedTotalKopecks: 100,
+  expectedPositiveKopecks: 100,
+  expectedNegativeKopecks: 0,
+  accruals: [{
+    accrualId: "101",
+    operationDate: "2026-10-28",
+    unitNumber: "shipment-1",
+    category: "POSTING",
+    totalKopecks: 100
+  }],
+  groups: [{
+    unitNumber: "shipment-1",
+    detailRows: 1,
+    totalKopecks: 100
+  }]
+};
+
+function reconciliationDb() {
+  const rows = [{
+    accrual_id: "101",
+    operation_date: "2026-10-28",
+    unit_number: "shipment-1",
+    accrued_category: "POSTING",
+    total_kopecks: 100,
+    currency: "RUB",
+    reconciled: 0
+  }];
+  const db = {
+    rows,
+    activeLock: null,
+    batchCalls: 0,
+    prepare(sql) {
+      const normalized = sql.replace(/\s+/g, " ").trim().toLowerCase();
+      const statement = {
+        bind(...values) {
+          statement.values = values;
+          return statement;
+        },
+        async first() {
+          if (normalized.includes("from ozon_api_reconciliation_audit")) {
+            return null;
+          }
+          if (normalized.includes("from ozon_api_sync_state")) {
+            return {
+              status: "complete",
+              page_count: 1,
+              record_count: 1,
+              page_complete: 1,
+              reconciled: 0
+            };
+          }
+          if (normalized.includes("from ozon_api_sync_runs")) {
+            return { run_id: "local-complete-run" };
+          }
+          if (normalized.includes("from ozon_api_sync_lock")) {
+            return db.activeLock;
+          }
+          if (normalized.includes("from ozon_api_accrual_discrepancies")) {
+            return null;
+          }
+          throw new Error(`Unexpected reconciliation query: ${normalized}`);
+        },
+        async all() {
+          if (normalized.includes("from ozon_api_accruals")) {
+            return { results: db.rows };
+          }
+          throw new Error(`Unexpected reconciliation query: ${normalized}`);
+        }
+      };
+      return statement;
+    },
+    async batch(statements) {
+      this.batchCalls++;
+      const expected = JSON.parse(statements[0].values[0]);
+      return statements.map((statement, index) => ({
+        success: true,
+        meta: { changes: index === 0 ? 1 : expected.length }
+      }));
+    }
+  };
+  return db;
 }
 
 function makeManualWorker(db, overrides = {}) {
@@ -1676,6 +1776,105 @@ test("read-only recent sync probe reports lock SQL bind failure without executio
   });
   assert.equal(db.locked, false);
   assert.equal(db.runs.size, 0);
+});
+
+test("Worker reconciliation preview is read-only and signs the manifest", async () => {
+  const db = reconciliationDb();
+  const invocation = makeManualWorker(db, {
+    OZON_API_KEY: "local-api-key-long-enough-for-reconciliation-tests"
+  });
+  const result = await invocation.worker.previewReconciliation(
+    reconciliationManifest
+  );
+
+  assert.equal(result.status, "ready_to_confirm");
+  assert.equal(result.detailStatus, "unverified");
+  assert.match(
+    result.previewToken,
+    /^\d{13}\.[a-f0-9]{64}\.[A-Za-z0-9_-]{43}$/
+  );
+  assert.equal(db.batchCalls, 0);
+});
+
+test("Worker confirm requires a valid preview for the unchanged manifest", async () => {
+  const db = reconciliationDb();
+  const invocation = makeManualWorker(db, {
+    OZON_API_KEY: "local-api-key-long-enough-for-reconciliation-tests"
+  });
+  const preview = await invocation.worker.previewReconciliation(
+    reconciliationManifest
+  );
+  const changedManifest = structuredClone(reconciliationManifest);
+  changedManifest.expectedTotalKopecks++;
+  changedManifest.expectedPositiveKopecks++;
+
+  await assert.rejects(
+    invocation.worker.confirmReconciliation(
+      changedManifest,
+      preview.previewToken
+    ),
+    { message: "reconciliation_preview_manifest_changed" }
+  );
+  assert.equal(db.batchCalls, 0);
+
+  const result = await invocation.worker.confirmReconciliation(
+    reconciliationManifest,
+    preview.previewToken
+  );
+  assert.equal(result.status, "net_verified_details_unverified");
+  assert.equal(result.detailStatus, "unverified");
+  assert.equal(db.batchCalls, 1);
+});
+
+test("Worker confirm rejects missing, expired, or invalid preview tokens", async () => {
+  const db = reconciliationDb();
+  const invocation = makeManualWorker(db, {
+    OZON_API_KEY: "local-api-key-long-enough-for-reconciliation-tests"
+  });
+
+  await assert.rejects(
+    invocation.worker.confirmReconciliation(reconciliationManifest, ""),
+    { message: "reconciliation_preview_required" }
+  );
+  await assert.rejects(
+    invocation.worker.confirmReconciliation(
+      reconciliationManifest,
+      `0000000000000.${"a".repeat(64)}.${"A".repeat(43)}`
+    ),
+    { message: "reconciliation_preview_expired" }
+  );
+  assert.equal(db.batchCalls, 0);
+});
+
+test("Worker confirm rechecks accruals and active lock before writing", async () => {
+  const db = reconciliationDb();
+  const invocation = makeManualWorker(db, {
+    OZON_API_KEY: "local-api-key-long-enough-for-reconciliation-tests"
+  });
+  const preview = await invocation.worker.previewReconciliation(
+    reconciliationManifest
+  );
+
+  db.rows[0].total_kopecks++;
+  await assert.rejects(
+    invocation.worker.confirmReconciliation(
+      reconciliationManifest,
+      preview.previewToken
+    ),
+    { message: "reconciliation_accrual_mismatch" }
+  );
+  assert.equal(db.batchCalls, 0);
+
+  db.rows[0].total_kopecks--;
+  db.activeLock = { active: 1 };
+  await assert.rejects(
+    invocation.worker.confirmReconciliation(
+      reconciliationManifest,
+      preview.previewToken
+    ),
+    { message: "reconciliation_sync_in_progress" }
+  );
+  assert.equal(db.batchCalls, 0);
 });
 
 test("records network failures after bounded retries", async () => {

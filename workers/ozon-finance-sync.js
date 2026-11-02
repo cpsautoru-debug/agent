@@ -2,6 +2,10 @@
 
 
 import { getOzonDateWindow, syncOzonFinance } from "../functions/api/ozon/finance-sync.js";
+import {
+  previewOzonDay,
+  reconcileOzonDay
+} from "../functions/api/ozon/reconciliation-core.js";
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";
 
@@ -12,6 +16,7 @@ const DAILY_CRON = "15 3 * * *";
 const MAX_DASHBOARD_DAYS = 31;
 const MAX_DASHBOARD_OPERATIONS = 500;
 const SYNC_PROBE_TIMEOUT_MS = 2000;
+const RECONCILIATION_PREVIEW_TTL_MS = 5 * 60 * 1000;
 const OCTOBER_BACKFILL_START = "2026-10-01";
 const OCTOBER_BACKFILL_END = "2026-10-31";
 const MAX_BACKFILL_PAGES_PER_DAY = 12;
@@ -199,6 +204,111 @@ function logRecentSyncProbeStage(stage) {
   console.info("Ozon recent sync read-only probe", { stage });
 }
 
+function reconciliationPreviewMessage(timestamp, manifestHash) {
+  return `ozon-reconciliation-preview:v1:${timestamp}:${manifestHash}`;
+}
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map(key =>
+      `${JSON.stringify(key)}:${canonicalJson(value[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function encodeBase64Url(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+async function manifestHash(manifest) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonicalJson(manifest))
+  );
+  return [...new Uint8Array(digest)]
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function reconciliationPreviewKey(env) {
+  const secret = env.OZON_API_KEY;
+  if (typeof secret !== "string" || secret.length < 32) {
+    throw new Error("reconciliation_preview_signing_unavailable");
+  }
+  const keyMaterial = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`autosklad63-ozon-reconciliation-preview:v1:${secret}`)
+  );
+  return crypto.subtle.importKey(
+    "raw",
+    keyMaterial,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+}
+
+async function createReconciliationPreviewToken(env, manifest) {
+  const timestamp = Date.now();
+  const hash = await manifestHash(manifest);
+  const key = await reconciliationPreviewKey(env);
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(reconciliationPreviewMessage(timestamp, hash))
+  );
+  return `${timestamp}.${hash}.${encodeBase64Url(new Uint8Array(signature))}`;
+}
+
+async function verifyReconciliationPreviewToken(env, manifest, token) {
+  if (
+    typeof token !== "string" ||
+    token.length === 0 ||
+    token.length > 256
+  ) {
+    throw new Error("reconciliation_preview_required");
+  }
+  const match = /^(\d{13})\.([a-f0-9]{64})\.([A-Za-z0-9_-]{43})$/.exec(token);
+  if (!match) throw new Error("invalid_reconciliation_preview");
+
+  const timestamp = Number(match[1]);
+  const age = Date.now() - timestamp;
+  if (
+    !Number.isSafeInteger(timestamp) ||
+    age < -30_000 ||
+    age > RECONCILIATION_PREVIEW_TTL_MS
+  ) {
+    throw new Error("reconciliation_preview_expired");
+  }
+
+  const hash = await manifestHash(manifest);
+  if (hash !== match[2]) {
+    throw new Error("reconciliation_preview_manifest_changed");
+  }
+
+  const signature = Uint8Array.from(
+    atob(match[3].replace(/-/g, "+").replace(/_/g, "/")),
+    character => character.charCodeAt(0)
+  );
+  const key = await reconciliationPreviewKey(env);
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    signature,
+    new TextEncoder().encode(reconciliationPreviewMessage(timestamp, hash))
+  );
+  if (!valid) throw new Error("invalid_reconciliation_preview");
+}
+
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
   return Promise.race([
@@ -286,6 +396,36 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
         readOnlyProbe: probe
       };
     }
+  }
+
+  async previewReconciliation(manifest) {
+    const db = this.env.OZON_FINANCE_DB;
+    if (!db) throw new Error("database_unavailable");
+    await reconciliationPreviewKey(this.env);
+
+    const preview = await previewOzonDay(db, manifest);
+    if (preview.status !== "ready_to_confirm") {
+      return preview;
+    }
+
+    return {
+      ...preview,
+      previewToken: await createReconciliationPreviewToken(
+        this.env,
+        manifest
+      )
+    };
+  }
+
+  async confirmReconciliation(manifest, previewToken) {
+    const db = this.env.OZON_FINANCE_DB;
+    if (!db) throw new Error("database_unavailable");
+    await verifyReconciliationPreviewToken(
+      this.env,
+      manifest,
+      previewToken
+    );
+    return reconcileOzonDay(db, manifest);
   }
 
   async getRecentSyncReadOnlyProbe() {

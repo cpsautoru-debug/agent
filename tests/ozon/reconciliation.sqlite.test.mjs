@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 
 const source = await readFile(
-  new URL("../../functions/api/ozon/reconciliation.js", import.meta.url),
+  new URL("../../functions/api/ozon/reconciliation-core.js", import.meta.url),
   "utf8"
 );
 const { reconcileOzonDay } = await import(

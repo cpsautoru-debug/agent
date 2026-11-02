@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const reconciliationSource = await readFile(
-  new URL("./reconciliation.js", import.meta.url),
+  new URL("./reconciliation-core.js", import.meta.url),
   "utf8"
 );
-const { reconcileOzonDay } = await import(
+const { previewOzonDay, reconcileOzonDay } = await import(
   `data:text/javascript;base64,${Buffer
     .from(reconciliationSource)
     .toString("base64")}`
@@ -95,6 +95,9 @@ class MockStatement {
     if (this.sql.includes("from ozon_api_sync_lock")) {
       return this.db.activeLock;
     }
+    if (this.sql.includes("from ozon_api_accrual_discrepancies")) {
+      return this.db.openDiscrepancy;
+    }
     throw new Error(`Unexpected first query: ${this.sql}`);
   }
 
@@ -118,6 +121,7 @@ function mockDb(overrides = {}) {
     },
     completeRun: { run_id: "run-complete" },
     activeLock: null,
+    openDiscrepancy: null,
     audit: null,
     batchCalls: 0,
     prepare(sql) {
@@ -184,6 +188,44 @@ test("verifies net totals and snapshots rows without marking full reconciliation
   assert.equal(db.audit.report_negative_kopecks, -450);
   assert.equal(db.audit.api_positive_kopecks, 500);
   assert.equal(db.audit.api_negative_kopecks, -250);
+});
+
+test("preview validates expected reconciliation without issuing writes", async () => {
+  const db = mockDb();
+  const result = await previewOzonDay(db, manifest);
+
+  assert.deepEqual(result, {
+    status: "ready_to_confirm",
+    auditId: `ozon:2026-10-28:${"A".repeat(64)}`,
+    operationDate: "2026-10-28",
+    sourceReport: "test-report.xlsx",
+    sourceSha256: "A".repeat(64),
+    recordCount: 3,
+    groupCount: 2,
+    totalKopecks: 250,
+    netStatus: "verified",
+    detailStatus: "unverified",
+    detailReason: "ozon_api_component_mapping_incomplete"
+  });
+  assert.equal(db.batchCalls, 0);
+});
+
+test("preview refuses active sync and open discrepancies without writes", async () => {
+  const active = mockDb({ activeLock: { active: 1 } });
+  await assert.rejects(
+    previewOzonDay(active, manifest),
+    { code: "reconciliation_sync_in_progress" }
+  );
+  assert.equal(active.batchCalls, 0);
+
+  const discrepancy = mockDb({
+    openDiscrepancy: { open: 1 }
+  });
+  await assert.rejects(
+    previewOzonDay(discrepancy, manifest),
+    { code: "reconciliation_discrepancy_open" }
+  );
+  assert.equal(discrepancy.batchCalls, 0);
 });
 
 test("refuses an amount mismatch before attempting writes", async () => {
