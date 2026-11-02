@@ -38,6 +38,7 @@ class FakeElement {
   }
 
   async dispatch(type, event = {}) {
+    if (this.disabled) return;
     return this.listeners.get(type)?.({
       preventDefault() {},
       ...event
@@ -95,6 +96,11 @@ function dashboard() {
       status: "unverified",
       reason: "ozon_api_component_mapping_incomplete"
     },
+    manualSync: {
+      ready: true,
+      activeRun: false,
+      errorCode: null
+    },
     latestRun: null,
     reconciled: false,
     truncated: false
@@ -111,6 +117,7 @@ function createOffice({
   } },
   statusResponse = dashboard(),
   statusHttpStatus = 200,
+  postError,
   holdAuth,
   holdPost
 } = {}) {
@@ -126,7 +133,6 @@ function createOffice({
     "ozonRefreshButton", "ozonRefreshMessage", "ozonCostForm",
     "costSku", "costRubles", "costStatus", "costMessage",
     "ozonAuthRequired", "ozonAuthMessage", "ozonRetryAuthButton",
-    "ozonSyncReadiness"
   ];
   const elements = new Map(
     ids.map(id => [id, new FakeElement(id)])
@@ -154,7 +160,6 @@ function createOffice({
     elements.get(id).disabled = true;
   }
   elements.get("ozonAuthRequired").hidden = true;
-  elements.get("ozonSyncReadiness").hidden = true;
   elements.get("costStatus").value = "preliminary";
   elements.get("ozonAuthRequired").loginHref = "/api/auth/google/start";
 
@@ -202,6 +207,7 @@ function createOffice({
     if (path === "/api/ozon/sync" && options.method === "POST") {
       postStarted();
       await postRelease;
+      if (postError) throw postError;
       return response(postResponse.status, postResponse.body);
     }
     throw new Error(`Unexpected request: ${path}`);
@@ -273,8 +279,8 @@ test("owner authorization enables date controls and the ready refresh button", a
   assert.equal(office.elements.get("ozonRefreshButton").disabled, false);
   assert.equal(office.elements.get("ozonAuthRequired").hidden, true);
   assert.match(
-    office.elements.get("ozonSyncReadiness").textContent,
-    /готов к ручному запуску/
+    office.elements.get("ozonRefreshMessage").textContent,
+    /сервис готов.*можно обновить/i
   );
 });
 
@@ -337,8 +343,8 @@ test("financial status errors do not disable owner period filters", async () => 
   assert.equal(office.elements.get("ozonPeriodEnd").disabled, false);
   assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
   assert.match(
-    office.elements.get("ozonSyncReadiness").textContent,
-    /поля периода остаются доступны/i
+    office.elements.get("ozonRefreshMessage").textContent,
+    /Worker \/ Service Binding недоступен.*поля периода остаются доступны/i
   );
 });
 
@@ -346,7 +352,12 @@ test("malformed financial status never enables the refresh button", async () => 
   const office = createOffice({
     statusResponse: {
       ...dashboard(),
-      coverage: {}
+      coverage: {},
+      manualSync: {
+        ready: true,
+        activeRun: false,
+        errorCode: "invalid error code"
+      }
     }
   });
   await settle();
@@ -354,8 +365,8 @@ test("malformed financial status never enables the refresh button", async () => 
   assert.equal(office.elements.get("ozonPeriodEnd").disabled, false);
   assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
   assert.match(
-    office.elements.get("ozonSyncReadiness").textContent,
-    /статус финансового сервиса недоступен/i
+    office.elements.get("ozonRefreshMessage").textContent,
+    /статус Worker \/ Service Binding недоступен/i
   );
 });
 
@@ -374,8 +385,14 @@ test("concurrent page events share one owner authorization check", async () => {
   assert.equal(office.elements.get("ozonRefreshButton").disabled, false);
 });
 
-test("rapid repeated clicks issue exactly one protected POST", async () => {
-  const office = createOffice({ holdPost: true });
+test("refresh click starts once, disables during sync, and displays completion", async () => {
+  const office = createOffice({
+    holdPost: true,
+    statusResponse: {
+      ...dashboard(),
+      latestRun: { status: "complete" }
+    }
+  });
   await settle();
   const button = office.elements.get("ozonRefreshButton");
   const firstClick = button.dispatch("click");
@@ -391,6 +408,10 @@ test("rapid repeated clicks issue exactly one protected POST", async () => {
     1
   );
   assert.equal(button.disabled, false);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /Обновление завершено/
+  );
 });
 
 test("refresh control is restored after a protected POST error", async () => {
@@ -403,12 +424,94 @@ test("refresh control is restored after a protected POST error", async () => {
   await settle();
   const button = office.elements.get("ozonRefreshButton");
   await button.dispatch("click");
-  assert.equal(button.disabled, false);
+  assert.equal(button.disabled, true);
   assert.equal(button.getAttribute("aria-busy"), null);
   assert.match(
     office.elements.get("ozonRefreshMessage").textContent,
-    /Не удалось обновить Ozon/
+    /Worker не смог принять запуск \(HTTP 503\)/
   );
+  await office.elements.get("ozonPeriodForm").dispatch("submit");
+  assert.equal(button.disabled, false);
+});
+
+test("owner POST 401 revokes local owner state and shows login guidance", async () => {
+  const office = createOffice({
+    postResponse: { status: 401, body: { error: "Unauthorized" } }
+  });
+  await settle();
+  await office.elements.get("ozonRefreshButton").dispatch("click");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
+  assert.equal(office.elements.get("ozonAuthRequired").hidden, false);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /Требуется вход владельца/
+  );
+  assert.equal(
+    office.requests.filter(request => request.options.method === "POST").length,
+    1
+  );
+});
+
+test("POST 409 reports the active run and keeps refresh disabled", async () => {
+  const office = createOffice({
+    postResponse: {
+      status: 409,
+      body: { errorCode: "sync_already_running" }
+    },
+    statusResponse: {
+      ...dashboard(),
+        latestRun: { status: "running" },
+        manualSync: {
+          ready: false,
+          activeRun: true,
+          errorCode: null
+        }
+      }
+  });
+  await settle();
+  await office.elements.get("ozonRefreshButton").dispatch("click");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /уже выполняется/i
+  );
+});
+
+test("POST 500 blocks refresh until a successful status recheck", async () => {
+  const office = createOffice({
+    postResponse: {
+      status: 500,
+      body: { errorCode: "sync_service_unavailable" }
+    }
+  });
+  await settle();
+  await office.elements.get("ozonRefreshButton").dispatch("click");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /HTTP 500/
+  );
+  await office.elements.get("ozonPeriodForm").dispatch("submit");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, false);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /сервис готов/i
+  );
+});
+
+test("network failure blocks refresh until the service is rechecked", async () => {
+  const office = createOffice({
+    postError: new TypeError("fetch failed")
+  });
+  await settle();
+  await office.elements.get("ozonRefreshButton").dispatch("click");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, true);
+  assert.match(
+    office.elements.get("ozonRefreshMessage").textContent,
+    /Сетевая ошибка/
+  );
+  await office.elements.get("ozonPeriodForm").dispatch("submit");
+  assert.equal(office.elements.get("ozonRefreshButton").disabled, false);
 });
 
 test("mobile styles keep controls usable and the finance table locally scrollable", () => {

@@ -83,6 +83,10 @@ class MockStatement {
   }
 
   async first() {
+    if (this.sql.startsWith("select case when lock_token")) {
+      return { active: this.db.locked ? 1 : 0 };
+    }
+
     if (this.sql.startsWith("update ozon_api_one_shot_gate")) {
       const [
         claimedAt,
@@ -1344,6 +1348,44 @@ test("manual recent sync reserves the global lock before accepting and rejects d
   }
 });
 
+test("manual sync readiness checks Worker background support and active lock", async () => {
+  const db = new MockD1();
+  const invocation = makeManualWorker(db);
+
+  assert.deepEqual(await invocation.worker.getManualSyncReadiness(), {
+    ready: true,
+    activeRun: false,
+    errorCode: null
+  });
+
+  db.locked = true;
+  assert.deepEqual(await invocation.worker.getManualSyncReadiness(), {
+    ready: false,
+    activeRun: true,
+    errorCode: null
+  });
+
+  const noBackground = new OzonFinanceSyncWorker({
+    env: environment(db),
+    ctx: {}
+  });
+  assert.deepEqual(await noBackground.getManualSyncReadiness(), {
+    ready: false,
+    activeRun: false,
+    errorCode: "background_sync_unavailable"
+  });
+
+  const missingCredentials = new OzonFinanceSyncWorker({
+    env: { ...environment(db), OZON_API_KEY: "" },
+    ctx: { waitUntil() {} }
+  });
+  assert.deepEqual(await missingCredentials.getManualSyncReadiness(), {
+    ready: false,
+    activeRun: false,
+    errorCode: "ozon_credentials_missing"
+  });
+});
+
 test("records network failures after bounded retries", async () => {
   const db = new MockD1();
   const delays = [];
@@ -1446,6 +1488,9 @@ test("protects sync status with the Google owner session", async () => {
       }
     },
     OZON_FINANCE_SYNC: {
+      async getManualSyncReadiness() {
+        return { ready: true, activeRun: false, errorCode: null };
+      },
       async getFinanceDashboard() {
         dashboardCalls++;
         return {
@@ -1516,6 +1561,11 @@ test("protects sync status with the Google owner session", async () => {
   assert.equal(response.status, 200);
   assert.equal(body.source, "ozon_seller_api");
   assert.equal(body.reconciled, false);
+  assert.deepEqual(body.manualSync, {
+    ready: true,
+    activeRun: false,
+    errorCode: null
+  });
   assert.equal(body.latestRun.errorCode, "ozon_rate_limited");
   assert.equal(body.daily[0].totalKopecks, 12345);
   assert.equal(body.daily[0].complete, false);

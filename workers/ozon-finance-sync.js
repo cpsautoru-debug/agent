@@ -178,6 +178,54 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     return new Response(null, { status: 404 });
   }
 
+  async getManualSyncReadiness() {
+    if (!this.env.OZON_FINANCE_DB) {
+      return {
+        ready: false,
+        activeRun: false,
+        errorCode: "database_unavailable"
+      };
+    }
+    if (!this.env.OZON_CLIENT_ID || !this.env.OZON_API_KEY) {
+      return {
+        ready: false,
+        activeRun: false,
+        errorCode: "ozon_credentials_missing"
+      };
+    }
+    if (typeof this.ctx?.waitUntil !== "function") {
+      return {
+        ready: false,
+        activeRun: false,
+        errorCode: "background_sync_unavailable"
+      };
+    }
+
+    try {
+      const lock = await this.env.OZON_FINANCE_DB.prepare(`
+        SELECT CASE
+          WHEN lock_token IS NOT NULL
+            AND datetime(locked_until) > CURRENT_TIMESTAMP
+          THEN 1 ELSE 0
+        END AS active
+        FROM ozon_api_sync_lock
+        WHERE lock_id = 1
+      `).first();
+      const activeRun = lock?.active === 1;
+      return {
+        ready: !activeRun,
+        activeRun,
+        errorCode: null
+      };
+    } catch {
+      return {
+        ready: false,
+        activeRun: false,
+        errorCode: "sync_readiness_unavailable"
+      };
+    }
+  }
+
   async getFinanceDashboard(periodStart, periodEnd) {
     const db = this.env.OZON_FINANCE_DB;
     if (!db) throw new Error("Finance database unavailable");

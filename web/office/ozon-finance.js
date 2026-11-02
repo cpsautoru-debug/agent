@@ -37,7 +37,6 @@
   const authRequired = document.getElementById("ozonAuthRequired");
   const authMessage = document.getElementById("ozonAuthMessage");
   const retryAuthButton = document.getElementById("ozonRetryAuthButton");
-  const syncReadiness = document.getElementById("ozonSyncReadiness");
 
   const costForm = document.getElementById("ozonCostForm");
   const costSku = document.getElementById("costSku");
@@ -54,7 +53,7 @@
       !categoriesBody || !operationsBody || !operationsNote ||
       !periodForm || !periodStartInput || !periodEndInput ||
       !refreshButton || !refreshMessage || !authRequired ||
-      !authMessage || !retryAuthButton || !syncReadiness ||
+      !authMessage || !retryAuthButton ||
       !costForm || !costSku || !costRubles ||
       !costStatus || !costMessage) return;
 
@@ -102,16 +101,20 @@
       "Нетто-сверка и детализация пока не подтверждены.";
     apiSyncTableMessage("Требуется вход владельца");
     resetApiDashboard("Требуется вход владельца");
-    refreshMessage.textContent = "Ручное обновление доступно владельцу.";
   }
 
   const catalog = new Map();
   const savedCosts = new Map();
-  let authorized = false;
-  let syncReady = false;
+  const manualSyncState = {
+    authorized: false,
+    serviceReady: false,
+    activeRun: false,
+    requestInProgress: false,
+    blockingMessage: "",
+    resultMessage: ""
+  };
   let requestId = 0;
   let latestApiRunStatus = "not_started";
-  let refreshInProgress = false;
   let financeLoadPromise = null;
 
   function tableMessage(message) {
@@ -125,6 +128,7 @@
   }
 
   function setOwnerControlsEnabled(enabled) {
+    manualSyncState.authorized = enabled;
     costSku.disabled = !enabled;
     costRubles.disabled = !enabled;
     costStatus.disabled = !enabled;
@@ -138,31 +142,56 @@
   }
 
   function updateRefreshButton() {
-    refreshButton.disabled =
-      !authorized || !syncReady || refreshInProgress;
+    let message;
+    if (!manualSyncState.authorized) {
+      message = "Требуется вход владельца.";
+    } else if (manualSyncState.requestInProgress) {
+      message = "Синхронизация выполняется. Повторный запуск заблокирован.";
+    } else if (manualSyncState.activeRun) {
+      message = "Синхронизация уже выполняется. Дождитесь её завершения.";
+    } else if (!manualSyncState.serviceReady) {
+      message = manualSyncState.blockingMessage ||
+        "Проверяется готовность защищённого сервиса.";
+    } else {
+      message = manualSyncState.resultMessage ||
+        "Защищённый сервис готов. Можно обновить Ozon.";
+    }
+
+    refreshButton.disabled = !(
+      manualSyncState.authorized &&
+      manualSyncState.serviceReady &&
+      !manualSyncState.activeRun &&
+      !manualSyncState.requestInProgress
+    );
+    refreshMessage.textContent = message;
   }
 
   function showAuthenticationRequired(message) {
-    authorized = false;
-    syncReady = false;
+    manualSyncState.authorized = false;
+    manualSyncState.serviceReady = false;
+    manualSyncState.activeRun = false;
+    manualSyncState.blockingMessage = message;
+    manualSyncState.resultMessage = "";
     setOwnerControlsEnabled(false);
     authRequired.hidden = false;
     authMessage.textContent = message;
-    syncReadiness.hidden = true;
-    refreshMessage.textContent = "Требуется вход владельца.";
     apiSyncSummary.textContent = "Требуется вход владельца";
   }
 
   function showSyncUnavailable(message) {
-    syncReady = false;
+    manualSyncState.serviceReady = false;
+    manualSyncState.blockingMessage = message;
+    manualSyncState.resultMessage = "";
     updateRefreshButton();
-    syncReadiness.hidden = false;
-    syncReadiness.textContent = message;
   }
 
   function reset() {
-    authorized = false;
-    syncReady = false;
+    manualSyncState.authorized = false;
+    manualSyncState.serviceReady = false;
+    manualSyncState.activeRun = false;
+    manualSyncState.requestInProgress = false;
+    manualSyncState.blockingMessage = "";
+    manualSyncState.resultMessage = "";
     total.textContent = "—";
     totalNote.textContent = "Требуется вход владельца";
     tableMessage("Требуется вход владельца");
@@ -174,7 +203,6 @@
     costRubles.value = "";
     costStatus.value = "preliminary";
     authRequired.hidden = true;
-    syncReadiness.hidden = true;
     setOwnerControlsEnabled(false);
   }
 
@@ -307,6 +335,20 @@
       !data.componentVerification ||
       data.componentVerification.status !== "unverified" ||
       typeof data.componentVerification.reason !== "string" ||
+      !data.manualSync ||
+      typeof data.manualSync.ready !== "boolean" ||
+      typeof data.manualSync.activeRun !== "boolean" ||
+      !(
+        data.manualSync.errorCode === null ||
+        (
+          typeof data.manualSync.errorCode === "string" &&
+          /^[a-z0-9_]{1,60}$/.test(data.manualSync.errorCode)
+        )
+      ) ||
+      data.manualSync.ready !== (
+        !data.manualSync.activeRun &&
+        data.manualSync.errorCode === null
+      ) ||
       !(
         data.latestRun === null ||
         (
@@ -512,11 +554,25 @@
     renderApiChart(data.daily);
     renderApiCategories(data.categories);
     renderApiOperations(data.operations, data.truncated);
-    syncReady = true;
+    manualSyncState.serviceReady = data.manualSync.ready;
+    manualSyncState.activeRun = data.manualSync.activeRun;
+    const readinessMessages = {
+      database_unavailable: "Финансовая D1 Worker недоступна.",
+      ozon_credentials_missing:
+        "На Worker не настроены серверные ключи Ozon.",
+      background_sync_unavailable:
+        "Worker не поддерживает фоновый запуск.",
+      sync_readiness_unavailable:
+        "Worker не смог проверить блокировку запуска."
+    };
+    manualSyncState.blockingMessage = data.manualSync.activeRun
+      ? "Синхронизация уже выполняется."
+      : readinessMessages[data.manualSync.errorCode] ||
+        (data.manualSync.errorCode
+          ? `Worker недоступен (код: ${data.manualSync.errorCode}).`
+          : "");
+    manualSyncState.resultMessage = "";
     updateRefreshButton();
-    syncReadiness.hidden = false;
-    syncReadiness.textContent =
-      "Защищённый сервис синхронизации готов к ручному запуску.";
   }
 
   function renderApiChart(days) {
@@ -667,7 +723,7 @@
 
   periodForm.addEventListener("submit", async event => {
     event.preventDefault();
-    if (!authorized) return;
+    if (!manualSyncState.authorized) return;
     if (
       !periodStartInput.value ||
       !periodEndInput.value ||
@@ -694,21 +750,25 @@
     }
 
     showSyncUnavailable(
-      "Статус финансового сервиса недоступен. Поля периода остаются доступны; " +
-      "повторите проверку позже."
+      "Статус Worker / Service Binding недоступен. Поля периода остаются доступны; повторите «Показать период»."
     );
     apiSyncSummary.textContent =
       "Не удалось загрузить статус синхронизации.";
   }
 
   async function startRecentSync() {
-    if (!authorized || refreshInProgress) return;
-    refreshInProgress = true;
-    refreshButton.disabled = true;
+    if (
+      !manualSyncState.authorized ||
+      !manualSyncState.serviceReady ||
+      manualSyncState.activeRun ||
+      manualSyncState.requestInProgress
+    ) return;
+    manualSyncState.requestInProgress = true;
+    manualSyncState.resultMessage = "";
+    updateRefreshButton();
     refreshButton.setAttribute("aria-busy", "true");
     refreshButton.textContent = "Обновление…";
     refreshButton.classList.add("is-running");
-    refreshMessage.textContent = "Запрашиваем защищённую синхронизацию…";
     try {
       const response = await fetch("/api/ozon/sync", {
         method: "POST",
@@ -722,8 +782,9 @@
         response.status === 409 &&
         result.errorCode === "sync_already_running"
       ) {
-        refreshMessage.textContent =
-          "Синхронизация уже выполняется в другой вкладке или по расписанию.";
+        manualSyncState.activeRun = true;
+        manualSyncState.resultMessage = "";
+        updateRefreshButton();
         try {
           await loadApiSyncStatus({ recent: true });
         } catch (error) {
@@ -731,20 +792,37 @@
         }
         return;
       }
+      if (response.status === 401 || response.status === 403) {
+        showAuthenticationRequired(
+          "Сессия владельца истекла или доступ отозван. Войдите через Google и повторите проверку."
+        );
+        return;
+      }
       if (response.status !== 202 || result.status !== "started") {
-        throw new Error(result.errorCode || `HTTP ${response.status}`);
+        const statusText = response.status
+          ? `HTTP ${response.status}`
+          : "неизвестный ответ Worker";
+        manualSyncState.serviceReady = false;
+        manualSyncState.blockingMessage =
+          response.status >= 500
+            ? `Worker не смог принять запуск (${statusText}). Проверьте статус перед повтором.`
+            : `Запуск отклонён (${statusText}). Проверьте статус перед повтором.`;
+        updateRefreshButton();
+        return;
       }
 
-      refreshMessage.textContent =
+      manualSyncState.activeRun = true;
+      manualSyncState.resultMessage =
         `Запуск ${result.periodStart} — ${result.periodEnd} принят. ` +
         "История операций сохраняется отдельно.";
+      updateRefreshButton();
       for (let attempt = 0; attempt < 20; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 3000));
         await loadApiSyncStatus({ recent: true });
         if (latestApiRunStatus !== "running") break;
       }
       if (latestApiRunStatus === "running") {
-        refreshMessage.textContent =
+        manualSyncState.resultMessage =
           "Синхронизация продолжается в фоне. Обновите статус позже.";
       } else {
         const finalLabels = {
@@ -752,28 +830,16 @@
           partial: "Обновление частичное: часть страниц или дат не загружена.",
           failed: "Обновление завершилось ошибкой. Смотрите код в статусе."
         };
-        refreshMessage.textContent = finalLabels[latestApiRunStatus] ||
+        manualSyncState.resultMessage = finalLabels[latestApiRunStatus] ||
           `Последний статус: ${latestApiRunStatus}.`;
       }
     } catch (error) {
-      const errorCode = error instanceof Error ? error.message : "";
-      const messages = {
-        ozon_credentials_missing: "Не настроены серверные ключи Ozon.",
-        ozon_rate_limited: "Ozon ограничил частоту запросов. Повторите позже.",
-        ozon_request_timeout: "Ozon не ответил вовремя. Повторите позже.",
-        ozon_network_error: "Не удалось связаться с Ozon.",
-        sync_already_running:
-          "Синхронизация уже выполняется по расписанию или в другой вкладке."
-      };
-      refreshMessage.textContent = messages[errorCode] ||
-        "Не удалось обновить Ozon. Проверьте статус и код ошибки.";
-      try {
-        await loadApiSyncStatus({ recent: true });
-      } catch (statusError) {
-        handleSyncStatusError(statusError);
-      }
+      manualSyncState.serviceReady = false;
+      manualSyncState.blockingMessage =
+        "Сетевая ошибка при запросе к Pages / Worker. Проверьте статус перед повторным запуском.";
+      updateRefreshButton();
     } finally {
-      refreshInProgress = false;
+      manualSyncState.requestInProgress = false;
       updateRefreshButton();
       refreshButton.removeAttribute("aria-busy");
       refreshButton.classList.remove("is-running");
@@ -883,7 +949,7 @@
   costForm.addEventListener("submit", async event => {
     event.preventDefault();
 
-    if (!authorized) return;
+    if (!manualSyncState.authorized) return;
 
     const item = catalog.get(costSku.value);
     const raw = costRubles.value.trim();
@@ -973,15 +1039,11 @@
           return;
         }
 
-        authorized = true;
         authRequired.hidden = true;
-        syncReady = false;
         setOwnerControlsEnabled(true);
         showSyncUnavailable(
-          "Проверяем готовность защищённого сервиса синхронизации…"
+          "Проверяем готовность Worker / Service Binding через защищённый статус…"
         );
-        refreshMessage.textContent =
-          "Ручной запуск станет доступен после проверки защищённого сервиса.";
 
         const results = await Promise.allSettled([
           loadMonthly(),

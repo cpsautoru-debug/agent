@@ -53,7 +53,8 @@ export async function onRequestGet({ request, env }) {
 
     const service = env.OZON_FINANCE_SYNC;
     if (!service ||
-        typeof service.getFinanceDashboard !== "function") {
+        typeof service.getFinanceDashboard !== "function" ||
+        typeof service.getManualSyncReadiness !== "function") {
       return json({ error: "Finance service unavailable" }, 503);
     }
 
@@ -68,7 +69,10 @@ export async function onRequestGet({ request, env }) {
       return json({ error: "Invalid period" }, 400);
     }
 
-    const dashboard = await service.getFinanceDashboard(start, end);
+    const [dashboard, manualSync] = await Promise.all([
+      service.getFinanceDashboard(start, end),
+      service.getManualSyncReadiness()
+    ]);
     if (
       !dashboard ||
       dashboard.source !== "ozon_seller_api" ||
@@ -77,13 +81,27 @@ export async function onRequestGet({ request, env }) {
       !Array.isArray(dashboard.categories) ||
       !Array.isArray(dashboard.operations) ||
       !dashboard.totals ||
-      !dashboard.coverage
+      !dashboard.coverage ||
+      !manualSync ||
+      typeof manualSync.ready !== "boolean" ||
+      typeof manualSync.activeRun !== "boolean" ||
+      !(
+        manualSync.errorCode === null ||
+        (
+          typeof manualSync.errorCode === "string" &&
+          /^[a-z0-9_]{1,60}$/.test(manualSync.errorCode)
+        )
+      ) ||
+      manualSync.ready !== (
+        !manualSync.activeRun && manualSync.errorCode === null
+      )
     ) {
       return json({ error: "Invalid finance response" }, 502);
     }
 
     return json({
       ...dashboard,
+      manualSync,
       reconciled: dashboard.daily.length > 0 &&
         dashboard.daily.every(day => day.complete && day.reconciled)
     });

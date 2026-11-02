@@ -114,6 +114,9 @@ test("dashboard endpoint requires owner and reads through the Worker binding", a
           totals: {},
           coverage: {}
         };
+      },
+      async getManualSyncReadiness() {
+        return { ready: true, activeRun: false, errorCode: null };
       }
     }
   });
@@ -134,12 +137,20 @@ test("dashboard endpoint requires owner and reads through the Worker binding", a
   });
   assert.equal(response.status, 200);
   assert.equal(calls, 1);
+  assert.deepEqual((await response.clone().json()).manualSync, {
+    ready: true,
+    activeRun: false,
+    errorCode: null
+  });
 });
 
 test("dashboard rejects invalid or unpaired period bounds", async () => {
   const { env } = environment({
     service: {
       async getFinanceDashboard() {
+        throw new Error("Must not call Worker");
+      },
+      async getManualSyncReadiness() {
         throw new Error("Must not call Worker");
       }
     }
@@ -152,6 +163,31 @@ test("dashboard rejects invalid or unpaired period bounds", async () => {
     env
   });
   assert.equal(response.status, 400);
+});
+
+test("dashboard requires Worker readiness RPC before reporting the binding ready", async () => {
+  const { env } = environment({
+    service: {
+      async getFinanceDashboard() {
+        return {
+          source: "ozon_seller_api",
+          currency: "RUB",
+          daily: [],
+          categories: [],
+          operations: [],
+          totals: {},
+          coverage: {}
+        };
+      }
+    }
+  });
+  const response = await statusRoute.onRequestGet({
+    request: new Request("https://office.test/api/ozon/sync-status", {
+      headers: { Cookie: await ownerCookie() }
+    }),
+    env
+  });
+  assert.equal(response.status, 503);
 });
 
 test("manual recent sync is owner-only and same-origin protected", async () => {
