@@ -1517,14 +1517,26 @@ test("manual sync readiness checks Worker background support and active lock", a
   assert.deepEqual(await invocation.worker.getManualSyncReadiness(), {
     ready: true,
     activeRun: false,
-    errorCode: null
+    errorCode: null,
+    readOnlyProbe: {
+      status: "ready",
+      lastSuccessfulStage: "D_bind",
+      failedStage: null,
+      errorCode: null
+    }
   });
 
   db.locked = true;
   assert.deepEqual(await invocation.worker.getManualSyncReadiness(), {
     ready: false,
     activeRun: true,
-    errorCode: null
+    errorCode: null,
+    readOnlyProbe: {
+      status: "ready",
+      lastSuccessfulStage: "D_bind",
+      failedStage: null,
+      errorCode: null
+    }
   });
 
   const noBackground = new OzonFinanceSyncWorker({
@@ -1534,7 +1546,13 @@ test("manual sync readiness checks Worker background support and active lock", a
   assert.deepEqual(await noBackground.getManualSyncReadiness(), {
     ready: false,
     activeRun: false,
-    errorCode: "background_sync_unavailable"
+    errorCode: "background_sync_unavailable",
+    readOnlyProbe: {
+      status: "unavailable",
+      lastSuccessfulStage: "A",
+      failedStage: "B",
+      errorCode: "sync_probe_context_unavailable"
+    }
   });
 
   const missingCredentials = new OzonFinanceSyncWorker({
@@ -1544,7 +1562,13 @@ test("manual sync readiness checks Worker background support and active lock", a
   assert.deepEqual(await missingCredentials.getManualSyncReadiness(), {
     ready: false,
     activeRun: false,
-    errorCode: "ozon_credentials_missing"
+    errorCode: "ozon_credentials_missing",
+    readOnlyProbe: {
+      status: "ready",
+      lastSuccessfulStage: "D_bind",
+      failedStage: null,
+      errorCode: null
+    }
   });
 });
 

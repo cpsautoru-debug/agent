@@ -225,7 +225,8 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
       return {
         ready: false,
         activeRun: false,
-        errorCode
+        errorCode,
+        readOnlyProbe: probe
       };
     }
 
@@ -233,21 +234,24 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
       return {
         ready: false,
         activeRun: false,
-        errorCode: "database_unavailable"
+        errorCode: "database_unavailable",
+        readOnlyProbe: probe
       };
     }
     if (!this.env.OZON_CLIENT_ID || !this.env.OZON_API_KEY) {
       return {
         ready: false,
         activeRun: false,
-        errorCode: "ozon_credentials_missing"
+        errorCode: "ozon_credentials_missing",
+        readOnlyProbe: probe
       };
     }
     if (typeof this.ctx?.waitUntil !== "function") {
       return {
         ready: false,
         activeRun: false,
-        errorCode: "background_sync_unavailable"
+        errorCode: "background_sync_unavailable",
+        readOnlyProbe: probe
       };
     }
 
@@ -267,14 +271,16 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
       return {
         ready: !activeRun,
         activeRun,
-        errorCode: null
+        errorCode: null,
+        readOnlyProbe: probe
       };
     } catch {
       logRecentSyncProbeStage("readiness_lock_select_error");
       return {
         ready: false,
         activeRun: false,
-        errorCode: "sync_readiness_unavailable"
+        errorCode: "sync_readiness_unavailable",
+        readOnlyProbe: probe
       };
     }
   }
