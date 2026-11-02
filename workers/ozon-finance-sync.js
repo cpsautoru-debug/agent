@@ -8,9 +8,24 @@ const SOURCE = "ozon_seller_api";
 const DAILY_CRON = "0 6 * * *";
 const MAX_DASHBOARD_DAYS = 31;
 const MAX_DASHBOARD_OPERATIONS = 500;
+const SYNC_PROBE_TIMEOUT_MS = 2000;
 const OCTOBER_BACKFILL_START = "2026-10-01";
 const OCTOBER_BACKFILL_END = "2026-10-31";
 const MAX_BACKFILL_PAGES_PER_DAY = 12;
+const RECENT_SYNC_LOCK_SQL = `
+  INSERT INTO ozon_api_sync_lock (
+    lock_id,
+    lock_token,
+    locked_until
+  )
+  VALUES (1, ?, datetime('now', '+20 minutes'))
+  ON CONFLICT(lock_id) DO UPDATE SET
+    lock_token = excluded.lock_token,
+    locked_until = excluded.locked_until
+  WHERE datetime(ozon_api_sync_lock.locked_until)
+    <= CURRENT_TIMESTAMP
+  RETURNING lock_token
+`;
 
 function safeErrorCode(error) {
   const code = typeof error === "string" ? error : error?.code;
@@ -177,12 +192,43 @@ function logRecentSyncStage(stage) {
   console.info("Ozon recent sync RPC", { stage });
 }
 
+function logRecentSyncProbeStage(stage) {
+  console.info("Ozon recent sync read-only probe", { stage });
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timeoutId;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error("sync_probe_timeout")),
+        timeoutMs
+      );
+    })
+  ]).finally(() => clearTimeout(timeoutId));
+}
+
 export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
   async fetch() {
     return new Response(null, { status: 404 });
   }
 
   async getManualSyncReadiness() {
+    const probe = await this.getRecentSyncReadOnlyProbe();
+    if (probe.status !== "ready") {
+      const errorCode = probe.errorCode === "sync_probe_database_unavailable"
+        ? "database_unavailable"
+        : probe.errorCode === "sync_probe_context_unavailable"
+          ? "background_sync_unavailable"
+          : "sync_readiness_unavailable";
+      return {
+        ready: false,
+        activeRun: false,
+        errorCode
+      };
+    }
+
     if (!this.env.OZON_FINANCE_DB) {
       return {
         ready: false,
@@ -206,6 +252,7 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     }
 
     try {
+      logRecentSyncProbeStage("readiness_lock_select_start");
       const lock = await this.env.OZON_FINANCE_DB.prepare(`
         SELECT CASE
           WHEN lock_token IS NOT NULL
@@ -215,6 +262,7 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
         FROM ozon_api_sync_lock
         WHERE lock_id = 1
       `).first();
+      logRecentSyncProbeStage("readiness_lock_select_success");
       const activeRun = lock?.active === 1;
       return {
         ready: !activeRun,
@@ -222,12 +270,136 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
         errorCode: null
       };
     } catch {
+      logRecentSyncProbeStage("readiness_lock_select_error");
       return {
         ready: false,
         activeRun: false,
         errorCode: "sync_readiness_unavailable"
       };
     }
+  }
+
+  async getRecentSyncReadOnlyProbe() {
+    let lockToken;
+    let db;
+
+    logRecentSyncProbeStage("A_calculation_start");
+    try {
+      getOzonDateWindow();
+      crypto.randomUUID();
+      lockToken = crypto.randomUUID();
+      logRecentSyncProbeStage("A_calculation_success");
+    } catch {
+      logRecentSyncProbeStage("A_calculation_error");
+      return {
+        status: "unavailable",
+        lastSuccessfulStage: null,
+        failedStage: "A",
+        errorCode: "sync_probe_calculation_failed"
+      };
+    }
+
+    logRecentSyncProbeStage("B_binding_start");
+    try {
+      db = this.env?.OZON_FINANCE_DB;
+      const waitUntilAvailable =
+        typeof this.ctx?.waitUntil === "function";
+      if (!db || typeof db.prepare !== "function") {
+        logRecentSyncProbeStage("B_binding_unavailable");
+        return {
+          status: "unavailable",
+          lastSuccessfulStage: "A",
+          failedStage: "B",
+          errorCode: "sync_probe_database_unavailable"
+        };
+      }
+      if (!waitUntilAvailable) {
+        logRecentSyncProbeStage("B_context_unavailable");
+        return {
+          status: "unavailable",
+          lastSuccessfulStage: "A",
+          failedStage: "B",
+          errorCode: "sync_probe_context_unavailable"
+        };
+      }
+      logRecentSyncProbeStage("B_binding_success");
+    } catch {
+      logRecentSyncProbeStage("B_binding_error");
+      return {
+        status: "unavailable",
+        lastSuccessfulStage: "A",
+        failedStage: "B",
+        errorCode: "sync_probe_binding_unavailable"
+      };
+    }
+
+    logRecentSyncProbeStage("C_select_start");
+    try {
+      const result = await withTimeout(
+        db.prepare("SELECT 1 AS probe").first(),
+        SYNC_PROBE_TIMEOUT_MS
+      );
+      if (result?.probe !== 1) {
+        logRecentSyncProbeStage("C_select_invalid");
+        return {
+          status: "unavailable",
+          lastSuccessfulStage: "B",
+          failedStage: "C",
+          errorCode: "sync_probe_select_failed"
+        };
+      }
+      logRecentSyncProbeStage("C_select_success");
+    } catch (error) {
+      const timedOut = error?.message === "sync_probe_timeout";
+      logRecentSyncProbeStage(
+        timedOut ? "C_select_timeout" : "C_select_error"
+      );
+      return {
+        status: "unavailable",
+        lastSuccessfulStage: "B",
+        failedStage: "C",
+        errorCode: timedOut
+          ? "sync_probe_timeout"
+          : "sync_probe_select_failed"
+      };
+    }
+
+    let statement;
+    logRecentSyncProbeStage("D_prepare_start");
+    try {
+      statement = db.prepare(RECENT_SYNC_LOCK_SQL);
+      logRecentSyncProbeStage("D_prepare_success");
+    } catch {
+      logRecentSyncProbeStage("D_prepare_error");
+      return {
+        status: "unavailable",
+        lastSuccessfulStage: "C",
+        failedStage: "D_prepare",
+        errorCode: "sync_probe_prepare_failed"
+      };
+    }
+
+    logRecentSyncProbeStage("D_bind_start");
+    try {
+      statement.bind(lockToken);
+      logRecentSyncProbeStage("D_bind_success");
+    } catch {
+      logRecentSyncProbeStage("D_bind_error");
+      return {
+        status: "unavailable",
+        lastSuccessfulStage: "D_prepare",
+        failedStage: "D_bind",
+        errorCode: "sync_probe_bind_failed"
+      };
+    }
+
+    logRecentSyncProbeStage("probe_complete");
+    return {
+      status: "ready",
+      lastSuccessfulStage: "D_bind",
+      failedStage: null,
+      errorCode: null
+    };
   }
 
   async getFinanceDashboard(periodStart, periodEnd) {
@@ -600,20 +772,9 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     let lock;
     logRecentSyncStage("lock_await_start");
     try {
-      lock = await db.prepare(`
-        INSERT INTO ozon_api_sync_lock (
-          lock_id,
-          lock_token,
-          locked_until
-        )
-        VALUES (1, ?, datetime('now', '+20 minutes'))
-        ON CONFLICT(lock_id) DO UPDATE SET
-          lock_token = excluded.lock_token,
-          locked_until = excluded.locked_until
-        WHERE datetime(ozon_api_sync_lock.locked_until)
-          <= CURRENT_TIMESTAMP
-        RETURNING lock_token
-      `).bind(lockToken).first();
+      lock = await db.prepare(RECENT_SYNC_LOCK_SQL)
+        .bind(lockToken)
+        .first();
       logRecentSyncStage("lock_await_end");
     } catch {
       logRecentSyncStage("lock_await_error");

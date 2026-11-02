@@ -79,10 +79,26 @@ class MockStatement {
   }
 
   bind(...values) {
+    if (
+      this.db.failLockBind &&
+      this.sql.startsWith("insert into ozon_api_sync_lock")
+    ) {
+      throw new Error("local lock SQL bind failure");
+    }
     return new MockStatement(this.db, this.sql, values);
   }
 
   async first() {
+    if (this.sql === "select 1 as probe") {
+      if (this.db.hangProbeSelect) {
+        return new Promise(() => {});
+      }
+      if (this.db.failProbeSelect) {
+        throw new Error("local read-only probe SELECT failure");
+      }
+      return { probe: 1 };
+    }
+
     if (this.sql.startsWith("select case when lock_token")) {
       return { active: this.db.locked ? 1 : 0 };
     }
@@ -319,9 +335,14 @@ class MockD1 {
     this.accruals = new Map();
     this.components = new Map();
     this.types = new Map();
+    this.preparedSql = [];
   }
 
   prepare(sql) {
+    this.preparedSql.push(sql.replace(/\s+/g, " ").trim().toLowerCase());
+    if (this.failLockPrepare && /insert into ozon_api_sync_lock/i.test(sql)) {
+      throw new Error("local lock SQL prepare failure");
+    }
     return new MockStatement(this, sql);
   }
 
@@ -473,7 +494,7 @@ function makeManualWorker(db, overrides = {}) {
   };
 }
 
-async function completesWithin(promise) {
+async function completesWithin(promise, timeoutMs = 1000) {
   let timeout;
   try {
     return await Promise.race([
@@ -481,7 +502,7 @@ async function completesWithin(promise) {
       new Promise((_, reject) => {
         timeout = setTimeout(
           () => reject(new Error("RPC did not complete in time")),
-          1000
+          timeoutMs
         );
       })
     ]);
@@ -1525,6 +1546,112 @@ test("manual sync readiness checks Worker background support and active lock", a
     activeRun: false,
     errorCode: "ozon_credentials_missing"
   });
+});
+
+test("read-only recent sync probe checks A-D without executing the lock statement", async () => {
+  const db = new MockD1();
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.getRecentSyncReadOnlyProbe()
+  );
+
+  assert.deepEqual(result, {
+    status: "ready",
+    lastSuccessfulStage: "D_bind",
+    failedStage: null,
+    errorCode: null
+  });
+  assert.ok(db.preparedSql.includes("select 1 as probe"));
+  assert.ok(db.preparedSql.some(sql =>
+    sql.startsWith("insert into ozon_api_sync_lock")
+  ));
+  assert.equal(db.locked, false);
+  assert.equal(db.runs.size, 0);
+  assert.equal(invocation.waitUntilCalls, 0);
+});
+
+test("read-only recent sync probe reports SELECT failure without preparing lock SQL", async () => {
+  const db = new MockD1();
+  db.failProbeSelect = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.getRecentSyncReadOnlyProbe()
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    lastSuccessfulStage: "B",
+    failedStage: "C",
+    errorCode: "sync_probe_select_failed"
+  });
+  assert.equal(
+    db.preparedSql.some(sql => sql.startsWith("insert into ozon_api_sync_lock")),
+    false
+  );
+  assert.equal(db.locked, false);
+});
+
+test("read-only recent sync probe times out a pending SELECT without writes", async () => {
+  const db = new MockD1();
+  db.hangProbeSelect = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.getRecentSyncReadOnlyProbe(),
+    3000
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    lastSuccessfulStage: "B",
+    failedStage: "C",
+    errorCode: "sync_probe_timeout"
+  });
+  assert.equal(
+    db.preparedSql.some(sql => sql.startsWith("insert into ozon_api_sync_lock")),
+    false
+  );
+  assert.equal(db.locked, false);
+});
+
+test("read-only recent sync probe reports lock SQL prepare failure without execution", async () => {
+  const db = new MockD1();
+  db.failLockPrepare = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.getRecentSyncReadOnlyProbe()
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    lastSuccessfulStage: "C",
+    failedStage: "D_prepare",
+    errorCode: "sync_probe_prepare_failed"
+  });
+  assert.equal(db.locked, false);
+  assert.equal(db.runs.size, 0);
+});
+
+test("read-only recent sync probe reports lock SQL bind failure without execution", async () => {
+  const db = new MockD1();
+  db.failLockBind = true;
+  const invocation = makeManualWorker(db);
+
+  const result = await completesWithin(
+    invocation.worker.getRecentSyncReadOnlyProbe()
+  );
+
+  assert.deepEqual(result, {
+    status: "unavailable",
+    lastSuccessfulStage: "D_prepare",
+    failedStage: "D_bind",
+    errorCode: "sync_probe_bind_failed"
+  });
+  assert.equal(db.locked, false);
+  assert.equal(db.runs.size, 0);
 });
 
 test("records network failures after bounded retries", async () => {
