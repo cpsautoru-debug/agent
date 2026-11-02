@@ -1,5 +1,8 @@
+
+
+
+import { getOzonDateWindow, syncOzonFinance } from "../functions/api/ozon/finance-sync.js";
 import { WorkerEntrypoint } from "cloudflare:workers";
-import { syncOzonFinance } from "../functions/api/ozon/finance-sync.js";
 import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";
 
 const TEST_DATE = "2026-10-28";
@@ -289,21 +292,40 @@ export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
     let lockToken;
     let db;
 
-    logRecentSyncProbeStage("A_calculation_start");
-    try {
-      getOzonDateWindow();
-      crypto.randomUUID();
-      lockToken = crypto.randomUUID();
-      logRecentSyncProbeStage("A_calculation_success");
-    } catch {
-      logRecentSyncProbeStage("A_calculation_error");
-      return {
-        status: "unavailable",
-        lastSuccessfulStage: null,
-        failedStage: "A",
-        errorCode: "sync_probe_calculation_failed"
-      };
-    }
+logRecentSyncProbeStage("A_calculation_start");
+
+let failedStep = "date_window";
+
+try {
+  getOzonDateWindow();
+  logRecentSyncProbeStage("A_date_ok");
+
+  failedStep = "first_uuid";
+  crypto.randomUUID();
+  logRecentSyncProbeStage("A_uuid1_ok");
+
+  failedStep = "lock_uuid";
+  lockToken = crypto.randomUUID();
+  logRecentSyncProbeStage("A_uuid2_ok");
+
+  logRecentSyncProbeStage("A_calculation_success");
+} catch (error) {
+  console.error("Ozon probe A failure", {
+    failedStep,
+    errorName: error?.name ?? "Unknown",
+    errorMessage: error?.message ?? "No message"
+  });
+
+  logRecentSyncProbeStage("A_calculation_error");
+
+  return {
+    status: "unavailable",
+    lastSuccessfulStage: null,
+    failedStage: "A",
+    errorCode: "sync_probe_calculation_failed"
+  };
+}
+
 
     logRecentSyncProbeStage("B_binding_start");
     try {

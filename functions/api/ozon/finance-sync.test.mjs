@@ -59,8 +59,8 @@ const workerModuleSource = workerSource.replace(
     }
   }`
 ).replace(
-  'import { syncOzonFinance } from "../functions/api/ozon/finance-sync.js";',
-  `const { getOzonDateWindow, syncOzonFinance } = await import("${moduleUrl}");`
+'import { getOzonDateWindow, syncOzonFinance } from "../functions/api/ozon/finance-sync.js";',
+`const { getOzonDateWindow, syncOzonFinance } = await import("${moduleUrl}");`
 ).replace(
   'import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";',
   `const { claimOzonOneShotGate } = await import("${gateModuleUrl}");`
