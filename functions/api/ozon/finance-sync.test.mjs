@@ -1347,7 +1347,7 @@ test("staging Worker keeps the daily Cron disabled until explicit approval", asy
     "utf8"
   ));
   assert.deepEqual(config.triggers.crons, []);
-  assert.match(workerSource, /const DAILY_CRON = "0 6 \* \* \*"/);
+  assert.match(workerSource, /const DAILY_CRON = "15 3 \* \* \*"/);
 });
 
 test("daily schedule loads the last three completed Moscow dates without using the gate", async () => {
@@ -1367,7 +1367,7 @@ test("daily schedule loads the last three completed Moscow dates without using t
   try {
     const { worker } = makeManualWorker(db);
     const result = await worker.scheduled({
-      cron: "0 6 * * *",
+      cron: "15 3 * * *",
       scheduledTime: Date.parse("2026-11-01T06:00:00Z")
     });
 

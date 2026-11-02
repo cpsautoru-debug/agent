@@ -8,7 +8,7 @@ import { claimOzonOneShotGate } from "./ozon-one-shot-gate.js";
 const TEST_DATE = "2026-10-28";
 const TEST_MAX_PAGES = 2;
 const SOURCE = "ozon_seller_api";
-const DAILY_CRON = "0 6 * * *";
+const DAILY_CRON = "15 3 * * *";
 const MAX_DASHBOARD_DAYS = 31;
 const MAX_DASHBOARD_OPERATIONS = 500;
 const SYNC_PROBE_TIMEOUT_MS = 2000;
