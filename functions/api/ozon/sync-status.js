@@ -69,10 +69,8 @@ export async function onRequestGet({ request, env }) {
       return json({ error: "Invalid period" }, 400);
     }
 
-    const [dashboard, manualSync] = await Promise.all([
-      service.getFinanceDashboard(start, end),
-      service.getManualSyncReadiness()
-    ]);
+    const dashboard = await service.getFinanceDashboard(start, end);
+    const manualSync = await service.getManualSyncReadiness();
     if (
       !dashboard ||
       dashboard.source !== "ozon_seller_api" ||

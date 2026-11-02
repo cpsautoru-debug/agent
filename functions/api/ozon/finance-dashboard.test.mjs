@@ -144,6 +144,53 @@ test("dashboard endpoint requires owner and reads through the Worker binding", a
   });
 });
 
+test("dashboard serializes RPC calls to the Worker binding", async () => {
+  let releaseDashboard;
+  let readinessCalls = 0;
+  let dashboardStarted;
+  const dashboardWasStarted = new Promise(resolve => {
+    dashboardStarted = resolve;
+  });
+  const { env } = environment({
+    service: {
+      getFinanceDashboard() {
+        dashboardStarted();
+        return new Promise(resolve => {
+          releaseDashboard = resolve;
+        });
+      },
+      async getManualSyncReadiness() {
+        readinessCalls++;
+        return { ready: true, activeRun: false, errorCode: null };
+      }
+    }
+  });
+
+  const responsePromise = statusRoute.onRequestGet({
+    request: new Request("https://office.test/api/ozon/sync-status", {
+      headers: { Cookie: await ownerCookie() }
+    }),
+    env
+  });
+
+  await dashboardWasStarted;
+  assert.equal(readinessCalls, 0);
+
+  releaseDashboard({
+    source: "ozon_seller_api",
+    currency: "RUB",
+    daily: [],
+    categories: [],
+    operations: [],
+    totals: {},
+    coverage: {}
+  });
+  const response = await responsePromise;
+
+  assert.equal(response.status, 200);
+  assert.equal(readinessCalls, 1);
+});
+
 test("dashboard rejects invalid or unpaired period bounds", async () => {
   const { env } = environment({
     service: {
