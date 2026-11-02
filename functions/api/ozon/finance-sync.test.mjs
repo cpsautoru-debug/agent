@@ -1341,12 +1341,12 @@ test("scheduled handler ignores unconfigured Cron expressions", async () => {
   assert.equal(db.runs.size, 0);
 });
 
-test("staging Worker keeps the daily Cron disabled until explicit approval", async () => {
+test("staging Worker uses the approved daily Cron", async () => {
   const config = JSON.parse(await readFile(
     new URL("../../../wrangler.ozon-finance-sync-test.jsonc", import.meta.url),
     "utf8"
   ));
-  assert.deepEqual(config.triggers.crons, []);
+  assert.deepEqual(config.triggers.crons, ["15 3 * * *"]);
   assert.match(workerSource, /const DAILY_CRON = "15 3 \* \* \*"/);
 });
 

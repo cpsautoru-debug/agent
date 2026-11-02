@@ -4,8 +4,8 @@
   "compatibility_date": "2026-11-01",
   "workers_dev": false,
   "triggers": {
-    "crons": []
-  },
+  "crons": ["15 3 * * *"]
+},
   "vars": {
     "OZON_FINANCE_SYNC_TEST_DATE": "2026-10-28",
     "OZON_FINANCE_SYNC_TEST_MAX_PAGES": "2"
