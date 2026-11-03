@@ -922,6 +922,78 @@ try {
     };
   }
 
+  // Минимальный read-only RPC-метод для безопасного Preview-импорта
+  // XLSX (Pages Function functions/api/ozon/xlsx-preview.js). Отдаёт
+  // ТОЛЬКО агрегаты по датам — количество начислений API, сумму в
+  // копейках и подтверждённый статус полноты синхронизации/сверки.
+  // Поэлементные строки (accrual_id, unit_number и т.п.) намеренно НЕ
+  // возвращаются: вызывающая сторона не должна иметь возможности
+  // строить ложные построчные совпадения по совпадающей сумме.
+  // Читает исключительно тестовую D1 этого Worker-а
+  // (autosklad63-ozon-finance-sync-test, биндинг this.env.OZON_FINANCE_DB);
+  // выполняет только SELECT; даты валидируются и диапазон ограничен
+  // той же функцией dashboardRange(), что и getFinanceDashboard()
+  // (строгий формат YYYY-MM-DD, не более MAX_DASHBOARD_DAYS дней).
+  async getAccrualDailyTotals(periodStart, periodEnd) {
+    const db = this.env.OZON_FINANCE_DB;
+    if (!db) throw new Error("Finance database unavailable");
+
+    const [start, end] = dashboardRange(periodStart, periodEnd);
+
+    const result = await db.prepare(`
+      SELECT
+        state.sync_date,
+        state.status,
+        state.page_complete,
+        state.reconciled,
+        COUNT(accrual.accrual_id) AS record_count,
+        COALESCE(SUM(accrual.total_kopecks), 0) AS total_kopecks
+      FROM ozon_api_sync_state AS state
+      LEFT JOIN ozon_api_accruals AS accrual
+        ON accrual.operation_date = state.sync_date
+       AND accrual.source = ?
+      WHERE state.sync_date >= ?
+        AND state.sync_date <= ?
+        AND state.source = ?
+      GROUP BY state.sync_date
+      ORDER BY state.sync_date
+    `).bind(SOURCE, start, end, SOURCE).all();
+
+    const byDate = new Map(
+      (result.results || []).map(row => [row.sync_date, row])
+    );
+
+    const daily = dateList(start, end).map(date => {
+      const row = byDate.get(date);
+      if (!row) {
+        return {
+          operationDate: date,
+          recordCount: 0,
+          totalKopecks: 0,
+          syncComplete: false,
+          reconciled: false,
+          status: "not_started"
+        };
+      }
+      return {
+        operationDate: date,
+        recordCount: safeCount(row.record_count, "record_count"),
+        totalKopecks: finiteInteger(row.total_kopecks, "total_kopecks"),
+        syncComplete: row.page_complete === 1,
+        reconciled: row.reconciled === 1,
+        status: row.status
+      };
+    });
+
+    return {
+      source: SOURCE,
+      currency: "RUB",
+      periodStart: start,
+      periodEnd: end,
+      daily
+    };
+  }
+
   async startRecentSync() {
     logRecentSyncStage("entry");
     if (!this.env.OZON_FINANCE_DB) {

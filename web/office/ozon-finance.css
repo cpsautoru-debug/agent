@@ -33,6 +33,42 @@
   margin-top: 20px;
 }
 
+.ozon-xlsx-import-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.ozon-xlsx-import-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ozon-xlsx-import-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.ozon-xlsx-import-summary dt {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ozon-xlsx-import-summary dd {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .ozon-sync-window {
   margin: 12px 0;
   color: var(--muted);

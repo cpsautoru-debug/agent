@@ -418,6 +418,93 @@
         </p>
       </article>
 
+      <article class="panel" aria-labelledby="ozonXlsxImportTitle">
+        <div class="panel-heading">
+          <h2 id="ozonXlsxImportTitle">
+            Импорт официального отчёта XLSX · только Preview
+          </h2>
+          <span class="subtle">Запись в базу отключена на этом шаге</span>
+        </div>
+        <p class="subtle">
+          Загрузите файл "Отчёт по начислениям_ДД.MM.ГГГГ-ДД.MM.ГГГГ.xlsx".
+          Выполняются проверка формата, расчёт SHA-256, разбор строк,
+          предварительная классификация статей и сверка с тестовой
+          базой Seller API. Preview не создаёт, не изменяет и не удаляет
+          записи в базе.
+        </p>
+        <form id="ozonXlsxImportForm" class="ozon-xlsx-import-form">
+          <label for="ozonXlsxImportFile">Файл отчёта (.xlsx)</label>
+          <input id="ozonXlsxImportFile" type="file" accept=".xlsx"
+                 required>
+          <button class="button light" type="submit"
+                  id="ozonXlsxImportButton">
+            Проверить (Preview)
+          </button>
+        </form>
+        <p id="ozonXlsxImportMessage" class="subtle ozon-sync-note"
+           role="status" aria-live="polite">
+          Файл не выбран.
+        </p>
+        <div id="ozonXlsxImportReport" class="ozon-xlsx-import-report"
+             hidden>
+          <dl class="ozon-xlsx-import-summary">
+            <div>
+              <dt>SHA-256</dt>
+              <dd id="ozonXlsxImportHash">—</dd>
+            </div>
+            <div>
+              <dt>Строк разобрано</dt>
+              <dd id="ozonXlsxImportRows">—</dd>
+            </div>
+            <div>
+              <dt>Контрольная сумма отчёта</dt>
+              <dd id="ozonXlsxImportControlTotal">—</dd>
+            </div>
+            <div>
+              <dt>Полнота классификации</dt>
+              <dd id="ozonXlsxImportCompleteness">—</dd>
+            </div>
+            <div>
+              <dt>Статус сверки с API</dt>
+              <dd id="ozonXlsxImportReconciliationStatus">—</dd>
+            </div>
+          </dl>
+          <div class="table-scroll">
+            <table class="finance-table ozon-data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Дата</th>
+                  <th scope="col">Операций</th>
+                  <th scope="col">Сумма, ₽</th>
+                </tr>
+              </thead>
+              <tbody id="ozonXlsxImportByDateBody">
+                <tr><td colspan="3">Нет данных</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-scroll">
+            <table class="finance-table ozon-data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Статья</th>
+                  <th scope="col">Операций</th>
+                  <th scope="col">Сумма, ₽</th>
+                  <th scope="col">SKU / заказ / магазин</th>
+                </tr>
+              </thead>
+              <tbody id="ozonXlsxImportByCategoryBody">
+                <tr><td colspan="4">Нет данных</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="subtle">
+            Сальдо Preview не является чистой прибылью: себестоимость и
+            налоги в расчёт не включены.
+          </p>
+        </div>
+      </article>
+
       <article class="panel">
         <div class="panel-heading">
           <h2>Категории начислений</h2>
@@ -1213,6 +1300,7 @@
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
+<script src="ozon-xlsx-import.js" defer></script>
 
 </body>
 </html>
