@@ -323,6 +323,41 @@ function withTimeout(promise, timeoutMs) {
 }
 
 export default class OzonFinanceSyncWorker extends WorkerEntrypoint {
+  // Profit data is isolated in the verified test D1. Pages only owns authentication.
+  async getProfitDocument(key) {
+    const store = await import('./ozon-profit-store.js');
+    const doc = await store.getProfitDocument(this.env.OZON_FINANCE_DB, this.env.OZON_PROFIT_TARGET_ID, key);
+    return {...doc,target:store.TEST_PROFIT_DATABASE_ID};
+  }
+
+  async confirmProfitDocument(change) {
+    const store = await import('./ozon-profit-store.js');
+    return store.confirmProfitDocument(this.env.OZON_FINANCE_DB, this.env.OZON_PROFIT_TARGET_ID, change);
+  }
+
+  async getProfitData(month) {
+    const store = await import('./ozon-profit-store.js');
+    const { monthBounds } = await import('../functions/api/ozon/profit-model.js');
+    const {start,end,days} = monthBounds(month);
+    const state = await store.getProfitDocuments(this.env.OZON_FINANCE_DB,this.env.OZON_PROFIT_TARGET_ID,month);
+    const inclusiveEnd = new Date(Date.parse(end+'T00:00:00Z')-86400000).toISOString().slice(0,10);
+    const dashboard = await this.getFinanceDashboard(start,inclusiveEnd);
+    const components = await this.env.OZON_FINANCE_DB.prepare(`
+      SELECT component.sku,component.type_id AS typeId,types.name,
+             SUM(component.amount_kopecks) AS amountKopecks
+      FROM ozon_api_accrual_components AS component
+      JOIN ozon_api_accruals AS accrual ON accrual.accrual_id=component.accrual_id
+      LEFT JOIN ozon_api_accrual_types AS types ON types.type_id=component.type_id
+      WHERE accrual.source='ozon_seller_api' AND accrual.operation_date>=? AND accrual.operation_date<?
+      GROUP BY component.sku,component.type_id,types.name
+    `).bind(start,end).all();
+    return {...state,api:{totalKopecks:dashboard.totals.totalKopecks,records:dashboard.totals.recordCount,
+      coveredDays:dashboard.coverage.completeDays,days,netVerified:dashboard.daily.length===days&&dashboard.daily.every(day=>day.netStatus==='verified'),
+      detailVerified:dashboard.daily.length===days&&dashboard.daily.every(day=>day.detailStatus==='verified'),
+      components:components.results||[],audit:dashboard.daily.map(day=>({date:day.date,netStatus:day.netStatus,detailStatus:day.detailStatus,detailReason:day.detailReason}))}};
+  }
+
+
   async fetch() {
     return new Response(null, { status: 404 });
   }

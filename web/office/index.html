@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="office-map.css">
 <link rel="stylesheet" href="ozon-finance.css">
+<link rel="stylesheet" href="profit.css">
 </head>
 <body>
 
@@ -33,6 +34,7 @@
     <a href="#departments" data-page="departments">
       <span>▦</span>Отделы <b>7</b>
     </a>
+    <a href="#ozonProfit" data-page="ozonProfit"><span>◴</span>Прибыль Ozon</a>
     <a href="#ozonFinance" data-page="ozonFinance">
       <span>◴</span>Финансы · Ozon
     </a>
@@ -110,6 +112,22 @@
 
   <div class="content">
 
+    <section class="page" data-section="ozonProfit" hidden>
+      <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ПРОВЕРЯЕМЫЙ РАСЧЁТ</div><h1>Прибыль Ozon</h1><p>Неизвестные данные сохраняют статус «Неизвестно». Предварительные суммы не подтверждают прибыль.</p></div></div>
+      <div class="profit-layout">
+        <div class="profit-toolbar"><label>Месяц расчёта<input id="profitMonth" type="month" required></label><button id="profitReload" data-profit-action class="button light" type="button">Обновить данные</button><a href="#ozonFinance">Вход владельца и начисления API →</a></div>
+        <p id="profitMessage" role="status" aria-live="polite"></p>
+        <div id="profitCards" class="profit-cards"></div>
+        <article class="profit-panel"><h2>Готовность расчёта</h2><p id="profitStatus" class="profit-status">Данные ещё не загружены.</p><p id="profitReasons" class="profit-status"></p><p id="profitReportStatus"></p><p>Продажи и возвраты показаны до удержаний. Сальдо API уже включает комиссии и услуги Ozon: повторно они не вычитаются. Ниже — расшифровка по группам исходного отчёта.</p><details><summary>Продажи, возвраты и удержания Ozon · расшифровка сальдо API</summary><div class="profit-scroll"><table><thead><tr><th>Группа</th><th>Сумма</th></tr></thead><tbody id="profitGroupRows"></tbody></table></div></details><details><summary>Кандидаты в дубли · номера строк</summary><pre id="profitDuplicates"></pre></details></article>
+        <article class="profit-panel"><h2>Продажи и себестоимость по SKU</h2><div class="profit-scroll"><table><thead><tr><th>SKU</th><th>Артикул</th><th>Название</th><th>Продано</th><th>Возвращено</th><th>Статус затрат</th><th>Стоимость</th><th>Известная часть</th><th>Причина</th></tr></thead><tbody id="profitSkuRows"></tbody></table></div></article>
+        <article class="profit-panel"><h2>1. Отчёт начислений XLSX</h2><p>Выберите отчёт за месяц расчёта. Перед подтверждением проверьте количество продаж и границы периода по исходному документу. Флажки ниже — ваше явное подтверждение; импорт не устанавливает их автоматически.</p><label>Файл отчёта<input id="profitFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><label class="profit-check"><input id="profitQuantity" type="checkbox">Количество продаж проверено по исходному отчёту</label><label class="profit-check"><input id="profitPeriod" type="checkbox">Все строки и границы периода проверены</label><p id="profitMonthDraft"></p><details><summary>Проверенные возвраты: исходная себестоимость и состояние</summary><p>Ниже расширенный редактор JSON. Пустой массив [] означает, что возвраты не подтверждены. На каждую строку возврата добавьте ровно одну запись, покрывающую всё возвращённое количество. Не подставляйте текущую себестоимость: проверьте исходную продажу и состояние товара по документам. Суммы costKopecks — копейки.</p><label>Проверенные возвраты: исходная себестоимость и состояние<textarea id="profitRecoveries" spellcheck="false">[]</textarea></label><p>sourceRow — номер исходной строки возврата; sku — SKU; quantity — полное количество в этой строке; originalSaleDate — дата исходной продажи; costKopecks — исходная себестоимость одного комплекта в копейках; condition: resalable — пригоден к повторной продаже, writeoff — списание; source — документ-основание; verified: true — ваша явная проверка. Сохранение вместе с отчётом через предпросмотр и подтверждение.</p><pre>[{"sourceRow":8,"sku":"SYNTHETIC","quantity":1,"originalSaleDate":"2025-01-03","costKopecks":10000,"condition":"resalable","source":"Учебный пример исходной продажи","verified":true}]</pre><h3>Исходные строки возвратов</h3><pre id="profitReturnRows">[]</pre></details><button id="profitMonthPreview" data-profit-action class="button light" type="button">Предпросмотр отчёта и проверок</button></article>
+        <article class="profit-panel"><h2>2. Себестоимость комплекта</h2><p>Суммы в рублях за один комплект. Укажите период действия и источник. Доставка кожи: отметьте, включена ли она в себестоимость, чтобы исключить повторный расход. Удаление строки применяется только после предпросмотра и подтверждения.</p><div class="profit-scroll"><table><thead><tr><th>SKU</th><th>Сумма, ₽</th><th>С даты</th><th>По дату</th><th>Статус</th><th>Источник</th><th>Доставка кожи</th><th>Действие</th></tr></thead><tbody id="profitCostRows"></tbody></table></div><div class="profit-toolbar"><button id="profitAddCost" type="button" class="button light">Добавить строку</button><button id="profitCostPreview" data-profit-action type="button" class="button light">Предпросмотр себестоимости</button></div></article>
+        <article class="profit-panel"><h2>3. Расходы и распределение</h2><p>Расширенный редактор JSON. Все amountKopecks — целые копейки (100 копеек = 1 ₽); даты — ГГГГ-ММ-ДД, validTo: null означает бессрочно. scope: business — общий расход; ozon — прямой внешний расход Ozon. Не добавляйте сюда удержания, уже вошедшие в начисления API.</p><label>Документ расходов<textarea id="profitExpenses" spellcheck="false"></textarea></label><div class="profit-toolbar"><button id="profitExpenseDraft" type="button" class="button light">Черновик: мусор / доставка кожи / зарплата Ильи</button><button id="profitExpensePreview" data-profit-action type="button" class="button light">Предпросмотр расходов</button></div><p>Месячный черновик: мусор — 9 000 ₽; доставка кожи — 20 000 ₽; зарплата удалённого Ильи — 25 000 ₽. Черновик не сохраняется автоматически. Перед сохранением проверьте суммы, даты и источники.</p><details><summary>Схема и синтетический пример расходов</summary><p>allocation.method: unallocated — оставить общие расходы нераспределёнными; shares — доли каналов в базисных пунктах, сумма 10000 = 100%; revenue — выручка каналов в копейках. Для shares/revenue нужны все каналы: ozon, wb, yandex, avito, offline, и source с основанием распределения. Неизвестную выручку нельзя заменять нулём.</p><pre>{"items":[{"id":"synthetic","label":"Учебный расход","amountKopecks":10000,"scope":"business","validFrom":"2025-01-01","validTo":null,"leatherDelivery":false}],"allocation":{"method":"unallocated","shares":null,"revenue":null,"source":""}}</pre></details></article>
+        <article class="profit-panel"><h2>4. АУСН «Доходы» 8% · предварительная оценка организации</h2><p>База строится из датированных событий организации, а не из чистых начислений API. Все суммы — целые копейки. entity — организация; complete: true — только после проверки полноты событий. ozonShareBps — подтверждённая доля Ozon (10000 = 100%) либо null.</p><label>Документ налога за месяц<textarea id="profitTax" spellcheck="false"></textarea></label><button id="profitTaxPreview" data-profit-action type="button" class="button light">Предпросмотр налога</button><details><summary>Синтетический пример · замените месяц и исходные данные</summary><p>kind: income — доход, offset — зачёт, refund — возврат. source нужен как для документа, так и для каждого события; allocationSource объясняет долю Ozon.</p><pre>{"month":"2025-01","entity":"Учебная организация","complete":false,"source":"Учебный пример","events":[{"id":"example","date":"2025-01-15","kind":"income","amountKopecks":10000,"source":"Учебный пример"}],"ozonShareBps":null,"allocationSource":""}</pre></details></article>
+        <article id="profitPreview" class="profit-panel" hidden><h2>Проверьте изменения перед сохранением</h2><p id="profitWarnings" class="profit-status"></p><p id="profitExpiry"></p><div class="profit-diff"><div><h3>До</h3><pre id="profitBefore"></pre></div><div><h3>После</h3><pre id="profitAfter"></pre></div></div><p>Любое изменение полей или месяца отменяет этот предпросмотр.</p><button id="profitConfirm" type="button" class="button primary" disabled>Подтвердить и сохранить показанные изменения</button></article>
+        <article class="profit-panel"><h2>Журнал и версии за выбранный месяц</h2><p id="profitVersions" class="profit-status"></p><label>Документ журнала<select id="profitAuditKey"><option value="all">Все документы выбранного месяца</option><option value="costs">Себестоимость</option><option value="expenses">Расходы</option><option value="month">Отчёт за месяц</option><option value="tax">Налог за месяц</option></select></label><pre id="profitAudit"></pre></article>
+      </div>
+    </section>
     <!-- ОБЗОР ОФИСА -->
 
     <section class="page" data-section="overview">
@@ -677,6 +695,7 @@
           подтверждённой прибылью.
         </p>
 
+        <p>Для сохранения используйте <a href="#ozonProfit">Прибыль Ozon: предпросмотр и подтверждение</a>.</p>
         <form id="ozonCostForm"
               style="display:grid;gap:16px;max-width:650px">
 
@@ -718,7 +737,7 @@
 
           <button class="button primary"
                   type="submit">
-            Сохранить себестоимость
+            Перейти к предпросмотру себестоимости
           </button>
 
           <p id="costMessage"
@@ -1300,6 +1319,7 @@
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
+<script src="profit.js" defer></script>
 <script src="ozon-xlsx-import.js" defer></script>
 
 </body>
