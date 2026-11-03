@@ -1285,12 +1285,24 @@ try {
       new Date().toISOString()
     ).run();
 
+    const completedRows = await db.prepare(`
+      SELECT sync_date FROM ozon_api_sync_state
+      WHERE source = ? AND sync_date >= ? AND sync_date <= ?
+        AND status = 'complete' AND page_complete = 1
+    `).bind(SOURCE, dates[0], dates[dates.length - 1]).all();
+    const completedSet = new Set(
+      (completedRows.results || []).map(row => row.sync_date)
+    );
+    const pendingDates = dates.filter(date => !completedSet.has(date));
+
     let result;
     try {
-      result = await syncOzonFinance(this.env, {
-        dates,
-        maxPagesPerDay: MAX_BACKFILL_PAGES_PER_DAY
-      });
+      result = pendingDates.length
+        ? await syncOzonFinance(this.env, {
+            dates: pendingDates,
+            maxPagesPerDay: MAX_BACKFILL_PAGES_PER_DAY
+          })
+        : { status: 'skipped', pageCount: 0, recordCount: 0 };
     } catch (error) {
       result = {
         status: "failed",
