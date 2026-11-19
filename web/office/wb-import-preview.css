@@ -1,0 +1,25 @@
+.wb-import-preview__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+.wb-import-preview__fields label { display: flex; flex-direction: column; gap: 7px; font-weight: 600; }
+.wb-import-preview__fields input {
+  box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px;
+  padding: 9px 10px; border: 1px solid var(--border, #c5cad0);
+  border-radius: 8px; font: inherit; background: var(--card-bg, #fff); color: var(--text, #18202a);
+}
+.wb-import-preview__fields input:focus-visible { outline: 2px solid var(--accent, #2468d8); outline-offset: 2px; }
+.wb-import-preview__results { margin-top: 16px; padding-top: 10px; border-top: 1px solid var(--border, #c5cad0); }
+.wb-import-preview__results dl { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(130px, 1fr); gap: 10px 14px; }
+.wb-import-preview__results dt { font-weight: 500; }
+.wb-import-preview__results dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wb-import-preview__table { max-width: 100%; overflow-x: auto; }
+.wb-import-preview__table table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.wb-import-preview__table th, .wb-import-preview__table td { border-bottom: 1px solid var(--border, #ddd); text-align: left; padding: 8px; }
+.wb-import-preview__help { font-size: .9rem; line-height: 1.5; }
+@media (max-width: 520px) {
+  .wb-import-preview__results dl { grid-template-columns: 1fr; gap: 4px; }
+  .wb-import-preview__results dd { margin-bottom: 9px; text-align: left; }
+}

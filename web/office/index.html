@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="office-map.css">
 <link rel="stylesheet" href="ozon-finance.css">
 <link rel="stylesheet" href="profit.css">
+<link rel="stylesheet" href="wb-import-preview.css">
 </head>
 <body>
 
@@ -34,6 +35,7 @@
     <a href="#departments" data-page="departments">
       <span>▦</span>Отделы <b>7</b>
     </a>
+    <a href="#wbFinance" data-page="wbFinance"><span>◴</span>Финансы · WB</a>
     <a href="#ozonProfit" data-page="ozonProfit"><span>◴</span>Прибыль Ozon</a>
     <a href="#ozonFinance" data-page="ozonFinance">
       <span>◴</span>Финансы · Ozon
@@ -128,7 +130,57 @@
         <article class="profit-panel"><h2>Журнал и версии за выбранный месяц</h2><p id="profitVersions" class="profit-status"></p><label>Документ журнала<select id="profitAuditKey"><option value="all">Все документы выбранного месяца</option><option value="costs">Себестоимость</option><option value="expenses">Расходы</option><option value="month">Отчёт за месяц</option><option value="tax">Налог за месяц</option></select></label><pre id="profitAudit"></pre></article>
       </div>
     </section>
-    <!-- ОБЗОР ОФИСА -->
+    
+<section class="page" data-section="wbFinance" hidden><h1>Финансы · WB</h1>
+      <article class="profit-panel" id="wbImportPreview">
+        <h2>Автоматический расчёт WB · загрузка XLSX</h2>
+        <p><strong>Предварительный управленческий расчёт.</strong> Выберите отчёт WB и ваш приватный справочник себестоимости. Файлы отправляются только в защищённый API владельца для обработки без постоянного сохранения.</p>
+        <p class="wb-import-preview__help">Расчётная АУСН 8% не является начислением ФНС. Справочная себестоимость и состояние возвратов могут быть не подтверждены. Контрольную выплату укажите по кабинету WB — при расхождении расчёт будет отклонён.</p>
+        <form id="wbImportPreviewForm" autocomplete="off" enctype="multipart/form-data" novalidate>
+          <div class="wb-import-preview__fields">
+            <label for="wbImportPreviewXlsx">Недельный отчёт WB (.xlsx, до 2 МБ)
+              <input id="wbImportPreviewXlsx" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+            </label>
+            <label for="wbImportPreviewCatalog">Приватный справочник себестоимости (.json, до 128 КБ)
+              <input id="wbImportPreviewCatalog" type="file" accept=".json,application/json" required>
+            </label>
+            <label for="wbImportPreviewReportId">Номер отчёта WB
+              <input id="wbImportPreviewReportId" type="text" inputmode="numeric" maxlength="20" autocomplete="off" placeholder="Номер отчёта" required>
+            </label>
+            <label for="wbImportPreviewPayout">Итого к оплате по кабинету WB, ₽
+              <input id="wbImportPreviewPayout" type="text" inputmode="decimal" maxlength="20" autocomplete="off" placeholder="0,00" required>
+            </label>
+          </div>
+          <div class="profit-toolbar">
+            <button id="wbImportPreviewSubmit" class="button primary" type="submit">Проверить XLSX и рассчитать прибыль</button>
+            <button id="wbImportPreviewClear" class="button light" type="button">Очистить файлы и результат</button>
+          </div>
+        </form>
+        <p id="wbImportPreviewStatus" class="profit-status" role="status" aria-live="polite">Выберите XLSX и приватный JSON; результат не сохраняется.</p>
+        <div id="wbImportPreviewResult" class="wb-import-preview__results" hidden>
+          <h3>Результат — НЕ ПОДТВЕРЖДЁН</h3>
+          <dl>
+            <dt>Выплата WB, ₽</dt><dd id="wbImportPreviewPayoutResult">—</dd>
+            <dt>Себестоимость продаж, ₽</dt><dd id="wbImportPreviewCogs">—</dd>
+            <dt>Условная АУСН 8%, ₽</dt><dd id="wbImportPreviewTax">—</dd>
+            <dt>Прибыль без восстановления возврата</dt><dd id="wbImportPreviewConservative">—</dd>
+            <dt>Прибыль при восстановлении возврата в запасах</dt><dd id="wbImportPreviewRestored">—</dd>
+            <dt>Продажи</dt><dd id="wbImportPreviewSales">—</dd>
+            <dt>Возвраты</dt><dd id="wbImportPreviewReturns">—</dd>
+          </dl>
+          <p id="wbImportPreviewQuality" class="wb-import-preview__help">—</p>
+          <p class="wb-import-preview__help"><strong>Ограничения:</strong> доход для АУСН и стоимость возвратов рассчитаны по допущению; себестоимости не все подтверждены; дополнительные расходы не сверены. Не считайте это начислением ФНС или окончательной чистой прибылью.</p>
+          <details><summary>Себестоимость по артикулам</summary>
+            <div class="wb-import-preview__table"><table>
+              <thead><tr><th>Артикул</th><th>Продано</th><th>Возвраты</th><th>Себест. за шт.</th><th>Себест. продаж</th><th>Статус</th></tr></thead>
+              <tbody id="wbImportPreviewSkuRows"></tbody>
+            </table></div>
+          </details>
+        </div>
+      </article>
+
+</section>
+<!-- ОБЗОР ОФИСА -->
 
     <section class="page" data-section="overview">
 
@@ -1322,5 +1374,7 @@
 <script src="profit.js" defer></script>
 <script src="ozon-xlsx-import.js" defer></script>
 
+<script src="wb-import-preview.js" defer></script>
+<script src="wb-saved-report.js" defer></script>
 </body>
 </html>
