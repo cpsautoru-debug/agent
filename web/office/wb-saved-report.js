@@ -5,6 +5,11 @@
  const endpoint='/api/wb/saved-report', id='865265818';
  const panel=document.createElement('section'), heading=document.createElement('h3'), button=document.createElement('button'), status=document.createElement('p'), limits=document.createElement('p');
  heading.textContent='Сохранённый отчёт WB №865265818 · тестовая база';
+ button.id='wbSaveReportButton';button.className='button primary';button.hidden=true;
+ let ownerAuthorized=false,previewReady=false;
+ const updateButton=()=>{button.hidden=!(ownerAuthorized&&previewReady);};
+ form.addEventListener('wb-preview-validated',event=>{previewReady=event.detail?.reportId===id;updateButton();});
+ for(const event of ['input','change','reset'])form.addEventListener(event,()=>{previewReady=false;updateButton();});
  button.type='button';button.textContent='Проверить и сохранить отчёт в тестовую базу';
  status.textContent='Проверяем наличие сохранённого отчёта…';
  limits.textContent='Источник — загруженный владельцем XLSX, не DEMO. Прибыль и налог предварительные (UNVERIFIED): API WB, налоговая база, возврат в запасы и дополнительные расходы не подтверждены. Сохранение не делает их окончательными.';
@@ -20,13 +25,13 @@
  async function reload(){
   try{
    const r=await fetch(endpoint+'?reportId='+id,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'});
-   if(r.status===404){status.textContent='Отчёт ещё не сохранён в тестовой базе.';return}
+   if(r.status===404){ownerAuthorized=true;updateButton();status.textContent='Отчёт ещё не сохранён в тестовой базе.';return}
    if(!r.ok){status.textContent='Сохранённый отчёт недоступен: требуется вход владельца и подключённая тестовая база.';return}
-   display(await r.json());
+   display(await r.json());ownerAuthorized=true;updateButton();
   }catch{status.textContent='Не удалось прочитать сохранённый отчёт. Повторных запросов нет.'}
  }
  button.addEventListener('click',async()=>{
-  if(pending)return;
+  if(pending||!ownerAuthorized||!previewReady)return;
   const xlsx=get('wbImportPreviewXlsx')?.files?.[0],catalog=get('wbImportPreviewCatalog')?.files?.[0];
   const report=get('wbImportPreviewReportId')?.value?.trim();
   const payout=get('wbImportPreviewPayout')?.value?.trim().replace(/[\s\u00a0\u202f]/g,'').replace(',','.');

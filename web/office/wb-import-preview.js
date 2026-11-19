@@ -213,6 +213,7 @@
       breakdownRows.replaceChildren(fragment);
       result.hidden = false;
       status.textContent = 'Сверка пройдена. Прибыль и налог предварительные; файлы не сохранялись.';
+      form.dispatchEvent?.(new CustomEvent('wb-preview-validated', {detail:{reportId:data.reportId}}));
     } catch {
       if (activeRevision === revision) status.textContent = 'Ошибка соединения или обработки. Результат скрыт.';
     } finally {
