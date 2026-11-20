@@ -24,7 +24,7 @@ test('owner production console is visible before page-by-page diagnostic screens
   assert.match(css,/\.ms-board-metrics/);
 });
 test('production manager sees explicit scope and no fabricated full active queue',()=>{
-  assert.match(html,/проверить этапы последних 10/);
+  assert.match(html,/сверить этапы последних 10/);
   assert.match(html,/не вся незавершёнка/);
   assert.match(html,/До 12 последовательных GET с паузой/);
   assert.match(js,/LATEST_10_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS|последних по дате документов/);
