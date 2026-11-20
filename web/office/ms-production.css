@@ -52,3 +52,16 @@
   .ms-production-header{align-items:stretch}
   .ms-production-button{width:100%}
 }
+
+
+.ms-page-audit{margin-top:20px;padding:20px 0;border-top:1px solid #dce6dc}
+.ms-page-audit-header{display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ms-page-audit-header h3{font-size:17px;color:#193f30;margin:0 0 7px}
+.ms-page-audit-header p{font-size:12px;color:#627468;line-height:1.65;margin:0;max-width:700px}
+.ms-page-audit-header button{white-space:nowrap}
+.ms-page-audit-stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.ms-page-audit-stats[hidden],.ms-page-audit-results[hidden]{display:none}
+.ms-page-audit-stats span{padding:10px 13px;border:1px solid #e2e9e0;background:#f6f9f4;border-radius:8px;font-size:12px;color:#42604c}
+.ms-page-audit-stats strong{font-variant-numeric:tabular-nums}
+.ms-page-audit .ms-production-table{min-width:800px}
+@media(max-width:720px){.ms-page-audit-header{align-items:stretch}.ms-page-audit-header button{width:100%}}
