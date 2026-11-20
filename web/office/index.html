@@ -1418,7 +1418,17 @@
               </div>
               <button type="button" class="ms-production-button" id="msWarehouseSnapshotLoad">Собрать обзор склада</button>
             </div>
-            <p id="msWarehouseSnapshotStatus" class="ms-production-status" role="status">Сначала выберите склад и нажмите «Собрать обзор склада».</p>
+            <div class="ms-stock-filters">
+              <label for="msWarehouseSnapshotStore">Склад</label>
+              <select id="msWarehouseSnapshotStore">
+                <option value="Пламя. Магазин">Пламя. Магазин</option>
+                <option value="Основной склад (Цех)">Основной склад (Цех)</option>
+                <option value="Склад ЕВА">Склад ЕВА</option>
+                <option value="Склад материалов — внешний">Склад материалов — внешний</option>
+              </select>
+              <small>Названия складов подтверждены в «МойСклад». Сервер проверяет выбранное имя перед чтением; отдельная загрузка предыдущей таблицы не требуется.</small>
+            </div>
+            <p id="msWarehouseSnapshotStatus" class="ms-production-status" role="status">Выберите склад и нажмите «Собрать обзор склада». Другие кнопки не нужны.</p>
             <p id="msWarehouseSnapshotCount" class="ms-production-count">Обзор ещё не загружен.</p>
             <div class="ms-stock-filters">
               <label for="msWarehouseSnapshotCategory">Группа товаров</label>
