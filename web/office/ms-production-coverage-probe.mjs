@@ -17,7 +17,7 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
     button.disabled=true;
     summary.hidden=true;
     summary.textContent='';
-    status.textContent='Проверка возможностей API: два ограниченных чтения по одному образцу…';
+    status.textContent='Проверка возможностей API: не более двух ограниченных чтений…';
     try{
       const response=await fetch('/api/ms/production-coverage-probe',{
         method:'GET',credentials:'same-origin',cache:'no-store',
@@ -29,9 +29,13 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
         body.coverage!=='CAPABILITY_SAMPLE_ONLY_NO_FULL_SCAN'||
         body.allUnfinishedVerified!==false||
         !Number.isSafeInteger(body.totalTaskDocuments)||body.totalTaskDocuments<0||
-        !Number.isSafeInteger(body.totalProductionStages)||body.totalProductionStages<0||
-        !Number.isSafeInteger(body.estimatedTaskListPages50)||
-        !Number.isSafeInteger(body.estimatedStageListPages50))
+        body.totalProductionStages!==null||
+        body.estimatedStageListPages50!==null||
+        body.globalStageListAvailable!==false||
+        !['ONE_PRODUCTION_TASK_FILTERED','NO_TASK_TO_SAMPLE'].includes(body.stageListScope)||
+        (body.totalTaskDocuments===0?body.sampleTaskStageCount!==null:
+          !Number.isSafeInteger(body.sampleTaskStageCount)||body.sampleTaskStageCount<0)||
+        !Number.isSafeInteger(body.estimatedTaskListPages50))
         throw Error((typeof body?.code==='string'&&
           /^[a-z][a-z0-9_]{0,60}$/.test(body.code)?body.code:'invalid_probe_response')+
           (['productiontask','productionstage'].includes(body?.upstreamEntity)?
@@ -39,27 +43,22 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
           (Number.isInteger(body?.upstreamHttp)&&
             body.upstreamHttp>=300&&body.upstreamHttp<=599?
             ' · HTTP '+body.upstreamHttp:''));
-      const plan=estimateProductionScanWorkload(body.totalTaskDocuments,body.totalProductionStages);
+      const plan=estimateProductionScanWorkload(body.totalTaskDocuments,body.sampleTaskStageCount);
       const taskRef=body.sampleStageHasTaskReference==='observed'?
         'ссылка на задание в образце есть':'ссылка на задание в образце не обнаружена';
       const rowRef=body.sampleStageHasRowReference==='observed'?
         'ссылка на позицию есть':'ссылка на позицию не обнаружена';
-      summary.textContent='Документов всего: '+count(body.totalTaskDocuments)+
-        '; этапов всего: '+count(body.totalProductionStages)+
-        '. Для чтения списков порциями по 50 понадобится как минимум '+
-        count(body.estimatedTaskListPages50)+' страниц заданий и '+
-        count(body.estimatedStageListPages50)+' страниц этапов. '+
-        'Образец этапа: '+taskRef+', '+rowRef+'. '+
-        'Оценка полного обхода: при подтверждённых связях — от '+
-        count(plan.bulkCandidateRequests)+' запросов на первичный сбор списков ('+
-        count(plan.bulkCandidateBatches)+' пакетов до 10 запросов); '+
-        'при запросах этапов отдельно по каждому заданию — не меньше '+
-        count(plan.perTaskMinimumRequests)+' запросов ('+
-        count(plan.perTaskMinimumBatches)+' пакетов). '+
-        'Рекомендуемый режим для будущего сканера: строго последовательно, '+
-        'пауза не меньше 2 секунд между запросами, остановка на 429/ошибке. '+
-        'Обе оценки без повторной сверки, связей и времени ответа. '+
-        'Полнота связей и фактические незавершённые задания не проверены.';
+      summary.textContent='Всего производственных заданий: '+count(body.totalTaskDocuments)+
+        '. Общее количество этапов неизвестно: API требует фильтр по конкретному заданию. '+
+        (body.sampleTaskStageCount===null?'Нет задания для выборочной проверки. ':
+          'Этапов в одном выбранном задании: '+count(body.sampleTaskStageCount)+
+          '. Образец этапа: '+taskRef+', '+rowRef+'. ')+
+        'Минимальный обход: '+count(plan.taskPages)+' страниц реестра заданий по 50 и '+
+        count(plan.perTaskMinimumRequests)+' запросов с проверкой этапов каждого задания ('+
+        count(plan.perTaskMinimumBatches)+' пакетов до 10 запросов). '+
+        'Это нижняя оценка: дополнительные страницы этапов, повторная сверка и время ответа не учтены. '+
+        'Для будущего сканера: последовательные запросы, пауза не меньше 2 секунд, '+
+        'остановка на 429 или ошибке. Полнота связей и фактические незавершённые задания не проверены.';
       summary.hidden=false;
       status.textContent='Диагностика выполнена. Это оценка объёма API, не запуск массовой сверки.';
     }catch(error){

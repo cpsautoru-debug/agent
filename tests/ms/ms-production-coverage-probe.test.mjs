@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
+import {registerHooks} from 'node:module';
 registerHooks({load(url,context,next){
   if(url.includes('/functions/api/')&&url.endsWith('.js'))
     return {...next(url,{...context,format:'module'}),format:'module'};
@@ -9,9 +9,11 @@ registerHooks({load(url,context,next){
 const {createProductionCoverageProbeHandler,summarizeProductionCoverageProbe}=
   await import('../../functions/api/ms/production-coverage-probe.js');
 const {createSession}=await import('../../functions/api/auth/session.js');
+
 const ENDPOINT='https://autosklad63-office-staging.pages.dev/api/ms/production-coverage-probe';
 const taskId='009d69bb-8c9f-11f1-0a80-00480002f1cd';
 const rowId='009d69bb-8c9f-11f1-0a80-00480002f1ce';
+const taskHref='https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+taskId;
 const env={
   OFFICE_SESSION_SECRET:'synthetic-session-secret',
   OFFICE_ALLOWED_EMAIL:'owner@example.invalid',
@@ -27,44 +29,101 @@ async function req(sub='owner-id',url=ENDPOINT){
   if(sub)headers.Cookie=(await createSession(sub,env.OFFICE_SESSION_SECRET)).split(';')[0];
   return new Request(url,{headers});
 }
-const answer=(size,row)=>new Response(JSON.stringify({meta:{size},rows:size?[row]:[]}),{status:200});
-test('owner probe makes exactly two sequential limited GETs and reports only counts/capability',async()=>{
+const answer=(size,row)=>new Response(JSON.stringify({
+  meta:{size},rows:size?[row]:[]
+}),{status:200});
+const stage={
+  productionTask:{meta:{href:taskHref}},
+  productionRow:{meta:{href:taskHref+'/productionRows/'+rowId}}
+};
+
+test('two sequential GETs: stage requires exact one-task filter; global count stays unknown',async()=>{
   const urls=[];
   let active=0,peak=0;
   const handler=createProductionCoverageProbeHandler(async(uri,opts)=>{
-    active++;peak=Math.max(peak,active);urls.push(uri);
+    active++;peak=Math.max(peak,active);urls.push(new URL(uri));
     assert.equal(opts.method,'GET');
     assert.equal(opts.redirect,'manual');
     assert.equal(opts.headers.Authorization,'Bearer synthetic-access-token');
     assert.equal(new URL(uri).searchParams.get('limit'),'1');
     assert.equal(new URL(uri).searchParams.get('offset'),'0');
-    assert.equal(new URL(uri).searchParams.has('filter'),false);
-    const result=urls.length===1?answer(740,{id:taskId,name:'00737'}):
-      answer(3700,{
-        productionTask:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+taskId}},
-        productionRow:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+taskId+'/productionRows/'+rowId}}
-      });
+    const result=urls.length===1?answer(740,{id:taskId,name:'00737'}):answer(7,stage);
     active--;
     return result;
   });
   const result=await handler({request:await req(),env});
   assert.equal(result.status,200);
   const data=await result.json();
-  assert.deepEqual(urls.map(x=>new URL(x).pathname.split('/').at(-1)),['productiontask','productionstage']);
+  assert.deepEqual(urls.map(x=>x.pathname.split('/').at(-1)),['productiontask','productionstage']);
+  assert.equal(urls[0].searchParams.has('filter'),false);
+  assert.equal(urls[1].searchParams.get('filter'),'productionTask='+taskHref);
   assert.equal(peak,1);
   assert.equal(data.requests,2);
   assert.equal(data.totalTaskDocuments,740);
-  assert.equal(data.totalProductionStages,3700);
+  assert.equal(data.totalProductionStages,null);
+  assert.equal(data.sampleTaskStageCount,7);
+  assert.equal(data.stageListScope,'ONE_PRODUCTION_TASK_FILTERED');
   assert.equal(data.estimatedTaskListPages50,15);
-  assert.equal(data.estimatedStageListPages50,74);
+  assert.equal(data.estimatedStageListPages50,null);
+  assert.equal(data.sampleTaskStagePages50,1);
   assert.equal(data.sampleStageHasTaskReference,'observed');
   assert.equal(data.sampleStageHasRowReference,'observed');
+  assert.equal(data.globalStageListAvailable,false);
   assert.equal(data.bulkStageJoinProven,false);
   assert.equal(data.allUnfinishedVerified,false);
   assert.equal(data.verifiedUnfinishedCount,null);
   assert.equal(data.changedRecords,0);
   assert.doesNotMatch(JSON.stringify(data),/00737|synthetic-access-token|009d69bb/);
 });
+
+test('zero production tasks uses only one GET and does not invent global stage count',async()=>{
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{
+    calls++;return answer(0,null);
+  });
+  const response=await handler({request:await req(),env});
+  assert.equal(response.status,200);
+  const data=await response.json();
+  assert.equal(calls,1);
+  assert.equal(data.requests,1);
+  assert.equal(data.totalTaskDocuments,0);
+  assert.equal(data.sampleTaskStageCount,null);
+  assert.equal(data.stageListScope,'NO_TASK_TO_SAMPLE');
+  assert.equal(data.estimatedTaskListPages50,1);
+  assert.equal(data.totalProductionStages,null);
+  assert.equal(data.allUnfinishedVerified,false);
+});
+
+test('task record without valid id does not trigger a stage request',async()=>{
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{
+    calls++;return answer(4,{name:'not an id',id:'../outside'});
+  });
+  const response=await handler({request:await req(),env});
+  assert.equal(response.status,502);
+  const body=await response.json();
+  assert.equal(body.code,'ms_response_unverified');
+  assert.equal(body.upstreamEntity,'productiontask');
+  assert.equal(body.upstreamHttp,null);
+  assert.equal(calls,1);
+});
+
+test('sample task with no stages is not counted as all tasks having no stages',async()=>{
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{
+    calls++;return calls===1?answer(50,{id:taskId}):answer(0,null);
+  });
+  const response=await handler({request:await req(),env});
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(calls,2);
+  assert.equal(result.sampleTaskStageCount,0);
+  assert.equal(result.totalProductionStages,null);
+  assert.equal(result.sampleTaskStagePages50,0);
+  assert.equal(result.allUnfinishedVerified,false);
+  assert.equal(result.verifiedUnfinishedCount,null);
+});
+
 test('authorization and query guard prevent upstream access',async()=>{
   let calls=0;
   const handler=createProductionCoverageProbeHandler(async()=>{calls++;throw Error('must not call');});
@@ -77,10 +136,12 @@ test('authorization and query guard prevent upstream access',async()=>{
   ]){
     const result=await handler({request:await req(s,url),env:e});
     assert.equal(result.status,status);
+    assert.equal(Object.hasOwn(await result.json(),'totalTaskDocuments'),false);
   }
   assert.equal(calls,0);
 });
-test('stage request not attempted when task sampling fails',async()=>{
+
+test('stage request not attempted when task sampling fails with 429',async()=>{
   let count=0;
   const handler=createProductionCoverageProbeHandler(async()=>{
     count++;return new Response('secret synthetic-access-token',{status:429});
@@ -89,52 +150,36 @@ test('stage request not attempted when task sampling fails',async()=>{
   assert.equal(r.status,502);
   const body=await r.text();
   assert.match(body,/ms_rate_limited/);
-  assert.equal((JSON.parse(body)).upstreamEntity,'productiontask');
-  assert.equal((JSON.parse(body)).upstreamHttp,429);
+  assert.equal(JSON.parse(body).upstreamEntity,'productiontask');
+  assert.equal(JSON.parse(body).upstreamHttp,429);
   assert.doesNotMatch(body,/synthetic-access-token/);
   assert.equal(count,1);
 });
-test('stage failure cannot be misrepresented as zero unfinished production',async()=>{
+
+test('stage HTTP 412 does not leak sample task count or token',async()=>{
   let count=0;
   const handler=createProductionCoverageProbeHandler(async()=>{
     count++;
     return count===1?answer(740,{id:taskId}):
-      new Response('some upstream secret',{status:400});
+      new Response('secret-token production documentation',{status:412});
   });
   const result=await handler({request:await req(),env});
   assert.equal(result.status,502);
   const body=await result.text();
   assert.match(body,/ms_upstream_error/);
-  assert.equal((JSON.parse(body)).upstreamEntity,'productionstage');
-  assert.equal((JSON.parse(body)).upstreamHttp,400);
-  assert.doesNotMatch(body,/740|secret|synthetic-access-token/);
-});
-test('missing stage reference is explicitly unproven; empty stage collection remains unknown',()=>{
-  const a=summarizeProductionCoverageProbe({count:5,sample:{}},{count:1,sample:{productionTask:{id:taskId}}});
-  assert.equal(a.sampleStageHasTaskReference,'not_observed');
-  assert.equal(a.allUnfinishedVerified,false);
-  const b=summarizeProductionCoverageProbe({count:0,sample:null},{count:0,sample:null});
-  assert.equal(b.sampleStageHasRowReference,'not_observed');
-  assert.equal(b.verifiedUnfinishedCount,null);
-  assert.throws(()=>summarizeProductionCoverageProbe({count:-1},{count:0}));
-});
-test('malformed upstream pagination cannot be taken as a successful scan',async()=>{
-  const handler=createProductionCoverageProbeHandler(async()=>new Response(
-    JSON.stringify({meta:{size:100},rows:[]}),{status:200}));
-  const result=await handler({request:await req(),env});
-  assert.equal(result.status,502);
-  const body=await result.json();
-  assert.equal(body.code,'ms_response_unverified');
-  assert.equal(body.upstreamEntity,'productiontask');
-  assert.equal(body.upstreamHttp,null);
+  assert.equal(JSON.parse(body).upstreamEntity,'productionstage');
+  assert.equal(JSON.parse(body).upstreamHttp,412);
+  assert.equal(JSON.parse(body).coverage,'NOT_VERIFIED');
+  assert.doesNotMatch(body,/740|secret|production documentation|009d69bb/);
+  assert.equal(count,2);
 });
 
-test('missing stage list reveals safe 404 and collection only, never upstream body',async()=>{
+test('stage 404 is reported as HTTP only and never passes through upstream body',async()=>{
   let calls=0;
   const handler=createProductionCoverageProbeHandler(async()=>{
     calls++;
     return calls===1?answer(900,{id:taskId}):
-      new Response('secret-token arbitrary upstream diagnostics and private SKU',{status:404});
+      new Response('secret-token private SKU',{status:404});
   });
   const result=await handler({request:await req(),env});
   assert.equal(result.status,502);
@@ -145,16 +190,29 @@ test('missing stage list reveals safe 404 and collection only, never upstream bo
   assert.equal(data.upstreamHttp,404);
   assert.equal(data.changedRecords,0);
   assert.equal(data.coverage,'NOT_VERIFIED');
-  assert.doesNotMatch(JSON.stringify(data),/secret-token|arbitrary|900|private SKU|synthetic-access-token/);
+  assert.doesNotMatch(JSON.stringify(data),/secret-token|900|private SKU|synthetic-access-token/);
 });
-test('owner-only errors never reveal collection/http or contact MoySklad',async()=>{
-  let calls=0;
-  const handler=createProductionCoverageProbeHandler(async()=>{calls++;throw Error('no network');});
-  const result=await handler({request:await req(null),env});
-  assert.equal(result.status,401);
-  const data=await result.json();
-  assert.equal(data.code,'owner_session_required');
-  assert.equal(Object.hasOwn(data,'upstreamEntity'),false);
-  assert.equal(Object.hasOwn(data,'upstreamHttp'),false);
-  assert.equal(calls,0);
+
+test('malformed first response fails closed',async()=>{
+  const handler=createProductionCoverageProbeHandler(async()=>new Response(
+    JSON.stringify({meta:{size:100},rows:[]}),{status:200}));
+  const response=await handler({request:await req(),env});
+  assert.equal(response.status,502);
+  const body=await response.json();
+  assert.equal(body.code,'ms_response_unverified');
+  assert.equal(body.upstreamEntity,'productiontask');
+  assert.equal(body.upstreamHttp,null);
+});
+
+test('summaries reject inconsistent scopes; lack of task link in a stage is not proof of no stages',()=>{
+  assert.throws(()=>summarizeProductionCoverageProbe({count:5,sample:{}},null));
+  assert.throws(()=>summarizeProductionCoverageProbe({count:0,sample:null},{count:0,sample:null}));
+  assert.throws(()=>summarizeProductionCoverageProbe({count:-1},null));
+  const a=summarizeProductionCoverageProbe(
+    {count:5,sample:{id:taskId}},
+    {count:1,sample:{productionRow:{id:rowId}}}
+  );
+  assert.equal(a.sampleTaskStageCount,1);
+  assert.equal(a.sampleStageHasTaskReference,'not_observed');
+  assert.equal(a.allUnfinishedVerified,false);
 });

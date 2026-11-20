@@ -18,11 +18,15 @@ test('probe requires explicit button and uses only scoped owner-only GET route',
 });
 test('browser never asserts coverage from sample-only response',()=>{
   assert.match(js,/allUnfinishedVerified!==false/);
-  assert.match(js,/estimateProductionScanWorkload\(body\.totalTaskDocuments,body\.totalProductionStages\)/);
-  assert.match(js,/при подтверждённых связях/);
+  assert.match(js,/estimateProductionScanWorkload\(body\.totalTaskDocuments,body\.sampleTaskStageCount\)/);
+  assert.match(js,/Общее количество этапов неизвестно/);
+  assert.match(js,/body\.globalStageListAvailable!==false/);
+  assert.match(js,/body\.totalProductionStages!==null/);
+  assert.match(js,/body\.stageListScope/);
+  assert.doesNotMatch(js,/count\(body\.totalProductionStages\)/);
   assert.match(js,/пауза не меньше 2 секунд/);
   assert.match(js,/Полнота связей и фактические незавершённые задания не проверены/);
-  assert.match(html,/без сбора всех заданий/);
+  assert.match(html,/весь цех не выгружается/);
   assert.match(css,/\.ms-coverage-probe/);
 });
 

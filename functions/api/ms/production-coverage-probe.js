@@ -15,12 +15,17 @@ const UUID='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const TASK_REF=new RegExp('^https://api\\.moysklad\\.ru/api/remap/1\\.2/entity/productiontask/'+UUID+'$','i');
 const ROW_REF=new RegExp('/(?:productionrow|productionRows)/'+UUID+'(?:$|\\?)','i');
 const PAGE_SIZE=50;
+const TASK_ID=new RegExp('^'+UUID+'$','i');
 
-// A strict two-request CAPABILITY PROBE, never a scan and never an export.
-async function sampleCollection(fetcher,entity,token){
+// One or two bounded reads. The stage list requires a productionTask filter.
+async function sampleCollection(fetcher,entity,token,taskId=null){
   const url=new URL(BASE+entity);
   url.searchParams.set('limit','1');
   url.searchParams.set('offset','0');
+  if(entity==='productionstage'){
+    if(typeof taskId!=='string'||!TASK_ID.test(taskId))throw Error('ms_response_unverified');
+    url.searchParams.set('filter','productionTask='+BASE+'productiontask/'+taskId);
+  }
   const response=await fetcher(url.toString(),{
     method:'GET',redirect:'manual',
     headers:{
@@ -62,11 +67,13 @@ async function sampleCollection(fetcher,entity,token){
 }
 
 export function summarizeProductionCoverageProbe(tasks,stages){
-  for(const r of [tasks,stages]){
+  if((tasks?.count===0&&stages!==null)||(tasks?.count>0&&stages===null))
+    throw Error('invalid_probe_stage_scope');
+  for(const r of [tasks,...(stages?[stages]:[])]){
     if(!Number.isSafeInteger(r?.count)||r.count<0||r.count>10000000)
       throw Error('invalid_probe_count');
   }
-  const stage=stages.sample;
+  const stage=stages?.sample||null;
   const taskLink=stage?.productionTask?.meta?.href;
   const rowLink=stage?.productionRow?.meta?.href;
   const linkPresent=stage===null?'not_observed':
@@ -75,20 +82,25 @@ export function summarizeProductionCoverageProbe(tasks,stages){
     typeof rowLink==='string'&&ROW_REF.test(rowLink)?'observed':'not_observed';
   return {
     code:'ms_production_coverage_probe_ok',
-    readOnly:true,ownerOnly:true,requests:2,changedRecords:0,
+    readOnly:true,ownerOnly:true,requests:stages===null?1:2,changedRecords:0,
     coverage:'CAPABILITY_SAMPLE_ONLY_NO_FULL_SCAN',
     totalTaskDocuments:tasks.count,
-    totalProductionStages:stages.count,
-    estimatedTaskListPages50:Math.ceil(tasks.count/PAGE_SIZE),
-    estimatedStageListPages50:Math.ceil(stages.count/PAGE_SIZE),
+    // The list cannot provide a global stage count without task filtering.
+    totalProductionStages:null,
+    sampleTaskStageCount:stages?.count??null,
+    stageListScope:stages===null?'NO_TASK_TO_SAMPLE':'ONE_PRODUCTION_TASK_FILTERED',
+    estimatedTaskListPages50:Math.max(1,Math.ceil(tasks.count/PAGE_SIZE)),
+    estimatedStageListPages50:null,
+    sampleTaskStagePages50:stages===null?null:Math.ceil(stages.count/PAGE_SIZE),
     sampleStageHasTaskReference:linkPresent,
     sampleStageHasRowReference:rowPresent,
     bulkStageJoinProven:false,
+    globalStageListAvailable:false,
     allUnfinishedVerified:false,
     verifiedUnfinishedCount:null,
     // Runtime costs, pagination stability and matching stages must be verified
     // before enabling any multi-page scan or making statements of coverage.
-    nextStep:'VALIDATE_STAGE_JOIN_AND_SNAPSHOT_STABILITY_BEFORE_SCAN'
+    nextStep:'VALIDATE_PER_TASK_STAGE_PAGINATION_BEFORE_SCAN'
   };
 }
 
@@ -114,8 +126,11 @@ export function createProductionCoverageProbeHandler(fetcher=fetch){
         // Always sequential: 1 GET productiontask + 1 GET productionstage.
         // Never follow any links contained in upstream data.
         const tasks=await sampleCollection(fetcher,upstreamEntity,env.MS_API_TOKEN);
+        if(tasks.count===0)return json(200,summarizeProductionCoverageProbe(tasks,null));
+        const taskId=tasks.sample?.id;
+        if(typeof taskId!=='string'||!TASK_ID.test(taskId))throw Error('ms_response_unverified');
         upstreamEntity='productionstage';
-        const stages=await sampleCollection(fetcher,upstreamEntity,env.MS_API_TOKEN);
+        const stages=await sampleCollection(fetcher,upstreamEntity,env.MS_API_TOKEN,taskId);
         return json(200,summarizeProductionCoverageProbe(tasks,stages));
       }catch(e){
         const allow=['ms_rate_limited','ms_token_rejected','ms_permission_denied',
