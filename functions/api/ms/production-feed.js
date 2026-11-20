@@ -19,30 +19,33 @@ export function parseProductionFeedScope(url){
   if(url.origin!==OFFICE||url.pathname!==PATH)
     throw Error('scope_denied');
   const keys=[...url.searchParams.keys()];
-  if(keys.some(x=>x!=='offset'&&x!=='number')||
+  if(keys.some(x=>x!=='offset'&&x!=='number'&&x!=='sort')||
     keys.filter(x=>x==='offset').length>1||
-    keys.filter(x=>x==='number').length>1)
+    keys.filter(x=>x==='number').length>1||
+    keys.filter(x=>x==='sort').length>1)
     throw Error('scope_denied');
+  const sort=url.searchParams.get('sort');
+  if(sort!==null&&sort!=='updated')throw Error('invalid_production_sort');
   const number=url.searchParams.get('number');
   if(number!==null){
-    if(!NUMBER.test(number)||url.searchParams.has('offset'))
+    if(!NUMBER.test(number)||url.searchParams.has('offset')||sort!==null)
       throw Error('invalid_production_number');
     return {offset:0,number};
   }
   const offsetRaw=url.searchParams.get('offset');
-  if(offsetRaw===null)return {offset:0,number:null};
+  if(offsetRaw===null)return sort==='updated'?{offset:0,number:null,sort:'updated'}:{offset:0,number:null};
   if(!/^(0|[1-9]\d{0,3})$/.test(offsetRaw))
     throw Error('invalid_production_offset');
   const offset=Number(offsetRaw);
   if(offset>MAX_OFFSET||offset%SIZE!==0)throw Error('invalid_production_offset');
-  return {offset,number:null};
+  return sort==='updated'?{offset,number:null,sort:'updated'}:{offset,number:null};
 }
 
 export function buildProductionFeedUrl(scope){
   const url=new URL(UPSTREAM);
   url.searchParams.set('limit',String(SIZE));
   url.searchParams.set('offset',String(scope.offset));
-  url.searchParams.set('order','moment,desc');
+  url.searchParams.set('order',scope.sort==='updated'?'updated,desc':'moment,desc');
   if(scope.number!==null)url.searchParams.set('filter','name='+scope.number);
   return url.toString();
 }
@@ -94,7 +97,9 @@ export function summarizeProductionFeed(payload,scope={offset:0,number:null}){
     hasPrevious:scope.number===null&&scope.offset>0,
     hasMore:scope.number===null&&scope.offset+records.length<payload.meta.size,
     searchNumber:scope.number,
-    selection:scope.number===null?'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS':'EXACT_DOCUMENT_NUMBER_NOT_ACTIVE_TASKS',
+    selection:scope.number!==null?'EXACT_DOCUMENT_NUMBER_NOT_ACTIVE_TASKS':
+      scope.sort==='updated'?'LATEST_5_BY_UPDATE_NOT_ACTIVE_TASKS':
+      'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS',
     records
   };
 }
