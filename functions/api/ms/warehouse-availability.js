@@ -21,11 +21,16 @@ const number=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1e9;
 export function parseWarehouseScope(url){
   if(url.origin!==OFFICE||url.pathname!==ROUTE||url.hash)throw Error('invalid_warehouse_scope');
   const keys=[...url.searchParams.keys()];
-  if(keys.length!==1||keys[0]!=='store')throw Error('invalid_warehouse_scope');
+  if(keys.some(k=>k!=='store'&&k!=='page')||
+    keys.filter(k=>k==='store').length!==1||keys.filter(k=>k==='page').length>1)
+    throw Error('invalid_warehouse_scope');
   const name=url.searchParams.get('store');
   if(!name||!STORE_NAME.test(name)||name!==name.trim()||/\s{2}/.test(name))
     throw Error('invalid_warehouse_scope');
-  return {store:name};
+  const rawPage=url.searchParams.get('page');
+  if(rawPage!==null&&!/^(0|[1-9]|[1-4][0-9])$/.test(rawPage))
+    throw Error('invalid_warehouse_scope');
+  return {store:name,page:rawPage===null?0:Number(rawPage)};
 }
 export function buildCurrentWarehouseUrl(storeId){
   if(typeof storeId!=='string'||!UUID.test(storeId))throw Error('warehouse_unverified');
@@ -77,10 +82,14 @@ export function parseCurrentStock(payload,storeId){
   }
   return lines;
 }
-export function summarizeWarehouseAvailability(lines,names,store){
-  if(!Array.isArray(lines)||lines.length>500||!(names instanceof Map))
+export function summarizeWarehouseAvailability(lines,names,store,page=0){
+  if(!Array.isArray(lines)||lines.length>500||!(names instanceof Map)||
+    !Number.isSafeInteger(page)||page<0||page>49||
+    (lines.length===0&&page!==0)||
+    (lines.length>0&&page*10>=lines.length))
     throw Error('warehouse_unverified');
-  const visible=lines.slice(0,10).map(line=>({
+  const offset=page*10;
+  const visible=lines.slice(offset,offset+10).map(line=>({
     name:names.get(line.id)?.name||null,
     code:names.get(line.id)?.code||null,
     uom:names.get(line.id)?.uom||null,
@@ -91,13 +100,16 @@ export function summarizeWarehouseAvailability(lines,names,store){
     source:'MOYSKLAD_BYSTORE_CURRENT_NONZERO',stockType:'stock',
     scope:'WAREHOUSE_NONZERO_POSITIONS_ONLY_NOT_FULL_INVENTORY',
     warehouseName:store.name,warehouseLines:lines.length,
+    page, pageSize:10, hasPrevious:page>0,
+    hasNext:offset+visible.length<lines.length,
     positiveRows:lines.filter(x=>x.stock!==null&&x.stock>0).length,
     negativeRows:lines.filter(x=>x.stock!==null&&x.stock<0).length,
     zeroRows:lines.filter(x=>x.stock===0).length,
     unknownRows:lines.filter(x=>x.stock===null).length,
     items:visible,
     namesResolved:visible.filter(x=>x.name!==null).length,
-    displayedCount:visible.length,additionalRows:Math.max(0,lines.length-visible.length)
+    displayedCount:visible.length,
+    additionalRows:Math.max(0,lines.length-offset-visible.length)
   };
 }
 export function createWarehouseAvailabilityHandler(fetcher=fetch){
@@ -145,20 +157,44 @@ export function createWarehouseAvailabilityHandler(fetcher=fetch){
       const store=findStore(stores,scope.store);
       upstream='current';
       const lines=parseCurrentStock(await get(buildCurrentWarehouseUrl(store.id),256*1024),store.id);
+      if(lines.length&&scope.page*10>=lines.length)
+        throw Error('warehouse_page_out_of_range');
       let names=new Map();
+      let requests=2;
       if(lines.length){
         upstream='assortment';
-        const ids=lines.slice(0,10).map(x=>x.id);
-        const namesUrl=buildNamesUrl(ids);
-        const data=await get(namesUrl,128*1024);
+        const ids=lines.slice(scope.page*10,scope.page*10+10).map(x=>x.id);
+        const baseUrl=buildNamesUrl(ids);
+        const expandedUrl=new URL(baseUrl);
+        expandedUrl.searchParams.set('expand','uom');
+        let data;
+        // If this read-only expansion is unsupported, restore the proven
+        // names-only query. Only this exact HTTP 400 is eligible for fallback.
+        const expanded=await fetcher(expandedUrl.toString(),{method:'GET',redirect:'manual',
+          headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
+            Accept:'application/json;charset=utf-8'},signal:AbortSignal.timeout(20000)});
+        requests++;
+        if(expanded.status===400){
+          await expanded.body?.cancel().catch(()=>{});
+          data=await get(baseUrl,128*1024);
+          requests++;
+        }else if(expanded.status!==200){
+          await expanded.body?.cancel().catch(()=>{});
+          const error=Error(expanded.status===429?'ms_rate_limited':
+            expanded.status===401?'ms_token_rejected':
+            expanded.status===403?'ms_warehouse_permission_denied':'ms_warehouse_upstream_error');
+          error.upstreamHttp=expanded.status;
+          throw error;
+        }else data=await boundedJson(expanded,128*1024);
         names=extractNames(data,ids);
       }
-      return json(200,{...summarizeWarehouseAvailability(lines,names,store),
-        requests:lines.length?3:2});
+      return json(200,{...summarizeWarehouseAvailability(lines,names,store,scope.page),
+        requests});
     }catch(error){
       const codes=['ms_rate_limited','ms_token_rejected',
         'ms_warehouse_permission_denied','ms_warehouse_upstream_error',
-        'warehouse_unverified','warehouse_not_found_or_ambiguous'];
+        'warehouse_unverified','warehouse_not_found_or_ambiguous',
+        'warehouse_page_out_of_range'];
       const raw=codes.includes(error?.message)?error.message:
         error?.name==='TimeoutError'?'ms_warehouse_timeout':'ms_warehouse_unavailable';
       return json(502,{code:raw,upstream,
