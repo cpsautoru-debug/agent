@@ -1,0 +1,23 @@
+name: WB report list check
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/wb/report-list.js'
+      - 'web/office/wb-report-list.js'
+      - 'tests/wb/wb-report-list.test.mjs'
+      - '.github/workflows/wb-report-list-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wb-list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check functions/api/wb/report-list.js
+      - run: node --check web/office/wb-report-list.js
+      - run: node --test tests/wb/wb-report-list.test.mjs
