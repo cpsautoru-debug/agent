@@ -1,4 +1,8 @@
-// Manual paged stock-by-store view. Never guesses missing stock or adds unlike units.
+import {
+  pageWarehouseNames,selectStockPageGroups,summarizeStockPageGroups
+} from './ms-stock-page-view.mjs';
+
+// Manual owner-only stock view: no background poll, no full inventory claims.
 (()=>{
   'use strict';
   const el=id=>document.getElementById(id);
@@ -7,11 +11,13 @@
   const clear=el('msStockClear'),status=el('msStockStatus');
   const count=el('msStockCount'),rows=el('msStockRows');
   const prev=el('msStockPrev'),next=el('msStockNext'),page=el('msStockPage');
+  const warehouse=el('msStockWarehouse'),scopeNote=el('msStockScopeNote');
   const executive=el('msExecutiveStock');
   if(!section||!button||!form||!input||!clear||!status||!count||
-    !rows||!prev||!next||!page||!executive)return;
+    !rows||!prev||!next||!page||!warehouse||!scopeNote||!executive)return;
   const PAGE=10;
   let state={offset:0,search:null},pending=false,hasMore=false;
+  let lastPayload=null,lastLoadedAt=null;
   const ru=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
   const val=n=>typeof n==='number'&&Number.isFinite(n)?ru(n):'Неизвестно';
   const td=(tr,v)=>{
@@ -28,74 +34,108 @@
     clear.disabled=pending;
     prev.disabled=pending||state.offset===0;
     next.disabled=pending||!hasMore;
+    warehouse.disabled=pending||!lastPayload;
   };
   const valid=data=>data?.code==='ms_stock_bystore_ok'&&
     data.scope==='PAGE_OF_ASSORTMENT_NOT_COMPLETE_WAREHOUSE_INVENTORY'&&
     data.readOnly===true&&data.changedRecords===0&&
     (data.requests===1||data.requests===2)&&
     Number.isSafeInteger(data.namesResolved)&&data.namesResolved>=0&&
-    data.namesResolved<=data.items.length&&
+    Array.isArray(data.items)&&data.namesResolved<=data.items.length&&
     data.pageSize===PAGE&&data.offset===state.offset&&
     data.search===state.search&&
     Number.isSafeInteger(data.totalAssortmentReportRows)&&
-    Array.isArray(data.items)&&data.items.length<=PAGE&&
-    Array.isArray(data.warehousesInPage)&&typeof data.hasMore==='boolean'&&
+    data.items.length<=PAGE&&Array.isArray(data.warehousesInPage)&&
+    typeof data.hasMore==='boolean'&&
     data.items.every(item=>Array.isArray(item.stores));
-  const show=(payload)=>{
+  const options=payload=>{
+    const previous=warehouse.value;
+    warehouse.replaceChildren();
+    const all=document.createElement('option');
+    all.value='';all.textContent='Все склады на странице';
+    warehouse.append(all);
+    const names=payload?pageWarehouseNames(payload.items):[];
+    for(const name of names){
+      const option=document.createElement('option');
+      option.value=name;option.textContent=name;
+      warehouse.append(option);
+    }
+    warehouse.value=names.includes(previous)?previous:'';
+  };
+  const renderPage=()=>{
+    if(!lastPayload)return;
+    const groups=selectStockPageGroups(lastPayload.items,warehouse.value);
+    const stats=summarizeStockPageGroups(groups);
     rows.replaceChildren();
-    hasMore=payload.hasMore;
-    let shown=0,negative=0,unknown=0;
-    for(const item of payload.items){
-      if(item.stores.length===0){
+    for(const item of groups){
+      const stores=item.stores.length?item.stores:[null];
+      for(const [index,store] of stores.entries()){
         const tr=document.createElement('tr');
-        td(tr,item.name?(item.name+(item.code?' · '+item.code:'')):'Наименование не передано');
-        td(tr,item.uom||'—');
-        td(tr,'Склады не переданы');
-        td(tr,'Неизвестно');td(tr,'Неизвестно');td(tr,'Неизвестно');
+        if(index===0){
+          const name=td(tr,item.name?
+            item.name+(item.code?' · '+item.code:''):'Название не получено');
+          name.rowSpan=stores.length;
+          name.className='ms-stock-product-name';
+          const unit=td(tr,item.uom||'Не указана');
+          unit.rowSpan=stores.length;
+        }
+        td(tr,store?store.name:'Склады не переданы');
+        const physical=td(tr,store?val(store.stock):'Неизвестно');
+        if(store&&typeof store.stock==='number'){
+          if(store.stock<0)physical.className='ms-stock-negative';
+          else if(store.stock===0)physical.className='ms-stock-zero';
+        }
+        td(tr,store?val(store.reserve):'Неизвестно');
+        td(tr,store?val(store.inTransit):'Неизвестно');
         rows.append(tr);
-        unknown++;
-        continue;
-      }
-      for(const store of item.stores){
-        const tr=document.createElement('tr');
-        td(tr,item.name?(item.name+(item.code?' · '+item.code:'')):'Наименование не передано');
-        td(tr,item.uom||'—');
-        td(tr,store.name);
-        const physical=td(tr,val(store.stock));
-        if(typeof store.stock!=='number')unknown++;
-        else if(store.stock<0){negative++;physical.className='ms-stock-negative';}
-        else if(store.stock===0)physical.className='ms-stock-zero';
-        td(tr,val(store.reserve));
-        td(tr,val(store.inTransit));
-        rows.append(tr);
-        shown++;
       }
     }
-    if(payload.items.length===0){
+    if(groups.length===0){
       const tr=document.createElement('tr');
-      const empty=td(tr,'В этом диапазоне строк нет. Это не доказательство нулевых остатков по складам.');
-      empty.colSpan=6;
-      rows.append(tr);
+      const empty=td(tr,warehouse.value?
+        'На этой странице у выбранного склада нет строк. Это не означает нулевой остаток по всему складу.':
+        'На этой странице нет позиций. Это не означает нулевые остатки всего бизнеса.');
+      empty.colSpan=6;rows.append(tr);
     }
-    count.textContent='Номенклатуры в отчёте: '+ru(payload.totalAssortmentReportRows)+
-      '; на странице: '+ru(payload.items.length)+
-      '; складов в этой выборке: '+ru(payload.warehousesInPage.length)+'.';
+    count.textContent='Номенклатуры в отчёте: '+ru(lastPayload.totalAssortmentReportRows)+
+      '; загружено на странице: '+ru(lastPayload.items.length)+
+      '; показано по фильтру: '+ru(stats.positions)+
+      '; складов на странице: '+ru(pageWarehouseNames(lastPayload.items).length)+'.';
     page.textContent='Страница '+(Math.floor(state.offset/PAGE)+1);
-    executive.textContent=payload.items.length?
-      'Показано '+ru(payload.items.length)+' позиций · '+ru(payload.warehousesInPage.length)+' склада(ов) в выборке':
-      'На этой странице позиций нет';
-    status.textContent='Загружено из «МойСклад» · '+new Intl.DateTimeFormat('ru-RU',{
+    executive.textContent='На странице '+ru(lastPayload.items.length)+' позиций · '+
+      ru(stats.positions)+' после фильтра';
+    scopeNote.textContent=warehouse.value?
+      'Показан только склад «'+warehouse.value+'» среди загруженных '+PAGE+
+      ' позиций. Для других позиций листайте отчёт или используйте поиск.':
+      'Показаны склады только для загруженной страницы из '+PAGE+
+      ' позиций. Число складов и остатки всего бизнеса не рассчитаны.';
+    status.textContent='Данные получены из «МойСклад» · '+lastLoadedAt+
+      ' (Самара). В показанных строках: отрицательных остатков '+stats.negative+
+      ', нулевых '+stats.zero+', неизвестных '+stats.unknown+
+      '. Названия получены: '+ru(lastPayload.namesResolved)+' из '+
+      ru(lastPayload.items.length)+' позиций страницы. Переключение склада не запрашивает API.';
+  };
+  const show=payload=>{
+    lastPayload=payload;
+    hasMore=payload.hasMore;
+    lastLoadedAt=new Intl.DateTimeFormat('ru-RU',{
       timeZone:'Europe/Samara',dateStyle:'short',timeStyle:'short'
-    }).format(new Date())+' (Самара). Отрицательных остатков на видимой странице: '+
-      negative+'. Строк без подтверждённого остатка: '+unknown+
-      '. Названий получено: '+ru(payload.namesResolved)+' из '+ru(payload.items.length)+
-      '. Не полный отчёт по всем складам.';
+    }).format(new Date());
+    options(payload);
+    renderPage();
+  };
+  const clearOnFailure=()=>{
+    lastPayload=null;lastLoadedAt=null;hasMore=false;
+    rows.replaceChildren();
+    count.textContent='Нет подтверждённых актуальных данных.';
+    executive.textContent='Нет свежих подтверждённых данных';
+    scopeNote.textContent='Складской отчёт не загружен.';
+    options(null);
   };
   const load=async ()=>{
     if(pending||!visible())return;
     pending=true;controls();
     status.textContent='Читаем только одну страницу остатков из «МойСклад»…';
-    let success=false;
     try{
       const q=new URLSearchParams();
       if(state.offset)q.set('offset',String(state.offset));
@@ -112,13 +152,12 @@
           body.upstreamHttp>=300&&body.upstreamHttp<=599?' · HTTP '+body.upstreamHttp:'';
         throw Error(code+http);
       }
-      show(body);success=true;
+      show(body);
     }catch(error){
+      clearOnFailure();
       status.textContent='Остатки не обновлены: '+String(error?.message||'request_failed').slice(0,90)+
-        '. Ранее показанные данные не подтверждены как свежие, нули не подставлены.';
-      executive.textContent='Нет свежих подтверждённых данных';
+        '. Данные не подтверждены; нулевые остатки не подставлены.';
     }finally{
-      if(!success)hasMore=false;
       pending=false;controls();
     }
   };
@@ -136,6 +175,7 @@
   clear.addEventListener('click',()=>{
     input.value='';state={offset:0,search:null};hasMore=false;load();
   });
+  warehouse.addEventListener('change',()=>{if(lastPayload&&!pending)renderPage();});
   prev.addEventListener('click',()=>{
     if(!pending&&state.offset>=PAGE){state.offset-=PAGE;load();}
   });
