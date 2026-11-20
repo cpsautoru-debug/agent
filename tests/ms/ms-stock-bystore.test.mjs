@@ -216,7 +216,7 @@ test('invalid/partial/duplicate report or mismatched name lookup is not trusted'
     {meta:{size:1},rows:[sample[0],sample[1]]},
     {meta:{size:2},rows:[sample[0],sample[0]]},
     {meta:{size:1},rows:[{meta:{href:'https://evil.invalid/x'},stockByStore:[]}]},
-    {meta:{size:1},rows:[{meta:{href:href(ONE)}]},
+    {meta:{size:1},rows:[{meta:{href:href(ONE)}}]},
     {meta:{size:1},rows:[{meta:{href:href(ONE)},stockByStore:[
       {name:'A',stock:5},{name:'A',stock:6}
     ]}]},
