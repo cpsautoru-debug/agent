@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
+const js=readFileSync(new URL('../../web/office/ms-production-coverage-probe.mjs',import.meta.url),'utf8');
+const css=readFileSync(new URL('../../web/office/ms-production.css',import.meta.url),'utf8');
+
+test('probe requires explicit button and uses only scoped owner-only GET route',()=>{
+  for(const id of ['msCoverageProbeStart','msCoverageProbeStatus','msCoverageProbeSummary'])
+    assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+  assert.match(html,/src="ms-production-coverage-probe\.mjs"/);
+  assert.match(js,/button\.addEventListener\('click'/);
+  assert.match(js,/method:'GET'/);
+  assert.match(js,/credentials:'same-origin'/);
+  assert.match(js,/production-coverage-probe/);
+  assert.match(js,/location\.hash/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|setInterval|setTimeout|method:'POST'|innerHTML/);
+});
+test('browser never asserts coverage from sample-only response',()=>{
+  assert.match(js,/allUnfinishedVerified!==false/);
+  assert.match(js,/estimateProductionScanWorkload\(body\.totalTaskDocuments,body\.totalProductionStages\)/);
+  assert.match(js,/при подтверждённых связях/);
+  assert.match(js,/пауза не меньше 2 секунд/);
+  assert.match(js,/Полнота связей и фактические незавершённые задания не проверены/);
+  assert.match(html,/без сбора всех заданий/);
+  assert.match(css,/\.ms-coverage-probe/);
+});
