@@ -189,7 +189,7 @@ export async function runMsProductionTick(env,options={}){
     if(nextOffset<=offset&&offset<expected)
       throw Error('ms_auto_missing_page');
     const statements=items.map(item=>db.prepare(
-      'INSERT INTO ms_production_auto_tasks(generation,task_id,number,document_moment,document_updated,plan_date,task_stage_status,planned_qty,completed_last_stage_qty,remaining_qty,first_unfinished_stage,checked_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(generation,task_id) DO NOTHING'
+      'INSERT INTO ms_production_auto_tasks(generation,task_id,number,document_moment,document_updated,plan_date,task_stage_status,planned_qty,completed_last_stage_qty,remaining_qty,first_unfinished_stage,checked_ms) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) '
     ).bind(generation,item.task.id,item.task.number,item.task.date,
       item.task.updated,item.task.plannedDate,item.status,item.plan,item.finished,
       item.remaining,item.firstStage,now));
