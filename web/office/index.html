@@ -1379,6 +1379,24 @@
           <small>Фильтр применяется только к загруженным позициям, без новых запросов к API.</small>
         </div>
         <p id="msStockScopeNote" class="ms-production-note">Остатки пока не загружены. Сводка всех складов недоступна.</p>
+        <div class="ms-warehouse-availability">
+          <div class="ms-page-audit-header">
+            <div>
+              <h3>Наличие на выбранном складе</h3>
+              <p>Отдельный краткий отчёт по всему выбранному складу: позиции с ненулевым остатком. Покажем общее число строк и первые 10 наименований. Нулевые товары, резервы и ожидание в него не входят.</p>
+            </div>
+            <button id="msWarehouseAvailabilityRefresh" type="button" class="ms-production-button">Показать наличие склада</button>
+          </div>
+          <p id="msWarehouseAvailabilityStatus" role="status" class="ms-production-status">Выберите склад выше, затем нажмите «Показать наличие склада».</p>
+          <p id="msWarehouseAvailabilitySummary" class="ms-production-count">Данные этого склада ещё не загружены.</p>
+          <div class="ms-production-scroll">
+            <table id="msWarehouseAvailabilityTable" class="ms-production-table ms-stock-availability-table" hidden>
+              <thead><tr><th>Материал / товар</th><th>Ед.</th><th>Физический остаток</th></tr></thead>
+              <tbody id="msWarehouseAvailabilityRows"></tbody>
+            </table>
+          </div>
+          <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, пока выводятся первые 10; без разрешения на массовую синхронизацию история не сохраняется.</p>
+        </div>
         <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
         <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>
         <div class="ms-production-scroll">
@@ -1425,6 +1443,7 @@
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
+<script type="module" src="ms-warehouse-availability.mjs"></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
