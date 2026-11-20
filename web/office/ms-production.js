@@ -37,8 +37,12 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
         method:'GET',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}
       });
       const payload=await response.json();
-      if(!response.ok||payload.code!=='ms_production_stages_ok'||!Array.isArray(payload.stages))
-        throw new Error(payload.code||'http_'+response.status);
+      if(!response.ok||payload.code!=='ms_production_stages_ok'||!Array.isArray(payload.stages)){
+        const errorCode=typeof payload.code==='string'?payload.code:'http_'+response.status;
+        const upstream=Number.isSafeInteger(payload.upstreamHttp)?' · HTTP '+payload.upstreamHttp:'';
+        const apiCode=Number.isSafeInteger(payload.msErrorCode)?' · API '+payload.msErrorCode:'';
+        throw new Error(errorCode+upstream+apiCode);
+      }
       if(payload.stages.length===0){
         stageStatus.textContent='Для этого задания API не вернул ни одного этапа. План и факт не подтверждены.';
         return;
