@@ -105,7 +105,7 @@ export function createProductionCoverageProbeHandler(fetcher=fetch){
       ).bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
       if(owner?.allowed!==1)return json(403,{code:'owner_only'});
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
-        /\\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
+        /\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
       try{
         // Always sequential: 1 GET productiontask + 1 GET productionstage.
         // Never follow any links contained in upstream data.
