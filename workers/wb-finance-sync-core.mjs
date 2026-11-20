@@ -39,9 +39,12 @@ export function normalizeOperation(row,reportId){
   const rrdId=parseId(row.rrdId),sale=['Продажа','Возврат'].includes(row.sellerOperName);
   const quantity=Number(row.quantity??0);
   if(!Number.isSafeInteger(quantity)||quantity<0||quantity>10000)throw Error('invalid_quantity');
-  const vendorCode=row.vendorCode==null?null:String(row.vendorCode);
-  if(vendorCode!=null&&(!vendorCode.trim()||vendorCode.length>200))throw Error('invalid_vendor_code');
-  if(sale&&(!vendorCode||quantity===0))throw Error('sale_missing_product');
+  // Service/fee rows may carry an empty vendorCode; they are not product sales.
+  // Keep a real seller article unchanged for sales and returns, never invent one.
+  const rawVendorCode=row.vendorCode==null?null:String(row.vendorCode);
+  const vendorCode=!sale&&rawVendorCode!==null&&!rawVendorCode.trim()?null:rawVendorCode;
+  if(sale&&(!vendorCode||!vendorCode.trim()||quantity===0))throw Error('sale_missing_product');
+  if(vendorCode!=null&&vendorCode.length>200)throw Error('invalid_vendor_code');
   return {
     rrdId,sellerOperName:row.sellerOperName,vendorCode,quantity,
     forPayKop:moneyKop(row.forPay,!sale),
