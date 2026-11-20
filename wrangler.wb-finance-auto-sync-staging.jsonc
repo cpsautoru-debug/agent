@@ -1,0 +1,20 @@
+{
+  "name": "autosklad63-wb-finance-auto-sync-staging",
+  "main": "./workers/wb-finance-auto-sync.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "triggers": {
+    "crons": ["*/5 4-6 * * *"]
+  },
+  "vars": {
+    "WB_REPORT_ACCOUNT_ID": "4271851",
+    "WB_FINANCE_AUTO_SYNC": "disabled"
+  },
+  "d1_databases": [
+    {
+      "binding": "WB_REPORT_SNAPSHOT_DB",
+      "database_name": "autosklad63-wb-reports-staging",
+      "database_id": "e3525cac-f516-4750-957f-44b196e9fb5e"
+    }
+  ]
+}
