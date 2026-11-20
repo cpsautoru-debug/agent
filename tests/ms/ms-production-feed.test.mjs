@@ -33,7 +33,7 @@ test('owner gets last 5 production tasks in one read-only upstream GET',async()=
     assert.equal(opts.headers.Accept,'application/json;charset=utf-8');
     assert.equal(opts.headers.Authorization,'Bearer synthetic-access-token');
     return new Response(JSON.stringify({meta:{size:740},
-      rows:[{name:'00740',moment:'2026-11-20 01:28:00.000',updated:'2026-11-20 01:29:00.000'}]
+      rows:[{id:'009d69bb-8c9f-11f1-0a80-00480002f1cd',name:'00740',moment:'2026-11-20 01:28:00.000',updated:'2026-11-20 01:29:00.000'}]
     }),{status:200});
   });
   const response=await handler({request:await request(),env});
@@ -42,6 +42,7 @@ test('owner gets last 5 production tasks in one read-only upstream GET',async()=
   assert.equal(data.code,'ms_production_feed_ok');
   assert.equal(data.totalAllTime,740);
   assert.equal(data.records[0].number,'00740');
+  assert.equal(data.records[0].id,'009d69bb-8c9f-11f1-0a80-00480002f1cd');
   assert.equal(data.selection,'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS');
   assert.equal(data.changedRecords,0);
   assert.equal(calls,1);
