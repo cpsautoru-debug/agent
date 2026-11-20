@@ -1,6 +1,6 @@
 import {verifySession} from '../auth/session.js';
 import {createImportPreviewHandler} from './import-preview.js';
-import {PILOT_REPORT_ID,digest,readSavedReport,saveReport} from '../../../workers/wb-saved-report.mjs';
+import {PILOT_REPORT_ID,validReportId,validPeriod,digest,readSavedReport,listSavedReports,saveReport} from '../../../workers/wb-saved-report.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Vary':'Cookie, Origin'};
 const json=(status,value)=>new Response(JSON.stringify(value),{status,headers});
 async function authorize(request,env){
@@ -19,8 +19,9 @@ export function createSavedReportHandlers(dependencies={}){
   try{
    const auth=await authorize(request,env);if(auth.error)return json(auth.error,{error:auth.error===401?'unauthorized':auth.error===403?'forbidden':'service_unavailable'});
    const id=new URL(request.url).searchParams.get('reportId');
-   if(id!==PILOT_REPORT_ID)return json(400,{error:'pilot_report_only'});
-   const stored=await readSavedReport(env.WB_REPORT_SNAPSHOT_DB,env.WB_REPORT_ACCOUNT_ID);
+   if(id===null)return json(200,{persisted:true,storage:'TEST_D1',reports:await listSavedReports(env.WB_REPORT_SNAPSHOT_DB,env.WB_REPORT_ACCOUNT_ID)});
+   if(!validReportId(id))return json(400,{error:'invalid_report_id'});
+   const stored=await readSavedReport(env.WB_REPORT_SNAPSHOT_DB,env.WB_REPORT_ACCOUNT_ID,id);
    return stored?json(200,{persisted:true,storage:'TEST_D1',snapshot:stored.snapshot}):json(404,{error:'saved_report_not_found'});
   }catch{return json(503,{error:'service_unavailable'})}
  },
@@ -33,11 +34,14 @@ export function createSavedReportHandlers(dependencies={}){
    const checked=await preview({request,env});
    if(!checked.ok)return checked;
    const value=await checked.json();
-   if(value.reportId!==PILOT_REPORT_ID)return json(400,{error:'pilot_report_only'});
+   const period={start:request.headers.get('X-WB-Period-Start')||(value.reportId===PILOT_REPORT_ID?'2026-10-01':''),end:request.headers.get('X-WB-Period-End')||(value.reportId===PILOT_REPORT_ID?'2026-10-04':'')};
+   if(!validReportId(value.reportId)||!validPeriod(period.start,period.end))return json(400,{error:'october_period_required'});
+   if(value.reportId===PILOT_REPORT_ID&&(period.start!=='2026-10-01'||period.end!=='2026-10-04'))return json(409,{error:'saved_report_conflict'});
    if(value.dataVerified!==false||value.profitStatus!=='UNVERIFIED'||value.source!=='XLSX_WITH_PRIVATE_SKU_CATALOG'||value.wbPayoutReconciliation!=='MATCHED_MANUAL_TARGET'||!value.breakdown.every(x=>x.costStatus==='CONFIRMED_BY_USER'))return json(422,{error:'confirmed_costs_required'});
    const form=await copy.formData();
-   const fingerprint=await digest(JSON.stringify({rules:'wb-1044-v1',reportId:value.reportId,xlsx:await digest(await form.get('xlsx').arrayBuffer()),catalog:await digest(await form.get('catalog').arrayBuffer()),preview:value}));
-   const saved=await saveReport(env.WB_REPORT_SNAPSHOT_DB,env.WB_REPORT_ACCOUNT_ID,value,fingerprint,auth.sub);
+   let fingerprint=await digest(JSON.stringify({rules:'wb-1044-v1',reportId:value.reportId,xlsx:await digest(await form.get('xlsx').arrayBuffer()),catalog:await digest(await form.get('catalog').arrayBuffer()),preview:value}));
+   if(value.reportId!==PILOT_REPORT_ID)fingerprint=await digest(JSON.stringify({fingerprint,period}));
+   const saved=await saveReport(env.WB_REPORT_SNAPSHOT_DB,env.WB_REPORT_ACCOUNT_ID,value,fingerprint,auth.sub,period);
    if(saved.conflict)return json(409,{error:'saved_report_conflict'});
    return json(saved.duplicate?200:201,{persisted:true,storage:'TEST_D1',...saved});
   }catch{return json(503,{error:'service_unavailable'})}

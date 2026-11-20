@@ -9,14 +9,15 @@ const {createSession}=await import('../../functions/api/auth/session.js');
 const fixture={status:'XLSX_LOCAL_PREFLIGHT_UNVERIFIED',dataVerified:false,sourceRows:2,sales:1,returns:0,skuCount:1,payoutRub:'100.00',assumedTaxBaseRub:'100.00',assumedAusn8Rub:'8.00',counts:[{sku:'synthetic-vesta',sales:1,returns:0}]};
 function setup(){
  const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../../migrations/wb/0004_wb_saved_xlsx_reports.sql',import.meta.url),'utf8'));
- const db={prepare(q){return {bind(...args){return {async first(){return sql.prepare(q).get(...args)??null},async run(){const r=sql.prepare(q).run(...args);return {meta:{changes:Number(r.changes)}}}}}}}};
+ sql.exec(readFileSync(new URL('../../migrations/wb/0005_wb_multiple_reports.sql',import.meta.url),'utf8'));
+ const db={prepare(q){return {bind(...args){return {async all(){return {results:sql.prepare(q).all(...args)}},async first(){return sql.prepare(q).get(...args)??null},async run(){const r=sql.prepare(q).run(...args);return {meta:{changes:Number(r.changes)}}}}}}}};
  const auth={prepare(q){assert.match(q,/^SELECT 1 AS allowed/);return {bind(sub){return {async first(){return sub==='owner'?{allowed:1}:null}}}}}};
  const env={OFFICE_SESSION_SECRET:'synthetic-secret',OFFICE_ALLOWED_EMAIL:'owner@example.invalid',OZON_FINANCE_DB:auth,WB_REPORT_SNAPSHOT_DB:db,WB_REPORT_ACCOUNT_ID:'synthetic-account',WB_REPORT_SAVE_MODE:'test-only'};
  const handlers=createSavedReportHandlers({inspectXlsx:async()=>structuredClone(fixture)});
  return {sql,env,handlers};
 }
-async function request(s,{method='POST',sub='owner',origin='https://office.invalid',marker='1',cost='42.00',payout='100.00',id='865265818'}={}){
- const headers={};if(sub)headers.Cookie=(await createSession(sub,'synthetic-secret')).split(';')[0];
+async function request(s,{method='POST',sub='owner',origin='https://office.invalid',marker='1',cost='42.00',payout='100.00',id='865265818',start=null,end=null}={}){
+ const headers={};if(start)headers['X-WB-Period-Start']=start;if(end)headers['X-WB-Period-End']=end;if(sub)headers.Cookie=(await createSession(sub,'synthetic-secret')).split(';')[0];
  let body;if(method==='POST'){headers.Origin=origin;headers['X-WB-Save-Report']=marker;headers['X-WB-Import-Preview']='1';body=new FormData();body.set('reportId',id);body.set('expectedPayoutRub',payout);const bytes=new Uint8Array(220);bytes.set([80,75,3,4]);body.set('xlsx',new Blob([bytes]),'synthetic.xlsx');body.set('catalog',new Blob([JSON.stringify({reportId:id,items:[{vendorCode:'synthetic-vesta',unitCostRub:cost,status:'CONFIRMED_BY_USER'}]})]),'synthetic.json')}
  return s.handlers[method==='POST'?'onRequestPost':'onRequestGet']({request:new Request('https://office.invalid/api/wb/saved-report?reportId='+id,{method,headers,body}),env:s.env});
 }
@@ -52,3 +53,6 @@ test('snapshot corruption and DEMO-like preview are rejected on read',async()=>{
  const s=setup();await request(s);s.sql.exec("UPDATE wb_saved_xlsx_reports SET snapshot_json='{}'");assert.equal((await request(s,{method:'GET'})).status,503);
 });
 test('response never returns owner ID, input hashes or private source files',async()=>{const s=setup();const body=await (await request(s)).json();assert.equal(body.snapshot.saved_by,undefined);assert.equal(body.fingerprint,undefined);assert.equal(body.snapshot.preview.persisted,false);assert.equal(body.persisted,true);assert.equal(body.storage,'TEST_D1')});
+
+test('second report and owner list, replay and conflict leave first unchanged',async()=>{const s=setup();await request(s);const before=s.sql.prepare("SELECT * FROM wb_saved_xlsx_reports WHERE report_id='865265818'").get();assert.equal((await request(s,{id:'865265819',start:'2026-10-05',end:'2026-10-11'})).status,201);assert.equal((await request(s,{id:'865265819',start:'2026-10-05',end:'2026-10-11'})).status,200);assert.equal((await request(s,{id:'865265819',start:'2026-10-05',end:'2026-10-12'})).status,409);assert.deepEqual(s.sql.prepare("SELECT * FROM wb_saved_xlsx_reports WHERE report_id='865265818'").get(),before);const headers={Cookie:(await createSession('owner','synthetic-secret')).split(';')[0]};const list=await s.handlers.onRequestGet({request:new Request('https://office.invalid/api/wb/saved-report',{headers}),env:s.env});assert.equal(list.status,200);assert.equal((await list.json()).reports.length,2)});
+test('non-October and invalid periods rejected without inserts',async()=>{const s=setup();assert.equal((await request(s,{id:'865265819',start:'2026-11-01',end:'2026-11-04'})).status,400);assert.equal((await request(s,{id:'865265819',start:'2026-10-12',end:'2026-10-05'})).status,400);assert.equal(s.sql.prepare('SELECT COUNT(*) n FROM wb_saved_xlsx_reports').get().n,0)});

@@ -180,9 +180,13 @@
       </article>
 
       <article class="profit-panel" id="wbSavedReportPanel">
-        <h3>Сохранённый отчёт WB №865265818 · тестовая база</h3>
+        <h3>Сохранённые отчёты WB · октябрь 2026 · тестовая база</h3>
+        <label>Период отчёта с <input id="wbSavedPeriodStart" type="date" min="2026-10-01" max="2026-10-31" value="2026-10-01"></label>
+        <label>по <input id="wbSavedPeriodEnd" type="date" min="2026-10-01" max="2026-10-31" value="2026-10-04"></label>
+        <p>Для каждого нового отчёта укажите период по оригиналу WB. Период не определяется автоматически.</p>
         <button id="wbSaveReportButton" class="button primary" type="button" disabled>Проверить и сохранить отчёт в тестовую базу</button>
         <p id="wbSavedReportStatus" role="status" aria-live="polite">Сначала успешно проверьте XLSX и справочник себестоимости. Сохранение выполняется только отдельным нажатием.</p>
+        <table><thead><tr><th>Отчёт</th><th>Период (по данным владельца)</th><th>Выплата</th><th>Себестоимость</th><th>Статус</th></tr></thead><tbody id="wbSavedReportsRows"></tbody></table>
         <p id="wbSavedReportLimits">Источник — XLSX владельца, не DEMO. Прибыль и налог предварительные; дополнительные расходы и восстановление возврата не подтверждены.</p>
       </article>
 
@@ -1381,7 +1385,7 @@
 <script src="profit.js" defer></script>
 <script src="ozon-xlsx-import.js" defer></script>
 
-<script src="/wb-import-preview.js?v=wb-save-button-4" defer></script>
-<script src="/wb-saved-report.js?v=wb-save-button-4" defer></script>
+<script src="/wb-import-preview.js?v=wb-multi-1" defer></script>
+<script src="/wb-saved-report.js?v=wb-multi-1" defer></script>
 </body>
 </html>
