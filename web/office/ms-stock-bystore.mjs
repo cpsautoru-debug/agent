@@ -126,7 +126,7 @@
   form.addEventListener('submit',event=>{
     event.preventDefault();
     const value=input.value.trim();
-    if(value&&(!/^[\p{L}\p{N}\s.,_+\-/()]{2,60}$/u.test(value)||
+    if(value&&(!/^[\p{L}\p{N} .,_+\-/()]{2,60}$/u.test(value)||
       /\s{2}/.test(value))){
       status.textContent='Укажите название от 2 до 60 символов без управляющих знаков.';
       return;
