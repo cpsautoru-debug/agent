@@ -8,9 +8,12 @@ export const REQUEST_DELAY_MS=2000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const code=e=>typeof e==='string'&&/^[a-z][a-z0-9_]{0,64}$/.test(e)?e:'ms_request_failed';
 function invalid(reason){const err=Error(reason);err.code=reason;return err;}
-export function checkProductionFeed(payload,offset){
+export function checkProductionFeed(payload,offset,view='document'){
+  if(!['document','updated'].includes(view))throw invalid('ms_feed_unverified');
+  const expected=view==='updated'?'LATEST_5_BY_UPDATE_NOT_ACTIVE_TASKS':
+    'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS';
   if(payload?.code!=='ms_production_feed_ok'||payload.readOnly!==true||
-    payload.changedRecords!==0||payload.selection!=='LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS'||
+    payload.changedRecords!==0||payload.selection!==expected||
     payload.pageSize!==5||payload.offset!==offset||
     payload.searchNumber!==null||!Number.isSafeInteger(payload.totalAllTime)||
     payload.totalAllTime<0||!Array.isArray(payload.records)||
@@ -50,10 +53,11 @@ export function summarizeRecentProduction(items){
   return result;
 }
 export async function collectRecentProduction({
-  request,pause=async()=>{},active=()=>true,onProgress=()=>{},nowMs=Date.now()
+  request,pause=async()=>{},active=()=>true,onProgress=()=>{},nowMs=Date.now(),view='document'
 }){
   if(typeof request!=='function'||typeof pause!=='function'||
-    typeof active!=='function'||typeof onProgress!=='function'||!Number.isFinite(nowMs))
+    typeof active!=='function'||typeof onProgress!=='function'||!Number.isFinite(nowMs)||
+    !['document','updated'].includes(view))
     throw invalid('invalid_production_board_setup');
   let requests=0;
   let stage='feed';
@@ -73,14 +77,14 @@ export async function collectRecentProduction({
     return response;
   };
   try{
-    const r1=await get('/api/ms/production-feed');
+    const r1=await get('/api/ms/production-feed'+(view==='updated'?'?sort=updated':''));
     if(r1.status!==200)throw invalid(code(r1.body?.code));
-    const first=checkProductionFeed(r1.body,0);
+    const first=checkProductionFeed(r1.body,0,view);
     const tasks=[...first.records];
     if(first.hasMore&&tasks.length<MAX_TASKS){
-      const r2=await get('/api/ms/production-feed?offset=5');
+      const r2=await get('/api/ms/production-feed?offset=5'+(view==='updated'?'&sort=updated':''));
       if(r2.status!==200)throw invalid(code(r2.body?.code));
-      const second=checkProductionFeed(r2.body,5);
+      const second=checkProductionFeed(r2.body,5,view);
       if(second.totalAllTime!==first.totalAllTime)
         throw invalid('ms_feed_changed_during_scan');
       tasks.push(...second.records);
@@ -114,8 +118,9 @@ export async function collectRecentProduction({
     if(!active())throw invalid('ms_queue_cancelled');
     return {
       code:'ms_production_board_ok',
-      source:'MOYSKLAD_LATEST_10_BY_DOCUMENT_DATE',
-      scope:'LATEST_10_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS',
+      source:view==='updated'?'MOYSKLAD_LATEST_10_BY_UPDATE':'MOYSKLAD_LATEST_10_BY_DOCUMENT_DATE',
+      scope:view==='updated'?'LATEST_10_UPDATED_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS':
+        'LATEST_10_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS',
       readOnly:true,changedRecords:0,requests,
       totalAllTime:first.totalAllTime,
       items,summary:summarizeRecentProduction(items),
