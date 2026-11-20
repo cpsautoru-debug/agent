@@ -6,7 +6,7 @@ registerHooks({load(url,context,next){
     return {...next(url,{...context,format:'module'}),format:'module'};
   return next(url,context);
 }});
-const {taskPageUrl,stageUrl,parseProductionPage,normalizeTaskStages,
+const {verifyStageTaskLinks,taskPageUrl,stageUrl,parseProductionPage,normalizeTaskStages,
   makeLimitedReader,runMsProductionTick,REQUESTS_PER_TICK,
   REQUEST_GAP_MS,BATCH_SIZE}=await import('../../workers/ms-production-autosync.js');
 const id=i=>'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0');
@@ -100,6 +100,32 @@ test('valid and malformed per-task stage aggregates never conflate missing with 
     status:'unverified',plan:null,finished:null,remaining:null,firstStage:null
   });
 });
+test('explicit cross-task production references are never treated as own completed work',()=>{
+  const own={...tasks[0]};
+  const other=tasks[1].id;
+  const ownHref='https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+own.id;
+  const rowId=id(31);
+  const nested=taskId=>ownHref.replace(own.id,taskId)+'/productionRows/'+rowId;
+  assert.equal(verifyStageTaskLinks(own.id,{
+    meta:{size:1},rows:[{...stage(0).rows[0],
+      productionTask:{meta:{href:ownHref}},
+      productionRow:{meta:{href:nested(own.id)}}}]
+  }),true);
+  for(const row of [
+    {...stage(0).rows[0],productionTask:{id:other}},
+    {...stage(0).rows[0],productionTask:{meta:{href:ownHref.replace(own.id,other)}}},
+    {...stage(0).rows[0],productionRow:{meta:{href:nested(other)}}},
+    {...stage(0).rows[0],productionRow:{meta:{href:'https://evil.invalid/entity/productiontask/'+own.id+'/productionRows/'+rowId}}}
+  ]){
+    const payload={meta:{size:1},rows:[row]};
+    assert.equal(verifyStageTaskLinks(own.id,payload),false);
+    const evaluated=normalizeTaskStages({id:own.id,number:own.name},payload);
+    assert.equal(evaluated.status,'unverified');
+    assert.equal(evaluated.remaining,null);
+  }
+  assert.equal(verifyStageTaskLinks(own.id,stage(0)),true);
+});
+
 test('one scheduled tick reads five tasks in SIX sequential GETs and commits only to dedicated D1',async()=>{
   const db=fakeDb(),calls=[],delays=[];
   const result=await runMsProductionTick({

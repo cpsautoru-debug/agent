@@ -59,8 +59,41 @@ export function parseProductionPage(data,offset){
   });
   return {total:data.meta.size,tasks};
 }
+// A filtered productionstage response can still contain inconsistent references.
+// Refuse contradictory parent IDs instead of assigning another task's progress.
+// Standalone productionRow links carry no parent proof; the upstream task filter
+// remains the scope for such rows.
+export function verifyStageTaskLinks(taskId,payload){
+  if(!UUID.test(taskId)||!Array.isArray(payload?.rows))return false;
+  const expected=MS+'productiontask/'+taskId.toLowerCase();
+  for(const row of payload.rows){
+    const taskRef=row?.productionTask;
+    if(taskRef!==undefined){
+      if(typeof taskRef?.id==='string'&&
+        (!UUID.test(taskRef.id)||taskRef.id.toLowerCase()!==taskId.toLowerCase()))
+        return false;
+      const href=taskRef?.meta?.href;
+      if(href!==undefined&&
+        (typeof href!=='string'||href.toLowerCase()!==expected))
+        return false;
+    }
+    const rowHref=row?.productionRow?.meta?.href;
+    if(rowHref!==undefined){
+      if(typeof rowHref!=='string')return false;
+      if(rowHref.includes('/entity/productiontask/')){
+        const matched=/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\/([a-f0-9-]{36})\/productionRows\/([a-f0-9-]{36})$/i.exec(rowHref);
+        if(!matched||!UUID.test(matched[1])||!UUID.test(matched[2])||
+          matched[1].toLowerCase()!==taskId.toLowerCase())return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function normalizeTaskStages(task,payload){
   try{
+    if(task?.id&&!verifyStageTaskLinks(task.id,payload))
+      return {status:'unverified',plan:null,finished:null,remaining:null,firstStage:null};
     const stages=summarizeStages(payload);
     const result=assessProductionTask(task,stages);
     if(!['complete','incomplete'].includes(result.status))
