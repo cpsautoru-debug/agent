@@ -183,3 +183,91 @@ test('source size decrease aborts without claiming a complete production snapsho
   assert.equal(db.runtime.run_status,'paused');
   assert.equal(db.rows.length,0);
 });
+
+test('a short middle page is rejected before querying its stages or advancing the cursor',async()=>{
+  assert.throws(()=>parseProductionPage({meta:{size:744},rows:tasks.slice(0,2)},5));
+  assert.deepEqual(parseProductionPage({meta:{size:7},rows:tasks.slice(0,2)},5).tasks.map(x=>x.number),
+    ['00740','00741']);
+  const db=fakeDb();
+  const calls=[];
+  const result=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',
+    MS_PRODUCTION_DB:db,
+    MS_API_TOKEN:'synthetic-test-token'
+  },{
+    nowMs:1_900_000_000_000,
+    fetcher:async url=>{
+      calls.push(url);
+      return success({meta:{size:744},rows:tasks.slice(0,2)});
+    },
+    pause:async()=>{}
+  });
+  assert.equal(result.code,'invalid_production_page');
+  assert.equal(result.coverage,'UNVERIFIED_STOPPED');
+  assert.equal(result.requests,1);
+  assert.equal(calls.length,1);
+  assert.equal(db.rows.length,0);
+  assert.equal(db.runtime.next_offset,0);
+  assert.equal(db.runtime.run_status,'paused');
+});
+
+test('source size increase mid-generation stops instead of mixing two moving inventories',async()=>{
+  const db=fakeDb();
+  db.runtime.generation=1;
+  db.runtime.next_offset=5;
+  db.runtime.total_first_seen=744;
+  db.runtime.run_status='scanning';
+  const calls=[];
+  const result=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',
+    MS_PRODUCTION_DB:db,
+    MS_API_TOKEN:'synthetic-test-token'
+  },{
+    nowMs:1_900_000_000_000,
+    fetcher:async url=>{
+      calls.push(url);
+      return success({meta:{size:745},rows:tasks});
+    },
+    pause:async()=>{}
+  });
+  assert.equal(result.code,'ms_auto_source_count_changed');
+  assert.equal(result.coverage,'UNVERIFIED_STOPPED');
+  assert.equal(result.requests,1);
+  assert.equal(calls.length,1);
+  assert.equal(db.rows.length,0);
+  assert.equal(db.runtime.next_offset,5);
+  assert.equal(db.runtime.run_status,'paused');
+});
+
+test('after source-count drift, next tick autonomously restarts an isolated generation at offset zero',async()=>{
+  const db=fakeDb();
+  db.runtime.generation=4;
+  db.runtime.next_offset=35;
+  db.runtime.total_first_seen=744;
+  db.runtime.run_status='paused';
+  db.runtime.last_error_code='ms_auto_source_count_changed';
+  const urls=[];
+  const result=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',
+    MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{
+    nowMs:1_900_000_000_000,
+    pause:async()=>{},
+    fetcher:async url=>{
+      urls.push(url);
+      return new URL(url).pathname.endsWith('/productiontask')?
+        success({meta:{size:5},rows:tasks}):
+        success(stage(urls.length-2));
+    }
+  });
+  assert.equal(result.code,'ms_auto_batch_committed');
+  assert.equal(result.generation,5);
+  assert.equal(result.offset,5);
+  assert.equal(result.status,'pass_complete');
+  assert.equal(result.requests,6);
+  assert.equal(db.rows.length,5);
+  assert.equal(db.runtime.generation,5);
+  assert.equal(db.runtime.total_first_seen,5);
+  assert.equal(new URL(urls[0]).searchParams.get('offset'),'0');
+});

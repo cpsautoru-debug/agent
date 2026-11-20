@@ -35,10 +35,12 @@ export function stageUrl(taskId){
   });
 }
 export function parseProductionPage(data,offset){
-  if(!Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
-    !Array.isArray(data?.rows)||data.rows.length>BATCH_SIZE||
-    data.rows.length>Math.max(0,data.meta.size-offset)||
-    (offset<data.meta.size&&data.rows.length===0))
+  if(!Number.isSafeInteger(offset)||offset<0||offset%BATCH_SIZE!==0||
+    !Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
+    !Array.isArray(data?.rows)||
+    // An incomplete page can shift the cursor and silently omit assignments.
+    // Never commit any portion of a page that is shorter than requested.
+    data.rows.length!==Math.min(BATCH_SIZE,Math.max(0,data.meta.size-offset)))
     throw Error('invalid_production_page');
   const ids=new Set();
   const tasks=data.rows.map(row=>{
@@ -124,7 +126,7 @@ export async function runMsProductionTick(env,options={}){
   if(!Number.isSafeInteger(now)||now<=0)throw Error('invalid_runtime_clock');
   // Independent D1 database only, not finance/office D1.
   const locked=await db.prepare(
-    'UPDATE ms_production_auto_runtime SET lock_until_ms=?,last_request_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND lock_until_ms<=? AND last_request_ms<=? RETURNING generation,next_offset,total_first_seen,run_status'
+    'UPDATE ms_production_auto_runtime SET lock_until_ms=?,last_request_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND lock_until_ms<=? AND last_request_ms<=? RETURNING generation,next_offset,total_first_seen,run_status,last_error_code'
   ).bind(now+180000,now,now,now-240000).first();
   if(!locked)return {code:'ms_auto_locked_or_recent',requests:0};
   const request=makeLimitedReader(env,options);
@@ -132,14 +134,17 @@ export async function runMsProductionTick(env,options={}){
     let generation=locked.generation;
     let offset=locked.next_offset;
     let expected=locked.total_first_seen;
-    if(locked.run_status==='new'||locked.run_status==='pass_complete'){
+    // A moving source invalidates offsets. The NEXT tick safely starts a new
+    // historical generation instead of retrying a permanently stale cursor.
+    if(locked.run_status==='new'||locked.run_status==='pass_complete'||
+      (locked.run_status==='paused'&&locked.last_error_code==='ms_auto_source_count_changed')){
       generation++;offset=0;expected=null;
     }
     const page=parseProductionPage(
       await request.read(taskPageUrl(offset),128*1024),offset
     );
     if(expected===null)expected=page.total;
-    if(page.total<expected||offset>expected)
+    if(page.total!==expected||offset>expected)
       throw Error('ms_auto_source_count_changed');
     const items=[];
     for(const task of page.tasks){
