@@ -1269,7 +1269,7 @@
       <section class="ms-executive-overview" aria-label="Ключевые показатели производства и склада">
         <div class="ms-executive-card"><span>Задания в реестре «МойСклад»</span><strong id="msExecutiveTasks">Проверяем…</strong><small>Исторические и текущие; это не число активных заказов</small></div>
         <div class="ms-executive-card"><span>Проверка видимых заданий</span><strong id="msExecutiveAudit">Ещё не выполнена</strong><small>Статусы только проверенной страницы</small></div>
-        <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Нажмите «Обновить остатки»</strong><small>Ручное чтение, без изменений данных</small></div>
+        <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Автообновление при открытии</strong><small>Ручное чтение, без изменений данных</small></div>
         <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
       </section>
       <section class="ms-command-board" id="msCommandBoard" aria-labelledby="msBoardTitle">
@@ -1521,7 +1521,7 @@
           </section>
           <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. «Группа в каталоге» берётся из МойСклад. В фильтре «Материалы» учитываются только позиции из подтверждённой группы «ПРОИЗВОДСТВО/Экокожа и Алька»; всё остальное остаётся непроверенным, а не автоматически готовой продукцией. Фильтр относится только к загруженной странице. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, используйте кнопки «Назад» и «Вперёд»: показываем по 10 позиций. Каждая страница читается отдельно, без сохранения истории и без фоновой синхронизации.</p>
         </div>
-        <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
+        <p class="ms-production-status" id="msStockStatus" role="status">Первая страница остатков автоматически загружается при открытии раздела и обновляется не чаще раза в 30 минут. Полный фоновый обход пока не включён.</p>
         <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>
         <div class="ms-production-scroll">
           <table class="ms-production-table ms-stock-table">
