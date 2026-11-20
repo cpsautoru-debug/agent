@@ -161,3 +161,13 @@
 .ms-manual-debug{margin:12px 0;border:1px solid #e3eae2;border-radius:10px;padding:10px 14px;background:#fafcf9}
 .ms-manual-debug>summary{cursor:pointer;color:#476552;font-size:13px;font-weight:600}
 .ms-manual-debug>.ms-priority-worklist{margin:12px 0 0}
+
+/* Read-only, fail-closed historical scan status from dedicated D1. */
+.ms-auto-history{margin:18px 0;padding:17px;border:1px solid #d2e1da;border-radius:14px;background:#f9fdfb}
+.ms-auto-history .ms-production-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.ms-auto-history h2{margin:0 0 5px;color:#244b36;font-size:18px}
+.ms-auto-history .ms-production-note{line-height:1.55}
+.ms-auto-history .ms-production-scroll[hidden]{display:none}
+.ms-auto-history .ms-production-table{min-width:730px}
+.ms-auto-history .ms-production-table td:first-child{font-variant-numeric:tabular-nums;font-weight:650}
+@media(max-width:720px){.ms-auto-history{padding:12px}.ms-auto-history .ms-production-header{flex-direction:column;align-items:stretch}}
