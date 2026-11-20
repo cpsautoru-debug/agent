@@ -126,7 +126,7 @@ export async function runMsProductionTick(env,options={}){
   if(!Number.isSafeInteger(now)||now<=0)throw Error('invalid_runtime_clock');
   // Independent D1 database only, not finance/office D1.
   const locked=await db.prepare(
-    'UPDATE ms_production_auto_runtime SET lock_until_ms=?,last_request_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND lock_until_ms<=? AND last_request_ms<=? RETURNING generation,next_offset,total_first_seen,run_status'
+    'UPDATE ms_production_auto_runtime SET lock_until_ms=?,last_request_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND lock_until_ms<=? AND last_request_ms<=? RETURNING generation,next_offset,total_first_seen,run_status,last_error_code'
   ).bind(now+180000,now,now,now-240000).first();
   if(!locked)return {code:'ms_auto_locked_or_recent',requests:0};
   const request=makeLimitedReader(env,options);
@@ -134,7 +134,10 @@ export async function runMsProductionTick(env,options={}){
     let generation=locked.generation;
     let offset=locked.next_offset;
     let expected=locked.total_first_seen;
-    if(locked.run_status==='new'||locked.run_status==='pass_complete'){
+    // A moving source invalidates offsets. The NEXT tick safely starts a new
+    // historical generation instead of retrying a permanently stale cursor.
+    if(locked.run_status==='new'||locked.run_status==='pass_complete'||
+      (locked.run_status==='paused'&&locked.last_error_code==='ms_auto_source_count_changed')){
       generation++;offset=0;expected=null;
     }
     const page=parseProductionPage(
