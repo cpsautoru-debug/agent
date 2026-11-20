@@ -191,6 +191,9 @@
         <h3>Автоматическая синхронизация WB · тестовая база</h3>
         <p>Отдельные операции WB Finance API. Старые XLSX-эталоны не дублируются. Чистая прибыль не подтверждена.</p>
         <button id="wbAutoSyncRefresh" class="button light" type="button">Обновить статус синхронизации</button>
+        <p>Разрешён только один ручной шаг загрузки WB через серверный API владельца; Cron выключен. После запуска страница покажет статус.</p>
+        <button id="wbAutoSyncStepButton" class="button light" type="button">Выполнить один шаг WB API в тестовой базе</button>
+        <p id="wbAutoSyncStepStatus" role="status">Запрос к Wildberries не выполнялся.</p>
         <p id="wbAutoSyncStatus" role="status">Читаем данные тестовой базы…</p>
         <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Тип</th><th>Статус</th><th>Выплата</th><th>Операции</th></tr></thead><tbody id="wbAutoSyncRows"></tbody></table></div>
       </article>
