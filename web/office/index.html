@@ -1266,6 +1266,12 @@
           <p>Производственные задания приходят напрямую из «МойСклад» через защищённый API. Google Таблица для этой панели не используется.</p>
         </div>
       </div>
+      <section class="ms-executive-overview" aria-label="Ключевые показатели производства и склада">
+        <div class="ms-executive-card"><span>Задания в реестре «МойСклад»</span><strong id="msExecutiveTasks">Проверяем…</strong><small>Исторические и текущие; это не число активных заказов</small></div>
+        <div class="ms-executive-card"><span>Проверка видимых заданий</span><strong id="msExecutiveAudit">Ещё не выполнена</strong><small>Статусы только проверенной страницы</small></div>
+        <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Нажмите «Обновить остатки»</strong><small>Ручное чтение, без изменений данных</small></div>
+        <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
+      </section>
       <section class="ms-production-monitor" id="msProductionMonitor" aria-labelledby="msProductionTitle">
         <div class="ms-production-header">
           <div>
@@ -1351,6 +1357,35 @@
         </section>
         <p class="ms-production-note">Отображаются страницы по 5 заданий либо точный поиск по номеру, а не весь список активных заказов. Список обновляется не чаще одного раза в 10 минут при открытом разделе. Исполнители и полная загрузка цеха пока не подтверждены. Документ «Проведён» не означает, что продукция выпущена.</p>
       </section>
+      <section class="ms-production-monitor ms-stock-section" id="msStockSection" aria-labelledby="msStockTitle">
+        <div class="ms-production-header">
+          <div>
+            <h2 id="msStockTitle">Остатки по складам · «МойСклад»</h2>
+            <p>Номенклатура, физический остаток, резерв и ожидание в разрезе складов. Материалы и готовые товары отображаются как позиции номенклатуры. Это только выбранная страница отчёта, не полный баланс.</p>
+          </div>
+          <button type="button" class="ms-production-button" id="msStockRefresh">Обновить остатки</button>
+        </div>
+        <form class="ms-production-search" id="msStockSearchForm">
+          <label for="msStockSearch">Найти материал или товар</label>
+          <input type="search" id="msStockSearch" maxlength="60" placeholder="Например, экокожа или Vesta" autocomplete="off">
+          <button class="ms-production-detail-button" type="submit">Найти</button>
+          <button class="ms-production-detail-button" type="button" id="msStockClear">Все позиции</button>
+        </form>
+        <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
+        <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>
+        <div class="ms-production-scroll">
+          <table class="ms-production-table ms-stock-table">
+            <thead><tr><th>Материал / товар</th><th>Ед.</th><th>Склад</th><th>Физ. остаток</th><th>Резерв</th><th>Ожидание</th></tr></thead>
+            <tbody id="msStockRows"></tbody>
+          </table>
+        </div>
+        <nav class="ms-production-pager" aria-label="Страницы складского отчёта">
+          <button class="ms-production-detail-button" type="button" id="msStockPrev" disabled>Назад</button>
+          <span id="msStockPage">Страница 1</span>
+          <button class="ms-production-detail-button" type="button" id="msStockNext" disabled>Вперёд</button>
+        </nav>
+        <p class="ms-production-note">Поиск и страницы читаются по 10 позиций. Отсутствующий склад или количество означает «нет данных», а не ноль. Остаток, резерв и ожидание — разные величины; суммировать их нельзя. Отрицательные остатки показываются явно. Дефицит и пригодность запасов к пошиву требуют норм расхода, техкарт и полной сверки двух складов. Ничего не списываем автоматически.</p>
+      </section>
     </section>
 
     <footer>
@@ -1381,6 +1416,7 @@
 <script src="app.js" defer></script>
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
+<script type="module" src="ms-stock-bystore.mjs"></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
