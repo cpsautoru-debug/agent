@@ -10,6 +10,8 @@ on:
       - 'functions/api/ms/warehouse-availability.js'
       - 'functions/api/ms/warehouse-snapshot.js'
       - 'web/office/ms-production.js'
+      - 'web/office/ms-production-command-board.mjs'
+      - 'web/office/ms-production-board-core.mjs'
       - 'web/office/ms-stock-bystore.mjs'
       - 'web/office/ms-warehouse-availability.mjs'
       - 'web/office/ms-warehouse-snapshot.mjs'
@@ -28,6 +30,8 @@ on:
       - 'tests/ms/ms-production-interface.test.mjs'
       - 'tests/ms/ms-production-audit.test.mjs'
       - 'tests/ms/ms-production-audit-ui.test.mjs'
+      - 'tests/ms/ms-production-board.test.mjs'
+      - 'tests/ms/ms-production-board-ui.test.mjs'
       - 'tests/ms/ms-production-coverage-probe.test.mjs'
       - 'tests/ms/ms-production-coverage-probe-ui.test.mjs'
       - 'tests/ms/ms-production-scan-budget.test.mjs'
@@ -63,6 +67,8 @@ jobs:
       - run: node --check functions/api/ms/warehouse-snapshot.js
       - run: node --check functions/api/ms/production-coverage-probe.js
       - run: node --check web/office/ms-production.js
+      - run: node --check web/office/ms-production-command-board.mjs
+      - run: node --check web/office/ms-production-board-core.mjs
       - run: node --check web/office/ms-stock-bystore.mjs
       - run: node --check web/office/ms-warehouse-availability.mjs
       - run: node --check web/office/ms-warehouse-snapshot.mjs
@@ -74,4 +80,4 @@ jobs:
       - run: node --check web/office/ms-production-coverage-probe.mjs
       - run: node --check web/office/ms-production-scan-budget.mjs
       - run: node --check scripts/ms-preview-smoke.mjs
-      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs tests/ms/ms-stock-page-view.test.mjs tests/ms/ms-warehouse-availability.test.mjs tests/ms/ms-warehouse-availability-ui.test.mjs tests/ms/ms-materials-by-catalog.test.mjs tests/ms/ms-warehouse-snapshot.test.mjs tests/ms/ms-warehouse-snapshot-ui.test.mjs tests/ms/ms-warehouse-snapshot-view.test.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-board.test.mjs tests/ms/ms-production-board-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs tests/ms/ms-stock-page-view.test.mjs tests/ms/ms-warehouse-availability.test.mjs tests/ms/ms-warehouse-availability-ui.test.mjs tests/ms/ms-materials-by-catalog.test.mjs tests/ms/ms-warehouse-snapshot.test.mjs tests/ms/ms-warehouse-snapshot-ui.test.mjs tests/ms/ms-warehouse-snapshot-view.test.mjs
