@@ -1371,6 +1371,14 @@
           <button class="ms-production-detail-button" type="submit">Найти</button>
           <button class="ms-production-detail-button" type="button" id="msStockClear">Все позиции</button>
         </form>
+        <div class="ms-stock-filters">
+          <label for="msStockWarehouse">Показать склад на этой странице</label>
+          <select id="msStockWarehouse" disabled>
+            <option value="">Все склады на странице</option>
+          </select>
+          <small>Фильтр применяется только к загруженным позициям, без новых запросов к API.</small>
+        </div>
+        <p id="msStockScopeNote" class="ms-production-note">Остатки пока не загружены. Сводка всех складов недоступна.</p>
         <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
         <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>
         <div class="ms-production-scroll">
