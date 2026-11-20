@@ -33,7 +33,7 @@ export function createMsProductionCheckHandler(fetcher=fetch){
           method:'GET',
           headers:{
             Authorization:'Bearer '+env.MS_API_TOKEN,
-            Accept:'application/json'
+            Accept:'application/json;charset=utf-8'
           },
           redirect:'manual',
           signal:AbortSignal.timeout(12000)
