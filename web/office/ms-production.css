@@ -63,5 +63,6 @@
 .ms-page-audit-stats[hidden],.ms-page-audit-results[hidden]{display:none}
 .ms-page-audit-stats span{padding:10px 13px;border:1px solid #e2e9e0;background:#f6f9f4;border-radius:8px;font-size:12px;color:#42604c}
 .ms-page-audit-stats strong{font-variant-numeric:tabular-nums}
-.ms-page-audit .ms-production-table{min-width:800px}
+.ms-page-audit .ms-production-table{min-width:1080px}
+.ms-plan-date-past{color:#9a5512;font-weight:700}
 @media(max-width:720px){.ms-page-audit-header{align-items:stretch}.ms-page-audit-header button{width:100%}}
