@@ -7,10 +7,13 @@ on:
       - 'functions/api/ms/production-stages.js'
       - 'web/office/ms-production.js'
       - 'web/office/ms-production-date.mjs'
+      - 'web/office/ms-production-audit.mjs'
       - 'web/office/ms-production.css'
       - 'web/office/index.html'
       - 'tests/ms/ms-production-feed.test.mjs'
       - 'tests/ms/ms-production-interface.test.mjs'
+      - 'tests/ms/ms-production-audit.test.mjs'
+      - 'tests/ms/ms-production-audit-ui.test.mjs'
       - 'tests/ms/ms-production-stages.test.mjs'
       - 'tests/ms/ms-production-date.test.mjs'
       - '.github/workflows/ms-production-monitor.yml'
@@ -28,4 +31,5 @@ jobs:
       - run: node --check functions/api/ms/production-feed.js
       - run: node --check functions/api/ms/production-stages.js
       - run: node --check web/office/ms-production.js
-      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-interface.test.mjs
+      - run: node --check web/office/ms-production-audit.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs
