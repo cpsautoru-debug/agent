@@ -35,10 +35,12 @@ export function stageUrl(taskId){
   });
 }
 export function parseProductionPage(data,offset){
-  if(!Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
-    !Array.isArray(data?.rows)||data.rows.length>BATCH_SIZE||
-    data.rows.length>Math.max(0,data.meta.size-offset)||
-    (offset<data.meta.size&&data.rows.length===0))
+  if(!Number.isSafeInteger(offset)||offset<0||offset%BATCH_SIZE!==0||
+    !Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
+    !Array.isArray(data?.rows)||
+    // An incomplete page can shift the cursor and silently omit assignments.
+    // Never commit any portion of a page that is shorter than requested.
+    data.rows.length!==Math.min(BATCH_SIZE,Math.max(0,data.meta.size-offset)))
     throw Error('invalid_production_page');
   const ids=new Set();
   const tasks=data.rows.map(row=>{
@@ -139,7 +141,7 @@ export async function runMsProductionTick(env,options={}){
       await request.read(taskPageUrl(offset),128*1024),offset
     );
     if(expected===null)expected=page.total;
-    if(page.total<expected||offset>expected)
+    if(page.total!==expected||offset>expected)
       throw Error('ms_auto_source_count_changed');
     const items=[];
     for(const task of page.tasks){
