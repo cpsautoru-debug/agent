@@ -47,7 +47,11 @@ test('empty and malformed stage records are not silently treated as zero or done
 test('inconsistent stage flow remains unverified rather than reporting false completion',()=>{
   const result=assessProductionTask(doc,stages(4,4,[['Раскрой',4,1],['Пошив',4,4]]));
   assert.equal(result.status,'unverified');
-  assert.equal(result.code,'non_monotonic_stage_completion');
+  assert.equal(result.code,'stage_chain_not_verified');
+  const inconsistent=assessProductionTask(doc,stages(4,0,[['Раскрой',4,1],['Пошив',4,3],['ОТК',4,0]]));
+  assert.equal(inconsistent.status,'unverified');
+  const omittedStage=assessProductionTask(doc,stages(4,0,[['Раскрой',4,4],['Пошив',2,1],['ОТК',4,0]]));
+  assert.equal(omittedStage.status,'unverified');
 });
 test('bounded page summary counts only checked documents and reports remaining as unverified',()=>{
   const records=[
