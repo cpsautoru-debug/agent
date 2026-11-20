@@ -51,7 +51,7 @@
       <span>✧</span>Контент-студия
     </a>
     <a href="#production" data-page="production">
-      <span>▧</span>Запуск производства
+      <span>▧</span>Контроль производства
     </a>
     <a href="#connections" data-page="connections">
       <span>⌘</span>Подключения
@@ -1269,35 +1269,51 @@
       <section class="ms-production-monitor" id="msProductionMonitor" aria-labelledby="msProductionTitle">
         <div class="ms-production-header">
           <div>
-            <h2 id="msProductionTitle">Последние производственные задания</h2>
-            <p>Доступно только владельцу. Данные без записи в «МойСклад».</p>
+            <h2 id="msProductionTitle">Производственные задания</h2>
+            <p>Последние задания и поиск по номеру. Доступно только владельцу, без изменений в «МойСклад».</p>
           </div>
           <button type="button" class="ms-production-button" id="msProductionRefresh">Обновить из «МойСклад»</button>
         </div>
+        <form class="ms-production-search" id="msProductionSearchForm">
+          <label for="msProductionNumber">Номер задания</label>
+          <input type="text" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10"
+                 id="msProductionNumber" placeholder="Например, 00737" autocomplete="off">
+          <button type="submit" class="ms-production-detail-button">Найти</button>
+          <button type="button" class="ms-production-detail-button" id="msProductionReset">Показать последние</button>
+        </form>
         <p class="ms-production-status" id="msProductionStatus" role="status">Проверяем подключение…</p>
         <p class="ms-production-count" id="msProductionCount">Данные ещё не получены</p>
         <div class="ms-production-scroll">
           <table class="ms-production-table">
-            <thead><tr><th>Задание</th><th>Дата (Самара)</th><th>Обновлено (Самара)</th><th>Этапы</th></tr></thead>
+            <thead><tr><th>Задание</th><th>Дата (Самара)</th><th>Плановая дата</th><th>Документ</th><th>Обновлено (Самара)</th><th>Этапы</th></tr></thead>
             <tbody id="msProductionRows"></tbody>
           </table>
         </div>
+        <nav class="ms-production-pager" aria-label="Страницы производственных заданий">
+          <button type="button" id="msProductionPrev" class="ms-production-detail-button" disabled>Назад</button>
+          <span id="msProductionPage">Страница 1</span>
+          <button type="button" id="msProductionNext" class="ms-production-detail-button" disabled>Вперёд</button>
+        </nav>
         <section class="ms-production-stage-panel" id="msProductionStagePanel" hidden aria-labelledby="msProductionStageTitle">
-          <h3 id="msProductionStageTitle">Этапы выбранного задания</h3>
+          <div class="ms-production-stage-heading">
+            <h3 id="msProductionStageTitle">Этапы выбранного задания</h3>
+            <button type="button" class="ms-production-detail-button" id="msProductionStageRefresh" disabled>Обновить этапы</button>
+          </div>
           <p class="ms-production-status" id="msProductionStageStatus" role="status"></p>
           <div class="ms-production-stage-totals">
-            <div><span>Запланировано, комплектов</span><strong id="msStagePlanned">—</strong></div>
-            <div><span>Завершено на последнем этапе</span><strong id="msStageFinished">—</strong></div>
+            <div><span>План по позициям, ед.</span><strong id="msStagePlanned">—</strong></div>
+            <div><span>Заключительный этап, ед.</span><strong id="msStageFinished">—</strong></div>
+            <div><span>Ещё не завершено, ед.</span><strong id="msStageRemaining">—</strong></div>
           </div>
           <div class="ms-production-scroll">
             <table class="ms-production-table">
-              <thead><tr><th>Этап</th><th>План</th><th>Выполнено</th></tr></thead>
+              <thead><tr><th>Этап</th><th>План</th><th>Выполнено</th><th>Прогресс</th></tr></thead>
               <tbody id="msProductionStageRows"></tbody>
             </table>
           </div>
-          <p class="ms-production-note">План/факт рассчитан по производственным этапам только выбранного задания. Завершение последнего этапа не равно отгрузке. Неисполненные задания за другие даты сюда не включены.</p>
+          <p class="ms-production-note">Показатели относятся только к выбранному заданию. Единицы измерения позиций могут различаться; общие суммы корректны только при сопоставимых единицах. Заключительный этап не означает отгрузку.</p>
         </section>
-        <p class="ms-production-note">Это последние 5 заданий по дате, а не список всех активных заказов. Нажмите «Этапы» рядом с заданием для просмотра плана и факта. Исполнителей и полную загрузку цеха подключим после отдельной сверки. Не используйте общее количество как текущую загрузку цеха.</p>
+        <p class="ms-production-note">Отображаются страницы по 5 заданий либо точный поиск по номеру, а не весь список активных заказов. Список обновляется не чаще одного раза в 10 минут при открытом разделе. Исполнители и полная загрузка цеха пока не подтверждены. Документ «Проведён» не означает, что продукция выпущена.</p>
       </section>
     </section>
 
