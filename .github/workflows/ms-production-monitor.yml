@@ -11,6 +11,7 @@ on:
       - 'web/office/ms-production.js'
       - 'web/office/ms-stock-bystore.mjs'
       - 'web/office/ms-warehouse-availability.mjs'
+      - 'web/office/ms-materials-by-catalog.mjs'
       - 'web/office/ms-stock-page-view.mjs'
       - 'web/office/ms-production-date.mjs'
       - 'web/office/ms-production-plan-date.mjs'
@@ -34,6 +35,7 @@ on:
       - 'tests/ms/ms-stock-page-view.test.mjs'
       - 'tests/ms/ms-warehouse-availability.test.mjs'
       - 'tests/ms/ms-warehouse-availability-ui.test.mjs'
+      - 'tests/ms/ms-materials-by-catalog.test.mjs'
       - 'tests/ms/ms-production-date.test.mjs'
       - 'tests/ms/ms-production-plan-date.test.mjs'
       - '.github/workflows/ms-production-monitor.yml'
@@ -56,10 +58,11 @@ jobs:
       - run: node --check web/office/ms-production.js
       - run: node --check web/office/ms-stock-bystore.mjs
       - run: node --check web/office/ms-warehouse-availability.mjs
+      - run: node --check web/office/ms-materials-by-catalog.mjs
       - run: node --check web/office/ms-stock-page-view.mjs
       - run: node --check web/office/ms-production-audit.mjs
       - run: node --check web/office/ms-production-plan-date.mjs
       - run: node --check web/office/ms-production-coverage-probe.mjs
       - run: node --check web/office/ms-production-scan-budget.mjs
       - run: node --check scripts/ms-preview-smoke.mjs
-      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs tests/ms/ms-stock-page-view.test.mjs tests/ms/ms-warehouse-availability.test.mjs tests/ms/ms-warehouse-availability-ui.test.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs tests/ms/ms-stock-page-view.test.mjs tests/ms/ms-warehouse-availability.test.mjs tests/ms/ms-warehouse-availability-ui.test.mjs tests/ms/ms-materials-by-catalog.test.mjs
