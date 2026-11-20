@@ -45,7 +45,9 @@ test('only user click starts bounded scan; stopping or hiding tab cancels next r
   assert.match(js,/method:'GET'/);
   assert.match(core,/requests>=12/);
   assert.match(core,/REQUEST_DELAY_MS=2000/);
-  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|setInterval|setTimeout\([^)]*,\s*60000/);
+  assert.match(js,/AUTO_INTERVAL_MS=30\*60\*1000/);
+  assert.match(js,/setInterval\(refreshIfNeeded,60\*1000\)/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML/);
 });
 test('warehouse dashboard emits only ephemeral counts to production console',()=>{
   assert.match(warehouse,/new CustomEvent\('ms:warehouse-snapshot-ready'/);
