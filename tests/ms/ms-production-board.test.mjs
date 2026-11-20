@@ -212,7 +212,7 @@ test('automatic production scan reads latest updates without requiring manually 
 test('updated selection cannot silently be confused with latest document-date feed',async()=>{
   const calls=[];
   const r=await collectRecentProduction({
-    view:'updated',request:stub(calls),nowMs:NOW
+    view:'updated',request:async path=>{calls.push(path);return response(200,feed(0));},nowMs:NOW
   });
   assert.equal(r.code,'ms_production_board_unverified');
   assert.equal(Object.hasOwn(r,'items'),false);
