@@ -130,3 +130,50 @@ test('HTTP 400 returns only numeric MoySklad code for safe debugging',async()=>{
   assert.equal(calls,1);
   assert.doesNotMatch(JSON.stringify(data),/sensitive|test-secret-token/);
 });
+
+test('mixed production rows (carpets and seat covers) are classified individually',async()=>{
+  const {assessProductionTask}=await import('../../web/office/ms-production-audit.mjs');
+  const mixed=[
+    stage(1,ROW_1,0,'Пошив ковров',1,1),
+    stage(2,ROW_2,0,'Раскрой материала',1,1),
+    stage(2,ROW_2,1,'Пошив',1,1),
+    stage(2,ROW_2,2,'Контроль качества',1,1),
+    stage(2,ROW_2,3,'Упаковка',1,1),
+    stage(2,ROW_2,4,'Готово к отгрузке',1,1)
+  ];
+  const output=summarizeStages({meta:{size:mixed.length},rows:mixed});
+  assert.equal(output.plan,2);
+  assert.equal(output.finishedFinalStage,2);
+  assert.equal(output.rowChainsVerified,true);
+  assert.equal(output.rowChainStatus,'complete');
+  const assessed=assessProductionTask({number:'00740'},output);
+  assert.equal(assessed.status,'complete');
+  assert.equal(assessed.remaining,0);
+});
+test('a partial row remains incomplete even when another row is finished',async()=>{
+  const {assessProductionTask}=await import('../../web/office/ms-production-audit.mjs');
+  const mixed=[
+    stage(1,ROW_1,0,'Пошив ковров',1,1),
+    stage(2,ROW_2,0,'Раскрой',1,1),
+    stage(2,ROW_2,1,'Пошив',1,0),
+    stage(2,ROW_2,2,'ОТК',1,0)
+  ];
+  const output=summarizeStages({meta:{size:mixed.length},rows:mixed});
+  assert.equal(output.rowChainStatus,'incomplete');
+  assert.equal(output.firstUnfinishedRowStage,'Пошив');
+  const assessed=assessProductionTask({number:'00740'},output);
+  assert.equal(assessed.status,'incomplete');
+  assert.equal(assessed.remaining,1);
+  assert.equal(assessed.firstUnfinishedStage,'Пошив');
+});
+test('nonmonotonic completion within a row is flagged unverified',async()=>{
+  const {assessProductionTask}=await import('../../web/office/ms-production-audit.mjs');
+  const chain=[
+    stage(1,ROW_1,0,'Раскрой',2,1),
+    stage(1,ROW_1,1,'Пошив',2,2)
+  ];
+  const result=summarizeStages({meta:{size:chain.length},rows:chain});
+  assert.equal(result.rowChainsVerified,false);
+  assert.equal(result.rowChainStatus,'unverified');
+  assert.equal(assessProductionTask({number:'00999'},result).status,'unverified');
+});
