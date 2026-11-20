@@ -8,7 +8,7 @@ registerHooks({load(url,context,next){
 }});
 const {createProductionFeedHandler,summarizeProductionFeed,parseProductionFeedScope,buildProductionFeedUrl}=await import('../../functions/api/ms/production-feed.js');
 const {createSession}=await import('../../functions/api/auth/session.js');
-const URL='https://autosklad63-office-staging.pages.dev/api/ms/production-feed';
+const ENDPOINT='https://autosklad63-office-staging.pages.dev/api/ms/production-feed';
 const env={
   OFFICE_SESSION_SECRET:'synthetic-session-secret',
   OFFICE_ALLOWED_EMAIL:'owner@example.invalid',
@@ -22,7 +22,7 @@ const env={
 async function request(sub='owner-id'){
   const headers={};
   if(sub)headers.Cookie=(await createSession(sub,env.OFFICE_SESSION_SECRET)).split(';')[0];
-  return new Request(URL,{headers});
+  return new Request(ENDPOINT,{headers});
 }
 test('owner gets last 5 production tasks in one read-only upstream GET',async()=>{
   let calls=0;
@@ -77,7 +77,7 @@ test('upstream failure returns only error code, no upstream body or secret',asyn
 });
 
 test('pagination scope accepts only offsets in steps of 5, capped safely',()=>{
-  const good=parseProductionFeedScope(new URL(URL+'?offset=10'));
+  const good=parseProductionFeedScope(new URL(ENDPOINT+'?offset=10'));
   assert.deepEqual(good,{offset:10,number:null});
   const url=new URL(buildProductionFeedUrl(good));
   assert.equal(url.searchParams.get('offset'),'10');
@@ -87,11 +87,11 @@ test('pagination scope accepts only offsets in steps of 5, capped safely',()=>{
     name:'00731',moment:'2026-11-18 14:00:00'
   }]},good).hasPrevious,true);
   for(const bad of ['?offset=-5','?offset=2','?offset=5000','?offset=9999999','?offset=5&offset=10','?utm_source=chatgpt','?offset=0&number=00737']){
-    assert.throws(()=>parseProductionFeedScope(new URL(URL+bad)),bad);
+    assert.throws(()=>parseProductionFeedScope(new URL(ENDPOINT+bad)),bad);
   }
 });
 test('exact task-number search retains leading zeros and changes count meaning',()=>{
-  const scope=parseProductionFeedScope(new URL(URL+'?number=00737'));
+  const scope=parseProductionFeedScope(new URL(ENDPOINT+'?number=00737'));
   assert.deepEqual(scope,{offset:0,number:'00737'});
   const target=new URL(buildProductionFeedUrl(scope));
   assert.equal(target.searchParams.get('filter'),'name=00737');
@@ -105,7 +105,7 @@ test('exact task-number search retains leading zeros and changes count meaning',
   assert.equal(summary.hasMore,false);
   assert.equal(summary.searchNumber,'00737');
   for(const bad of ['?number=','?number=abc','?number=00737%3Bx%3D1','?number=00737&number=00738']){
-    assert.throws(()=>parseProductionFeedScope(new URL(URL+bad)),bad);
+    assert.throws(()=>parseProductionFeedScope(new URL(ENDPOINT+bad)),bad);
   }
 });
 test('owner can request only one restricted exact-number search query',async()=>{
@@ -119,7 +119,7 @@ test('owner can request only one restricted exact-number search query',async()=>
       name:'00737',moment:'2026-11-19 23:53:00.000'
     }]}),{status:200});
   });
-  const response=await handler({request:await req('owner-id').then(r=>new Request(URL+'?number=00737',{headers:r.headers})),env});
+  const response=await handler({request:await request('owner-id').then(r=>new Request(ENDPOINT+'?number=00737',{headers:r.headers})),env});
   assert.equal(response.status,200);
   assert.equal((await response.json()).totalMatching,1);
   assert.equal(calls,1);
@@ -127,8 +127,8 @@ test('owner can request only one restricted exact-number search query',async()=>
 test('invalid scope cannot contact upstream even from an owner session',async()=>{
   let count=0;
   const handler=createProductionFeedHandler(async()=>{count++;throw Error('unexpected');});
-  const source=await req();
-  const r=await handler({request:new Request(URL+'?number=../delete',{headers:source.headers}),env});
+  const source=await request();
+  const r=await handler({request:new Request(ENDPOINT+'?number=../delete',{headers:source.headers}),env});
   assert.equal(r.status,400);
   assert.equal(count,0);
 });
