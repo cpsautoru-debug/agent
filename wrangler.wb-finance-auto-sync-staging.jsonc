@@ -4,7 +4,7 @@
   "compatibility_date": "2026-11-01",
   "workers_dev": false,
   "triggers": {
-    "crons": ["*/5 4-6 * * *"]
+    "crons": []
   },
   "vars": {
     "WB_REPORT_ACCOUNT_ID": "4271851",
