@@ -41,6 +41,10 @@ function fakeDb(){
           },
           async run(){
             if(sql.startsWith('INSERT INTO ms_production_auto_tasks')){
+              // Mirror D1's primary-key uniqueness: a moving page may not
+              // silently re-insert a task already seen in this generation.
+              if(rows.some(row=>row[0]===args[0]&&row[1]===args[1]))
+                throw Error('UNIQUE constraint failed');
               rows.push(args);return {success:true};
             }
             if(sql.startsWith('UPDATE ms_production_auto_runtime SET generation=')){
@@ -57,7 +61,15 @@ function fakeDb(){
         };
       }};
     },
-    async batch(statements){for(const stmt of statements)await stmt.run();}
+    async batch(statements){
+      const priorRows=rows.length,priorRuntime={...runtime};
+      try{for(const stmt of statements)await stmt.run();}
+      catch(error){
+        // D1 batch is transactional; emulate rollback of staged rows + cursor.
+        rows.splice(priorRows);Object.assign(runtime,priorRuntime);
+        throw error;
+      }
+    }
   };
   return db;
 }
@@ -195,6 +207,30 @@ test('no token, no binding or disabled flag makes zero external calls',async()=>
   }
   assert.equal(calls,0);
 });
+test('duplicate across historical pages aborts transaction instead of silently advancing cursor',async()=>{
+  const db=fakeDb();
+  db.runtime.generation=1;
+  db.runtime.next_offset=5;
+  db.runtime.total_first_seen=10;
+  db.runtime.run_status='scanning';
+  db.rows.push([1,tasks[0].id,'00740']);
+  const r=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{
+    nowMs:1_900_000_000_000,pause:async()=>{},
+    fetcher:async url=>new URL(url).pathname.endsWith('/productiontask')?
+      success({meta:{size:10},rows:tasks}):
+      success(stage(0))
+  });
+  assert.equal(r.code,'ms_auto_sync_error');
+  assert.equal(r.coverage,'UNVERIFIED_STOPPED');
+  assert.equal(db.runtime.next_offset,5);
+  assert.equal(db.runtime.run_status,'paused');
+  assert.equal(db.rows.length,1);
+  assert.doesNotMatch(JSON.stringify(r),/00740|synthetic-test-token/);
+});
+
 test('source size decrease aborts without claiming a complete production snapshot',async()=>{
   const db=fakeDb();
   db.runtime.generation=1;db.runtime.next_offset=5;db.runtime.total_first_seen=744;
