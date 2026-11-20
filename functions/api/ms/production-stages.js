@@ -15,7 +15,7 @@ const isQty=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1000000;
 const short=(s,max=120)=>typeof s==='string'&&s.length<=max?s:null;
 const rowId=(reference)=>{
   const href=reference?.meta?.href;
-  const match=typeof href==='string'&&href.match(/\/productionrow\/([a-f0-9-]{36})(?:\?|$)/i);
+  const match=typeof href==='string'&&href.match(/\/(?:productionrow|productionRows)\/([a-f0-9-]{36})(?:\?|$)/i);
   if(match&&UUID.test(match[1]))return match[1].toLowerCase();
   return typeof reference?.id==='string'&&UUID.test(reference.id)?reference.id.toLowerCase():null;
 };
