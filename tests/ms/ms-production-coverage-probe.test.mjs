@@ -9,7 +9,7 @@ registerHooks({load(url,context,next){
 const {createProductionCoverageProbeHandler,summarizeProductionCoverageProbe}=
   await import('../../functions/api/ms/production-coverage-probe.js');
 const {createSession}=await import('../../functions/api/auth/session.js');
-const URL='https://autosklad63-office-staging.pages.dev/api/ms/production-coverage-probe';
+const ENDPOINT='https://autosklad63-office-staging.pages.dev/api/ms/production-coverage-probe';
 const taskId='009d69bb-8c9f-11f1-0a80-00480002f1cd';
 const rowId='009d69bb-8c9f-11f1-0a80-00480002f1ce';
 const env={
@@ -22,7 +22,7 @@ const env={
     };}
   };}}
 };
-async function req(sub='owner-id',url=URL){
+async function req(sub='owner-id',url=ENDPOINT){
   const headers={};
   if(sub)headers.Cookie=(await createSession(sub,env.OFFICE_SESSION_SECRET)).split(';')[0];
   return new Request(url,{headers});
@@ -69,11 +69,11 @@ test('authorization and query guard prevent upstream access',async()=>{
   let calls=0;
   const handler=createProductionCoverageProbeHandler(async()=>{calls++;throw Error('must not call');});
   for(const [s,url,e,status] of [
-    [null,URL,env,401],
-    ['different',URL,env,403],
-    ['owner-id',URL+'?limit=1000',env,400],
-    ['owner-id',URL,{...env,MS_API_TOKEN:''},503],
-    ['owner-id',URL,{...env,MS_API_TOKEN:'bad token'},503]
+    [null,ENDPOINT,env,401],
+    ['different',ENDPOINT,env,403],
+    ['owner-id',ENDPOINT+'?limit=1000',env,400],
+    ['owner-id',ENDPOINT,{...env,MS_API_TOKEN:''},503],
+    ['owner-id',ENDPOINT,{...env,MS_API_TOKEN:'bad token'},503]
   ]){
     const result=await handler({request:await req(s,url),env:e});
     assert.equal(result.status,status);
