@@ -41,3 +41,11 @@ test('results never claim physical reconciliation or full product inventory',()=
   assert.match(js,/НЕ полная инвентаризация/);
   assert.match(js,/Неизвестно/);
 });
+
+test('warehouse UI explicitly shows source catalog group or unknown, never guesses it',()=>{
+  assert.match(html,/Группа в каталоге/);
+  assert.match(html,/не автоматическое деление на сырьё и готовую продукцию/);
+  assert.match(js,/item\.catalogPath/);
+  assert.match(js,/Группа не указана/);
+  assert.doesNotMatch(js,/includes\('Экокожа'\)|includes\('Коврик'\)/);
+});

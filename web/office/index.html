@@ -1391,7 +1391,7 @@
           <p id="msWarehouseAvailabilitySummary" class="ms-production-count">Данные этого склада ещё не загружены.</p>
           <div class="ms-production-scroll">
             <table id="msWarehouseAvailabilityTable" class="ms-production-table ms-stock-availability-table" hidden>
-              <thead><tr><th>Материал / товар</th><th>Ед.</th><th>Физический остаток</th></tr></thead>
+              <thead><tr><th>Материал / товар</th><th>Ед.</th><th>Группа в каталоге</th><th>Физический остаток</th></tr></thead>
               <tbody id="msWarehouseAvailabilityRows"></tbody>
             </table>
           </div>
@@ -1400,7 +1400,7 @@
             <span id="msWarehouseAvailabilityPage">Страница 1</span>
             <button class="ms-production-detail-button" type="button" id="msWarehouseAvailabilityNext" disabled>Вперёд</button>
           </nav>
-          <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, используйте кнопки «Назад» и «Вперёд»: показываем по 10 позиций. Каждая страница читается отдельно, без сохранения истории и без фоновой синхронизации.</p>
+          <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. «Группа в каталоге» берётся из МойСклад, если доступна; это не автоматическое деление на сырьё и готовую продукцию. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, используйте кнопки «Назад» и «Вперёд»: показываем по 10 позиций. Каждая страница читается отдельно, без сохранения истории и без фоновой синхронизации.</p>
         </div>
         <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
         <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>

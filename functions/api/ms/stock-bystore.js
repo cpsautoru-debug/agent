@@ -107,7 +107,9 @@ export function extractNames(payload,ids){
     names.set(id,{
       name:safeText(row.name,180),
       code:safeText(row.code,70),
-      uom:safeText(row.uom?.name,50)||safeText(row.uomName,50)
+      uom:safeText(row.uom?.name,50)||safeText(row.uomName,50),
+      // Actual read-only product folder path; not an inferred material category.
+      catalogPath:safeText(row.pathName,180)
     });
   }
   return names;
@@ -138,6 +140,7 @@ export function summarizeStockByStore(payload,scope,names=new Map()){
       name:details?.name||null,
       code:details?.code||null,
       uom:details?.uom||null,
+      catalogPath:details?.catalogPath||null,
       stores
     };
   });

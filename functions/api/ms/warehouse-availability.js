@@ -93,6 +93,7 @@ export function summarizeWarehouseAvailability(lines,names,store,page=0){
     name:names.get(line.id)?.name||null,
     code:names.get(line.id)?.code||null,
     uom:names.get(line.id)?.uom||null,
+    catalogPath:names.get(line.id)?.catalogPath||null,
     stock:line.stock
   }));
   return {

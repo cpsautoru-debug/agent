@@ -304,3 +304,18 @@ test('an out of range page fails closed instead of returning an empty successful
   assert.equal(data.changedRecords,0);
   assert.equal(calls,2);
 });
+
+test('warehouse report exposes only confirmed catalog path, without inferring product type',()=>{
+  const lines=[{id:PROD,stock:80},{id:PROD2,stock:2}];
+  const groups=new Map([
+    [PROD,{name:'Pegas',uom:'м',catalogPath:'Материалы/Экокожа'}],
+    [PROD2,{name:'Чехлы',uom:'шт',catalogPath:null}]
+  ]);
+  const result=summarizeWarehouseAvailability(lines,groups,{name:NAME});
+  assert.equal(result.items[0].catalogPath,'Материалы/Экокожа');
+  assert.equal(result.items[1].catalogPath,null);
+  assert.equal(result.items[0].uom,'м');
+  assert.equal(result.items[1].uom,'шт');
+  assert.equal(result.items[0].stock,80);
+  assert.equal(result.warehouseLines,2);
+});
