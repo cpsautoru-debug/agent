@@ -1395,7 +1395,12 @@
               <tbody id="msWarehouseAvailabilityRows"></tbody>
             </table>
           </div>
-          <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, пока выводятся первые 10; без разрешения на массовую синхронизацию история не сохраняется.</p>
+          <nav class="ms-production-pager" aria-label="Страницы наличия выбранного склада">
+            <button class="ms-production-detail-button" type="button" id="msWarehouseAvailabilityPrev" disabled>Назад</button>
+            <span id="msWarehouseAvailabilityPage">Страница 1</span>
+            <button class="ms-production-detail-button" type="button" id="msWarehouseAvailabilityNext" disabled>Вперёд</button>
+          </nav>
+          <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, используйте кнопки «Назад» и «Вперёд»: показываем по 10 позиций. Каждая страница читается отдельно, без сохранения истории и без фоновой синхронизации.</p>
         </div>
         <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
         <p class="ms-production-count" id="msStockCount">Складской отчёт ещё не загружен.</p>
