@@ -14,3 +14,14 @@
 .ms-production-legacy{margin-top:18px}
 .ms-production-legacy summary{font-size:12px;color:#65736d;cursor:pointer}
 .ms-production-legacy .workflow{margin-top:14px}
+
+.ms-production-detail-button{border:1px solid #d7e5d8;border-radius:8px;background:#eff8de;color:#213d2c;padding:7px 12px;cursor:pointer;font-size:12px;font-weight:650}
+.ms-production-detail-button:hover{background:#d7efa6}
+.ms-production-detail-button:disabled{opacity:.4;cursor:not-allowed}
+.ms-production-stage-panel{margin:20px 0;padding:18px 0 0;border-top:1px solid #dfe6de}
+.ms-production-stage-panel[hidden]{display:none}
+.ms-production-stage-panel h3{margin:0 0 8px;font-size:17px}
+.ms-production-stage-totals{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0}
+.ms-production-stage-totals>div{display:flex;flex-direction:column;min-width:160px;gap:5px;padding:13px 18px;background:#f4f7f1;border-radius:9px}
+.ms-production-stage-totals span{font-size:11px;color:#63766a}
+.ms-production-stage-totals strong{font-size:24px;font-variant-numeric:tabular-nums;color:#153c2b}
