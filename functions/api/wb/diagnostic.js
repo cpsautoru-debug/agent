@@ -58,7 +58,7 @@ export function createFinanceCheckHandler(fetcher=fetch){
     signal=AbortSignal.timeout(15000);
     stage='request_build';
     const wbHeaders=new Headers({Authorization:env.WB_API_TOKEN,'Content-Type':'application/json',Accept:'application/json'});
-    const options={method:'POST',redirect:'error',signal,headers:wbHeaders,body:JSON.stringify({limit:LIMIT,rrdId:0,fields:['reportId','rrdId','sellerOperName','currency','quantity','forPay','deliveryService','paidStorage','deduction','penalty']})};
+    const options={method:'POST',redirect:'manual',signal,headers:wbHeaders,body:JSON.stringify({limit:LIMIT,rrdId:0,fields:['reportId','rrdId','sellerOperName','currency','quantity','forPay','deliveryService','paidStorage','deduction','penalty']})};
     stage='upstream_fetch';fetchAttempts=1;
     response=await fetcher('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed/'+REPORT,options);
    }catch(error){return json(502,{code:'finance_transport_failure',...transportDiagnostic(error,stage,signal,fetchAttempts),upstreamHttp:null,retry:false})}
