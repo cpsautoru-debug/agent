@@ -9,7 +9,7 @@ const BASE='https://api.moysklad.ru/api/remap/1.2/';
 const STORES=BASE+'entity/store';
 const CURRENT=BASE+'report/stock/bystore/current';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STORE_NAME=/^[\p{L}\p{N} .,_\-–—()]{2,120}$/u;
+const STORE_NAME=/^[\p{L}\p{N} .,_\-–—()]{3,120}$/u;
 const HEADERS={'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store','Vary':'Cookie',
   'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
