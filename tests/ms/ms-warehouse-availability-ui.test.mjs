@@ -24,7 +24,7 @@ test('button makes only an owner-session same-origin GET, never background API p
   assert.match(js,/method:'GET'/);
   assert.match(js,/cache:'no-store'/);
   assert.match(js,/warehouseLines/);
-  assert.match(js,/дополнительные/);
+  assert.match(js,/additionalRows/);
   assert.match(js,/Не указана/);
   assert.match(js,/ms-stock-negative/);
   assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|setInterval|setTimeout|method:'POST'/);
