@@ -1318,6 +1318,18 @@
           </div>
           <p class="ms-production-note">Статусы относятся только к проверенным документам на этой странице. «Плановая дата прошла» ставится только незавершённому заданию с подтверждёнными этапами, если его плановый календарный день уже завершился по Самаре. Это не доказательство нарушения договорного срока. Неизвестные данные не приравниваются к нулю; проверка разных заданий выполняется последовательно, а не как единый снимок состояния.</p>
         </section>
+        <section class="ms-coverage-probe" aria-labelledby="msCoverageProbeTitle">
+          <div class="ms-page-audit-header">
+            <div>
+              <h3 id="msCoverageProbeTitle">Проверка возможности полного охвата</h3>
+              <p>Ручная диагностика: один образец задания и один образец этапа. Только два GET-запроса, без сбора всех заданий или записи в «МойСклад».</p>
+            </div>
+            <button class="ms-production-detail-button" type="button" id="msCoverageProbeStart">Оценить объём API</button>
+          </div>
+          <p id="msCoverageProbeStatus" class="ms-production-status" role="status">Диагностика ещё не запускалась.</p>
+          <p id="msCoverageProbeSummary" class="ms-production-note" hidden></p>
+          <p class="ms-production-note">Это техническая проверка структуры и количества записей. Отчёт обо всех незавершённых заданиях появится только после проверки связей, полноты постраничной выгрузки и нагрузки API.</p>
+        </section>
         <section class="ms-production-stage-panel" id="msProductionStagePanel" hidden aria-labelledby="msProductionStageTitle">
           <div class="ms-production-stage-heading">
             <h3 id="msProductionStageTitle">Этапы выбранного задания</h3>
@@ -1368,6 +1380,7 @@
 
 <script src="app.js" defer></script>
 <script type="module" src="ms-production.js"></script>
+<script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
