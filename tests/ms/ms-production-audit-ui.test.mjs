@@ -27,3 +27,12 @@ test('current pagination and stage drilldown are preserved',()=>{
   assert.match(js,/loadStages/);
   assert.match(css,/\.ms-page-audit/);
 });
+
+test('plan date signal is shown only inside manually verified page audit',()=>{
+  assert.match(html,/id="msAuditPastDate"/);
+  assert.match(html,/Плановая дата прошла/);
+  assert.match(js,/classifyProductionPlanDate\(task,result,Date\.now\(\)\)/);
+  assert.match(js,/planDateStatus==='past'/);
+  assert.match(js,/auditPastDate\.textContent/);
+  assert.match(css,/\.ms-plan-date-past/);
+});
