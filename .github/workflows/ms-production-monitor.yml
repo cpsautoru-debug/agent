@@ -1,7 +1,7 @@
 name: MoySklad production monitor
 on:
   pull_request:
-    branches: [feature/marketplace-agents-staging]
+    branches: [feature/marketplace-agents-staging, feature/ms-plan-date-page-audit-20261120]
     paths:
       - 'functions/api/ms/production-feed.js'
       - 'functions/api/ms/production-coverage-probe.js'
