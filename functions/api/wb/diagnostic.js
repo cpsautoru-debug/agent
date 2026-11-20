@@ -22,6 +22,20 @@ export function summarizeFinanceCheck(raw){
  return {code:'finance_report_received',reportId:REPORT,financeRights:'CONFIRMED_BY_HTTP_200',operations:rows.length,operationCounts:operations,sales,returns,payoutKop:payout.toString(),comparison:{payoutMatches:payout===7922633n,salesMatch:sales===22,returnsMatch:returns===1},comparisonBasis:'same_components_as_existing_XLSX_preview',apiCogsExpected:false,apiWrites:0,d1Writes:0};
 }
 async function boundedText(response){const reader=response.body?.getReader();if(!reader)throw Error('empty');let size=0,text='';const decoder=new TextDecoder('utf-8',{fatal:true});try{while(true){const {done,value}=await reader.read();if(done){text+=decoder.decode();return text}size+=value.byteLength;if(size>MAX_BYTES)throw Error('size');text+=decoder.decode(value,{stream:true})}}finally{void reader.cancel().catch(()=>{})}}
+function transportDiagnostic(error,stage,signal,fetchAttempts){
+ const names=new Set(['TypeError','RangeError','Error','DOMException','AbortError','TimeoutError']);
+ const exceptionType=names.has(error?.name)?error.name:'UnknownError';
+ const rawCode=error?.cause?.code??error?.code;
+ let transportCode='transport_fetch_failed';
+ if(signal?.aborted||exceptionType==='TimeoutError')transportCode='transport_timeout';
+ else if(exceptionType==='AbortError')transportCode='transport_aborted';
+ else if(stage==='timeout_setup')transportCode='transport_timeout_setup_failed';
+ else if(stage==='request_build')transportCode='transport_request_invalid';
+ else if(['ENOTFOUND','EAI_AGAIN','DNS_ERROR'].includes(rawCode))transportCode='transport_dns_failure';
+ else if(['ECONNREFUSED','ECONNRESET','ETIMEDOUT','UND_ERR_CONNECT_TIMEOUT','UND_ERR_SOCKET'].includes(rawCode))transportCode='transport_connection_failure';
+ else if(['CERT_HAS_EXPIRED','DEPTH_ZERO_SELF_SIGNED_CERT','UNABLE_TO_VERIFY_LEAF_SIGNATURE','ERR_TLS_CERT_ALTNAME_INVALID'].includes(rawCode))transportCode='transport_tls_failure';
+ return {stage,exceptionType,transportCode,fetchAttempts};
+}
 export function createFinanceCheckHandler(fetcher=fetch){
  return async function({request,env}){
   try{
@@ -39,8 +53,15 @@ export function createFinanceCheckHandler(fetcher=fetch){
    const reader=request.body?.getReader();if(!reader)return json(400,{code:'invalid_body'});
    let bytes=0,body='';const decoder=new TextDecoder();try{while(true){const r=await reader.read();if(r.done)break;bytes+=r.value.byteLength;if(bytes>16)return json(400,{code:'invalid_body'});body+=decoder.decode(r.value,{stream:true})}}finally{void reader.cancel().catch(()=>{})}
    if(!/^\s*\{\s*\}\s*$/.test(body))return json(400,{code:'invalid_body'});
-   let response;
-   try{response=await fetcher('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed/'+REPORT,{method:'POST',redirect:'error',signal:AbortSignal.timeout(15000),headers:{Authorization:env.WB_API_TOKEN,'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({limit:LIMIT,rrdId:0,fields:['reportId','rrdId','sellerOperName','currency','quantity','forPay','deliveryService','paidStorage','deduction','penalty']})})}catch{return json(502,{code:'finance_transport_failure',upstreamRequests:1,retry:false})}
+   let response,signal,stage='timeout_setup',fetchAttempts=0;
+   try{
+    signal=AbortSignal.timeout(15000);
+    stage='request_build';
+    const wbHeaders=new Headers({Authorization:env.WB_API_TOKEN,'Content-Type':'application/json',Accept:'application/json'});
+    const options={method:'POST',redirect:'error',signal,headers:wbHeaders,body:JSON.stringify({limit:LIMIT,rrdId:0,fields:['reportId','rrdId','sellerOperName','currency','quantity','forPay','deliveryService','paidStorage','deduction','penalty']})};
+    stage='upstream_fetch';fetchAttempts=1;
+    response=await fetcher('https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed/'+REPORT,options);
+   }catch(error){return json(502,{code:'finance_transport_failure',...transportDiagnostic(error,stage,signal,fetchAttempts),upstreamHttp:null,retry:false})}
    if(response.status!==200){void response.body?.cancel().catch(()=>{});return json(422,{code:({401:'finance_token_rejected',403:'finance_permission_denied',429:'finance_rate_limited',204:'finance_no_data'})[response.status]||'finance_upstream_failure',upstreamHttp:response.status,upstreamRequests:1,retry:false})}
    try{return json(200,{...summarizeFinanceCheck(await boundedText(response)),upstreamHttp:200,upstreamRequests:1,retry:false})}catch{return json(422,{code:'finance_response_not_reconciled',financeRights:'CONFIRMED_BY_HTTP_200',upstreamHttp:200,upstreamRequests:1,retry:false})}
   }catch{return json(503,{code:'finance_check_unavailable',retry:false})}

@@ -1,7 +1,7 @@
 (() => {
  const button=document.getElementById('wbFinanceCheckButton'),output=document.getElementById('wbFinanceCheckStatus');
  if(!button||!output)return;
- const endpoint='/api/wb/diagnostic',key='wb-finance-one-check-865265818-v1';
+ const endpoint='/api/wb/diagnostic',key='wb-finance-one-check-865265818-transport-v2';
  let attempted=false;
  try{attempted=sessionStorage.getItem(key)==='sent'}catch{attempted=true}
  if(attempted){output.textContent='Попытка в этой сессии уже использована. Не повторяйте запрос; передайте результат проверки.';return}
@@ -14,7 +14,7 @@
    const r=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json','X-WB-Finance-Check':'865265818'},body:'{}'});
    const result=await r.json();
    if(result.code==='finance_report_received')output.textContent='WB HTTP '+result.upstreamHttp+'; операций '+result.operations+'; продажи '+result.sales+'; возвраты '+result.returns+'; выплата '+(Number(result.payoutKop)/100).toFixed(2)+' ₽; совпадение с XLSX: '+(result.comparison.payoutMatches&&result.comparison.salesMatch&&result.comparison.returnsMatch?'ДА':'НЕТ')+'. Запись D1: 0. Cron выключен.';
-   else output.textContent='Проверка остановлена: '+result.code+'; HTTP WB '+(result.upstreamHttp??'не получен')+'. Автоповторов нет.';
+   else output.textContent='Проверка остановлена: '+result.code+'; этап '+(result.stage??'upstream_http')+'; тип '+(result.exceptionType??'нет')+'; код '+(result.transportCode??result.code)+'; HTTP WB '+(result.upstreamHttp??'не получен')+'. Автоповторов нет.';
   }catch{output.textContent='Результат запроса неизвестен. Не повторяйте попытку. Записи D1 нет.'}
  });
 })();
