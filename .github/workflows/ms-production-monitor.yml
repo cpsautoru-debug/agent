@@ -12,6 +12,7 @@ on:
       - 'web/office/ms-production-audit.mjs'
       - 'web/office/ms-production-coverage-probe.mjs'
       - 'web/office/ms-production-scan-budget.mjs'
+      - 'scripts/ms-preview-smoke.mjs'
       - 'web/office/ms-production.css'
       - 'web/office/index.html'
       - 'tests/ms/ms-production-feed.test.mjs'
@@ -21,6 +22,7 @@ on:
       - 'tests/ms/ms-production-coverage-probe.test.mjs'
       - 'tests/ms/ms-production-coverage-probe-ui.test.mjs'
       - 'tests/ms/ms-production-scan-budget.test.mjs'
+      - 'tests/ms/ms-preview-smoke.test.mjs'
       - 'tests/ms/ms-production-stages.test.mjs'
       - 'tests/ms/ms-production-date.test.mjs'
       - 'tests/ms/ms-production-plan-date.test.mjs'
@@ -44,4 +46,5 @@ jobs:
       - run: node --check web/office/ms-production-plan-date.mjs
       - run: node --check web/office/ms-production-coverage-probe.mjs
       - run: node --check web/office/ms-production-scan-budget.mjs
-      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs
+      - run: node --check scripts/ms-preview-smoke.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs
