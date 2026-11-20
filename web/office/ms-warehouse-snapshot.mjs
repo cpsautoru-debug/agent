@@ -114,6 +114,18 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
         timeZone:'Europe/Samara',dateStyle:'short',timeStyle:'short'
       }).format(new Date());
       render();
+      // Ephemeral in-page status for the production manager. No storage/extra API.
+      const quality=snapshotCounts(snapshot.items);
+      window.dispatchEvent(new CustomEvent('ms:warehouse-snapshot-ready',{
+        detail:{
+          warehouseName:snapshot.warehouseName,
+          positions:snapshot.itemCount,
+          materials:quality.materials,
+          eva:quality.eva,
+          unverified:quality.unverified,
+          missingUnits:snapshot.items.filter(x=>!x.uom).length
+        }
+      }));
     }catch(error){
       clear();
       status.textContent='Полный краткий обзор не подтверждён: '+
