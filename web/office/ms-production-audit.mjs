@@ -16,6 +16,22 @@ export function assessProductionTask(task,payload){
       s.plan<0||s.done<0||s.done>s.plan)
       return {number:task.number,status:'unverified',code:'unverified_stage_data'};
   }
+  // A page audit must not infer an exact shop-floor status from missing,
+  // inconsistent or non-monotonic stage chains.
+  const tolerance=0.000001;
+  let previousDone=payload.plan;
+  const seenOrders=new Set();
+  for(const s of stages){
+    if(seenOrders.has(s.order)||
+      Math.abs(s.plan-payload.plan)>tolerance||
+      s.done>previousDone+tolerance){
+      return {number:task.number,status:'unverified',code:'stage_chain_not_verified'};
+    }
+    seenOrders.add(s.order);
+    previousDone=s.done;
+  }
+  if(Math.abs(previousDone-payload.finishedFinalStage)>tolerance)
+    return {number:task.number,status:'unverified',code:'final_stage_mismatch'};
   const remains=Math.round((payload.plan-payload.finishedFinalStage)*1000)/1000;
   const firstUnfinished=stages.find(s=>s.done<s.plan-1e-9);
   // A complete last stage with an earlier incomplete stage is a data discrepancy.
