@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#112a25">
 <title>АвтоСклад63 · Онлайн-офис</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="ms-production.css">
 <link rel="stylesheet" href="office-map.css">
 <link rel="stylesheet" href="ozon-finance.css">
 <link rel="stylesheet" href="profit.css">
@@ -1257,118 +1258,32 @@
     </section>
 
     <!-- ПРОИЗВОДСТВО -->
-
-    <section class="page"
-             data-section="production"
-             hidden>
-
+    <section class="page" data-section="production" hidden>
       <div class="page-heading">
         <div>
-          <div class="eyebrow">
-            ПРИОРИТЕТ ИЗ «ВТОРОГО МОЗГА»
-          </div>
-          <h1>Запуск производственного учёта</h1>
-          <p>
-            Материал → крой → пошив →
-            готовый комплект → отгрузка.
-            Физические операции фиксируют сотрудники,
-            контролёр проверяет записи.
-          </p>
+          <div class="eyebrow">МОЙСКЛАД · РЕАЛЬНЫЕ ДАННЫЕ</div>
+          <h1>Контроль производства</h1>
+          <p>Производственные задания приходят напрямую из «МойСклад» через защищённый API. Google Таблица для этой панели не используется.</p>
         </div>
-
-        <a class="button primary"
-           data-sheet="710009"
-           target="_blank"
-           rel="noopener">
-          Контроль производства ↗
-        </a>
       </div>
-
-      <div class="workflow">
-
-        <article class="workflow-step">
-          <span class="step-number">01</span>
+      <section class="ms-production-monitor" id="msProductionMonitor" aria-labelledby="msProductionTitle">
+        <div class="ms-production-header">
           <div>
-            <h3>Подтвердить фактические остатки</h3>
-            <p>
-              Кладовщик и старшая производства:
-              пересчитать материалы, крой,
-              выданное швеям и готовые комплекты.
-              Расчётные остатки не заменяют пересчёт.
-            </p>
-            <a data-sheet="414775231"
-               target="_blank"
-               rel="noopener">
-              Открыть остатки ↗
-            </a>
+            <h2 id="msProductionTitle">Последние производственные задания</h2>
+            <p>Доступно только владельцу. Данные без записи в «МойСклад».</p>
           </div>
-        </article>
-
-        <article class="workflow-step">
-          <span class="step-number">02</span>
-          <div>
-            <h3>Закрепить ответственность и сроки</h3>
-            <p>
-              Менеджер проектов и старшая:
-              у каждой позиции должны быть этап,
-              исполнитель, срок и ID заказа или партии.
-            </p>
-            <a data-sheet="710009"
-               target="_blank"
-               rel="noopener">
-              Проверить маршрут производства ↗
-            </a>
-          </div>
-        </article>
-
-        <article class="workflow-step">
-          <span class="step-number">03</span>
-          <div>
-            <h3>Фиксировать каждую передачу</h3>
-            <p>
-              Сотрудники записывают фактическую выдачу,
-              раскрой, пошив, готовность и отгрузку.
-              Повторный учёт одного расхода запрещён.
-            </p>
-            <div class="production-links">
-              <a data-sheet="218679490"
-                 target="_blank" rel="noopener">
-                Раскрой ↗
-              </a>
-              <a data-sheet="32853933"
-                 target="_blank" rel="noopener">
-                Пошив ↗
-              </a>
-              <a data-sheet="115686972"
-                 target="_blank" rel="noopener">
-                Отгрузка ↗
-              </a>
-            </div>
-          </div>
-        </article>
-
-        <article class="workflow-step">
-          <span class="step-number">04</span>
-          <div>
-            <h3>Проверять исключения</h3>
-            <p>
-              Контролёры в таблице запускаются вручную.
-              Общего расписания и автоматических
-              уведомлений ещё нет.
-              Вопросы по расхождениям передаются
-              ответственному; цены и списания
-              не меняются автоматически.
-            </p>
-            <a data-sheet="248682278"
-               target="_blank"
-               rel="noopener">
-              Отчёты контролёров ↗
-            </a>
-          </div>
-        </article>
-
-      </div>
-
+          <button type="button" class="ms-production-button" id="msProductionRefresh">Обновить из «МойСклад»</button>
+        </div>
+        <p class="ms-production-status" id="msProductionStatus" role="status">Проверяем подключение…</p>
+        <p class="ms-production-count" id="msProductionCount">Данные ещё не получены</p>
+        <div class="ms-production-scroll">
+          <table class="ms-production-table">
+            <thead><tr><th>Задание</th><th>Дата документа</th><th>Обновлено</th></tr></thead>
+            <tbody id="msProductionRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Это последние 20 заданий по дате, а не список всех активных заказов. План/факт, этапы и исполнителей подключим после проверки структуры их API. Не используйте общее количество как текущую загрузку цеха.</p>
+      </section>
     </section>
 
     <footer>
@@ -1397,6 +1312,7 @@
 <link rel="stylesheet" href="studio.css">
 
 <script src="app.js" defer></script>
+<script src="ms-production.js" defer></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
