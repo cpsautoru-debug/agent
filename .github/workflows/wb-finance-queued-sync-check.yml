@@ -6,6 +6,8 @@ on:
       - 'workers/wb-finance-sync-core.mjs'
       - 'workers/wb-finance-auto-sync.js'
       - 'functions/api/wb/auto-sync-status.js'
+      - 'functions/api/wb/sync-once.js'
+      - 'tests/wb/wb-owner-one-shot.test.mjs'
       - 'tests/wb/wb-finance-sync-core.test.mjs'
       - 'migrations/wb/0006_wb_finance_api_queued_sync.sql'
       - '.github/workflows/wb-finance-queued-sync-check.yml'
@@ -22,6 +24,8 @@ jobs:
           node-version: '22'
       - run: node --check workers/wb-finance-auto-sync.js
       - run: node --check functions/api/wb/auto-sync-status.js
+      - run: node --check functions/api/wb/sync-once.js
+      - run: node --test tests/wb/wb-owner-one-shot.test.mjs
       - run: node --check web/office/wb-auto-sync-status.js
       - run: node --test tests/wb/wb-finance-sync-core.test.mjs
       - name: Verify staging schema on a fresh SQLite database

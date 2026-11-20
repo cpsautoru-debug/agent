@@ -43,6 +43,41 @@
       status.textContent='Статус автоматической синхронизации пока недоступен. Сохранённые XLSX не изменены.';
     }finally{pending=false;button.disabled=false;}
   }
+  const stepButton=document.getElementById('wbAutoSyncStepButton');
+  const stepStatus=document.getElementById('wbAutoSyncStepStatus');
+  if(stepButton&&stepStatus){
+    const key='wb-finance-one-step-owner-20261120';
+    let used=true;
+    try { used=sessionStorage.getItem(key)==='sent'; }
+    catch { stepStatus.textContent='Хранилище сессии недоступно. Запрос к WB не отправлялся.'; }
+    if(used) {
+      stepButton.disabled=true;
+      if(stepStatus.textContent.includes('не выполнялся'))stepStatus.textContent='В этой вкладке запрос уже отправлялся. Повтор не требуется.';
+    } else {
+      stepButton.addEventListener('click',async()=>{
+        if(used)return;
+        try {sessionStorage.setItem(key,'sent');}
+        catch{stepStatus.textContent='Не удалось зафиксировать однократный запуск. Без обращения к WB.';return;}
+        used=true;
+        stepButton.disabled=true;
+        stepStatus.textContent='Обращаемся к Finance API один раз. Cron выключен…';
+        try{
+          const response=await fetch('/api/wb/sync-once',{
+            method:'POST',credentials:'same-origin',cache:'no-store',
+            headers:{'Content-Type':'application/json','X-WB-One-Shot':'owner-20261120'},
+            body:'{}'
+          });
+          const payload=await response.json();
+          stepStatus.textContent=response.ok && payload.code==='owner_requested_wb_sync_step'
+            ?'Результат: '+payload.result+'. Это один шаг, а не подтверждение полной синхронизации.'
+            :'Запуск остановлен: '+(payload.code||'unknown')+'. Без автоматических повторов.';
+          await refresh();
+        }catch {
+          stepStatus.textContent='Нет подтверждённого ответа. Повторять запрос не нужно.';
+        }
+      });
+    }
+  }
   button.addEventListener('click',refresh);
   refresh();
 })();
