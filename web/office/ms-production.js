@@ -1,4 +1,5 @@
 import { formatMsMomentForSamara } from './ms-production-date.mjs';
+import { assessProductionTask, summarizePageAudit } from './ms-production-audit.mjs';
 
 (()=>{
   'use strict';
@@ -22,15 +23,27 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
   const finished=node('msStageFinished');
   const remaining=node('msStageRemaining');
   const stageBody=node('msProductionStageRows');
+  const auditButton=node('msPageAuditStart');
+  const auditStatus=node('msPageAuditStatus');
+  const auditStats=node('msPageAuditStats');
+  const auditResults=node('msPageAuditResults');
+  const auditBody=node('msPageAuditRows');
+  const auditChecked=node('msAuditChecked');
+  const auditIncomplete=node('msAuditIncomplete');
+  const auditComplete=node('msAuditComplete');
+  const auditUnknown=node('msAuditUnknown');
   if(!panel||!refreshButton||!status||!count||!listBody||!searchForm||
     !searchInput||!resetButton||!previousButton||!nextButton||!pageLabel||
     !details||!stageTitle||!stageStatus||!stageRefresh||!planned||
-    !finished||!remaining||!stageBody)return;
+    !finished||!remaining||!stageBody||!auditButton||!auditStatus||
+    !auditStats||!auditResults||!auditBody||!auditChecked||
+    !auditIncomplete||!auditComplete||!auditUnknown)return;
 
   const PAGE_SIZE=5;
   const REFRESH_MS=10*60*1000;
   let listLoading=false;
   let stageLoading=false;
+  let auditRunning=false;
   let scope={offset:0,number:null};
   let lastAttempt=0;
   let lastSuccess=0;
@@ -61,12 +74,13 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
     return '/api/ms/production-feed'+(query?'?'+query:'');
   };
   const setLoading=loading=>{
-    refreshButton.disabled=loading;
-    previousButton.disabled=loading||scope.number!==null||scope.offset===0;
-    nextButton.disabled=loading||scope.number!==null||
+    refreshButton.disabled=loading||auditRunning;
+    previousButton.disabled=loading||auditRunning||scope.number!==null||scope.offset===0;
+    nextButton.disabled=loading||auditRunning||scope.number!==null||
       !nextButton.dataset.hasMore||nextButton.dataset.hasMore!=='yes';
-    resetButton.disabled=loading;
-    searchForm.querySelector('button[type="submit"]').disabled=loading;
+    resetButton.disabled=loading||auditRunning;
+    searchForm.querySelector('button[type="submit"]').disabled=loading||auditRunning;
+    auditButton.disabled=loading||auditRunning||stageLoading||records.length===0;
   };
   const clearSelectedTask=()=>{
     selectedTask=null;
@@ -74,7 +88,14 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
     details.hidden=true;
     stageRefresh.disabled=true;
   };
+  const clearAudit=()=>{
+    auditResults.hidden=true;
+    auditStats.hidden=true;
+    auditBody.replaceChildren();
+    auditStatus.textContent='Проверка этой страницы ещё не выполнялась.';
+  };
   const showRecords=payload=>{
+    clearAudit();
     listBody.replaceChildren();
     records=payload.records;
     clearSelectedTask();
@@ -130,7 +151,7 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
   };
 
   async function refreshList(criteria=scope){
-    if(listLoading)return;
+    if(listLoading||auditRunning)return;
     listLoading=true;
     lastAttempt=Date.now();
     setLoading(true);
@@ -159,7 +180,7 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
   }
 
   async function loadStages(item){
-    if(stageLoading){
+    if(stageLoading||auditRunning){
       stageStatus.textContent='Предыдущий запрос ещё выполняется. Повтори после его завершения.';
       return;
     }
@@ -228,6 +249,86 @@ import { formatMsMomentForSamara } from './ms-production-date.mjs';
       stageRefresh.disabled=!selectedTask;
     }
   }
+
+  async function auditVisiblePage(){
+    if(auditRunning||stageLoading||listLoading||records.length===0)return;
+    auditRunning=true;
+    setLoading(true);
+    const candidates=records.slice(0,5);
+    const results=[];
+    auditStats.hidden=false;
+    auditResults.hidden=false;
+    auditBody.replaceChildren();
+    const renderStats=()=>{
+      const summary=summarizePageAudit(candidates.length,results);
+      auditChecked.textContent=String(summary.checked)+' из '+String(candidates.length);
+      auditIncomplete.textContent=String(summary.incomplete);
+      auditComplete.textContent=String(summary.complete);
+      auditUnknown.textContent=String(summary.unverified+summary.notChecked);
+    };
+    renderStats();
+    const appendResult=item=>{
+      const tr=document.createElement('tr');
+      cell(tr,item.number);
+      const labels={
+        incomplete:'Незавершено',
+        complete:'Все этапы завершены',
+        unverified:'Не подтверждено'
+      };
+      cell(tr,labels[item.status]||'Не подтверждено');
+      cell(tr,quantity(item.plan));
+      cell(tr,quantity(item.finished));
+      cell(tr,quantity(item.remaining));
+      cell(tr,item.firstUnfinishedStage||(
+        item.status==='unverified'?'Ошибка или отсутствуют данные':'—'
+      ));
+      auditBody.append(tr);
+    };
+    try{
+      for(const [i,task] of candidates.entries()){
+        if(!isVisible()){
+          auditStatus.textContent='Проверка остановлена: раздел больше не открыт. Результат неполный.';
+          break;
+        }
+        auditStatus.textContent='Проверяем задание '+task.number+
+          ' ('+(i+1)+' из '+candidates.length+')…';
+        let result;
+        if(!task.id){
+          result={number:task.number,status:'unverified',code:'missing_task_id'};
+        }else{
+          try{
+            const response=await fetch('/api/ms/production-stages?taskId='+
+              encodeURIComponent(task.id),{
+              method:'GET',credentials:'same-origin',cache:'no-store',
+              headers:{Accept:'application/json'}
+            });
+            const body=await response.json();
+            if(!response.ok||body?.code!=='ms_production_stages_ok')
+              result={number:task.number,status:'unverified',
+                code:typeof body?.code==='string'?body.code:'upstream_error'};
+            else result=assessProductionTask(task,body);
+          }catch{
+            result={number:task.number,status:'unverified',code:'fetch_error'};
+          }
+        }
+        results.push(result);
+        appendResult(result);
+        renderStats();
+      }
+      if(results.length===candidates.length){
+        const summary=summarizePageAudit(candidates.length,results);
+        auditStatus.textContent='Проверена текущая страница · '+showTime()+
+          ' (Самара). Незавершённых заданий: '+summary.incomplete+
+          ', завершённых: '+summary.complete+
+          ', неподтверждённых: '+summary.unverified+
+          '. Не является сводкой всего цеха.';
+      }
+    }finally{
+      auditRunning=false;
+      setLoading(false);
+    }
+  }
+  auditButton.addEventListener('click',auditVisiblePage);
 
   searchForm.addEventListener('submit',event=>{
     event.preventDefault();
