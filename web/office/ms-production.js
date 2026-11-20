@@ -98,6 +98,8 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
     clearAudit();
     listBody.replaceChildren();
     records=payload.records;
+    auditButton.textContent=records.length===1?'Проверить 1 задание':
+      'Проверить '+records.length+' заданий';
     clearSelectedTask();
     if(records.length===0){
       const tr=document.createElement('tr');
