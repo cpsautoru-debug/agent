@@ -40,3 +40,18 @@ test('production numbers are sourced from existing real feed and page audit only
   assert.match(css,/\.ms-stock-table/);
   assert.match(css,/@media\(max-width:720px\)/);
 });
+
+test('warehouse dropdown is derived from visible API page and does not request network on change',()=>{
+  assert.equal((html.match(/id="msStockWarehouse"/g)||[]).length,1);
+  assert.equal((html.match(/id="msStockScopeNote"/g)||[]).length,1);
+  assert.match(html,/Фильтр применяется только к загруженным позициям/);
+  assert.match(js,/pageWarehouseNames\(payload\.items\)/);
+  assert.match(js,/selectStockPageGroups\(lastPayload\.items,warehouse\.value\)/);
+  assert.match(js,/warehouse\.addEventListener\('change',\(\)=>\{if\(lastPayload&&!pending\)renderPage\(\);\}\)/);
+  assert.match(js,/name\.rowSpan=stores\.length/);
+  assert.match(js,/unit\.rowSpan=stores\.length/);
+  assert.match(js,/Не указана/);
+  assert.match(js,/На этой странице у выбранного склада нет строк/);
+  assert.match(css,/\.ms-stock-product-name/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|method:'POST'/);
+});
