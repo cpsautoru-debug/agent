@@ -1,0 +1,39 @@
+name: WB Finance queued sync check
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'workers/wb-finance-sync-core.mjs'
+      - 'workers/wb-finance-auto-sync.js'
+      - 'functions/api/wb/auto-sync-status.js'
+      - 'tests/wb/wb-finance-sync-core.test.mjs'
+      - 'migrations/wb/0006_wb_finance_api_queued_sync.sql'
+      - '.github/workflows/wb-finance-queued-sync-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wb-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check workers/wb-finance-auto-sync.js
+      - run: node --check functions/api/wb/auto-sync-status.js
+      - run: node --check web/office/wb-auto-sync-status.js
+      - run: node --test tests/wb/wb-finance-sync-core.test.mjs
+      - name: Verify staging schema on a fresh SQLite database
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          con = sqlite3.connect(':memory:')
+          with open('migrations/wb/0006_wb_finance_api_queued_sync.sql',encoding='utf-8') as f:
+              con.executescript(f.read())
+          got = {x[0] for x in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          required={'wb_finance_api_runtime','wb_finance_api_reports','wb_finance_api_rows'}
+          assert required <= got, (required, got)
+          assert 'wb_saved_xlsx_reports' not in got
+          print('Staging API-only tables OK')
+          PY
