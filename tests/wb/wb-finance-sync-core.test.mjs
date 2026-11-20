@@ -54,3 +54,24 @@ test('first report settlement components match previous verified diagnostic form
   },'865265818');
   assert.equal(payoutFromRows([r1]),7922633);
 });
+
+test('WB commission and logistics rows may have an empty vendor code', () => {
+  for (const empty of ['', '   ', null]) {
+    const row=normalizeOperation({
+      reportId:'865265818',rrdId:'789',sellerOperName:'Логистика',
+      vendorCode:empty,currency:'RUB',quantity:0,
+      deliveryService:'172.25',paidStorage:'0',deduction:'0',penalty:'0'
+    },'865265818');
+    assert.equal(row.vendorCode,null);
+    assert.equal(payoutFromRows([row]),-17225);
+  }
+});
+
+test('blank vendor code on a real sale or return is still rejected', () => {
+  for (const op of ['Продажа','Возврат']) {
+    assert.throws(() => normalizeOperation({
+      reportId:'865265818',rrdId:'789',sellerOperName:op,
+      vendorCode:' ',currency:'RUB',quantity:1,forPay:'100.00'
+    },'865265818'),/sale_missing_product/);
+  }
+});
