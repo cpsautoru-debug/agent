@@ -156,3 +156,8 @@
 .ms-priority-form .ms-board-actions{display:flex;flex-wrap:wrap;gap:10px}
 .ms-priority-worklist .ms-production-scroll[hidden]{display:none}
 @media(max-width:720px){.ms-priority-worklist{padding:12px}.ms-priority-form .ms-board-actions>button{flex:1}}
+
+/* Manual diagnosis remains available but does not interrupt the automatic production panel. */
+.ms-manual-debug{margin:12px 0;border:1px solid #e3eae2;border-radius:10px;padding:10px 14px;background:#fafcf9}
+.ms-manual-debug>summary{cursor:pointer;color:#476552;font-size:13px;font-weight:600}
+.ms-manual-debug>.ms-priority-worklist{margin:12px 0 0}

@@ -132,3 +132,22 @@ test('invalid scope cannot contact upstream even from an owner session',async()=
   assert.equal(r.status,400);
   assert.equal(count,0);
 });
+
+test('updated production feed is explicitly requested and stays bounded to five',async()=>{
+  const scope=parseProductionFeedScope(new URL(ENDPOINT+'?sort=updated&offset=5'));
+  assert.deepEqual(scope,{offset:5,number:null,sort:'updated'});
+  const url=new URL(buildProductionFeedUrl(scope));
+  assert.equal(url.searchParams.get('order'),'updated,desc');
+  assert.equal(url.searchParams.get('limit'),'5');
+  const result=summarizeProductionFeed({
+    meta:{size:740},rows:[{name:'00737',moment:'2026-10-01 12:00:00.000',
+      updated:'2026-11-20 12:00:00.000'}]
+  },scope);
+  assert.equal(result.selection,'LATEST_5_BY_UPDATE_NOT_ACTIVE_TASKS');
+  assert.equal(result.totalAllTime,740);
+  assert.equal(result.records[0].updated,'2026-11-20 12:00:00.000');
+  for(const s of [
+    '?sort=moment','?sort=updated&sort=updated','?number=00737&sort=updated',
+    '?sort=updated&offset=2','?sort=updated&all=true'
+  ])assert.throws(()=>parseProductionFeedScope(new URL(ENDPOINT+s)),s);
+});

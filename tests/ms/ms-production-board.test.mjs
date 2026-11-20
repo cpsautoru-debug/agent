@@ -177,3 +177,45 @@ test('summary excludes unknown tasks from overdue counts and maintains units sep
   assert.equal(x.firstIncompleteStages[0].tasks,2);
   assert.throws(()=>summarizeRecentProduction(Array(11).fill({status:'complete'})));
 });
+
+test('automatic production scan reads latest updates without requiring manually entered task numbers',async()=>{
+  const requests=[],delays=[];
+  const updateFeed=(offset)=>({
+    ...feed(offset),
+    selection:'LATEST_5_BY_UPDATE_NOT_ACTIVE_TASKS',
+    records:tasks.slice(offset,offset+5)
+  });
+  const result=await collectRecentProduction({
+    request:async url=>{
+      requests.push(url);
+      if(url==='/api/ms/production-feed?sort=updated')
+        return response(200,updateFeed(0));
+      if(url==='/api/ms/production-feed?offset=5&sort=updated')
+        return response(200,updateFeed(5));
+      return stub([])(url);
+    },
+    view:'updated',pause:async ms=>delays.push(ms),nowMs:NOW
+  });
+  assert.equal(result.code,'ms_production_board_ok');
+  assert.equal(result.source,'MOYSKLAD_LATEST_10_BY_UPDATE');
+  assert.equal(result.scope,'LATEST_10_UPDATED_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS');
+  assert.equal(result.items.length,10);
+  assert.equal(result.requests,12);
+  assert.deepEqual(requests.slice(0,2),[
+    '/api/ms/production-feed?sort=updated',
+    '/api/ms/production-feed?offset=5&sort=updated'
+  ]);
+  assert.equal(delays.length,11);
+  assert.equal(result.summary.scope,'LATEST_10_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS');
+  assert.equal(result.changedRecords,0);
+});
+test('updated selection cannot silently be confused with latest document-date feed',async()=>{
+  const calls=[];
+  const r=await collectRecentProduction({
+    view:'updated',request:async path=>{calls.push(path);return response(200,feed(0));},nowMs:NOW
+  });
+  assert.equal(r.code,'ms_production_board_unverified');
+  assert.equal(Object.hasOwn(r,'items'),false);
+  assert.equal(r.reason,'ms_feed_unverified');
+  assert.equal(calls.length,1);
+});

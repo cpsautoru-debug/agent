@@ -17,6 +17,8 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
     tbody,results,stagesSummary,warehouseSummary,toOrders,toWarehouse].some(x=>!x))
     return;
   let running=false,stopped=false;
+  const AUTO_INTERVAL_MS=30*60*1000;
+  let lastAttempt=0;
   const fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
   const now=()=>new Intl.DateTimeFormat('ru-RU',{
     timeZone:'Europe/Samara',dateStyle:'short',timeStyle:'short'
@@ -90,22 +92,22 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
       const empty=td(tr,'В реестре нет заданий. Не приравнивайте это к отсутствию работы.');
       empty.colSpan=7;tbody.append(tr);
     }
-    status.textContent='Проверено '+fmt(s.checked)+' последних по дате документов из исторического реестра '+
+    status.textContent='Автоматически проверено '+fmt(s.checked)+' недавно обновлённых документов из исторического реестра '+
       fmt(board.totalAllTime)+' · '+now()+' (Самара). '+
       'Среди них незавершённых '+fmt(s.incomplete)+
       ', завершённых '+fmt(s.complete)+
       ', неподтверждённых '+fmt(s.unverified)+
       '. Это НЕ полный перечень активных заказов, не сменная выработка и не фактическая отгрузка.';
   }
-  run.addEventListener('click',async()=>{
+  const runScan=async()=>{
     if(running||!active())return;
-    running=true;stopped=false;run.disabled=true;stop.disabled=false;
+    running=true;stopped=false;lastAttempt=Date.now();run.disabled=true;stop.disabled=false;
     stats.hidden=true;results.hidden=true;tbody.replaceChildren();
     time.textContent='Проверка запущена';
-    status.textContent='Проверяем последние 10 документов: задания и этапы читаются последовательно, между запросами — 2 секунды.';
+    status.textContent='Автоматически проверяем 10 недавно обновлённых документов и их этапы. Запросы последовательно, пауза 2 секунды.';
     try{
       const out=await collectRecentProduction({
-        request,pause,active,nowMs:Date.now(),
+        request,pause,active,nowMs:Date.now(),view:'updated',
         onProgress:p=>{
           status.textContent='Проверяем №'+p.number+' · '+p.checked+' из '+p.total+
             ' · выполнено '+p.requests+' запросов. При закрытии вкладки проверка остановится.';
@@ -122,7 +124,16 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
       stats.hidden=true;results.hidden=true;
       status.textContent='Не удалось собрать подтверждённую сводку. Данные не изменялись.';
     }finally{running=false;run.disabled=false;stop.disabled=true;}
-  });
+  };
+  run.addEventListener('click',async()=>{await runScan();});
+  const refreshIfNeeded=()=>{
+    if(active()&&!running&&Date.now()-lastAttempt>=AUTO_INTERVAL_MS)
+      void runScan();
+  };
+  window.addEventListener('hashchange',refreshIfNeeded);
+  document.addEventListener('visibilitychange',refreshIfNeeded);
+  window.setInterval(refreshIfNeeded,60*1000);
+  refreshIfNeeded();
   stop.addEventListener('click',()=>{
     stopped=true;
     status.textContent='Остановка запрошена. Новых запросов после текущего не будет.';

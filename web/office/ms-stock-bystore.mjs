@@ -2,7 +2,7 @@ import {
   pageWarehouseNames,selectStockPageGroups,summarizeStockPageGroups
 } from './ms-stock-page-view.mjs';
 
-// Manual owner-only stock view: no background poll, no full inventory claims.
+// Automatic bounded first-page stock view while office is open; never a full inventory claim.
 (()=>{
   'use strict';
   const el=id=>document.getElementById(id);
@@ -18,6 +18,8 @@ import {
   const PAGE=10;
   let state={offset:0,search:null},pending=false,hasMore=false;
   let lastPayload=null,lastLoadedAt=null;
+  const AUTO_REFRESH_MS=30*60*1000;
+  let lastAutoAttempt=0;
   const ru=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
   const val=n=>typeof n==='number'&&Number.isFinite(n)?ru(n):'Неизвестно';
   const td=(tr,v)=>{
@@ -133,6 +135,7 @@ import {
     options(null);
   };
   const load=async ()=>{
+    lastAutoAttempt=Date.now();
     if(pending||!visible())return;
     pending=true;controls();
     status.textContent='Читаем только одну страницу остатков из «МойСклад»…';
@@ -182,5 +185,14 @@ import {
   next.addEventListener('click',()=>{
     if(!pending&&hasMore&&state.offset<=4980){state.offset+=PAGE;load();}
   });
+  const refreshIfNeeded=()=>{
+    // Manual browsing/search stays intact; auto-update only the default first page.
+    if(visible()&&!pending&&state.offset===0&&state.search===null&&
+      Date.now()-lastAutoAttempt>=AUTO_REFRESH_MS)void load();
+  };
+  window.addEventListener('hashchange',refreshIfNeeded);
+  document.addEventListener('visibilitychange',refreshIfNeeded);
+  window.setInterval(refreshIfNeeded,60*1000);
   controls();
+  refreshIfNeeded();
 })();

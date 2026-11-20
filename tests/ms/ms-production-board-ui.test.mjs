@@ -24,10 +24,10 @@ test('owner production console is visible before page-by-page diagnostic screens
   assert.match(css,/\.ms-board-metrics/);
 });
 test('production manager sees explicit scope and no fabricated full active queue',()=>{
-  assert.match(html,/сверить этапы последних 10/);
+  assert.match(html,/10 последних обновлённых производственных заданий/);
   assert.match(html,/не вся незавершёнка/);
   assert.match(html,/До 12 последовательных GET с паузой/);
-  assert.match(js,/LATEST_10_DOCUMENTS_NOT_ALL_ACTIVE_ORDERS|последних по дате документов/);
+  assert.match(js,/недавно обновлённых документов/);
   assert.match(js,/Это НЕ полный перечень активных заказов/);
   assert.match(js,/firstUnfinishedStage/);
   assert.match(js,/className='ms-plan-date-past'/);
@@ -45,7 +45,9 @@ test('only user click starts bounded scan; stopping or hiding tab cancels next r
   assert.match(js,/method:'GET'/);
   assert.match(core,/requests>=12/);
   assert.match(core,/REQUEST_DELAY_MS=2000/);
-  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|setInterval|setTimeout\([^)]*,\s*60000/);
+  assert.match(js,/AUTO_INTERVAL_MS=30\*60\*1000/);
+  assert.match(js,/setInterval\(refreshIfNeeded,60\*1000\)/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML/);
 });
 test('warehouse dashboard emits only ephemeral counts to production console',()=>{
   assert.match(warehouse,/new CustomEvent\('ms:warehouse-snapshot-ready'/);
@@ -59,4 +61,18 @@ test('the board opens exact task by number in existing production UI',()=>{
   assert.match(js,/msProductionSearchForm/);
   assert.match(js,/msProductionNumber/);
   assert.match(html,/id="msProductionSearchForm"/);
+});
+
+test('production board now refreshes automatically without manual task IDs',()=>{
+  assert.match(js,/const AUTO_INTERVAL_MS=30\*60\*1000/);
+  assert.match(js,/view:'updated'/);
+  assert.match(js,/window\.addEventListener\('hashchange',refreshIfNeeded\)/);
+  assert.match(js,/document\.addEventListener\('visibilitychange',refreshIfNeeded\)/);
+  assert.match(js,/window\.setInterval\(refreshIfNeeded,60\*1000\)/);
+  assert.match(js,/refreshIfNeeded\(\)/);
+  assert.match(js,/Date\.now\(\)-lastAttempt>=AUTO_INTERVAL_MS/);
+  assert.match(html,/При открытии раздела данные загружаются автоматически/);
+  assert.match(html,/Обновить сейчас/);
+  assert.match(html,/<details class="ms-manual-debug">/);
+  assert.match(html,/ручная проверка заданий по номерам \(не обязательна\)/);
 });

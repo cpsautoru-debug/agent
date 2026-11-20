@@ -19,7 +19,7 @@ test('actual warehouse report and executive summary appear in production, not in
   assert.match(html,/Неизвестно|нет данных/);
   assert.doesNotMatch(fragment,/демо-остатки|остатки 108 м как реальные/i);
 });
-test('warehouse view is manual, private, limited to one page and uses no local storage',()=>{
+test('warehouse first page auto-refreshes when visible, private, bounded and not persisted',()=>{
   assert.match(js,/button\.addEventListener\('click'/);
   assert.match(js,/\/api\/ms\/stock-bystore/);
   assert.match(js,/method:'GET'/);
@@ -30,7 +30,10 @@ test('warehouse view is manual, private, limited to one page and uses no local s
   assert.match(js,/const PAGE=10/);
   assert.match(js,/Неизвестно/);
   assert.match(js,/ms-stock-negative/);
-  assert.doesNotMatch(js,/setInterval|setTimeout|localStorage|sessionStorage|innerHTML|method:'POST'/);
+  assert.match(js,/const AUTO_REFRESH_MS=30\*60\*1000/);
+  assert.match(js,/window\.setInterval\(refreshIfNeeded,60\*1000\)/);
+  assert.match(js,/state\.offset===0&&state\.search===null/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|method:'POST'/);
 });
 test('production numbers are sourced from existing real feed and page audit only',()=>{
   assert.match(prod,/executiveTasks\.textContent=.*payload\.totalAllTime/);
