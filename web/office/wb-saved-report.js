@@ -3,20 +3,14 @@
  const get=id=>document.getElementById(id), form=get('wbImportPreviewForm');
  if(!form)return;
  const endpoint='/api/wb/saved-report', id='865265818';
- const panel=document.createElement('section'), heading=document.createElement('h3'), button=document.createElement('button'), status=document.createElement('p'), limits=document.createElement('p');
- heading.textContent='Сохранённый отчёт WB №865265818 · тестовая база';
- button.id='wbSaveReportButton';button.className='button primary';button.hidden=true;
- let ownerAuthorized=false,previewReady=false;
- const updateButton=()=>{button.hidden=!(ownerAuthorized&&previewReady);};
+ const button=get('wbSaveReportButton'), status=get('wbSavedReportStatus');
+ if(!button||!status)return;
+ let ownerAuthorized=false,previewReady=false,pending=false;
+ const updateButton=()=>{button.disabled=!(ownerAuthorized&&previewReady)||pending;};
+ updateButton();
  form.addEventListener('wb-preview-validated',event=>{previewReady=event.detail?.reportId===id;if(previewReady)ownerAuthorized=true;updateButton();});
  for(const event of ['input','change','reset'])form.addEventListener(event,()=>{previewReady=false;updateButton();});
- button.type='button';button.textContent='Проверить и сохранить отчёт в тестовую базу';
- status.textContent='Проверяем наличие сохранённого отчёта…';
- limits.textContent='Источник — загруженный владельцем XLSX, не DEMO. Прибыль и налог предварительные (UNVERIFIED): API WB, налоговая база, возврат в запасы и дополнительные расходы не подтверждены. Сохранение не делает их окончательными.';
- for(const child of [heading,button,status,limits])panel.appendChild(child);
- form.parentElement.appendChild(panel);
  const rub=kop=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(kop/100);
- let pending=false;
  function display(value){
   const s=value?.snapshot,p=s?.preview,e=p?.estimate;
   if(value?.persisted!==true||value.storage!=='TEST_D1'||s?.reportId!==id||!e)throw Error('invalid_saved_report');
@@ -46,7 +40,7 @@
    if(!r.ok){status.textContent='Отчёт не сохранён: проверка или доступ к тестовой базе не пройдены. Автоматического повтора нет.';return}
    display(await r.json());
   }catch{status.textContent='Результат сохранения неизвестен. Обновите страницу для чтения состояния; автоматического повтора нет.'}
-  finally{pending=false;button.disabled=false}
+  finally{pending=false;updateButton()}
  });
  void reload();
 })();
