@@ -42,7 +42,7 @@
       status.textContent='Данные получены напрямую через API. Только чтение.';
       loaded=true;
     }catch(error){
-      status.textContent='Не удалось загрузить задания: '+String(error.message||'unknown').slice(0,70)+'. Проверьте сессию владельца.';
+      status.textContent='Не удалось загрузить задания: '+String(error.message||'unknown').slice(0,70)+'. Если повторяется, сообщите код ошибки.';
     }finally{
       loading=false;button.disabled=false;
     }
