@@ -87,6 +87,8 @@
         td(tr,typeof item.name==='string'?item.name+
           (typeof item.code==='string'?' · '+item.code:''):'Название не получено');
         td(tr,typeof item.uom==='string'?item.uom:'Не указана');
+        td(tr,typeof item.catalogPath==='string'&&item.catalogPath.trim()?
+          item.catalogPath:'Группа не указана');
         const qty=typeof item.stock==='number'&&Number.isFinite(item.stock)?
           count(item.stock):'Неизвестно';
         const num=document.createElement('td');
