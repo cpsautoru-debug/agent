@@ -1410,6 +1410,34 @@
             <span id="msWarehouseAvailabilityPage">Страница 1</span>
             <button class="ms-production-detail-button" type="button" id="msWarehouseAvailabilityNext" disabled>Вперёд</button>
           </nav>
+          <section class="ms-warehouse-snapshot" aria-labelledby="msWarehouseSnapshotTitle">
+            <div class="ms-page-audit-header">
+              <div>
+                <h3 id="msWarehouseSnapshotTitle">Обзор всего выбранного склада — одним нажатием</h3>
+                <p>До 40 позиций с ненулевым остатком. Один снимок количеств, затем названия партиями по 10. Запросы строго последовательно, с паузами. Без списаний и фоновой синхронизации.</p>
+              </div>
+              <button type="button" class="ms-production-button" id="msWarehouseSnapshotLoad">Собрать обзор склада</button>
+            </div>
+            <p id="msWarehouseSnapshotStatus" class="ms-production-status" role="status">Сначала выберите склад и нажмите «Собрать обзор склада».</p>
+            <p id="msWarehouseSnapshotCount" class="ms-production-count">Обзор ещё не загружен.</p>
+            <div class="ms-stock-filters">
+              <label for="msWarehouseSnapshotCategory">Группа товаров</label>
+              <select id="msWarehouseSnapshotCategory" disabled>
+                <option value="all">Все позиции</option>
+                <option value="materials">Материалы (проверенная группа)</option>
+                <option value="eva">EVA-коврики (проверенная группа)</option>
+                <option value="unverified">Прочие / группа не подтверждена</option>
+              </select>
+              <small>Категории выводятся из реальной группы номенклатуры, а не названия товара. Переключение не создаёт запросов.</small>
+            </div>
+            <div class="ms-production-scroll">
+              <table class="ms-production-table ms-warehouse-snapshot-table" id="msWarehouseSnapshotTable" hidden>
+                <thead><tr><th>Товар / материал</th><th>Ед.</th><th>Группа в «МойСклад»</th><th>Физический остаток</th></tr></thead>
+                <tbody id="msWarehouseSnapshotRows"></tbody>
+              </table>
+            </div>
+            <p class="ms-production-note">Краткий учётный снимок ненулевых остатков, не инвентаризация всех нулевых товаров. Нет резерва или ожидаемого прихода. Не суммируем разные материалы как взаимозаменяемые. Если склад превышает 40 позиций или API ошибается, обзор не строится — используйте прежнюю постраничную проверку.</p>
+          </section>
           <p class="ms-production-note">Отчёт показывает ненулевые учётные остатки выбранного склада. «Группа в каталоге» берётся из МойСклад. В фильтре «Материалы» учитываются только позиции из подтверждённой группы «ПРОИЗВОДСТВО/Экокожа и Алька»; всё остальное остаётся непроверенным, а не автоматически готовой продукцией. Фильтр относится только к загруженной странице. Это не подтверждение физической инвентаризации и не список всех нулевых товаров. Если позиций много, используйте кнопки «Назад» и «Вперёд»: показываем по 10 позиций. Каждая страница читается отдельно, без сохранения истории и без фоновой синхронизации.</p>
         </div>
         <p class="ms-production-status" id="msStockStatus" role="status">Для получения актуальных остатков нажмите «Обновить остатки». Автоматический полный обход отключён.</p>
@@ -1459,6 +1487,7 @@
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
 <script type="module" src="ms-warehouse-availability.mjs"></script>
+<script type="module" src="ms-warehouse-snapshot.mjs"></script>
 <script src="office-map.js" defer></script>
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
