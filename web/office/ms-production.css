@@ -118,3 +118,29 @@
 .ms-warehouse-snapshot-table[hidden]{display:none}
 .ms-warehouse-snapshot-table td:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
 @media(max-width:720px){.ms-warehouse-snapshot .ms-page-audit-header{flex-direction:column}.ms-warehouse-snapshot .ms-page-audit-header button{width:100%}}
+
+/* Bounded, owner-triggered production management console. */
+.ms-command-board{padding:20px;margin:8px 0 24px;border:1px solid #cfdfcf;border-radius:15px;background:#fcfefb}
+.ms-command-board h2{color:#183e2b}
+.ms-board-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.ms-board-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.ms-board-metrics[hidden]{display:none}
+.ms-board-metrics>div{background:#f1f6ef;border:1px solid #dce8da;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.ms-board-metrics span{font-size:12px;color:#536756;line-height:1.35}
+.ms-board-metrics strong{font-size:20px;color:#183d2a;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ms-board-table{min-width:960px}
+.ms-board-unknown{font-weight:700;color:#9b672d}
+.ms-board-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.ms-board-sources>div{padding:13px;border:1px solid #dbe7db;border-radius:11px;background:#f8fbf7}
+.ms-board-sources h3{font-size:14px;margin:0 0 5px;color:#184431}
+.ms-board-sources p{font-size:12px;line-height:1.55;margin:0 0 11px}
+@media(max-width:760px){
+  .ms-board-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ms-board-sources{grid-template-columns:1fr}
+  .ms-board-actions{justify-content:flex-start}
+}
+@media(max-width:430px){
+  .ms-command-board{padding:12px}
+  .ms-board-metrics{grid-template-columns:1fr 1fr}
+  .ms-board-metrics strong{font-size:17px}
+}

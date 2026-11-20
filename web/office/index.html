@@ -1272,6 +1272,47 @@
         <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Нажмите «Обновить остатки»</strong><small>Ручное чтение, без изменений данных</small></div>
         <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
       </section>
+      <section class="ms-command-board" id="msCommandBoard" aria-labelledby="msBoardTitle">
+        <div class="ms-production-header">
+          <div>
+            <h2 id="msBoardTitle">Пульт руководителя производства</h2>
+            <p>Одно ручное действие — сверить этапы последних 10 производственных заданий. Проверяются завершённость, первый незавершённый этап и плановая дата. Без изменения документов.</p>
+          </div>
+          <div class="ms-board-actions">
+            <button class="ms-production-button" type="button" id="msBoardRun">Проверить последние 10</button>
+            <button class="ms-production-detail-button" type="button" id="msBoardStop" disabled>Остановить</button>
+          </div>
+        </div>
+        <p class="ms-production-status" id="msBoardStatus" role="status">Для проверки состояния последних заданий нажмите «Проверить последние 10». Полная текущая очередь цеха пока не подтверждена.</p>
+        <div class="ms-board-metrics" id="msBoardStats" hidden>
+          <div><span>Проверено</span><strong id="msBoardChecked">—</strong></div>
+          <div><span>Не завершены</span><strong id="msBoardIncomplete">—</strong></div>
+          <div><span>Все учтённые этапы выполнены</span><strong id="msBoardComplete">—</strong></div>
+          <div><span>Не подтверждено</span><strong id="msBoardUnknown">—</strong></div>
+          <div><span>Плановая дата прошла</span><strong id="msBoardPast">—</strong></div>
+          <div><span>Срез выполнен</span><strong id="msBoardTime">—</strong></div>
+        </div>
+        <p id="msBoardStageSummary" class="ms-production-note">Блокирующие этапы станут видны после проверки заданий.</p>
+        <div class="ms-production-scroll" id="msBoardResults" hidden>
+          <table class="ms-production-table ms-board-table">
+            <thead><tr><th>№ задания</th><th>Статус</th><th>Осталось, условных ед.</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Контроль даты</th><th>Действие</th></tr></thead>
+            <tbody id="msBoardRows"></tbody>
+          </table>
+        </div>
+        <div class="ms-board-sources">
+          <div>
+            <h3>Склад и номенклатура</h3>
+            <p id="msBoardWarehouse">Снимок ещё не получен. Используйте «Собрать обзор склада» ниже: статусы и пробелы классификации появятся здесь без дополнительных запросов.</p>
+            <button class="ms-production-detail-button" type="button" id="msBoardGoWarehouse">К обзору складов</button>
+          </div>
+          <div>
+            <h3>Поиск и детали производства</h3>
+            <p>Если заказ не входит в последние 10 документов, найдите его по номеру. Это не означает, что заказ завершён или отсутствует в производстве.</p>
+            <button class="ms-production-detail-button" type="button" id="msBoardGoTasks">Найти задание по номеру</button>
+          </div>
+        </div>
+        <p class="ms-production-note">Область проверки: только до 10 последних документов по дате из исторического реестра. Это не вся незавершёнка и не подтверждение фактической отгрузки. До 12 последовательных GET с паузой не менее 2 секунд; остановка при ограничении API. Исполнители, заказы покупателей, нормы расхода, реальная очередь и дефицит не определяются без подтверждённых связей.</p>
+      </section>
       <section class="ms-production-monitor" id="msProductionMonitor" aria-labelledby="msProductionTitle">
         <div class="ms-production-header">
           <div>
@@ -1439,6 +1480,8 @@
                 <option value="unverified">Прочие / группа не подтверждена</option>
               </select>
               <small>Категории выводятся из реальной группы номенклатуры, а не названия товара. Переключение не создаёт запросов.</small>
+              <button class="ms-production-detail-button" id="msWarehouseSnapshotExportMissing" type="button" disabled>CSV: карточки на исправление</button>
+              <small>Список позиций с отсутствующей группой или единицей измерения. Формируется только из подтверждённого снимка этого склада, без новых запросов. Это не файл автоматического импорта.</small>
             </div>
             <div class="ms-production-scroll">
               <table class="ms-production-table ms-warehouse-snapshot-table" id="msWarehouseSnapshotTable" hidden>
@@ -1494,6 +1537,7 @@
 
 <script src="app.js" defer></script>
 <script type="module" src="ms-production.js"></script>
+<script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
 <script type="module" src="ms-warehouse-availability.mjs"></script>

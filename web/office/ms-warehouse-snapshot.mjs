@@ -1,4 +1,5 @@
 import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.mjs';
+import {buildCatalogFixCsv,missingCatalogRows} from './ms-catalog-quality-export.mjs';
 
 // Manual bounded snapshot: no automatic calls, no persistence, no writes.
 (()=>{
@@ -8,7 +9,8 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
   const status=el('msWarehouseSnapshotStatus'),count=el('msWarehouseSnapshotCount');
   const table=el('msWarehouseSnapshotTable'),rows=el('msWarehouseSnapshotRows');
   const category=el('msWarehouseSnapshotCategory');
-  if(!button||!store||!status||!count||!table||!rows||!category)return;
+  const exportButton=el('msWarehouseSnapshotExportMissing');
+  if(!button||!store||!status||!count||!table||!rows||!category||!exportButton)return;
   const format=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
   let pending=false,snapshot=null,loadedAt=null;
   const td=(row,value)=>{
@@ -20,6 +22,10 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
   const controls=()=>{
     button.disabled=pending;
     category.disabled=pending||!snapshot;
+    const issues=snapshot?missingCatalogRows(snapshot.items).length:0;
+    exportButton.disabled=pending||issues===0;
+    exportButton.textContent=issues>0?'CSV: '+format(issues)+' карточек на исправление':
+      'CSV: карточки на исправление';
   };
   const clear=()=>{
     snapshot=null;loadedAt=null;
@@ -84,6 +90,24 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
     status.textContent='Выбран другой склад. Для нового отчёта нажмите «Собрать обзор склада».';
   });
   category.addEventListener('change',()=>{if(snapshot&&!pending)render();});
+  exportButton.addEventListener('click',()=>{
+    if(!snapshot||pending)return;
+    const result=buildCatalogFixCsv(snapshot.items,snapshot.warehouseName);
+    if(!result.rows)return;
+    // Download stays in the owner's browser. No POST, mail, D1 write or upload.
+    const blob=new Blob([result.csv],{type:'text/csv;charset=utf-8'});
+    const objectUrl=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=objectUrl;
+    link.download='autosklad63-catalog-review-'+Date.now()+'.csv';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+    status.textContent='Создан локальный CSV для сверки '+format(result.rows)+
+      ' карточек склада «'+snapshot.warehouseName+
+      '». Это только список на исправление, не автоматический импорт в «МойСклад».';
+  });
   button.addEventListener('click',async()=>{
     if(pending)return;
     if(!store.value||document.visibilityState!=='visible'||
@@ -114,6 +138,18 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
         timeZone:'Europe/Samara',dateStyle:'short',timeStyle:'short'
       }).format(new Date());
       render();
+      // Ephemeral in-page status for the production manager. No storage/extra API.
+      const quality=snapshotCounts(snapshot.items);
+      window.dispatchEvent(new CustomEvent('ms:warehouse-snapshot-ready',{
+        detail:{
+          warehouseName:snapshot.warehouseName,
+          positions:snapshot.itemCount,
+          materials:quality.materials,
+          eva:quality.eva,
+          unverified:quality.unverified,
+          missingUnits:snapshot.items.filter(x=>!x.uom).length
+        }
+      }));
     }catch(error){
       clear();
       status.textContent='Полный краткий обзор не подтверждён: '+
