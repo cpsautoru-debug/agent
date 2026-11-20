@@ -1313,6 +1313,32 @@
         </div>
         <p class="ms-production-note">Область проверки: только до 10 последних документов по дате из исторического реестра. Это не вся незавершёнка и не подтверждение фактической отгрузки. До 12 последовательных GET с паузой не менее 2 секунд; остановка при ограничении API. Исполнители, заказы покупателей, нормы расхода, реальная очередь и дефицит не определяются без подтверждённых связей.</p>
       </section>
+      <section class="ms-priority-worklist" id="msPriorityWorklist" aria-labelledby="msPriorityTitle">
+        <div class="ms-production-header">
+          <div>
+            <h2 id="msPriorityTitle">Задания в работе · контроль по номерам</h2>
+            <p>Укажите реальные номера производственных заданий, которые нужно контролировать сегодня. Проверим факт этапов и плановые даты независимо от того, насколько давно создан документ.</p>
+          </div>
+          <button class="ms-production-detail-button" id="msPriorityExport" type="button" disabled>Скачать CSV для старшей производства</button>
+        </div>
+        <form class="ms-priority-form" id="msPriorityForm">
+          <label for="msPriorityNumbers">Номера заданий «МойСклад» — от 1 до 5</label>
+          <textarea id="msPriorityNumbers" rows="2" maxlength="120" placeholder="Например: 00740, 00741, 00742" autocomplete="off" spellcheck="false"></textarea>
+          <div class="ms-board-actions">
+            <button type="submit" class="ms-production-button">Проверить выбранные задания</button>
+            <button type="button" class="ms-production-detail-button" id="msPriorityStop" disabled>Остановить</button>
+          </div>
+        </form>
+        <p id="msPriorityStatus" class="ms-production-status" role="status">Это приоритетная выборка, а не полный список действующих заказов. Номера не сохраняются в базе и не передаются другим сотрудникам.</p>
+        <p id="msPrioritySummary" class="ms-production-count">Сводка ещё не проверена.</p>
+        <div class="ms-production-scroll" id="msPriorityTable" hidden>
+          <table class="ms-production-table">
+            <thead><tr><th>№ задания</th><th>Проверенный статус</th><th>Осталось, условных ед.</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Контроль даты</th><th>Действие</th></tr></thead>
+            <tbody id="msPriorityRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Не более пяти точных номеров и десяти последовательных GET с паузами по 2 секунды. Неподтверждённые этапы не считаются выполненными. Кнопка CSV только сохраняет локальный контрольный список, не меняет документы в «МойСклад». Для полной текущей очереди нужен отдельный подтверждённый источник активных заданий.</p>
+      </section>
       <section class="ms-production-monitor" id="msProductionMonitor" aria-labelledby="msProductionTitle">
         <div class="ms-production-header">
           <div>
@@ -1538,6 +1564,7 @@
 <script src="app.js" defer></script>
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
+<script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
 <script type="module" src="ms-warehouse-availability.mjs"></script>
