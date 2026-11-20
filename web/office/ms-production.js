@@ -1,5 +1,6 @@
 import { formatMsMomentForSamara } from './ms-production-date.mjs';
 import { assessProductionTask, summarizePageAudit } from './ms-production-audit.mjs';
+import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
 
 (()=>{
   'use strict';
@@ -32,12 +33,13 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
   const auditIncomplete=node('msAuditIncomplete');
   const auditComplete=node('msAuditComplete');
   const auditUnknown=node('msAuditUnknown');
+  const auditPastDate=node('msAuditPastDate');
   if(!panel||!refreshButton||!status||!count||!listBody||!searchForm||
     !searchInput||!resetButton||!previousButton||!nextButton||!pageLabel||
     !details||!stageTitle||!stageStatus||!stageRefresh||!planned||
     !finished||!remaining||!stageBody||!auditButton||!auditStatus||
     !auditStats||!auditResults||!auditBody||!auditChecked||
-    !auditIncomplete||!auditComplete||!auditUnknown)return;
+    !auditIncomplete||!auditComplete||!auditUnknown||!auditPastDate)return;
 
   const PAGE_SIZE=5;
   const REFRESH_MS=10*60*1000;
@@ -267,6 +269,7 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
       auditIncomplete.textContent=String(summary.incomplete);
       auditComplete.textContent=String(summary.complete);
       auditUnknown.textContent=String(summary.unverified+summary.notChecked);
+      auditPastDate.textContent=String(results.filter(item=>item.planDateStatus==='past').length);
     };
     renderStats();
     const appendResult=item=>{
@@ -284,6 +287,13 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
       cell(tr,item.firstUnfinishedStage||(
         item.status==='unverified'?'Ошибка или отсутствуют данные':'—'
       ));
+      cell(tr,item.plannedDate?formatMsMomentForSamara(item.plannedDate):'Не указана');
+      const planLabels={
+        past:'Плановая дата прошла',today:'Плановая дата сегодня',
+        future:'Дата впереди',not_set:'Дата не указана',
+        unverified:'Не подтверждено',not_applicable:'Не оценивается'
+      };
+      cell(tr,planLabels[item.planDateStatus]||'Не подтверждено');
       auditBody.append(tr);
     };
     try{
@@ -313,6 +323,8 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
             result={number:task.number,status:'unverified',code:'fetch_error'};
           }
         }
+        result={...result,plannedDate:task.plannedDate||null,
+          planDateStatus:classifyProductionPlanDate(task,result,Date.now())};
         results.push(result);
         appendResult(result);
         renderStats();
@@ -323,6 +335,8 @@ import { assessProductionTask, summarizePageAudit } from './ms-production-audit.
           ' (Самара). Незавершённых заданий: '+summary.incomplete+
           ', завершённых: '+summary.complete+
           ', неподтверждённых: '+summary.unverified+
+          ', плановая дата прошла: '+
+          results.filter(item=>item.planDateStatus==='past').length+
           '. Не является сводкой всего цеха.';
       }
     }finally{
