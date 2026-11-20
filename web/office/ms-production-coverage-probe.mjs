@@ -32,7 +32,13 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
         !Number.isSafeInteger(body.totalProductionStages)||body.totalProductionStages<0||
         !Number.isSafeInteger(body.estimatedTaskListPages50)||
         !Number.isSafeInteger(body.estimatedStageListPages50))
-        throw Error(typeof body?.code==='string'?body.code:'invalid_probe_response');
+        throw Error((typeof body?.code==='string'&&
+          /^[a-z][a-z0-9_]{0,60}$/.test(body.code)?body.code:'invalid_probe_response')+
+          (['productiontask','productionstage'].includes(body?.upstreamEntity)?
+            ' · '+body.upstreamEntity:'')+
+          (Number.isInteger(body?.upstreamHttp)&&
+            body.upstreamHttp>=300&&body.upstreamHttp<=599?
+            ' · HTTP '+body.upstreamHttp:''));
       const plan=estimateProductionScanWorkload(body.totalTaskDocuments,body.totalProductionStages);
       const taskRef=body.sampleStageHasTaskReference==='observed'?
         'ссылка на задание в образце есть':'ссылка на задание в образце не обнаружена';
