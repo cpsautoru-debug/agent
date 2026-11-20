@@ -30,6 +30,7 @@ test('owner: one read-only GET; token remains server-side',async()=>{
     calls++;assert.equal(opts.method,'GET');
     assert.match(uri,/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\?/);
     assert.equal(opts.headers.Authorization,'Bearer synthetic-access-token');
+    assert.equal(opts.headers.Accept,'application/json;charset=utf-8');
     assert.equal(opts.redirect,'manual');
     return new Response(JSON.stringify({meta:{size:740},rows:[{id:'prod-uuid',name:'00737',moment:'2026-11-20 00:53:00'}]}),{status:200});
   });
