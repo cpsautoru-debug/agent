@@ -32,6 +32,9 @@
   const valid=data=>data?.code==='ms_stock_bystore_ok'&&
     data.scope==='PAGE_OF_ASSORTMENT_NOT_COMPLETE_WAREHOUSE_INVENTORY'&&
     data.readOnly===true&&data.changedRecords===0&&
+    (data.requests===1||data.requests===2)&&
+    Number.isSafeInteger(data.namesResolved)&&data.namesResolved>=0&&
+    data.namesResolved<=data.items.length&&
     data.pageSize===PAGE&&data.offset===state.offset&&
     data.search===state.search&&
     Number.isSafeInteger(data.totalAssortmentReportRows)&&
@@ -45,7 +48,7 @@
     for(const item of payload.items){
       if(item.stores.length===0){
         const tr=document.createElement('tr');
-        td(tr,item.name||'Наименование не передано');
+        td(tr,item.name?(item.name+(item.code?' · '+item.code:'')):'Наименование не передано');
         td(tr,item.uom||'—');
         td(tr,'Склады не переданы');
         td(tr,'Неизвестно');td(tr,'Неизвестно');td(tr,'Неизвестно');
@@ -55,7 +58,7 @@
       }
       for(const store of item.stores){
         const tr=document.createElement('tr');
-        td(tr,item.name||'Наименование не передано');
+        td(tr,item.name?(item.name+(item.code?' · '+item.code:'')):'Наименование не передано');
         td(tr,item.uom||'—');
         td(tr,store.name);
         const physical=td(tr,val(store.stock));
@@ -85,6 +88,7 @@
       timeZone:'Europe/Samara',dateStyle:'short',timeStyle:'short'
     }).format(new Date())+' (Самара). Отрицательных остатков на видимой странице: '+
       negative+'. Строк без подтверждённого остатка: '+unknown+
+      '. Названий получено: '+ru(payload.namesResolved)+' из '+ru(payload.items.length)+
       '. Не полный отчёт по всем складам.';
   };
   const load=async ()=>{
