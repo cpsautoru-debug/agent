@@ -34,7 +34,10 @@ async function sampleCollection(fetcher,entity,token){
     const error=response.status===429?'ms_rate_limited':
       response.status===401?'ms_token_rejected':
       response.status===403?'ms_permission_denied':'ms_upstream_error';
-    throw Error(error);
+    const failure=Error(error);
+    // Keep only the numeric status. Never expose upstream body, headers or token.
+    failure.upstreamHttp=response.status;
+    throw failure;
   }
   const reader=response.body?.getReader();
   if(!reader)throw Error('ms_response_unverified');
@@ -106,17 +109,23 @@ export function createProductionCoverageProbeHandler(fetcher=fetch){
       if(owner?.allowed!==1)return json(403,{code:'owner_only'});
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
+      let upstreamEntity='productiontask';
       try{
         // Always sequential: 1 GET productiontask + 1 GET productionstage.
         // Never follow any links contained in upstream data.
-        const tasks=await sampleCollection(fetcher,'productiontask',env.MS_API_TOKEN);
-        const stages=await sampleCollection(fetcher,'productionstage',env.MS_API_TOKEN);
+        const tasks=await sampleCollection(fetcher,upstreamEntity,env.MS_API_TOKEN);
+        upstreamEntity='productionstage';
+        const stages=await sampleCollection(fetcher,upstreamEntity,env.MS_API_TOKEN);
         return json(200,summarizeProductionCoverageProbe(tasks,stages));
       }catch(e){
         const allow=['ms_rate_limited','ms_token_rejected','ms_permission_denied',
           'ms_response_unverified','ms_upstream_error'];
         return json(502,{code:allow.includes(e?.message)?e.message:
           e?.name==='TimeoutError'?'ms_timeout':'ms_transport_error',
+          // Fixed collection enum and HTTP integer only; never a server message.
+          upstreamEntity,
+          upstreamHttp:Number.isInteger(e?.upstreamHttp)&&
+            e.upstreamHttp>=300&&e.upstreamHttp<=599?e.upstreamHttp:null,
           readOnly:true,changedRecords:0,coverage:'NOT_VERIFIED'});
       }
     }catch{

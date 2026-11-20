@@ -89,6 +89,8 @@ test('stage request not attempted when task sampling fails',async()=>{
   assert.equal(r.status,502);
   const body=await r.text();
   assert.match(body,/ms_rate_limited/);
+  assert.equal((JSON.parse(body)).upstreamEntity,'productiontask');
+  assert.equal((JSON.parse(body)).upstreamHttp,429);
   assert.doesNotMatch(body,/synthetic-access-token/);
   assert.equal(count,1);
 });
@@ -103,6 +105,8 @@ test('stage failure cannot be misrepresented as zero unfinished production',asyn
   assert.equal(result.status,502);
   const body=await result.text();
   assert.match(body,/ms_upstream_error/);
+  assert.equal((JSON.parse(body)).upstreamEntity,'productionstage');
+  assert.equal((JSON.parse(body)).upstreamHttp,400);
   assert.doesNotMatch(body,/740|secret|synthetic-access-token/);
 });
 test('missing stage reference is explicitly unproven; empty stage collection remains unknown',()=>{
@@ -119,5 +123,38 @@ test('malformed upstream pagination cannot be taken as a successful scan',async(
     JSON.stringify({meta:{size:100},rows:[]}),{status:200}));
   const result=await handler({request:await req(),env});
   assert.equal(result.status,502);
-  assert.equal((await result.json()).code,'ms_response_unverified');
+  const body=await result.json();
+  assert.equal(body.code,'ms_response_unverified');
+  assert.equal(body.upstreamEntity,'productiontask');
+  assert.equal(body.upstreamHttp,null);
+});
+
+test('missing stage list reveals safe 404 and collection only, never upstream body',async()=>{
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{
+    calls++;
+    return calls===1?answer(900,{id:taskId}):
+      new Response('secret-token arbitrary upstream diagnostics and private SKU',{status:404});
+  });
+  const result=await handler({request:await req(),env});
+  assert.equal(result.status,502);
+  const data=await result.json();
+  assert.equal(calls,2);
+  assert.equal(data.code,'ms_upstream_error');
+  assert.equal(data.upstreamEntity,'productionstage');
+  assert.equal(data.upstreamHttp,404);
+  assert.equal(data.changedRecords,0);
+  assert.equal(data.coverage,'NOT_VERIFIED');
+  assert.doesNotMatch(JSON.stringify(data),/secret-token|arbitrary|900|private SKU|synthetic-access-token/);
+});
+test('owner-only errors never reveal collection/http or contact MoySklad',async()=>{
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{calls++;throw Error('no network');});
+  const result=await handler({request:await req(null),env});
+  assert.equal(result.status,401);
+  const data=await result.json();
+  assert.equal(data.code,'owner_session_required');
+  assert.equal(Object.hasOwn(data,'upstreamEntity'),false);
+  assert.equal(Object.hasOwn(data,'upstreamHttp'),false);
+  assert.equal(calls,0);
 });
