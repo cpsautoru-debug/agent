@@ -8,7 +8,7 @@
  button.id='wbSaveReportButton';button.className='button primary';button.hidden=true;
  let ownerAuthorized=false,previewReady=false;
  const updateButton=()=>{button.hidden=!(ownerAuthorized&&previewReady);};
- form.addEventListener('wb-preview-validated',event=>{previewReady=event.detail?.reportId===id;updateButton();});
+ form.addEventListener('wb-preview-validated',event=>{previewReady=event.detail?.reportId===id;if(previewReady)ownerAuthorized=true;updateButton();});
  for(const event of ['input','change','reset'])form.addEventListener(event,()=>{previewReady=false;updateButton();});
  button.type='button';button.textContent='Проверить и сохранить отчёт в тестовую базу';
  status.textContent='Проверяем наличие сохранённого отчёта…';
@@ -26,7 +26,7 @@
   try{
    const r=await fetch(endpoint+'?reportId='+id,{method:'GET',credentials:'same-origin',cache:'no-store',redirect:'error'});
    if(r.status===404){ownerAuthorized=true;updateButton();status.textContent='Отчёт ещё не сохранён в тестовой базе.';return}
-   if(!r.ok){status.textContent='Сохранённый отчёт недоступен: требуется вход владельца и подключённая тестовая база.';return}
+   if(!r.ok){status.textContent='Чтение сохранённого отчёта недоступно (HTTP '+r.status+'). После успешного расчёта можно отдельно запросить сохранение; сервер повторно проверит доступ.';return}
    display(await r.json());ownerAuthorized=true;updateButton();
   }catch{status.textContent='Не удалось прочитать сохранённый отчёт. Повторных запросов нет.'}
  }
