@@ -97,3 +97,13 @@
 .ms-stock-table td[rowspan]{vertical-align:top}
 .ms-stock-table tbody tr:has(.ms-stock-product-name){border-top:1px solid #d4e0d6}
 @media(max-width:720px){.ms-stock-filters select{width:100%;max-width:100%}}
+
+/* Server-filtered nonzero availability for one named warehouse, manual only. */
+.ms-warehouse-availability{border:1px solid #d9e5db;border-radius:13px;padding:16px;margin:14px 0;background:#fbfdf9}
+.ms-warehouse-availability h3{font-size:17px;margin:0 0 4px;color:#19412d}
+.ms-warehouse-availability .ms-page-audit-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.ms-warehouse-availability .ms-page-audit-header p{margin:0;max-width:760px;font-size:12px;line-height:1.55}
+.ms-warehouse-availability .ms-production-count{font-weight:600}
+.ms-stock-availability-table{min-width:550px}
+.ms-stock-availability-table[hidden]{display:none}
+@media(max-width:720px){.ms-warehouse-availability .ms-page-audit-header{flex-direction:column}.ms-warehouse-availability .ms-page-audit-header button{width:100%}}
