@@ -68,6 +68,7 @@ test('two sequential GETs: stage requires exact one-task filter; global count st
   assert.equal(data.sampleTaskStagePages50,1);
   assert.equal(data.sampleStageHasTaskReference,'observed');
   assert.equal(data.sampleStageHasRowReference,'observed');
+  assert.equal(data.sampleRowTaskMatch,'matched');
   assert.equal(data.globalStageListAvailable,false);
   assert.equal(data.bulkStageJoinProven,false);
   assert.equal(data.allUnfinishedVerified,false);
@@ -118,6 +119,7 @@ test('sample task with no stages is not counted as all tasks having no stages',a
   const result=await response.json();
   assert.equal(calls,2);
   assert.equal(result.sampleTaskStageCount,0);
+  assert.equal(result.sampleRowTaskMatch,'not_observed');
   assert.equal(result.totalProductionStages,null);
   assert.equal(result.sampleTaskStagePages50,0);
   assert.equal(result.allUnfinishedVerified,false);
@@ -214,5 +216,59 @@ test('summaries reject inconsistent scopes; lack of task link in a stage is not 
   );
   assert.equal(a.sampleTaskStageCount,1);
   assert.equal(a.sampleStageHasTaskReference,'not_observed');
+  assert.equal(a.sampleRowTaskMatch,'not_observed');
   assert.equal(a.allUnfinishedVerified,false);
+});
+
+test('one sampled stage can prove parent task via nested productionRows href without a direct task link',()=>{
+  const output=summarizeProductionCoverageProbe(
+    {count:744,sample:{id:taskId}},
+    {count:45,sample:{
+      productionRow:{meta:{href:taskHref+'/productionRows/'+rowId}}
+    }}
+  );
+  assert.equal(output.sampleStageHasTaskReference,'not_observed');
+  assert.equal(output.sampleStageHasRowReference,'observed');
+  assert.equal(output.sampleRowTaskMatch,'matched');
+  assert.equal(output.allUnfinishedVerified,false);
+  assert.equal(output.totalProductionStages,null);
+  assert.doesNotMatch(JSON.stringify(output),/009d69bb|00737/);
+});
+
+test('inconsistent sampled row parent stops diagnostic and leaks no UUID',async()=>{
+  const foreign='f0000000-0000-4000-8000-000000000001';
+  let calls=0;
+  const handler=createProductionCoverageProbeHandler(async()=>{
+    calls++;
+    return calls===1?answer(744,{id:taskId}):
+      answer(45,{productionRow:{meta:{
+        href:'https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+
+          foreign+'/productionRows/'+rowId
+      }}});
+  });
+  const response=await handler({request:await req(),env});
+  assert.equal(response.status,502);
+  const output=await response.text();
+  assert.equal(JSON.parse(output).code,'ms_response_unverified');
+  assert.equal(JSON.parse(output).upstreamEntity,'productionstage');
+  assert.equal(calls,2);
+  assert.doesNotMatch(output,/009d69bb|f0000000|744|45|synthetic-access-token/);
+});
+
+test('standalone or noncanonical row references do not establish parent ownership',()=>{
+  const references=[
+    'https://api.moysklad.ru/api/remap/1.2/entity/productionrow/'+rowId,
+    'https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+taskId+
+      '/productionRows/'+rowId+'?unexpected=true',
+    'https://api.moysklad.ru.evil.example/api/remap/1.2/entity/productiontask/'+
+      taskId+'/productionRows/'+rowId
+  ];
+  for(const href of references){
+    const output=summarizeProductionCoverageProbe(
+      {count:1,sample:{id:taskId}},
+      {count:1,sample:{productionRow:{meta:{href}}}}
+    );
+    assert.equal(output.sampleRowTaskMatch,'not_observed');
+    assert.equal(output.bulkStageJoinProven,false);
+  }
 });
