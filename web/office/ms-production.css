@@ -1,0 +1,16 @@
+.ms-production-monitor{background:#fff;border:1px solid #dfe6de;border-radius:14px;padding:24px;margin-bottom:25px}
+.ms-production-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.ms-production-header h2{margin:0 0 6px;font-size:19px;color:#112a25}
+.ms-production-header p,.ms-production-note{margin:0;color:#65736d;font-size:12px;line-height:1.65}
+.ms-production-status{font-size:12px;color:#324c40;margin:14px 0}
+.ms-production-button{border:0;border-radius:9px;background:#d7efa6;color:#18372b;padding:12px 16px;font-weight:700;cursor:pointer}
+.ms-production-button:disabled{opacity:.5;cursor:not-allowed}
+.ms-production-scroll{overflow-x:auto}
+.ms-production-table{width:100%;border-collapse:collapse;text-align:left;min-width:470px}
+.ms-production-table th,.ms-production-table td{padding:10px 12px;border-bottom:1px solid #edf1ea;font-size:12px}
+.ms-production-table th{color:#47645b;background:#f7f9f6}
+.ms-production-count{font-weight:700;margin:8px 0 14px;color:#18372b}
+.ms-production-note{margin-top:13px}
+.ms-production-legacy{margin-top:18px}
+.ms-production-legacy summary{font-size:12px;color:#65736d;cursor:pointer}
+.ms-production-legacy .workflow{margin-top:14px}
