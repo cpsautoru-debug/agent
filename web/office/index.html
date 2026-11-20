@@ -1308,14 +1308,15 @@
             <span>Не завершены: <strong id="msAuditIncomplete">—</strong></span>
             <span>Завершены: <strong id="msAuditComplete">—</strong></span>
             <span>Не удалось проверить: <strong id="msAuditUnknown">—</strong></span>
+            <span>Плановая дата прошла: <strong id="msAuditPastDate">—</strong></span>
           </div>
           <div class="ms-production-scroll" id="msPageAuditResults" hidden>
             <table class="ms-production-table">
-              <thead><tr><th>Задание</th><th>Статус</th><th>План, ед.</th><th>Заключительный этап, ед.</th><th>Осталось, ед.</th><th>Первый незавершённый этап</th></tr></thead>
+              <thead><tr><th>Задание</th><th>Статус</th><th>План, ед.</th><th>Заключительный этап, ед.</th><th>Осталось, ед.</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Контроль даты</th></tr></thead>
               <tbody id="msPageAuditRows"></tbody>
             </table>
           </div>
-          <p class="ms-production-note">Статусы относятся только к проверенным документам на этой странице. Неизвестные данные не приравниваются к нулю; проверка разных заданий выполняется последовательно, а не как единый снимок состояния.</p>
+          <p class="ms-production-note">Статусы относятся только к проверенным документам на этой странице. «Плановая дата прошла» ставится только незавершённому заданию с подтверждёнными этапами, если его плановый календарный день уже завершился по Самаре. Это не доказательство нарушения договорного срока. Неизвестные данные не приравниваются к нулю; проверка разных заданий выполняется последовательно, а не как единый снимок состояния.</p>
         </section>
         <section class="ms-production-stage-panel" id="msProductionStagePanel" hidden aria-labelledby="msProductionStageTitle">
           <div class="ms-production-stage-heading">
