@@ -1278,11 +1278,26 @@
         <p class="ms-production-count" id="msProductionCount">Данные ещё не получены</p>
         <div class="ms-production-scroll">
           <table class="ms-production-table">
-            <thead><tr><th>Задание</th><th>Дата документа</th><th>Обновлено</th></tr></thead>
+            <thead><tr><th>Задание</th><th>Дата (Самара)</th><th>Обновлено (Самара)</th><th>Этапы</th></tr></thead>
             <tbody id="msProductionRows"></tbody>
           </table>
         </div>
-        <p class="ms-production-note">Это последние 5 заданий по дате, а не список всех активных заказов. План/факт, этапы и исполнителей подключим после проверки структуры их API. Не используйте общее количество как текущую загрузку цеха.</p>
+        <section class="ms-production-stage-panel" id="msProductionStagePanel" hidden aria-labelledby="msProductionStageTitle">
+          <h3 id="msProductionStageTitle">Этапы выбранного задания</h3>
+          <p class="ms-production-status" id="msProductionStageStatus" role="status"></p>
+          <div class="ms-production-stage-totals">
+            <div><span>Запланировано, комплектов</span><strong id="msStagePlanned">—</strong></div>
+            <div><span>Завершено на последнем этапе</span><strong id="msStageFinished">—</strong></div>
+          </div>
+          <div class="ms-production-scroll">
+            <table class="ms-production-table">
+              <thead><tr><th>Этап</th><th>План</th><th>Выполнено</th></tr></thead>
+              <tbody id="msProductionStageRows"></tbody>
+            </table>
+          </div>
+          <p class="ms-production-note">План/факт рассчитан по производственным этапам только выбранного задания. Завершение последнего этапа не равно отгрузке. Неисполненные задания за другие даты сюда не включены.</p>
+        </section>
+        <p class="ms-production-note">Это последние 5 заданий по дате, а не список всех активных заказов. Нажмите «Этапы» рядом с заданием для просмотра плана и факта. Исполнителей и полную загрузку цеха подключим после отдельной сверки. Не используйте общее количество как текущую загрузку цеха.</p>
       </section>
     </section>
 
