@@ -17,7 +17,7 @@ test('single-click stock dashboard has independent store choice and filters',()=
     assert.ok(html.includes('value="'+store+'"'),store);
   assert.match(html,/Собрать обзор склада/);
   assert.match(html,/До 40 позиций с ненулевым остатком/);
-  assert.match(html,/Коврики/);
+  assert.match(html,/EVA-коврики/);
   assert.match(html,/src="ms-warehouse-snapshot\.mjs"/);
   assert.match(css,/\.ms-warehouse-snapshot/);
 });
