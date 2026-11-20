@@ -32,6 +32,7 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
         body.totalProductionStages!==null||
         body.estimatedStageListPages50!==null||
         body.globalStageListAvailable!==false||
+        !['matched','not_observed'].includes(body.sampleRowTaskMatch)||
         !['ONE_PRODUCTION_TASK_FILTERED','NO_TASK_TO_SAMPLE'].includes(body.stageListScope)||
         (body.totalTaskDocuments===0?body.sampleTaskStageCount!==null:
           !Number.isSafeInteger(body.sampleTaskStageCount)||body.sampleTaskStageCount<0)||
@@ -48,11 +49,14 @@ import {estimateProductionScanWorkload} from './ms-production-scan-budget.mjs';
         'ссылка на задание в образце есть':'ссылка на задание в образце не обнаружена';
       const rowRef=body.sampleStageHasRowReference==='observed'?
         'ссылка на позицию есть':'ссылка на позицию не обнаружена';
+      const rowParent=body.sampleRowTaskMatch==='matched'?
+        'позиция принадлежит выбранному заданию — подтверждено в образце':
+        'принадлежность позиции выбранному заданию по ссылке не подтверждена';
       summary.textContent='Всего производственных заданий: '+count(body.totalTaskDocuments)+
         '. Общее количество этапов неизвестно: API требует фильтр по конкретному заданию. '+
         (body.sampleTaskStageCount===null?'Нет задания для выборочной проверки. ':
           'Этапов в одном выбранном задании: '+count(body.sampleTaskStageCount)+
-          '. Образец этапа: '+taskRef+', '+rowRef+'. ')+
+          '. Образец этапа: '+taskRef+', '+rowRef+'; '+rowParent+'. ')+
         'Минимальный обход: '+count(plan.taskPages)+' страниц реестра заданий по 50 и '+
         count(plan.perTaskMinimumRequests)+' запросов с проверкой этапов каждого задания ('+
         count(plan.perTaskMinimumBatches)+' пакетов до 10 запросов). '+

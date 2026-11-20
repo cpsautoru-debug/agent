@@ -23,6 +23,9 @@ test('browser never asserts coverage from sample-only response',()=>{
   assert.match(js,/body\.globalStageListAvailable!==false/);
   assert.match(js,/body\.totalProductionStages!==null/);
   assert.match(js,/body\.stageListScope/);
+  assert.match(js,/sampleRowTaskMatch/);
+  assert.match(js,/принадлежность позиции выбранному заданию по ссылке не подтверждена/);
+  assert.match(js,/позиция принадлежит выбранному заданию/);
   assert.doesNotMatch(js,/count\(body\.totalProductionStages\)/);
   assert.match(js,/пауза не меньше 2 секунд/);
   assert.match(js,/Полнота связей и фактические незавершённые задания не проверены/);
