@@ -238,3 +238,36 @@ test('source size increase mid-generation stops instead of mixing two moving inv
   assert.equal(db.runtime.next_offset,5);
   assert.equal(db.runtime.run_status,'paused');
 });
+
+test('after source-count drift, next tick autonomously restarts an isolated generation at offset zero',async()=>{
+  const db=fakeDb();
+  db.runtime.generation=4;
+  db.runtime.next_offset=35;
+  db.runtime.total_first_seen=744;
+  db.runtime.run_status='paused';
+  db.runtime.last_error_code='ms_auto_source_count_changed';
+  const urls=[];
+  const result=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',
+    MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{
+    nowMs:1_900_000_000_000,
+    pause:async()=>{},
+    fetcher:async url=>{
+      urls.push(url);
+      return new URL(url).pathname.endsWith('/productiontask')?
+        success({meta:{size:5},rows:tasks}):
+        success(stage(urls.length-2));
+    }
+  });
+  assert.equal(result.code,'ms_auto_batch_committed');
+  assert.equal(result.generation,5);
+  assert.equal(result.offset,5);
+  assert.equal(result.status,'pass_complete');
+  assert.equal(result.requests,6);
+  assert.equal(db.rows.length,5);
+  assert.equal(db.runtime.generation,5);
+  assert.equal(db.runtime.total_first_seen,5);
+  assert.equal(new URL(urls[0]).searchParams.get('offset'),'0');
+});
