@@ -107,3 +107,14 @@
 .ms-stock-availability-table{min-width:550px}
 .ms-stock-availability-table[hidden]{display:none}
 @media(max-width:720px){.ms-warehouse-availability .ms-page-audit-header{flex-direction:column}.ms-warehouse-availability .ms-page-audit-header button{width:100%}}
+
+/* Bounded, one-click, nonzero stock snapshot of a single warehouse. */
+.ms-warehouse-snapshot{border-top:1px solid #d9e5db;margin-top:18px;padding-top:16px}
+.ms-warehouse-snapshot .ms-page-audit-header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.ms-warehouse-snapshot h3{font-size:17px;margin:0 0 5px;color:#19412d}
+.ms-warehouse-snapshot .ms-page-audit-header p{font-size:12px;max-width:760px;line-height:1.5}
+.ms-warehouse-snapshot .ms-stock-filters{margin-top:9px}
+.ms-warehouse-snapshot-table{min-width:720px}
+.ms-warehouse-snapshot-table[hidden]{display:none}
+.ms-warehouse-snapshot-table td:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:720px){.ms-warehouse-snapshot .ms-page-audit-header{flex-direction:column}.ms-warehouse-snapshot .ms-page-audit-header button{width:100%}}
