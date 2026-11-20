@@ -293,7 +293,8 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
         future:'Дата впереди',not_set:'Дата не указана',
         unverified:'Не подтверждено',not_applicable:'Не оценивается'
       };
-      cell(tr,planLabels[item.planDateStatus]||'Не подтверждено');
+      const planCell=cell(tr,planLabels[item.planDateStatus]||'Не подтверждено');
+      if(item.planDateStatus==='past')planCell.className='ms-plan-date-past';
       auditBody.append(tr);
     };
     try{
