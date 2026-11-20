@@ -44,8 +44,25 @@ test('results never claim physical reconciliation or full product inventory',()=
 
 test('warehouse UI explicitly shows source catalog group or unknown, never guesses it',()=>{
   assert.match(html,/Группа в каталоге/);
-  assert.match(html,/не автоматическое деление на сырьё и готовую продукцию/);
+  assert.match(html,/не автоматически готовой продукцией/);
   assert.match(js,/item\.catalogPath/);
   assert.match(js,/Группа не указана/);
   assert.doesNotMatch(js,/includes\('Экокожа'\)|includes\('Коврик'\)/);
+});
+
+test('materials filter is bound to a source catalog group and current page only',()=>{
+  assert.equal((html.match(/id="msWarehouseCatalogFilter"/g)||[]).length,1);
+  assert.equal((html.match(/id="msWarehouseCatalogStatus"/g)||[]).length,1);
+  assert.match(html,/Материалы из подтверждённой группы/);
+  assert.match(html,/ПРОИЗВОДСТВО\/Экокожа и Алька/);
+  assert.match(html,/Фильтр относится только к загруженной странице/);
+  assert.match(js,/from '\.\/ms-materials-by-catalog\.mjs'/);
+  assert.match(js,/selectCatalogPage\(lastPayload\.items,catalogFilter\.value\)/);
+  assert.match(js,/countCatalogPageEvidence\(lastPayload\.items\)/);
+  assert.match(js,/catalogFilter\.addEventListener\('change'/);
+  assert.match(js,/if\(loaded&&!pending\)renderItems\(\)/);
+  assert.match(js,/lastPayload=data/);
+  assert.match(js,/CURRENT_API_PAGE_ONLY|Только текущая страница/);
+  assert.match(js,/нет товаров среди загруженных позиций/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|setInterval/);
 });
