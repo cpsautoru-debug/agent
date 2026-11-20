@@ -26,7 +26,7 @@ test('browser never asserts coverage from sample-only response',()=>{
   assert.doesNotMatch(js,/count\(body\.totalProductionStages\)/);
   assert.match(js,/пауза не меньше 2 секунд/);
   assert.match(js,/Полнота связей и фактические незавершённые задания не проверены/);
-  assert.match(html,/без сбора всех заданий/);
+  assert.match(html,/весь цех не выгружается/);
   assert.match(css,/\.ms-coverage-probe/);
 });
 
