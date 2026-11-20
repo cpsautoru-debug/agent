@@ -1,0 +1,25 @@
+name: MoySklad production monitor
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/ms/production-feed.js'
+      - 'web/office/ms-production.js'
+      - 'web/office/ms-production.css'
+      - 'web/office/index.html'
+      - 'tests/ms/ms-production-feed.test.mjs'
+      - '.github/workflows/ms-production-monitor.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production-readonly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check functions/api/ms/production-feed.js
+      - run: node --check web/office/ms-production.js
+      - run: node --test tests/ms/ms-production-feed.test.mjs
