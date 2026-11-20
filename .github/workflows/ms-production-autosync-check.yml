@@ -1,0 +1,37 @@
+name: MoySklad autonomous cron staging checks
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'workers/ms-production-autosync.js'
+      - 'migrations/ms/0001_ms_production_autosync_staging.sql'
+      - 'tests/ms/ms-production-autosync.test.mjs'
+      - '.github/workflows/ms-production-autosync-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ms-auto-safe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check workers/ms-production-autosync.js
+      - run: node --test tests/ms/ms-production-autosync.test.mjs
+      - name: Verify additive D1 schema isolated from finance
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          db=sqlite3.connect(':memory:')
+          with open('migrations/ms/0001_ms_production_autosync_staging.sql',encoding='utf-8') as file:
+              db.executescript(file.read())
+          names={x[0] for x in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+          assert {'ms_production_auto_runtime','ms_production_auto_tasks'}<=names,names
+          assert 'ozon_finance_transactions' not in names
+          assert 'wb_finance_api_rows' not in names
+          rec=db.execute("SELECT generation,next_offset,run_status FROM ms_production_auto_runtime WHERE id=1").fetchone()
+          assert rec==(0,0,'new'),rec
+          print('MoySklad isolated staging schema OK')
+          PY
