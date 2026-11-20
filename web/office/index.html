@@ -187,6 +187,13 @@
         <p id="wbReportListStatus" role="status">Проверяем доступ владельца…</p>
         <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Тип</th><th>Банковская выплата WB</th><th>Сверка с эталоном</th></tr></thead><tbody id="wbReportListRows"></tbody></table></div>
       </article>
+      <article class="profit-panel" id="wbAutoSyncPanel">
+        <h3>Автоматическая синхронизация WB · тестовая база</h3>
+        <p>Отдельные операции WB Finance API. Старые XLSX-эталоны не дублируются. Чистая прибыль не подтверждена.</p>
+        <button id="wbAutoSyncRefresh" class="button light" type="button">Обновить статус синхронизации</button>
+        <p id="wbAutoSyncStatus" role="status">Читаем данные тестовой базы…</p>
+        <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Тип</th><th>Статус</th><th>Выплата</th><th>Операции</th></tr></thead><tbody id="wbAutoSyncRows"></tbody></table></div>
+      </article>
       <article class="profit-panel" id="wbSavedReportPanel">
         <h3>Сохранённые отчёты WB · октябрь 2026 · тестовая база</h3>
         <label>Период отчёта с <input id="wbSavedPeriodStart" type="date" min="2026-10-01" max="2026-10-31" value="2026-10-01"></label>
@@ -1397,5 +1404,6 @@
 <script src="/wb-saved-report.js?v=wb-multi-period-2" defer></script>
 <script src="/wb-finance-check.js?v=transport-diagnostics-2" defer></script>
 <script src="/wb-report-list.js?v=20261120" defer></script>
+<script src="/wb-auto-sync-status.js?v=20261120" defer></script>
 </body>
 </html>
