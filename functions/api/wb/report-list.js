@@ -3,6 +3,13 @@ import { verifySession } from '../auth/session.js';
 const ORIGIN = 'https://autosklad63-office-staging.pages.dev';
 const EXPECTED = ['865265818','865265821','869950837','874345690','876824501','877508008','883087726','883087728','890042785','891644555'];
 const API = 'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/list';
+const EXPECTED_PAYMENTS = {
+  '865265818':'79226.33', '865265821':'239.06',
+  '869950837':'48130.84', '876824501':'102347.21',
+  '877508008':'19286.68', '883087726':'269138.50',
+  '883087728':'27421.38', '890042785':'128246.46',
+  '891644555':'11851.43'
+};
 const headers = {
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'private, no-store',
@@ -51,6 +58,7 @@ export function createReportListHandler(fetcher = fetch) {
       if (typeof env.WB_API_TOKEN !== 'string' || !env.WB_API_TOKEN || /\s/.test(env.WB_API_TOKEN)) {
         return json(503, { code: 'finance_token_unavailable' });
       }
+      if (Number(request.headers.get('Content-Length') || 0) > 16) return json(400, { code: 'invalid_body' });
       if (await request.text() !== '{}') return json(400, { code: 'invalid_body' });
 
       let response;
@@ -108,11 +116,19 @@ export function createReportListHandler(fetcher = fetch) {
           return json(422, { code: 'invalid_finance_list_items', upstreamHttp: 200 });
         }
         seen.add(reportId);
+        const type = item.reportType;
+        const bankPayment = typeof item.bankPaymentSum === 'string' && /^-?\d+(?:\.\d{1,2})?$/.test(item.bankPaymentSum)
+          ? item.bankPaymentSum : null;
+        const expected = EXPECTED_PAYMENTS[reportId];
         reports.push({
           reportId,
           dateFrom: item.dateFrom,
           dateTo: item.dateTo,
-          reportType: Number.isInteger(item.reportType) ? item.reportType : null,
+          reportType: type === 1 || type === 2 ? type : null,
+          bankPaymentRub: bankPayment,
+          payoutMatchesReference: expected && bankPayment !== null
+            ? (BigInt(bankPayment.replace('.', '') + '') === BigInt(expected.replace('.', '')) ? true : Number(bankPayment) === Number(expected))
+            : null,
           knownOctoberReport: EXPECTED.includes(reportId)
         });
       }
