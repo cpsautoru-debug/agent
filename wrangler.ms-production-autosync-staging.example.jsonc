@@ -1,0 +1,10 @@
+{
+  // EXAMPLE ONLY. Not deployed. Do not enable until dedicated D1,
+  // MS_API_TOKEN secret and a full owner-only staging smoke are confirmed.
+  "name": "autosklad63-ms-production-autosync-staging",
+  "main": "./workers/ms-production-autosync.js",
+  "compatibility_date": "2026-11-20",
+  "workers_dev": false,
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": { "MS_PRODUCTION_AUTO_SYNC": "disabled" }
+}
