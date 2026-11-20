@@ -85,3 +85,15 @@
 .ms-stock-zero{color:#697770}
 .ms-stock-section .ms-production-search input{max-width:280px}
 @media(max-width:720px){.ms-executive-overview{grid-template-columns:1fr}.ms-executive-card strong{font-size:17px}}
+
+/* One warehouse selector applies to the *visible API page*, never whole inventory. */
+.ms-stock-filters{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:8px 0 4px;color:#456253;font-size:12px}
+.ms-stock-filters label{font-weight:700}
+.ms-stock-filters select{min-height:38px;max-width:min(100%,320px);padding:8px 10px;background:#fff;border:1px solid #d7e5d8;border-radius:8px;color:#163d2d}
+.ms-stock-filters select:disabled{opacity:.55}
+.ms-stock-filters select:focus-visible{outline:2px solid #457851;outline-offset:2px}
+.ms-stock-filters small{flex-basis:100%;color:#65736d;line-height:1.45}
+.ms-stock-product-name{font-weight:650;vertical-align:top;background:#fcfdfb;min-width:200px}
+.ms-stock-table td[rowspan]{vertical-align:top}
+.ms-stock-table tbody tr:has(.ms-stock-product-name){border-top:1px solid #d4e0d6}
+@media(max-width:720px){.ms-stock-filters select{width:100%;max-width:100%}}
