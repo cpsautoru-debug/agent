@@ -1294,6 +1294,29 @@
           <span id="msProductionPage">Страница 1</span>
           <button type="button" id="msProductionNext" class="ms-production-detail-button" disabled>Вперёд</button>
         </nav>
+        <section class="ms-page-audit" id="msPageAudit">
+          <div class="ms-page-audit-header">
+            <div>
+              <h3>Незавершённое производство · выбранная страница</h3>
+              <p>Ручная проверка только пяти видимых заданий. Выполняется не более одного чтения этапов на задание. Это не общий остаток цеха.</p>
+            </div>
+            <button class="ms-production-detail-button" type="button" id="msPageAuditStart" disabled>Проверить 5 заданий</button>
+          </div>
+          <p id="msPageAuditStatus" class="ms-production-status" role="status">Сначала загрузите страницу заданий.</p>
+          <div class="ms-page-audit-stats" id="msPageAuditStats" hidden>
+            <span>Проверено: <strong id="msAuditChecked">—</strong></span>
+            <span>Не завершены: <strong id="msAuditIncomplete">—</strong></span>
+            <span>Завершены: <strong id="msAuditComplete">—</strong></span>
+            <span>Не удалось проверить: <strong id="msAuditUnknown">—</strong></span>
+          </div>
+          <div class="ms-production-scroll" id="msPageAuditResults" hidden>
+            <table class="ms-production-table">
+              <thead><tr><th>Задание</th><th>Статус</th><th>План, ед.</th><th>Заключительный этап, ед.</th><th>Осталось, ед.</th><th>Первый незавершённый этап</th></tr></thead>
+              <tbody id="msPageAuditRows"></tbody>
+            </table>
+          </div>
+          <p class="ms-production-note">Статусы относятся только к проверенным документам на этой странице. Неизвестные данные не приравниваются к нулю; проверка разных заданий выполняется последовательно, а не как единый снимок состояния.</p>
+        </section>
         <section class="ms-production-stage-panel" id="msProductionStagePanel" hidden aria-labelledby="msProductionStageTitle">
           <div class="ms-production-stage-heading">
             <h3 id="msProductionStageTitle">Этапы выбранного задания</h3>
