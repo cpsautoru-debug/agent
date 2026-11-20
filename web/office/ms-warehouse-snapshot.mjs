@@ -4,7 +4,7 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
 (()=>{
   'use strict';
   const el=id=>document.getElementById(id);
-  const button=el('msWarehouseSnapshotLoad'),store=el('msStockWarehouse');
+  const button=el('msWarehouseSnapshotLoad'),store=el('msWarehouseSnapshotStore');
   const status=el('msWarehouseSnapshotStatus'),count=el('msWarehouseSnapshotCount');
   const table=el('msWarehouseSnapshotTable'),rows=el('msWarehouseSnapshotRows');
   const category=el('msWarehouseSnapshotCategory');
@@ -88,7 +88,7 @@ import {filterSnapshotItems,snapshotCounts} from './ms-warehouse-snapshot-view.m
     if(pending)return;
     if(!store.value||document.visibilityState!=='visible'||
       location.hash.split('/')[0]!=='#production'){
-      status.textContent='Сначала загрузите обычный отчёт и выберите конкретный склад.';
+      status.textContent='Выберите конкретный склад.';
       return;
     }
     const chosen=store.value;
