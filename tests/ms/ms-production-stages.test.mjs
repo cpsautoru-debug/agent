@@ -58,7 +58,7 @@ test('owner: one read-only call, correct filter and no token in response',async(
     calls++;
     const url=new URL(uri);
     assert.equal(url.pathname,'/api/remap/1.2/entity/productionstage');
-    assert.equal(url.searchParams.get('filter'),'productionTask='+TASK);
+    assert.equal(url.searchParams.get('filter'),'productionTask=https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+TASK);
     assert.equal(url.searchParams.get('expand'),'stage');
     assert.equal(options.method,'GET');
     assert.equal(options.headers.Authorization,'Bearer test-secret-token');
@@ -112,4 +112,21 @@ test('upstream errors reveal only status codes, not messages, headers or secrets
   const text=await response.text();
   assert.match(text,/ms_stages_upstream_error/);
   assert.doesNotMatch(text,/test-secret-token|sensitive body/);
+});
+
+test('HTTP 400 returns only numeric MoySklad code for safe debugging',async()=>{
+  let calls=0;
+  const handler=createStageHandler(async()=>{
+    calls++;
+    return new Response(JSON.stringify({errors:[{code:1062,error:'sensitive secret test-secret-token'}]}),{status:400,headers:{'Content-Type':'application/json'}});
+  });
+  const response=await handler({request:await req(),env});
+  const data=await response.json();
+  assert.equal(response.status,502);
+  assert.equal(data.code,'ms_stages_upstream_error');
+  assert.equal(data.msErrorCode,1062);
+  assert.equal(data.upstreamHttp,400);
+  assert.equal(data.changedRecords,0);
+  assert.equal(calls,1);
+  assert.doesNotMatch(JSON.stringify(data),/sensitive|test-secret-token/);
 });
