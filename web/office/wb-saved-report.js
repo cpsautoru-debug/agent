@@ -11,7 +11,7 @@
  const updateButton=()=>{button.disabled=!(ownerAuthorized&&previewReady)||pending;};
  updateButton();
  form.addEventListener('wb-preview-validated',event=>{previewReady=validId(event.detail?.reportId)&&event.detail.reportId===get('wbImportPreviewReportId')?.value?.trim();if(previewReady)ownerAuthorized=true;updateButton();});
- for(const field of ['wbSavedPeriodStart','wbSavedPeriodEnd'])get(field)?.addEventListener('change',()=>{previewReady=false;updateButton();});
+ for(const field of ['wbSavedPeriodStart','wbSavedPeriodEnd'])get(field)?.addEventListener('change',updateButton);
  for(const event of ['input','change','reset'])form.addEventListener(event,()=>{previewReady=false;updateButton();});
  const rub=kop=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(kop/100);
  function display(value){
