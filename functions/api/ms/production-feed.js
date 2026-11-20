@@ -2,7 +2,7 @@ import { verifySession } from '../auth/session.js';
 
 const OFFICE='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/production-feed';
-const UPSTREAM='https://api.moysklad.ru/api/remap/1.2/entity/productiontask?limit=20&offset=0&order=moment,desc';
+const UPSTREAM='https://api.moysklad.ru/api/remap/1.2/entity/productiontask?limit=5&offset=0&order=moment,desc';
 const HEADERS={
   'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store',
@@ -30,7 +30,7 @@ async function limitedJson(response){
 
 export function summarizeProductionFeed(payload){
   if(!Number.isInteger(payload?.meta?.size)||payload.meta.size<0||
-    !Array.isArray(payload?.rows)||payload.rows.length>20)
+    !Array.isArray(payload?.rows)||payload.rows.length>5)
     throw Error('invalid_production_feed');
   const records=payload.rows.map(row=>{
     if(!row||typeof row.name!=='string'||row.name.length>80||
@@ -44,7 +44,7 @@ export function summarizeProductionFeed(payload){
     code:'ms_production_feed_ok',source:'MOYSKLAD_JSON_API',
     readOnly:true,requests:1,changedRecords:0,
     totalAllTime:payload.meta.size,
-    selection:'LATEST_20_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS',
+    selection:'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS',
     records
   };
 }
@@ -74,7 +74,7 @@ export function createProductionFeedHandler(fetcher=fetch){
             Authorization:'Bearer '+env.MS_API_TOKEN,
             Accept:'application/json;charset=utf-8'
           },
-          signal:AbortSignal.timeout(12000)
+          signal:AbortSignal.timeout(25000)
         });
       }catch(error){
         return json(502,{code:error?.name==='TimeoutError'?'ms_timeout':'ms_transport_error',

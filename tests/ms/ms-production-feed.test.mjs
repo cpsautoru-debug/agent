@@ -24,11 +24,11 @@ async function request(sub='owner-id'){
   if(sub)headers.Cookie=(await createSession(sub,env.OFFICE_SESSION_SECRET)).split(';')[0];
   return new Request(URL,{headers});
 }
-test('owner gets last 20 production tasks in one read-only upstream GET',async()=>{
+test('owner gets last 5 production tasks in one read-only upstream GET',async()=>{
   let calls=0;
   const handler=createProductionFeedHandler(async(uri,opts)=>{
     calls++;
-    assert.match(uri,/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\?limit=20/);
+    assert.match(uri,/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\?limit=5/);
     assert.equal(opts.method,'GET');
     assert.equal(opts.headers.Accept,'application/json;charset=utf-8');
     assert.equal(opts.headers.Authorization,'Bearer synthetic-access-token');
@@ -42,7 +42,7 @@ test('owner gets last 20 production tasks in one read-only upstream GET',async()
   assert.equal(data.code,'ms_production_feed_ok');
   assert.equal(data.totalAllTime,740);
   assert.equal(data.records[0].number,'00740');
-  assert.equal(data.selection,'LATEST_20_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS');
+  assert.equal(data.selection,'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS');
   assert.equal(data.changedRecords,0);
   assert.equal(calls,1);
   assert.ok(!JSON.stringify(data).includes('synthetic-access-token'));
@@ -58,7 +58,7 @@ test('unauthenticated, non-owner, missing-token cannot contact MoySklad',async()
 });
 test('invalid upstream response cannot be displayed as valid metrics',()=>{
   assert.throws(()=>summarizeProductionFeed({meta:{size:740},rows:[{name:'00737'}]}));
-  assert.throws(()=>summarizeProductionFeed({meta:{size:740},rows:Array.from({length:21},()=>({name:'00737',moment:'2026-11-20'}))}));
+  assert.throws(()=>summarizeProductionFeed({meta:{size:740},rows:Array.from({length:6},()=>({name:'00737',moment:'2026-11-20'}))}));
 });
 test('upstream failure returns only error code, no upstream body or secret',async()=>{
   const handler=createProductionFeedHandler(async()=>new Response('sensitive body synthetic-access-token',{status:400}));
