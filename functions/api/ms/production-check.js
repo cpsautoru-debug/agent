@@ -46,6 +46,22 @@ export function createMsProductionCheckHandler(fetcher=fetch){
         });
       }
       if(response.status!==200){
+        // MoySklad provides numeric API error codes inside "errors".
+        // Expose only their first numeric code, not upstream messages, token, or headers.
+        let msErrorCode=null;
+        if(response.status===400||response.status===412||response.status===415){
+          try{
+            const contentLength=Number(response.headers.get('Content-Length')||0);
+            if(contentLength<=8192){
+              const errorBody=await response.text();
+              if(errorBody.length<=8192){
+                const parsed=JSON.parse(errorBody);
+                const rawCode=parsed?.errors?.[0]?.code;
+                if(Number.isSafeInteger(rawCode)&&rawCode>=0)msErrorCode=rawCode;
+              }
+            }
+          }catch{} 
+        }
         await response.body?.cancel().catch(()=>{});
         const code=({
           401:'ms_token_rejected_or_revoked',
@@ -53,7 +69,7 @@ export function createMsProductionCheckHandler(fetcher=fetch){
           404:'ms_production_endpoint_unavailable',
           429:'ms_rate_limited'
         })[response.status]||'ms_api_http_error';
-        return json(200,{code,upstreamHttp:response.status,readOnly:true,requests:1,changedRecords:0});
+        return json(200,{code,upstreamHttp:response.status,msErrorCode,readOnly:true,requests:1,changedRecords:0});
       }
       let result;
       try{
