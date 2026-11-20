@@ -1313,6 +1313,24 @@
         </div>
         <p class="ms-production-note">Область автоматической проверки: только до 10 последних обновлённых документов из исторического реестра. Это не вся незавершёнка и не подтверждение фактической отгрузки. До 12 последовательных GET с паузой не менее 2 секунд; остановка при ограничении API. Исполнители, заказы покупателей, нормы расхода, реальная очередь и дефицит не определяются без подтверждённых связей.</p>
       </section>
+      <section class="ms-auto-history" id="msAutoHistory" aria-labelledby="msAutoHistoryTitle">
+        <div class="ms-production-header">
+          <div>
+            <h2 id="msAutoHistoryTitle">Фоновый мониторинг производственного реестра</h2>
+            <p>Сводка из отдельной базы производственного сканера. Автоматически читает только уже сохранённые результаты, не запускает обход и не требует номера заданий.</p>
+          </div>
+          <button type="button" id="msAutoHistoryRetry" class="ms-production-detail-button">Обновить состояние</button>
+        </div>
+        <p id="msAutoHistoryStatus" class="ms-production-status" role="status">Данные фонового мониторинга ещё не получены.</p>
+        <p id="msAutoHistoryDetails" class="ms-production-note"></p>
+        <div class="ms-production-scroll" id="msAutoHistoryTable" hidden>
+          <table class="ms-production-table">
+            <thead><tr><th>№ задания</th><th>Осталось по этапам</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Когда проверено</th></tr></thead>
+            <tbody id="msAutoHistoryRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Это историческая проверка по моментам отдельных пакетов, а не единый снимок активных заказов. Данные могут устареть между пакетами. До подтверждения статуса заказа и источника текущей очереди не использовать показатели для автоматического назначения задач или закупок.</p>
+      </section>
       <details class="ms-manual-debug"><summary>Дополнительно · ручная проверка заданий по номерам (не обязательна)</summary>
       <section class="ms-priority-worklist" id="msPriorityWorklist" aria-labelledby="msPriorityTitle">
         <div class="ms-production-header">
@@ -1566,6 +1584,7 @@
 <script src="app.js" defer></script>
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
+<script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
