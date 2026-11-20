@@ -1,3 +1,5 @@
+import {selectCatalogPage,countCatalogPageEvidence} from './ms-materials-by-catalog.mjs';
+
 // Owner-triggered, one-store nonzero report with bounded pages of ten.
 // No automatic polling, storage, full-inventory claims or writes.
 (()=>{
@@ -12,33 +14,75 @@
   const prev=el('msWarehouseAvailabilityPrev');
   const next=el('msWarehouseAvailabilityNext');
   const page=el('msWarehouseAvailabilityPage');
-  if(!button||!selector||!status||!summary||!table||!rows||!prev||!next||!page)return;
+  const catalogFilter=el('msWarehouseCatalogFilter');
+  const catalogStatus=el('msWarehouseCatalogStatus');
+  if(!button||!selector||!status||!summary||!table||!rows||!prev||!next||!page||
+    !catalogFilter||!catalogStatus)return;
   const count=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
   const td=(tr,value)=>{
     const cell=document.createElement('td');
     cell.textContent=value;
     tr.append(cell);
   };
-  let pending=false,loaded=false,pageIndex=0,hasNext=false;
+  let pending=false,loaded=false,pageIndex=0,hasNext=false,lastPayload=null;
   const controls=()=>{
     button.disabled=pending;
     selector.disabled=pending;
     prev.disabled=pending||!loaded||pageIndex===0;
     next.disabled=pending||!loaded||!hasNext;
     page.textContent='Страница '+(pageIndex+1);
+    catalogFilter.disabled=pending||!loaded;
   };
   const clear=()=>{
     rows.replaceChildren();
-    table.hidden=true;loaded=false;hasNext=false;
+    table.hidden=true;loaded=false;hasNext=false;lastPayload=null;
+    catalogStatus.textContent='Сначала загрузите наличие. Категории не подтверждены.';
     summary.textContent='Данные этого склада ещё не загружены.';
     controls();
   };
   const visible=()=>document.visibilityState==='visible'&&
     location.hash.split('/')[0]==='#production';
   selector.addEventListener('change',()=>{
-    pageIndex=0;
+    pageIndex=0;catalogFilter.value='all';
     clear();
     status.textContent='Чтобы получить наличие по всему выбранному складу, нажмите кнопку проверки.';
+  });
+  const renderItems=()=>{
+    if(!lastPayload)return;
+    const filtered=selectCatalogPage(lastPayload.items,catalogFilter.value);
+    const counts=countCatalogPageEvidence(lastPayload.items);
+    rows.replaceChildren();
+    for(const item of filtered){
+        const tr=document.createElement('tr');
+        td(tr,typeof item.name==='string'?item.name+
+          (typeof item.code==='string'?' · '+item.code:''):'Название не получено');
+        td(tr,typeof item.uom==='string'?item.uom:'Не указана');
+        td(tr,typeof item.catalogPath==='string'&&item.catalogPath.trim()?
+          item.catalogPath:'Группа не указана');
+        const qty=typeof item.stock==='number'&&Number.isFinite(item.stock)?
+          count(item.stock):'Неизвестно';
+        const num=document.createElement('td');
+        num.textContent=qty;
+        if(typeof item.stock==='number'&&item.stock<0)num.className='ms-stock-negative';
+        tr.append(num);
+        rows.append(tr);
+      }
+    table.hidden=false;
+    if(filtered.length===0){
+      const tr=document.createElement('tr');
+      const empty=document.createElement('td');
+      empty.colSpan=4;
+      empty.textContent='В этой категории нет товаров среди загруженных позиций. Это не результат проверки всего склада.';
+      tr.append(empty);rows.append(tr);
+    }
+    catalogStatus.textContent='Только текущая страница: материалов из подтверждённой группы '+
+      count(counts.material)+', остальных/неподтверждённых '+
+      count(counts.unverified)+'. Показано по фильтру '+
+      count(filtered.length)+' из '+count(counts.total)+
+      '. Фильтр не выполняет новых запросов к API.';
+  };
+  catalogFilter.addEventListener('change',()=>{
+    if(loaded&&!pending)renderItems();
   });
   const readPage=async()=>{
     const store=selector.value;
@@ -81,23 +125,8 @@
         !Number.isSafeInteger(data.namesResolved)||data.namesResolved>data.items.length||
         ![2,3,4].includes(data.requests))
         throw Error('invalid_warehouse_response');
-      rows.replaceChildren();
-      for(const item of data.items){
-        const tr=document.createElement('tr');
-        td(tr,typeof item.name==='string'?item.name+
-          (typeof item.code==='string'?' · '+item.code:''):'Название не получено');
-        td(tr,typeof item.uom==='string'?item.uom:'Не указана');
-        td(tr,typeof item.catalogPath==='string'&&item.catalogPath.trim()?
-          item.catalogPath:'Группа не указана');
-        const qty=typeof item.stock==='number'&&Number.isFinite(item.stock)?
-          count(item.stock):'Неизвестно';
-        const num=document.createElement('td');
-        num.textContent=qty;
-        if(typeof item.stock==='number'&&item.stock<0)num.className='ms-stock-negative';
-        tr.append(num);
-        rows.append(tr);
-      }
-      table.hidden=data.items.length===0;
+      lastPayload=data;
+      renderItems();
       summary.textContent='Склад: '+store+'. Позиции с ненулевым учётным остатком: '+
         count(data.warehouseLines)+'. Показано на странице '+(pageIndex+1)+': '+
         count(data.items.length)+
