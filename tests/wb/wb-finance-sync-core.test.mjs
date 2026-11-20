@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   exactFinanceJson, moneyKop, normalizeReport,
-  normalizeOperation, payoutFromRows
+  normalizeOperation, payoutFromRows, splitLookupRowIds
 } from '../../workers/wb-finance-sync-core.mjs';
 
 test('money normalization preserves ruble and kopeck precision, including negative logistics', () => {
@@ -74,4 +74,12 @@ test('blank vendor code on a real sale or return is still rejected', () => {
       vendorCode:' ',currency:'RUB',quantity:1,forPay:'100.00'
     },'865265818'),/sale_missing_product/);
   }
+});
+
+test('129 WB operations use two D1-safe duplicate lookups (no query exceeds 100 bindings)', () => {
+  const entries=Array.from({length:129},(_,i)=>({rrdId:String(i+1)}));
+  const chunks=splitLookupRowIds(entries);
+  assert.deepEqual(chunks.map(x=>x.length),[90,39]);
+  assert.deepEqual(chunks.flat(),entries.map(x=>x.rrdId));
+  assert.ok(chunks.every(chunk=>chunk.length+2<=100));
 });
