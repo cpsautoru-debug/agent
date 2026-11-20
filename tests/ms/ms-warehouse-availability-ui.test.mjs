@@ -9,7 +9,8 @@ test('manual one-warehouse availability is a separate labelled read-only view',(
   for(const id of [
     'msWarehouseAvailabilityRefresh','msWarehouseAvailabilityStatus',
     'msWarehouseAvailabilitySummary','msWarehouseAvailabilityTable',
-    'msWarehouseAvailabilityRows'
+    'msWarehouseAvailabilityRows','msWarehouseAvailabilityPrev',
+    'msWarehouseAvailabilityNext','msWarehouseAvailabilityPage'
   ])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
   assert.match(html,/Наличие на выбранном складе/);
   assert.match(html,/Нулевые товары, резервы и ожидание в него не входят/);
@@ -17,7 +18,12 @@ test('manual one-warehouse availability is a separate labelled read-only view',(
   assert.match(css,/\.ms-warehouse-availability/);
 });
 test('button makes only an owner-session same-origin GET, never background API polls',()=>{
-  assert.match(js,/button\.addEventListener\('click',async\(\)=>/);
+  assert.match(js,/button\.addEventListener\('click',\(\)=>/);
+  assert.match(js,/next\.addEventListener\('click'/);
+  assert.match(js,/prev\.addEventListener\('click'/);
+  assert.match(js,/q\.set\('page',String\(pageIndex\)\)/);
+  assert.match(js,/data\.hasNext/);
+  assert.match(js,/data\.hasPrevious/);
   assert.match(js,/new URLSearchParams\(\{store\}\)/);
   assert.match(js,/\/api\/ms\/warehouse-availability/);
   assert.match(js,/credentials:'same-origin'/);
