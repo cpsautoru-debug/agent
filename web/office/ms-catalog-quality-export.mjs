@@ -1,5 +1,5 @@
 // Browser-only reference CSV for catalog fixes. This is not an import into MoySklad.
-const safe=s=>typeof s==='string'?s.slice(0,200).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g,' '):'';
+const safe=s=>typeof s==='string'?s.slice(0,200).replace(/[\u0000-\u001f\u007f]/g,' '):'';
 const csvCell=value=>{
   let v=safe(String(value??''));
   // Spreadsheet formula-injection protection for names entered in an external ERP.
