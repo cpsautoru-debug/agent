@@ -258,3 +258,19 @@ test('invalid upstream JSON fails closed without fake stock',async()=>{
   assert.equal(Object.hasOwn(data,'totalAssortmentReportRows'),false);
   assert.equal(data.changedRecords,0);
 });
+
+test('catalog path is copied only from the real assortment grouping field',()=>{
+  const details=extractNames({meta:{size:2},rows:[
+    {id:ONE,name:'Pegas',pathName:'Материалы/Экокожа',uom:{name:'м'}},
+    {id:TWO,name:'Vesta',pathName:'',uom:{name:'шт'}}
+  ]},[ONE,TWO]);
+  assert.equal(details.get(ONE).catalogPath,'Материалы/Экокожа');
+  assert.equal(details.get(TWO).catalogPath,null);
+  const snapshot=summarizeStockByStore({meta:{size:2},rows:sample},
+    {offset:0,search:null},details);
+  assert.equal(snapshot.items[0].catalogPath,'Материалы/Экокожа');
+  assert.equal(snapshot.items[1].catalogPath,null);
+  assert.equal(snapshot.items[0].uom,'м');
+  assert.equal(snapshot.items[1].uom,'шт');
+  assert.doesNotMatch(JSON.stringify(snapshot),/009d69bb/);
+});
