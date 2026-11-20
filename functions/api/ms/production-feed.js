@@ -37,7 +37,8 @@ export function summarizeProductionFeed(payload){
       typeof row.moment!=='string'||row.moment.length>40||
       !/^\d{4}-\d{2}-\d{2}/.test(row.moment))
       throw Error('invalid_production_task');
-    return {number:row.name,date:row.moment,
+    const id=typeof row.id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.id)?row.id:null;
+    return {id,number:row.name,date:row.moment,
       updated:typeof row.updated==='string'&&row.updated.length<=40?row.updated:null};
   });
   return {
