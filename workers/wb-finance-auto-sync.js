@@ -135,6 +135,8 @@ export async function runWbSync(env,date=new Date()){
     typeof env.WB_API_TOKEN!=='string'||!env.WB_API_TOKEN||/\s/.test(env.WB_API_TOKEN))
     return 'configuration_unavailable';
   const db=env.WB_REPORT_SNAPSHOT_DB;
+  const prior=await db.prepare("SELECT last_status FROM wb_finance_api_runtime WHERE account_id=?").bind(ACCOUNT).first();
+  if(prior?.last_status?.startsWith('halted_'))return 'manual_intervention_required';
   if(!await lock(db,date.getTime()))return 'throttled';
   try{
     const day=samaraDay(date);
@@ -147,8 +149,8 @@ export async function runWbSync(env,date=new Date()){
     return await getPage(db,env,next);
   }catch(error){
     const code=safeCode(error);
-    await release(db,code);
-    return code;
+    await release(db,'halted_'+code);
+    return 'halted_'+code;
   }
 }
 export default {
