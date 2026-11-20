@@ -1,0 +1,21 @@
+name: MoySklad read-only connection check
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/ms/production-check.js'
+      - 'tests/ms/ms-production-check.test.mjs'
+      - '.github/workflows/ms-readonly-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  one-request:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check functions/api/ms/production-check.js
+      - run: node --test tests/ms/ms-production-check.test.mjs
