@@ -59,6 +59,7 @@ test('one owner-triggered request uses three sequential read-only GETs, server-s
     }
     assert.equal(calls[2].pathname,'/api/remap/1.2/entity/assortment');
     assert.equal(calls[2].searchParams.get('limit'),'10');
+    assert.equal(calls[2].searchParams.get('expand'),'uom');
     assert.equal(calls[2].searchParams.get('filter'),'id='+PROD+';id='+PROD2);
     return answer(assort);
   });
@@ -78,6 +79,10 @@ test('one owner-triggered request uses three sequential read-only GETs, server-s
   assert.equal(body.items[0].stock,40.5);
   assert.equal(body.items[1].stock,-1);
   assert.equal(body.requests,3);
+  assert.equal(body.page,0);
+  assert.equal(body.pageSize,10);
+  assert.equal(body.hasPrevious,false);
+  assert.equal(body.hasNext,false);
   assert.equal(body.changedRecords,0);
   assert.doesNotMatch(JSON.stringify(body),/f0000000|009d69bb|synthetic-access-token/);
 });
@@ -98,9 +103,10 @@ test('unknown store or duplicate store names fail closed before current report',
 });
 
 test('parse store selection allows known punctuation but rejects user-selected endpoints/other parameters',()=>{
-  assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent(NAME))),{store:NAME});
+  assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent(NAME))),{store:NAME,page:0});
+  assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent(NAME)+'&page=1')),{store:NAME,page:1});
   assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent('Пламя. Магазин'))),
-    {store:'Пламя. Магазин'});
+    {store:'Пламя. Магазин',page:0});
   const u=new URL(buildCurrentWarehouseUrl(STORE_ID));
   assert.equal(u.origin,'https://api.moysklad.ru');
   assert.equal(u.searchParams.get('filter'),'storeId='+STORE_ID);
@@ -111,7 +117,11 @@ test('parse store selection allows known punctuation but rejects user-selected e
     '?store='+encodeURIComponent(NAME)+'&store='+encodeURIComponent(NAME),
     '?store='+encodeURIComponent(NAME)+'&filter=anything',
     '?store='+encodeURIComponent('https://evil.invalid'),
-    '?store='+encodeURIComponent('Склад;filter=all')
+    '?store='+encodeURIComponent('Склад;filter=all'),
+    '?store='+encodeURIComponent(NAME)+'&page=-1',
+    '?store='+encodeURIComponent(NAME)+'&page=50',
+    '?store='+encodeURIComponent(NAME)+'&page=1&page=2',
+    '?store='+encodeURIComponent(NAME)+'&page=abc'
   ])assert.throws(()=>parseWarehouseScope(new URL(ENDPOINT+q)),q);
 });
 
@@ -201,4 +211,96 @@ test('upstream errors at each stage contain only http and fixed error codes',asy
     assert.equal(count,at);
     assert.doesNotMatch(body,/secret|vendor|SKU|synthetic-access-token/);
   }
+});
+
+test('page 2 of 17 items returns the seven remaining named positions only',async()=>{
+  const lines=Array.from({length:17},(_,i)=>({
+    assortmentId:'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0'),
+    storeId:STORE_ID,stock:i+1
+  }));
+  const calls=[];
+  const handler=createWarehouseAvailabilityHandler(async(uri)=>{
+    const url=new URL(uri);
+    calls.push(url);
+    if(calls.length===1)return answer(stores);
+    if(calls.length===2)return answer(lines);
+    const ids=lines.slice(10).map(x=>x.assortmentId);
+    assert.equal(url.pathname,'/api/remap/1.2/entity/assortment');
+    assert.equal(url.searchParams.get('expand'),'uom');
+    assert.equal(url.searchParams.get('limit'),'10');
+    assert.equal(url.searchParams.get('filter'),ids.map(id=>'id='+id).join(';'));
+    return answer({meta:{size:7},rows:ids.map((id,i)=>({
+      id,name:'Материал '+(i+11),uom:{name:'м'}
+    }))});
+  });
+  const result=await handler({request:await req('owner-id',ENDPOINT+
+    '?store='+encodeURIComponent(NAME)+'&page=1'),env});
+  assert.equal(result.status,200);
+  const data=await result.json();
+  assert.equal(calls.length,3);
+  assert.equal(data.warehouseLines,17);
+  assert.equal(data.page,1);
+  assert.equal(data.pageSize,10);
+  assert.equal(data.hasPrevious,true);
+  assert.equal(data.hasNext,false);
+  assert.equal(data.items.length,7);
+  assert.equal(data.namesResolved,7);
+  assert.equal(data.items[0].name,'Материал 11');
+  assert.equal(data.items[0].stock,11);
+  assert.equal(data.items[6].uom,'м');
+  assert.equal(data.additionalRows,0);
+  assert.doesNotMatch(JSON.stringify(data),/00000000-0000-4000-8000|synthetic-access-token/);
+});
+
+test('first page of 17 keeps seven as unshown, and does not invent a global inventory',()=>{
+  const lines=Array.from({length:17},(_,i)=>({
+    id:'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0'),stock:i+1
+  }));
+  const summary=summarizeWarehouseAvailability(lines,new Map(),{name:NAME},0);
+  assert.equal(summary.items.length,10);
+  assert.equal(summary.additionalRows,7);
+  assert.equal(summary.hasNext,true);
+  assert.equal(summary.hasPrevious,false);
+  assert.equal(summary.scope,'WAREHOUSE_NONZERO_POSITIONS_ONLY_NOT_FULL_INVENTORY');
+});
+
+test('when uom expansion returns HTTP 400, the old safe name lookup is used once',async()=>{
+  let calls=0;
+  const handler=createWarehouseAvailabilityHandler(async(uri)=>{
+    calls++;
+    if(calls===1)return answer(stores);
+    if(calls===2)return answer(stock);
+    if(calls===3){
+      assert.equal(new URL(uri).searchParams.get('expand'),'uom');
+      return new Response('uom expand not supported',{status:400});
+    }
+    assert.equal(new URL(uri).searchParams.has('expand'),false);
+    return answer({meta:{size:2},rows:[
+      {id:PROD,name:'Экокожа',uom:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/uom/00000000-0000-4000-8000-000000000001'}}},
+      {id:PROD2,name:'Коврики'}
+    ]});
+  });
+  const result=await handler({request:await req(),env});
+  assert.equal(result.status,200);
+  const data=await result.json();
+  assert.equal(calls,4);
+  assert.equal(data.requests,4);
+  assert.equal(data.namesResolved,2);
+  assert.equal(data.items[0].name,'Экокожа');
+  assert.equal(data.items[0].uom,null);
+});
+
+test('an out of range page fails closed instead of returning an empty successful warehouse',async()=>{
+  let calls=0;
+  const handler=createWarehouseAvailabilityHandler(async()=>{
+    calls++;
+    return calls===1?answer(stores):answer(stock);
+  });
+  const result=await handler({request:await req('owner-id',ENDPOINT+
+    '?store='+encodeURIComponent(NAME)+'&page=1'),env});
+  assert.equal(result.status,502);
+  const data=await result.json();
+  assert.equal(data.code,'warehouse_page_out_of_range');
+  assert.equal(data.changedRecords,0);
+  assert.equal(calls,2);
 });
