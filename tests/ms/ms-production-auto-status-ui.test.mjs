@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
+const js=readFileSync(new URL('../../web/office/ms-production-auto-status.mjs',import.meta.url),'utf8');
+const css=readFileSync(new URL('../../web/office/ms-production.css',import.meta.url),'utf8');
+
+test('automatic history is shown beside production manager, not a disguised live queue',()=>{
+  for(const id of [
+    'msAutoHistory','msAutoHistoryTitle','msAutoHistoryStatus',
+    'msAutoHistoryDetails','msAutoHistoryTable','msAutoHistoryRows',
+    'msAutoHistoryRetry'
+  ])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+  const cmd=html.indexOf('id="msCommandBoard"');
+  const auto=html.indexOf('id="msAutoHistory"');
+  const manual=html.indexOf('id="msPriorityWorklist"');
+  assert.ok(cmd>=0&&auto>cmd&&manual>auto);
+  assert.match(html,/не единый снимок активных заказов/);
+  assert.match(html,/до подтверждения статуса заказа/i);
+  assert.match(html,/src="ms-production-auto-status\.mjs"/);
+  assert.match(css,/\.ms-auto-history/);
+});
+test('auto history reads protected endpoint only, without user input or writes',()=>{
+  assert.match(js,/\/api\/ms\/production-auto-status/);
+  assert.match(js,/method:'GET'/);
+  assert.match(js,/credentials:'same-origin'/);
+  assert.match(js,/cache:'no-store'/);
+  assert.match(js,/document\.visibilityState==='visible'/);
+  assert.match(js,/window\.setInterval\(maybeLoad,60\*1000\)/);
+  assert.match(js,/EVERY_MS=30\*60\*1000/);
+  assert.match(js,/location\.hash\.split\('\/'\)\[0\]==='#production'/);
+  assert.doesNotMatch(js,/localStorage|sessionStorage|indexedDB|innerHTML|POST|DELETE|PATCH|PUT/);
+});
+test('UI rejects fake live-queue status and missing storage never claims zero tasks',()=>{
+  assert.match(js,/data\.approvedForLiveQueue!==false/);
+  assert.match(js,/data\.completeHistoricalPass/);
+  assert.match(js,/ms_auto_storage_not_configured/);
+  assert.match(js,/Автоматическая проверка последних обновлённых заданий выше продолжает работать/);
+  assert.match(js,/Без подтверждения активного статуса/);
+  assert.match(js,/Никаких статусов не предполагаем/);
+  assert.match(js,/Не считаем их нулевыми или завершёнными/);
+});
