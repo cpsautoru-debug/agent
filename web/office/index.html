@@ -1480,6 +1480,8 @@
                 <option value="unverified">Прочие / группа не подтверждена</option>
               </select>
               <small>Категории выводятся из реальной группы номенклатуры, а не названия товара. Переключение не создаёт запросов.</small>
+              <button class="ms-production-detail-button" id="msWarehouseSnapshotExportMissing" type="button" disabled>CSV: карточки на исправление</button>
+              <small>Список позиций с отсутствующей группой или единицей измерения. Формируется только из подтверждённого снимка этого склада, без новых запросов. Это не файл автоматического импорта.</small>
             </div>
             <div class="ms-production-scroll">
               <table class="ms-production-table ms-warehouse-snapshot-table" id="msWarehouseSnapshotTable" hidden>
