@@ -66,3 +66,15 @@ export function payoutFromRows(rows){
   if(!Number.isSafeInteger(total))throw Error('money_overflow');
   return total;
 }
+
+// D1 allows 100 bind parameters per SQL statement.
+// Lookup also binds account_id and report_id, leaving at most 98 rrdIds.
+// Keep batches at 90 for margin without modifying immutable row semantics.
+export function splitLookupRowIds(rows) {
+  if (!Array.isArray(rows)) throw Error('invalid_lookup_rows');
+  const batches = [];
+  for (let start = 0; start < rows.length; start += 90) {
+    batches.push(rows.slice(start, start + 90).map(row => row.rrdId));
+  }
+  return batches;
+}
