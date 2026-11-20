@@ -25,3 +25,11 @@ test('browser never asserts coverage from sample-only response',()=>{
   assert.match(html,/без сбора всех заданий/);
   assert.match(css,/\.ms-coverage-probe/);
 });
+
+test('diagnostic errors show only allowlisted entity and numeric HTTP',()=>{
+  assert.match(js,/\['productiontask','productionstage'\]\.includes\(body\?\.upstreamEntity\)/);
+  assert.match(js,/Number\.isInteger\(body\?\.upstreamHttp\)/);
+  assert.match(js,/body\.upstreamHttp>=300&&body\.upstreamHttp<=599/);
+  assert.match(js,/status\.textContent='Диагностика не завершена:/);
+  assert.doesNotMatch(js,/innerHTML|response\.headers\.get\('Authorization'\)/);
+});
