@@ -137,8 +137,11 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
   window.addEventListener('ms:warehouse-snapshot-ready',event=>{
     const d=event.detail;
     if(!d||typeof d.warehouseName!=='string'||
-      !Number.isSafeInteger(d.positions)||!Number.isSafeInteger(d.unverified))
-      return;
+      !Number.isSafeInteger(d.positions)||d.positions<0||
+      !Number.isSafeInteger(d.unverified)||d.unverified<0||
+      d.unverified>d.positions||
+      !Number.isSafeInteger(d.missingUnits)||d.missingUnits<0||
+      d.missingUnits>d.positions)return;
     warehouseSummary.textContent=d.warehouseName+': '+fmt(d.positions)+
       ' ненулевых позиций · без подтверждённой категории '+fmt(d.unverified)+
       ' · единица измерения неизвестна у '+fmt(d.missingUnits)+
