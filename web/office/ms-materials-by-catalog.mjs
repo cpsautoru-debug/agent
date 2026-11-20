@@ -3,7 +3,8 @@
 const MATERIAL_FOLDER=['производство','экокожа и алька'];
 const normalize=(s)=>s.trim().normalize('NFKC').toLocaleLowerCase('ru-RU');
 export function classifyCatalogPath(catalogPath){
-  if(typeof catalogPath!=='string'||catalogPath.length>180)
+  if(typeof catalogPath!=='string'||catalogPath.length>180||
+    /[\u0000-\u001f\u007f]/u.test(catalogPath))
     return 'UNVERIFIED';
   const segments=catalogPath.split('/');
   if(segments.length<2||segments.some(s=>!s.trim()))
