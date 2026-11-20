@@ -14,6 +14,9 @@ const json=(status,value)=>new Response(JSON.stringify(value),{status,headers:HE
 const UUID='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const TASK_REF=new RegExp('^https://api\\.moysklad\\.ru/api/remap/1\\.2/entity/productiontask/'+UUID+'$','i');
 const ROW_REF=new RegExp('/(?:productionrow|productionRows)/'+UUID+'(?:$|\\?)','i');
+// A nested production-row href may encode its parent production task.
+// Standalone /productionrow/ URLs do not prove membership and stay unverified.
+const NESTED_ROW_REF=new RegExp('^https://api\\.moysklad\\.ru/api/remap/1\\.2/entity/productiontask/('+UUID+')/productionRows/'+UUID+'$','i');
 const PAGE_SIZE=50;
 const TASK_ID=new RegExp('^'+UUID+'$','i');
 
@@ -76,6 +79,13 @@ export function summarizeProductionCoverageProbe(tasks,stages){
   const stage=stages?.sample||null;
   const taskLink=stage?.productionTask?.meta?.href;
   const rowLink=stage?.productionRow?.meta?.href;
+  const rowParent=typeof rowLink==='string'?NESTED_ROW_REF.exec(rowLink):null;
+  const sampleId=tasks?.sample?.id;
+  const rowParentMatch=rowParent&&typeof sampleId==='string'&&TASK_ID.test(sampleId)?
+    (rowParent[1].toLowerCase()===sampleId.toLowerCase()?'matched':'conflicting'):
+    'not_observed';
+  // A mismatched nested row parent is an integrity failure, not a normal result.
+  if(rowParentMatch==='conflicting')throw Error('ms_response_unverified');
   const linkPresent=stage===null?'not_observed':
     typeof taskLink==='string'&&TASK_REF.test(taskLink)?'observed':'not_observed';
   const rowPresent=stage===null?'not_observed':
@@ -94,6 +104,7 @@ export function summarizeProductionCoverageProbe(tasks,stages){
     sampleTaskStagePages50:stages===null?null:Math.ceil(stages.count/PAGE_SIZE),
     sampleStageHasTaskReference:linkPresent,
     sampleStageHasRowReference:rowPresent,
+    sampleRowTaskMatch:rowParentMatch,
     bulkStageJoinProven:false,
     globalStageListAvailable:false,
     allUnfinishedVerified:false,
