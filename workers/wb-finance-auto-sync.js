@@ -1,4 +1,4 @@
-import { FINANCE_FIELDS, exactFinanceJson, normalizeReport, normalizeOperation } from './wb-finance-sync-core.mjs';
+import { FINANCE_FIELDS, exactFinanceJson, normalizeReport, normalizeOperation, splitLookupRowIds } from './wb-finance-sync-core.mjs';
 
 // Private scheduled Worker. No public endpoint, no XLSX writes, no Ozon access.
 // One Finance API call per cron tick (5 minutes); WB officially allows 1/minute.
@@ -109,9 +109,12 @@ async function getPage(db,env,report){
     cursor=next;
   }
   const rows=await Promise.all(ops.map(async op=>({...op,hash:await hash(op)})));
-  const query="SELECT rrd_id,source_hash FROM wb_finance_api_rows WHERE account_id=? AND report_id=? AND rrd_id IN ("+rows.map(()=>'?').join(',')+")";
-  const existing=await db.prepare(query).bind(ACCOUNT,report.report_id,...rows.map(x=>x.rrdId)).all();
-  const hashes=new Map((existing.results||[]).map(x=>[x.rrd_id,x.source_hash]));
+  const hashes=new Map();
+  for(const batchIds of splitLookupRowIds(rows)){
+    const query="SELECT rrd_id,source_hash FROM wb_finance_api_rows WHERE account_id=? AND report_id=? AND rrd_id IN ("+batchIds.map(()=>'?').join(',')+")";
+    const existing=await db.prepare(query).bind(ACCOUNT,report.report_id,...batchIds).all();
+    for(const row of existing.results||[])hashes.set(row.rrd_id,row.source_hash);
+  }
   if(rows.some(x=>hashes.has(x.rrdId)&&hashes.get(x.rrdId)!==x.hash)){
     await db.prepare("UPDATE wb_finance_api_reports SET status='conflict',error_code='api_operation_changed' WHERE account_id=? AND report_id=?")
       .bind(ACCOUNT,report.report_id).run();
