@@ -40,7 +40,7 @@ test('status and local CSV cannot be mistaken for full production queue or autho
   assert.match(js,/text\/csv/);
   assert.match(js,/Не подтверждено/);
   assert.match(js,/msProductionSearchForm/);
-  assert.match(js,/form\.requestSubmit\(\)/);
+  assert.match(js,/taskForm\.requestSubmit\(\)/);
   assert.match(js,/summary\.textContent/);
   assert.match(core,/EXACT_USER_SELECTED_TASK_NUMBERS_NOT_ALL_ACTIVE_ORDERS/);
 });
