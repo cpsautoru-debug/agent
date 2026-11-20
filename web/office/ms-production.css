@@ -25,3 +25,30 @@
 .ms-production-stage-totals>div{display:flex;flex-direction:column;min-width:160px;gap:5px;padding:13px 18px;background:#f4f7f1;border-radius:9px}
 .ms-production-stage-totals span{font-size:11px;color:#63766a}
 .ms-production-stage-totals strong{font-size:24px;font-variant-numeric:tabular-nums;color:#153c2b}
+
+
+.ms-production-search{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin:14px 0;padding:13px 14px;background:#f7f9f6;border-radius:10px}
+.ms-production-search label{font-size:12px;font-weight:700;color:#456253}
+.ms-production-search input{background:#fff;border:1px solid #d7e5d8;border-radius:8px;padding:10px 12px;min-height:36px;max-width:210px;width:100%;font-size:13px;box-sizing:border-box;color:#163d2d}
+.ms-production-search input:focus-visible,.ms-production-detail-button:focus-visible,.ms-production-button:focus-visible{outline:2px solid #457851;outline-offset:2px}
+.ms-production-pager{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:16px;font-size:12px;color:#47645b}
+.ms-production-pager button{min-width:78px}
+.ms-production-stage-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:3px 0 8px}
+.ms-production-stage-heading h3{margin:0}
+.ms-stage-progress{appearance:auto;display:block;width:min(175px,65%);height:11px;accent-color:#478455;flex:1}
+.ms-stage-progress-value{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px;color:#4d6757}
+.ms-production-stage-panel td:last-child{min-width:150px}
+.ms-production-stage-panel td:last-child{display:flex;align-items:center;gap:8px}
+.ms-production-table tbody tr:hover{background:#f8faf6}
+.ms-production-table td{font-variant-numeric:tabular-nums}
+@media(max-width:720px){
+  .ms-production-monitor{padding:16px}
+  .ms-production-search{align-items:stretch}
+  .ms-production-search label{flex-basis:100%}
+  .ms-production-search input{max-width:none}
+  .ms-production-pager{justify-content:center}
+  .ms-production-table{min-width:780px}
+  .ms-production-stage-panel .ms-production-table{min-width:500px}
+  .ms-production-header{align-items:stretch}
+  .ms-production-button{width:100%}
+}
