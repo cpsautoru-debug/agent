@@ -30,7 +30,7 @@ async function req(sub='owner',url=ROOT){
 function stage(row,id,order,name,plan,done){
   return {
     id:'abc', totalQuantity:plan,completedQuantity:done,orderingPosition:order,
-    productionRow:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/productionrow/'+id}},
+    productionRow:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+TASK+'/productionRows/'+id}},
     stage:{name}
   };
 }
