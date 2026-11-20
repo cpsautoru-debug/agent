@@ -6,5 +6,8 @@
   "compatibility_date": "2026-11-20",
   "workers_dev": false,
   "triggers": { "crons": ["*/5 * * * *"] },
+  // Set D1 binding ONLY in a local untracked config after creating a dedicated staging D1.
+  // Required: d1_databases [{binding:'MS_PRODUCTION_DB',database_name:'autosklad63-ms-production-staging',database_id:'<uuid>'}].
+  // Cloudflare encrypted Pages secrets cannot be read back or inherited by this Worker.
   "vars": { "MS_PRODUCTION_AUTO_SYNC": "disabled" }
 }
