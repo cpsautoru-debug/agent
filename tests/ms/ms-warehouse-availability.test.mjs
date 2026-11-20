@@ -106,7 +106,7 @@ test('parse store selection allows known punctuation but rejects user-selected e
   assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent(NAME))),{store:NAME,page:0});
   assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent(NAME)+'&page=1')),{store:NAME,page:1});
   assert.deepEqual(parseWarehouseScope(new URL(ENDPOINT+'?store='+encodeURIComponent('Пламя. Магазин'))),
-    {store:'Пламя. Магазин'});
+    {store:'Пламя. Магазин',page:0});
   const u=new URL(buildCurrentWarehouseUrl(STORE_ID));
   assert.equal(u.origin,'https://api.moysklad.ru');
   assert.equal(u.searchParams.get('filter'),'storeId='+STORE_ID);
