@@ -9,6 +9,27 @@ export function assessProductionTask(task,payload){
     payload.stages.length===0||payload.plan===0){
     return {number:String(task?.number||'—'),status:'unverified',code:'unverified_stage_data'};
   }
+  // Owner-only API verifies each production row separately. Different
+  // product rows can legitimately have different workflows and stage names.
+  // An aggregate stage name cannot be compared to the entire task plan.
+  if(payload.rowChainsVerified===false||payload.rowChainStatus==='unverified')
+    return {number:task.number,status:'unverified',code:'row_chain_not_verified'};
+  if(payload.rowChainsVerified===true){
+    if(!['complete','incomplete'].includes(payload.rowChainStatus))
+      return {number:task.number,status:'unverified',code:'invalid_row_chain_status'};
+    const remaining=Math.round((payload.plan-payload.finishedFinalStage)*1000)/1000;
+    const complete=payload.rowChainStatus==='complete';
+    if((complete&&remaining>0.000001)||(!complete&&remaining<=0.000001))
+      return {number:task.number,status:'unverified',code:'row_chain_totals_mismatch'};
+    const stage=payload.firstUnfinishedRowStage;
+    if(!complete&&(typeof stage!=='string'||!stage.trim()||stage.length>100))
+      return {number:task.number,status:'unverified',code:'missing_first_unfinished_row_stage'};
+    return {
+      number:task.number,status:complete?'complete':'incomplete',
+      plan:payload.plan,finished:payload.finishedFinalStage,remaining,
+      firstUnfinishedStage:complete?null:stage
+    };
+  }
   const stages=[...payload.stages].sort((a,b)=>a.order-b.order);
   for(const s of stages){
     if(!Number.isInteger(s.order)||typeof s.name!=='string'||s.name.length>100||

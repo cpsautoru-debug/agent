@@ -6,7 +6,9 @@ on:
       - 'functions/api/ms/production-feed.js'
       - 'functions/api/ms/production-coverage-probe.js'
       - 'functions/api/ms/production-stages.js'
+      - 'functions/api/ms/stock-bystore.js'
       - 'web/office/ms-production.js'
+      - 'web/office/ms-stock-bystore.mjs'
       - 'web/office/ms-production-date.mjs'
       - 'web/office/ms-production-plan-date.mjs'
       - 'web/office/ms-production-audit.mjs'
@@ -24,6 +26,8 @@ on:
       - 'tests/ms/ms-production-scan-budget.test.mjs'
       - 'tests/ms/ms-preview-smoke.test.mjs'
       - 'tests/ms/ms-production-stages.test.mjs'
+      - 'tests/ms/ms-stock-bystore.test.mjs'
+      - 'tests/ms/ms-stock-bystore-ui.test.mjs'
       - 'tests/ms/ms-production-date.test.mjs'
       - 'tests/ms/ms-production-plan-date.test.mjs'
       - '.github/workflows/ms-production-monitor.yml'
@@ -40,11 +44,13 @@ jobs:
           node-version: '22'
       - run: node --check functions/api/ms/production-feed.js
       - run: node --check functions/api/ms/production-stages.js
+      - run: node --check functions/api/ms/stock-bystore.js
       - run: node --check functions/api/ms/production-coverage-probe.js
       - run: node --check web/office/ms-production.js
+      - run: node --check web/office/ms-stock-bystore.mjs
       - run: node --check web/office/ms-production-audit.mjs
       - run: node --check web/office/ms-production-plan-date.mjs
       - run: node --check web/office/ms-production-coverage-probe.mjs
       - run: node --check web/office/ms-production-scan-budget.mjs
       - run: node --check scripts/ms-preview-smoke.mjs
-      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs

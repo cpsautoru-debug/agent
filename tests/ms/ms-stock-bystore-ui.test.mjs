@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
+const js=readFileSync(new URL('../../web/office/ms-stock-bystore.mjs',import.meta.url),'utf8');
+const prod=readFileSync(new URL('../../web/office/ms-production.js',import.meta.url),'utf8');
+const css=readFileSync(new URL('../../web/office/ms-production.css',import.meta.url),'utf8');
+test('actual warehouse report and executive summary appear in production, not in demo panels',()=>{
+  const fragment=html.split('<!-- ПРОИЗВОДСТВО -->')[1]?.split('</section>\n\n    <footer>')[0];
+  assert.ok(fragment);
+  for(const id of [
+    'msExecutiveTasks','msExecutiveAudit','msExecutiveStock','msStockSection',
+    'msStockRefresh','msStockStatus','msStockCount','msStockRows',
+    'msStockSearchForm','msStockSearch','msStockClear','msStockPrev','msStockNext','msStockPage'
+  ])assert.equal((fragment.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+  assert.match(html,/src="ms-stock-bystore\.mjs"/);
+  assert.match(html,/Остатки по складам/);
+  assert.match(html,/Готовая продукция/);
+  assert.match(html,/Неизвестно|нет данных/);
+  assert.doesNotMatch(fragment,/демо-остатки|остатки 108 м как реальные/i);
+});
+test('warehouse view is manual, private, limited to one page and uses no local storage',()=>{
+  assert.match(js,/button\.addEventListener\('click'/);
+  assert.match(js,/\/api\/ms\/stock-bystore/);
+  assert.match(js,/method:'GET'/);
+  assert.match(js,/credentials:'same-origin'/);
+  assert.match(js,/cache:'no-store'/);
+  assert.match(js,/document\.visibilityState==='visible'/);
+  assert.match(js,/pending/);
+  assert.match(js,/const PAGE=10/);
+  assert.match(js,/Неизвестно/);
+  assert.match(js,/ms-stock-negative/);
+  assert.doesNotMatch(js,/setInterval|setTimeout|localStorage|sessionStorage|innerHTML|method:'POST'/);
+});
+test('production numbers are sourced from existing real feed and page audit only',()=>{
+  assert.match(prod,/executiveTasks\.textContent=.*payload\.totalAllTime/);
+  assert.match(prod,/executiveAudit\.textContent=summary\.checked/);
+  assert.match(html,/Исторические и текущие; это не число активных заказов/);
+  assert.match(css,/\.ms-executive-overview/);
+  assert.match(css,/\.ms-stock-table/);
+  assert.match(css,/@media\(max-width:720px\)/);
+});

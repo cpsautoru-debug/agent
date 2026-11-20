@@ -6,6 +6,8 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
   'use strict';
   const node=id=>document.getElementById(id);
   const panel=node('msProductionMonitor');
+  const executiveTasks=node('msExecutiveTasks');
+  const executiveAudit=node('msExecutiveAudit');
   const refreshButton=node('msProductionRefresh');
   const status=node('msProductionStatus');
   const count=node('msProductionCount');
@@ -91,6 +93,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
     stageRefresh.disabled=true;
   };
   const clearAudit=()=>{
+    if(executiveAudit)executiveAudit.textContent='Страница ещё не проверена';
     auditResults.hidden=true;
     auditStats.hidden=true;
     auditBody.replaceChildren();
@@ -138,6 +141,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
       previousButton.dataset.hasMore='no';
       nextButton.dataset.hasMore='no';
     }else{
+      if(executiveTasks)executiveTasks.textContent=new Intl.NumberFormat('ru-RU').format(payload.totalAllTime);
       count.textContent='Всего документов в «МойСклад»: '+payload.totalAllTime+
         '. Показаны '+(payload.offset+1)+'–'+(payload.offset+records.length)+
         ' (не все активные задания).';
@@ -270,6 +274,9 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
       auditComplete.textContent=String(summary.complete);
       auditUnknown.textContent=String(summary.unverified+summary.notChecked);
       auditPastDate.textContent=String(results.filter(item=>item.planDateStatus==='past').length);
+      if(executiveAudit)executiveAudit.textContent=summary.checked+'/'+candidates.length+
+        ': завершены '+summary.complete+', незавершены '+summary.incomplete+
+        ', неизвестно '+(summary.unverified+summary.notChecked);
     };
     renderStats();
     const appendResult=item=>{

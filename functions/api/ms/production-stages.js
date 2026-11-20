@@ -73,12 +73,25 @@ export function summarizeStages(payload){
     stage.plan+=s.plan;
     stage.done+=s.done;
   }
-  let planned=0,finished=0;
+  let planned=0,finished=0,chainVerified=true;
+  let firstUnfinishedStage=null;
   for(const pos of positions.values()){
     planned+=pos.plan;
-    const finalStage=pos.items.reduce((a,b)=>a.order>b.order?a:b);
+    // Multiple rows can follow different stage sequences; validation must
+    // never compare an individual row stage with the plan of the whole task.
+    const ordered=[...pos.items].sort((a,b)=>a.order-b.order);
+    let previous=pos.plan;
+    for(const stage of ordered){
+      if(stage.done>previous+0.000001)chainVerified=false;
+      previous=stage.done;
+      if(firstUnfinishedStage===null&&stage.done<stage.plan-0.000001)
+        firstUnfinishedStage=stage.stageName;
+    }
+    const finalStage=ordered.at(-1);
     finished+=finalStage.done;
   }
+  const rowChainStatus=!chainVerified||positions.size===0||planned===0?
+    'unverified':finished<planned-0.000001?'incomplete':'complete';
   const list=[...stages.values()]
     .sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name,'ru'))
     .map(({order,name,plan,done})=>({order,name,plan:compactQuantity(plan),done:compactQuantity(done)}));
@@ -87,6 +100,9 @@ export function summarizeStages(payload){
     taskRows:positions.size,plan:compactQuantity(planned),
     finishedFinalStage:compactQuantity(finished),
     finalStageMetric:'COMPLETED_QUANTITY_AT_LAST_STAGE_PER_PRODUCTION_ROW',
+    rowChainsVerified:chainVerified&&positions.size>0&&planned>0,
+    rowChainStatus,
+    firstUnfinishedRowStage:rowChainStatus==='incomplete'?firstUnfinishedStage:null,
     stages:list,
     coverage:'ONE_PRODUCTION_TASK_ONLY_NOT_ALL_ACTIVE_TASKS'
   };

@@ -71,3 +71,17 @@
 .ms-coverage-probe h3{font-size:17px;color:#193f30;margin:0 0 7px}
 .ms-coverage-probe .ms-production-note[hidden]{display:none}
 @media(max-width:720px){.ms-coverage-probe .ms-page-audit-header button{width:100%}}
+
+/* CEO read-only snapshot: status labels reflect only verified sources. */
+.ms-executive-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 22px}
+.ms-executive-card{background:#f6f9f4;border:1px solid #dce6d9;border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:7px;min-width:0}
+.ms-executive-card span{font-size:12px;font-weight:700;color:#466051}
+.ms-executive-card strong{font-size:19px;line-height:1.25;color:#173828;overflow-wrap:anywhere}
+.ms-executive-card small{font-size:11px;line-height:1.45;color:#64776a}
+.ms-stock-section{margin-top:18px}
+.ms-stock-table{min-width:670px}
+.ms-stock-table td:nth-child(4),.ms-stock-table td:nth-child(5),.ms-stock-table td:nth-child(6){font-variant-numeric:tabular-nums;white-space:nowrap}
+.ms-stock-negative{font-weight:800;color:#a83030}
+.ms-stock-zero{color:#697770}
+.ms-stock-section .ms-production-search input{max-width:280px}
+@media(max-width:720px){.ms-executive-overview{grid-template-columns:1fr}.ms-executive-card strong{font-size:17px}}
