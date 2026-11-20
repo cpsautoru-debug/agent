@@ -57,3 +57,23 @@ test('revoked token classified safely without including token in response',async
   assert.match(text,/ms_token_rejected_or_revoked/);
   assert.doesNotMatch(text,/synthetic-access-token/);
 });
+
+test('MoySklad HTTP 400 exposes only safe numeric error code (no upstream text or secrets)',async()=>{
+  let calls=0;
+  const handler=createMsProductionCheckHandler(async()=>{
+    calls++;
+    return new Response(JSON.stringify({errors:[{code:1014,error:'Sensitive incident text synthetic-access-token'}]}),{
+      status:400,headers:{'Content-Type':'application/json'}
+    });
+  });
+  const res=await handler({request:await req(),env});
+  assert.equal(res.status,200);
+  const data=await res.json();
+  assert.equal(data.code,'ms_api_http_error');
+  assert.equal(data.upstreamHttp,400);
+  assert.equal(data.msErrorCode,1014);
+  assert.equal(data.changedRecords,0);
+  assert.equal(calls,1);
+  assert.ok(!JSON.stringify(data).includes('synthetic-access-token'));
+  assert.ok(!JSON.stringify(data).includes('Sensitive incident text'));
+});
