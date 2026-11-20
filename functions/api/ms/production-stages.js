@@ -112,7 +112,8 @@ export function createStageHandler(fetcher=fetch){
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
       const upstream=new URL(BASE);
-      upstream.searchParams.set('filter','productionTask='+ids[0]);
+      // Reference filters require the full entity href, not just its UUID.
+      upstream.searchParams.set('filter','productionTask=https://api.moysklad.ru/api/remap/1.2/entity/productiontask/'+ids[0]);
       upstream.searchParams.set('limit','50');
       upstream.searchParams.set('offset','0');
       upstream.searchParams.set('expand','stage');
@@ -130,12 +131,25 @@ export function createStageHandler(fetcher=fetch){
         return json(502,{code:error?.name==='TimeoutError'?'ms_stages_timeout':'ms_stages_transport_error',readOnly:true,changedRecords:0});
       }
       if(response.status!==200){
+        // Only a numeric API error code is safe to expose; never include
+        // upstream messages, headers, entity data or the bearer token.
+        let msErrorCode=null;
+        if([400,412,415,422].includes(response.status)){
+          try{
+            const responseLength=Number(response.headers.get('Content-Length')||0);
+            if(responseLength<=8192){
+              const parsed=await jsonWithLimit(response);
+              const n=parsed?.errors?.[0]?.code;
+              if(Number.isSafeInteger(n)&&n>=0)msErrorCode=n;
+            }
+          }catch{}
+        }
         await response.body?.cancel().catch(()=>{});
         return json(502,{
           code:response.status===401?'ms_token_rejected':
             response.status===403?'ms_permission_denied':
             response.status===429?'ms_rate_limited':'ms_stages_upstream_error',
-          upstreamHttp:response.status,readOnly:true,changedRecords:0
+          upstreamHttp:response.status,msErrorCode,readOnly:true,changedRecords:0
         });
       }
       try{
