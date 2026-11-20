@@ -4,10 +4,14 @@ on:
     branches: [feature/marketplace-agents-staging]
     paths:
       - 'functions/api/ms/production-feed.js'
+      - 'functions/api/ms/production-stages.js'
       - 'web/office/ms-production.js'
+      - 'web/office/ms-production-date.mjs'
       - 'web/office/ms-production.css'
       - 'web/office/index.html'
       - 'tests/ms/ms-production-feed.test.mjs'
+      - 'tests/ms/ms-production-stages.test.mjs'
+      - 'tests/ms/ms-production-date.test.mjs'
       - '.github/workflows/ms-production-monitor.yml'
   workflow_dispatch:
 permissions:
@@ -21,5 +25,6 @@ jobs:
         with:
           node-version: '22'
       - run: node --check functions/api/ms/production-feed.js
+      - run: node --check functions/api/ms/production-stages.js
       - run: node --check web/office/ms-production.js
-      - run: node --test tests/ms/ms-production-feed.test.mjs
+      - run: node --test tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs
