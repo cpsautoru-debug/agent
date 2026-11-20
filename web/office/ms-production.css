@@ -144,3 +144,15 @@
   .ms-board-metrics{grid-template-columns:1fr 1fr}
   .ms-board-metrics strong{font-size:17px}
 }
+
+/* Owner-selected priority worklist, read-only. */
+.ms-priority-worklist{border:1px solid #d5e5d8;border-radius:14px;padding:18px;margin:18px 0;background:#fcfefb}
+.ms-priority-worklist h2{color:#173f2a;margin:0 0 6px}
+.ms-priority-worklist .ms-production-header{align-items:start;gap:14px}
+.ms-priority-form{display:flex;flex-direction:column;gap:8px;margin:13px 0 11px}
+.ms-priority-form label{font-size:13px;font-weight:700;color:#274b37}
+.ms-priority-form textarea{box-sizing:border-box;width:100%;max-width:760px;min-height:76px;resize:vertical;border:1px solid #cbdccf;border-radius:9px;padding:12px;font:inherit;background:#fff;color:#163c2a}
+.ms-priority-form textarea:focus-visible{outline:2px solid #4b9363;outline-offset:2px}
+.ms-priority-form .ms-board-actions{display:flex;flex-wrap:wrap;gap:10px}
+.ms-priority-worklist .ms-production-scroll[hidden]{display:none}
+@media(max-width:720px){.ms-priority-worklist{padding:12px}.ms-priority-form .ms-board-actions>button{flex:1}}
