@@ -49,3 +49,12 @@
 .wb-cost-hints p{font-size:12px;line-height:1.5;color:#53705f}
 .wb-cost-hints button{white-space:nowrap}
 .wb-cost-hints .table-wrap{margin-top:10px}
+
+.wb-model-draft-groups{margin-top:10px;display:grid;grid-template-columns:1fr;gap:7px}
+.wb-model-draft-group{border:1px solid #dbe8db;background:#fff;border-radius:8px;
+  overflow:hidden}
+.wb-model-draft-group summary{padding:10px 12px;font-weight:650;font-size:12px;
+  color:#34523d;cursor:pointer}
+.wb-model-draft-group ul{padding:0 14px 12px 26px;margin:0;
+  color:#526b57;font-size:12px;line-height:1.7;max-height:180px;
+  overflow:auto;overflow-wrap:anywhere}
