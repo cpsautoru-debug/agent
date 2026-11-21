@@ -108,7 +108,16 @@
     </div>
 
     <div class="top-right">
-      <span class="private-label">Доступ владельца</span>
+      <div class="office-auth" id="officeAuth">
+        <span class="office-auth-state" id="officeAuthState"
+              role="status" aria-live="polite">Проверяем вход…</span>
+        <a id="officeAuthLogin" class="office-auth-action"
+           href="/api/auth/google/start?next=overview" hidden>Войти через Google</a>
+        <button id="officeAuthLogout" class="office-auth-action"
+                type="button" hidden>Выйти</button>
+        <button id="officeAuthRetry" class="office-auth-action"
+                type="button" hidden>Повторить</button>
+      </div>
       <time id="today"></time>
     </div>
   </header>
@@ -380,7 +389,7 @@
              role="alert"
              hidden>
           <span id="ozonAuthMessage">Требуется вход владельца.</span>
-          <a class="button light" href="/api/auth/google/start">
+          <a class="button light" href="/api/auth/google/start?next=ozonFinance">
             Войти через Google
           </a>
           <button class="button light"
@@ -1582,6 +1591,7 @@
 <link rel="stylesheet" href="studio.css">
 
 <script src="app.js" defer></script>
+<script src="office-auth.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
