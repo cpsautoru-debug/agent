@@ -61,12 +61,15 @@ function fixture({allowed=true,groups=rows,savedCosts=costs,
         return{async all(){return{results:groups};}};
       }};
     }
+    if(sql.includes('FROM sqlite_master')){
+      assert.match(sql,/name='wb_profit_unit_costs'/);
+      return {async first(){
+        return noCostTable?null:{name:'wb_profit_unit_costs'};
+      }};
+    }
     if(sql.includes('FROM wb_profit_unit_costs')){
       return{bind(id){assert.equal(id,account);
-        return{async all(){
-          if(noCostTable)throw Error('D1_ERROR: no such table: wb_profit_unit_costs');
-          return{results:savedCosts};
-        }};
+        return{async all(){return{results:savedCosts};}};
       }};
     }
     throw Error('unexpected_wb_sql: '+sql);
@@ -101,7 +104,7 @@ test('owner sees reconciled article preview and explicitly non-final net profit'
   assert.equal(body.articles.find(x=>x.vendorCode==='VESTA-1')
     .contributionAfterKnownCogsKopecks,-24000);
   assert.equal(body.totalKnownManufacturingCogsKopecks,84000);
-  assert.equal(f.queries.length,4);
+  assert.equal(f.queries.length,5);
   assert.ok(f.queries.every(q=>q.startsWith('SELECT ')));
   assert.doesNotMatch(JSON.stringify(body),/test-secret|rrd_id|source_hash/);
 });
@@ -131,7 +134,7 @@ test('unreconciled payment fails closed instead of showing false SKU profit',asy
   const f=fixture({summary:{...stats,bank_payout_kop:72001}});
   const response=await handler({request:await request(),env:f.env});
   assert.equal(response.status,503);
-  assert.deepEqual(await response.json(),{code:'wb_profitability_unavailable'});
+  assert.deepEqual(await response.json(),{code:'wb_profit_payout_reconciliation_failed'});
 });
 test('oversized aggregation returns explicit incomplete and no fake zero',async()=>{
   const many=Array.from({length:1201},(_,i)=>({...rows[0],
@@ -147,4 +150,22 @@ test('failure to access shared finance DB does not return sensitive details',asy
   const response=await handler({request:await request(),env:f.env});
   assert.equal(response.status,503);
   assert.deepEqual(await response.json(),{code:'configuration_unavailable'});
+});
+test('missing cost table is detected by read-only schema query, not parsed D1 errors',async()=>{
+  const f=fixture({noCostTable:true});
+  const response=await handler({request:await request(),env:f.env});
+  assert.equal(response.status,200);
+  const data=await response.json();
+  assert.equal(data.costRegistry,'migration_required');
+  assert.equal(f.queries.length,4); // owner + two report reads + sqlite_master
+  assert.ok(!f.queries.some(x=>x.includes('FROM wb_profit_unit_costs')));
+});
+test('unavailable database read identifies stage but does not leak backend error',async()=>{
+  const f=fixture();
+  f.env.WB_REPORT_SNAPSHOT_DB.prepare=()=>{throw Error('sensitive_private_db_error');};
+  const response=await handler({request:await request(),env:f.env});
+  assert.equal(response.status,503);
+  assert.deepEqual(await response.json(),{
+    code:'wb_profitability_unavailable',stage:'completed_report_aggregation'
+  });
 });

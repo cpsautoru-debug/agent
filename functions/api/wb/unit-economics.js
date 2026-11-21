@@ -46,6 +46,7 @@ const COST_SQL=[
 export function createWbUnitEconomicsHandler({now=Date.now}={}){
   return async function({request,env}){
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
+    let step='configuration';
     try{
       if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||
         !env.OZON_FINANCE_DB||!env.WB_REPORT_SNAPSHOT_DB||
@@ -60,6 +61,7 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
       if(owner?.allowed!==1)return json(403,{code:'forbidden'});
 
       const db=env.WB_REPORT_SNAPSHOT_DB;
+      step='completed_report_aggregation';
       const [stats,groupsRaw]=await Promise.all([
         db.prepare(STATS_SQL).bind(WB_ACCOUNT).first(),
         db.prepare(GROUP_SQL).bind(WB_ACCOUNT).all()
@@ -67,18 +69,23 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
       if(!stats||!Array.isArray(groupsRaw?.results)||
         groupsRaw.results.length>MAX_GROUPS)
         return json(503,{code:'wb_profit_coverage_unavailable'});
-      let costRows=[],costRegistry='ready';
-      try{
+      // A missing *optional* additive cost register must never hide real
+      // articles. Probe sqlite_master instead of depending on D1-specific
+      // exception messages, which can differ between local and Cloudflare.
+      step='cost_registry_probe';
+      const costTable=await db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='wb_profit_unit_costs' LIMIT 1"
+      ).first();
+      let costRows=[],costRegistry='migration_required';
+      if(costTable?.name==='wb_profit_unit_costs'){
+        costRegistry='ready';
+        step='cost_registry_read';
         const costRaw=await db.prepare(COST_SQL).bind(WB_ACCOUNT).all();
         if(!Array.isArray(costRaw?.results)||costRaw.results.length>MAX_COSTS)
           return json(503,{code:'wb_profit_cost_register_incomplete'});
         costRows=costRaw.results;
-      }catch(e){
-        // Only a not-yet-applied additive migration is recoverable.
-        if(!/no such table:\s*wb_profit_unit_costs/i.test(String(e?.message||'')))
-          throw e;
-        costRegistry='migration_required';
       }
+      step='reconciliation';
       const summary=calculateWbSkuBreakdown(groupsRaw.results,costRows,stats);
       return json(200,{
         code:'wb_unit_economics_preview',source:'WB_FINANCE_API_D1',
@@ -86,8 +93,18 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
         costRegistry,profitVerified:false,
         ...summary
       });
-    }catch{
-      return json(503,{code:'wb_profitability_unavailable'});
+    }catch(error){
+      // Fixed, non-sensitive diagnostic codes. Never disclose DB error text,
+      // SQL contents, cookies, identifiers, or financial row values.
+      if(step==='reconciliation'&&error?.message==='wb_profit_payout_reconciliation_failed')
+        return json(503,{code:'wb_profit_payout_reconciliation_failed'});
+      if(step==='reconciliation'&&error?.message==='wb_profit_operation_coverage_invalid')
+        return json(503,{code:'wb_profit_operation_coverage_invalid'});
+      return json(503,{
+        code:'wb_profitability_unavailable',
+        stage:['completed_report_aggregation','cost_registry_probe',
+          'cost_registry_read','reconciliation'].includes(step)?step:'unavailable'
+      });
     }
   };
 }

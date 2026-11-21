@@ -211,12 +211,50 @@
         status('Требуется вход владельца через Google для просмотра прибыли WB.',true);
         return;
       }
-      if(!response.ok)throw Error('unit_economics_api_unavailable');
+      if(!response.ok){
+        // API returns only predefined privacy-safe codes; never present
+        // DB exception details, cookies, SQL fragments or private rows.
+        let errorCode='unit_economics_api_unavailable';
+        try{
+          const failure=await response.json();
+          if([
+            'wb_profit_payout_reconciliation_failed',
+            'wb_profit_operation_coverage_invalid',
+            'wb_profit_coverage_unavailable',
+            'wb_profit_cost_register_incomplete'
+          ].includes(failure?.code))errorCode=failure.code;
+          else if(failure?.code==='wb_profitability_unavailable'&&
+            ['completed_report_aggregation','cost_registry_probe',
+              'cost_registry_read','reconciliation'].includes(failure?.stage))
+            errorCode='wb_profitability_unavailable_'+failure.stage;
+        }catch{}
+        throw Error(errorCode);
+      }
       draw(await response.json());
-    }catch{
+    }catch(error){
       reset();
-      status('Невозможно подтвердить расшифровку по артикулам. Данные скрыты; '+
-        'проверьте доступ к финансовой D1 и целостность завершённых отчётов.',true);
+      const reasons={
+        wb_profit_payout_reconciliation_failed:
+          'Детализация по артикулам не совпала с выплатами WB. Расчёт заблокирован для защиты финансовых данных.',
+        wb_profit_operation_coverage_invalid:
+          'Число операций по артикулам не совпало с завершёнными отчётами. Расчёт заблокирован.',
+        wb_profit_coverage_unavailable:
+          'Источник данных по артикулам неполный или превышен лимит. Требуется проверка охвата.',
+        wb_profit_cost_register_incomplete:
+          'Справочник себестоимости неполный. Проверьте его состояние.',
+        wb_profitability_unavailable_completed_report_aggregation:
+          'Ошибка чтения строк завершённых финансовых отчётов. Основной монитор WB работает отдельно.',
+        wb_profitability_unavailable_cost_registry_probe:
+          'Не удалось проверить таблицу себестоимости в финансовой D1.',
+        wb_profitability_unavailable_cost_registry_read:
+          'Не удалось прочитать сохранённый справочник себестоимости.',
+        wb_profitability_unavailable_reconciliation:
+          'Не удалось проверить корректность детализации по артикулам.'
+      };
+      status((reasons[error?.message]||
+        'Невозможно подтвердить расшифровку по артикулам. Данные скрыты; проверьте доступ к финансовой D1.')+
+        ' Код: '+(Object.hasOwn(reasons,error?.message)?
+          error.message:'wb_unit_economics_unavailable'),true);
     }finally{busy=false;refreshButton.disabled=false;}
   };
   form.addEventListener('submit',async event=>{
