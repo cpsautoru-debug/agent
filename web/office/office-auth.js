@@ -10,7 +10,7 @@
   if (![root, label, login, logout, retry].every(Boolean)) return;
 
   const allowed = new Set([
-    'overview', 'departments', 'agents', 'workflow', 'studio',
+    'overview', 'departments', 'agents', 'orchestrator', 'workflow', 'studio',
     'production', 'connections', 'wbFinance', 'ozonFinance', 'ozonProfit'
   ]);
   const nextSection = () => {
