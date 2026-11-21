@@ -323,6 +323,43 @@
           <thead><tr><th>Источник</th><th>Артикул / SKU</th><th>Модель / период</th><th>Цена за единицу</th><th>Статус</th></tr></thead>
           <tbody id="financeAuditCostRows"></tbody>
         </table></div>
+        <details class="finance-link-panel" id="financeProductLinksPanel">
+          <summary>Подтверждённые связи товаров WB ↔ Ozon</summary>
+          <p>Это отдельный неизменяемый журнал идентичности товаров, а не копирование себестоимости. Для одной пары нужно подтвердить одинаковые модель, материал, конструкцию и комплектацию. Изменения в WB, Ozon и производственных заданиях не выполняются.</p>
+          <button type="button" class="button light" id="financeLinksLoad">Загрузить товары и связи</button>
+          <p id="financeLinksStatus" class="wb-monitor-meta" role="status">Список загружается только по запросу владельца.</p>
+          <form id="financeLinksForm" class="wb-model-cost-form" autocomplete="off">
+            <div class="wb-model-cost-fields">
+              <label>Артикул WB из завершённых финансовых отчётов
+                <select id="financeLinksWb"><option value="">Выберите артикул WB</option></select>
+              </label>
+              <label>SKU Ozon из сохранённого справочника
+                <select id="financeLinksOzon"><option value="">Выберите SKU Ozon</option></select>
+              </label>
+              <label>С какой даты подтверждено соответствие
+                <input type="date" id="financeLinksFrom">
+              </label>
+              <label>Основание идентичности товара (без номера техкарты)
+                <input type="text" id="financeLinksEvidence" maxlength="500" placeholder="Например: совпадают фото, материал, комплектация, лекала">
+              </label>
+            </div>
+            <label class="wb-model-cost-attestation"><input id="financeLinksSame" type="checkbox">
+              Я проверил, что выбранные товары WB и Ozon — одно и то же физическое изделие, включая материал, крой и комплектацию.
+            </label>
+            <label class="wb-model-cost-attestation"><input id="financeLinksNoCost" type="checkbox">
+              Понимаю: связь НЕ переносит цену и не подтверждает чистую прибыль. Исправление неверной связи требует отдельного аудита.
+            </label>
+            <div class="wb-model-cost-buttons">
+              <button type="submit" id="financeLinksPreview" class="button light" disabled>Проверить связь</button>
+              <button type="button" id="financeLinksSave" class="button primary" disabled>Подтвердить и сохранить связь</button>
+            </div>
+          </form>
+          <p id="financeLinksPreviewStatus" class="wb-monitor-meta" role="status">Сохранений нет. Все поля пока пусты.</p>
+          <div class="table-wrap"><table class="wb-unit-table">
+            <thead><tr><th>Артикул WB</th><th>SKU Ozon</th><th>Модель Ozon</th><th>Проверено с даты</th><th>Статус</th></tr></thead>
+            <tbody id="financeLinksRows"></tbody>
+          </table></div>
+        </details>
         <h3>Общие расходы · существующий регистр Ozon Profit</h3>
         <p>Статьи со сферой «бизнес» потенциально относятся ко всем каналам. Пока не подтверждены первичные документы, месяцы и ключи распределения, они <strong>не вычитаются повторно</strong> из WB или Ozon.</p>
         <div class="table-wrap"><table class="wb-unit-table">
@@ -1929,5 +1966,6 @@
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
 <script type="module" src="/finance-cost-audit.mjs?v=20261121"></script>
+<script type="module" src="/finance-product-links-ui.mjs?v=20261121"></script>
 </body>
 </html>
