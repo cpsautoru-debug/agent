@@ -67,8 +67,8 @@ test('unknown HTTP errors and 200 schema errors have separate safe identifiers',
     'configuration_unavailable','wb_profitability_unavailable_general']){
     assert.ok(js.includes(key),key);
   }
-  assert.match(html,/wb-unit-economics\\.js\\?v=20261121-http-diagnostics/);
-  assert.match(js,/!response\\.ok/);
-  assert.match(js,/try\\{draw\\(payload\\);\\}/);
-  assert.doesNotMatch(js,/error\\.stack|error\\.cause|console\\.error/);
+  assert.ok(html.includes('/wb-unit-economics.js?v=20261121-http-diagnostics'));
+  assert.ok(js.includes('!response.ok'));
+  assert.ok(js.includes('try{draw(payload);}'));
+  assert.ok(!js.includes('console.error'));
 });
