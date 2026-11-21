@@ -41,3 +41,11 @@
   .wb-unit-columns form{grid-template-columns:1fr}
   .wb-unit-cost-scope{grid-template-columns:1fr}
 }
+
+.wb-cost-hints{margin-top:17px;border:1px solid #dce6db;
+  padding:12px;border-radius:10px;background:#f9fcf8}
+.wb-cost-hints summary{font-size:13px;font-weight:700;color:#2b5440;
+  cursor:pointer}
+.wb-cost-hints p{font-size:12px;line-height:1.5;color:#53705f}
+.wb-cost-hints button{white-space:nowrap}
+.wb-cost-hints .table-wrap{margin-top:10px}
