@@ -43,6 +43,15 @@ export function findOzonCostSuggestions(wbArticles,ozonCosts){
     suggestions:matches,ambiguousVendorCodes:ambiguous,
     rejectedMatches:rejected,
     notMatchedCount:wb.size-matches.length-ambiguous.length,
+    sourceStats:{
+      ozonCostRows:ozonCosts.length,
+      confirmedRows:ozonCosts.filter(x=>x?.status==='confirmed').length,
+      preliminaryRows:ozonCosts.filter(x=>x?.status==='preliminary').length,
+      confirmedWithArticle:ozonCosts.filter(x=>
+        x?.status==='confirmed'&&validCode(x?.seller_article)).length,
+      matchingArticleRows:ozonCosts.filter(x=>
+        validCode(x?.seller_article)&&wb.has(x.seller_article)).length
+    },
     reason:'Different channel; cost composition and effective date MUST be confirmed'
   };
 }
