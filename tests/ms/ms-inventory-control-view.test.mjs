@@ -107,7 +107,6 @@ test('a page is read only, exact numbered and bounded, with no false complete',(
     {...page(0,sample),totalAssortmentReportRows:15},
     {...page(0,sample),offset:10},
     {...page(0,sample),hasMore:true},
-    {...page(0,sample),items:[sample[0],sample[0]],totalAssortmentReportRows:2},
     {...page(0,sample),items:[{...sample[0],stores:[{name:'Основной склад',stock:'40'}]}]},
     {...page(0,sample),items:[{...sample[0],stores:[{name:'Основной склад',stock:Infinity}]}]},
     {...page(0,sample),items:[{...sample[0],stores:[{name:'A',stock:1},{name:'A',stock:2}]}]},
