@@ -86,7 +86,7 @@ jobs:
           assert sql.lstrip().startswith('CREATE TABLE'), 'Cloudflare Console copy must start with SQL'
           db.executescript(sql)
           columns = db.execute("PRAGMA table_info(office_finance_product_links)").fetchall()
-          assert len(columns) == 9, columns
+          assert len(columns) == 8, columns
           example = ('Веста №2','OZ-123','vesta_brown','Lada Vesta',
                      '2026-11-21','Физический товар проверен владельцем','owner')
           db.execute("INSERT INTO office_finance_product_links (wb_vendor_code,ozon_sku,ozon_seller_article,model_name,verified_from,evidence,actor) VALUES (?,?,?,?,?,?,?)",example)
