@@ -110,6 +110,9 @@ test('completed historical pass uses same D1 generation and shows incomplete row
   assert.equal(body.items[0].status,'incomplete');
   assert.equal(body.items[0].remaining,2);
   assert.equal(body.items[0].firstUnfinishedStage,'Пошив');
+  assert.equal(body.items[0].plannedDateControl,'past');
+  assert.deepEqual(body.visibleDateChecks,
+    {past:1,today:0,future:0,notSet:0,unverified:0});
   assert.equal(body.changedRecords,0);
   assert.equal(storage.calls.length,3);
   assert.doesNotMatch(JSON.stringify(body),/00000000-0000-4000-8000|synthetic-session-secret/);
@@ -170,4 +173,32 @@ test('5-minute monitor detects stalls long before 24-hour stale-history threshol
   const clockSkew=summarizeAutoStatus(normalizeAutoRuntime(
     {...state,run_status:'scanning',last_success_ms:NOW+60_000},NOW),tally,[item],NOW);
   assert.equal(clockSkew.monitorHealth,'delayed');
+});
+
+test('date risk indicators are only scoped to shown verified incomplete rows',()=>{
+  const today=new Date(NOW+4*60*60*1000).toISOString().slice(0,10);
+  const tomorrow=new Date(NOW+28*60*60*1000).toISOString().slice(0,10);
+  const rows=[
+    item,
+    {...item,task_id:'00000000-0000-4000-8000-000000000002',
+      number:'00741',plan_date:today+' 12:00:00.000'},
+    {...item,task_id:'00000000-0000-4000-8000-000000000003',
+      number:'00742',plan_date:tomorrow+' 12:00:00.000'},
+    {...item,task_id:'00000000-0000-4000-8000-000000000004',
+      number:'00743',plan_date:null},
+    {...item,task_id:'00000000-0000-4000-8000-000000000005',
+      number:'00744',plan_date:'2026-02-31 10:00:00.000'}
+  ];
+  const result=summarizeAutoStatus(normalizeAutoRuntime(state,NOW),
+    {checked:12,incomplete:8,complete:3,unverified:1},rows,NOW);
+  assert.deepEqual(result.visibleDateChecks,
+    {past:1,today:1,future:1,notSet:1,unverified:1});
+  assert.deepEqual(result.items.map(x=>x.plannedDateControl),
+    ['past','today','future','not_set','unverified']);
+  assert.equal(result.shown,5);
+  assert.equal(result.remainingRowsNotShown,3);
+  assert.equal(result.approvedForLiveQueue,false);
+  const tampered=[{...item,checked_ms:NOW+60_000}];
+  assert.throws(()=>summarizeAutoStatus(normalizeAutoRuntime(state,NOW),
+    tally,tampered,NOW),/auto_rows_unverified/);
 });
