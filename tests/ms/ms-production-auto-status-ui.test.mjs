@@ -40,3 +40,11 @@ test('UI rejects fake live-queue status and missing storage never claims zero ta
   assert.match(js,/Никаких статусов не предполагаем/);
   assert.match(js,/Не считаем их нулевыми или завершёнными/);
 });
+
+test('UI prominently warns about stalled and stopped background synchronization',()=>{
+  assert.match(js,/data\.monitorHealth/);
+  assert.match(js,/data\.expectedIntervalMinutes!==5/);
+  assert.match(js,/нет успешной синхронизации более 20 минут/);
+  assert.match(js,/фоновая синхронизация остановлена/);
+  assert.match(js,/approvedForLiveQueue!==false/);
+});
