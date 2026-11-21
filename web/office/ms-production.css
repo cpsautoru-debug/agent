@@ -171,3 +171,7 @@
 .ms-auto-history .ms-production-table{min-width:730px}
 .ms-auto-history .ms-production-table td:first-child{font-variant-numeric:tabular-nums;font-weight:650}
 @media(max-width:720px){.ms-auto-history{padding:12px}.ms-auto-history .ms-production-header{flex-direction:column;align-items:stretch}}
+
+/* Calendar warning only for verified incomplete historical sample rows. */
+.ms-auto-history .ms-auto-overdue td{border-bottom-color:#edd9bc;background:#fffaf2}
+.ms-auto-history #msAutoHistoryAttention{font-weight:650;line-height:1.5}

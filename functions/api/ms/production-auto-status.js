@@ -1,4 +1,5 @@
 import {verifySession} from '../auth/session.js';
+import {classifyProductionPlanDate} from '../../../web/office/ms-production-plan-date.mjs';
 
 // Read-only summary of a DEDICATED staging production monitor D1.
 // The scan is historical and non-atomic; it is NOT a list of all active orders.
@@ -76,7 +77,7 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
       seen.has(row.task_id.toLowerCase())||
       (row.remaining_qty!==null&&!finite(row.remaining_qty))||
       (row.planned_qty!==null&&!finite(row.planned_qty))||
-      !int(row.checked_ms))
+      !int(row.checked_ms)||row.checked_ms>nowMs)
       throw Error('auto_rows_unverified');
     seen.add(row.task_id.toLowerCase());
     return {
@@ -86,10 +87,22 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
       plan:row.planned_qty,
       firstUnfinishedStage:short(row.first_unfinished_stage,100),
       plannedDate:short(row.plan_date,40),
-      checkedMs:row.checked_ms
+      checkedMs:row.checked_ms,
+      // A past calendar date is a DIAGNOSTIC, not a contractual SLA.
+      plannedDateControl:classifyProductionPlanDate(
+        {plannedDate:row.plan_date},{status:'incomplete'},nowMs)
     };
   });
   if(visible.length>counts.incomplete)throw Error('auto_rows_unverified');
+  const visibleDateChecks={
+    past:visible.filter(x=>x.plannedDateControl==='past').length,
+    today:visible.filter(x=>x.plannedDateControl==='today').length,
+    future:visible.filter(x=>x.plannedDateControl==='future').length,
+    notSet:visible.filter(x=>x.plannedDateControl==='not_set').length,
+    unverified:visible.filter(x=>x.plannedDateControl==='unverified').length
+  };
+  if(Object.values(visibleDateChecks).reduce((a,b)=>a+b,0)!==visible.length)
+    throw Error('auto_date_summary_unverified');
   return {
     code:'ms_production_auto_status_ok',
     readOnly:true,changedRecords:0,
@@ -108,6 +121,7 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
     approvedForLiveQueue:false,
     totals:counts,
     shown:visible.length,
+    visibleDateChecks,
     remainingRowsNotShown:Math.max(0,counts.incomplete-visible.length),
     items:visible,
     sampleTime:new Date(nowMs).toISOString(),
