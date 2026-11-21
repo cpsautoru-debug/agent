@@ -256,6 +256,7 @@
         throw Error('cost_save_not_confirmed');
       const article=data.vendorCode;
       clearPreview();
+      busy=false;
       await load(true);
       costMessage.textContent='Себестоимость артикула '+article+
         ' сохранена отдельной датированной записью. Отчёты WB не изменялись.';
