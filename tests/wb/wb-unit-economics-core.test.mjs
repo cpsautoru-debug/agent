@@ -97,7 +97,7 @@ test('malformed source, payout mismatch, missing rows and overflow fail closed',
     {...sample[0],vendor_code:'bad\ncode'}
   ],costs,{...stats,completed_operations:1,bank_payout_kop:48000}));
   assert.throws(()=>validateUnitCost({...costs[0],cost_kopecks:0}));
-  assert.throws(()=>validateUnitCost({...costs[0],source:'private\n'});
+  assert.throws(()=>validateUnitCost({...costs[0],source:'private\n'}));
   assert.throws(()=>calculateWbSkuBreakdown(sample,[costs[0],costs[0]],stats),
     /duplicate/);
 });
