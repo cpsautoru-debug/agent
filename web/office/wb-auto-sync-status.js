@@ -98,10 +98,7 @@
       !Number.isSafeInteger(data.totalBankPaymentKop)||
       data.expectedIntervalMinutes!==5||
       !['healthy','attention','starting','not_started','outside_window'].includes(data.attention)||
-      !Object.values({
-        on_schedule:1,starting_window:1,outside_window:1,
-        never_started:1,delayed:1,halted:1,clock_error:1
-      }).length||!Object.hasOwn(healthNames,data.monitorHealth)||
+      !Object.hasOwn(healthNames,data.monitorHealth)||
       !Array.isArray(data.warnings)||data.warnings.some(x=>!Object.hasOwn(labels,x))||
       !data.statusCounts||names.some(k=>!Number.isSafeInteger(data.statusCounts[k])||
         data.statusCounts[k]<0)||
