@@ -63,7 +63,7 @@ test('classify only confirmed folder evidence, never based on vague name',()=>{
   }),'excluded');
   assert.equal(classifyInventory({
     name:'Крой Priora',catalogPath:null
-  }),'unverified');
+  }),'excluded');
   assert.equal(classifyInventory({
     name:'Крой Vesta',catalogPath:'Производство/Крой',
     uom:'м'
