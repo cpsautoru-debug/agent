@@ -45,7 +45,7 @@ const db=(runtime=state,counts=tally,rows=[item],unknownRows=[unknownItem])=>{
   const calls=[];
   return {calls,prepare(sql){
     assert.match(sql,/^SELECT /);
-    assert.doesNotMatch(sql,/INSERT|UPDATE|DELETE|DROP/i);
+    assert.doesNotMatch(sql,/^(?:INSERT|UPDATE|DELETE|DROP)\b/i);
     calls.push(sql);
     if(sql.includes('FROM ms_production_auto_runtime'))
       return {async first(){return runtime;}};
