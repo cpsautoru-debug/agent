@@ -32,8 +32,8 @@ test('button groups actual article codes after manual click; no API request or D
   const groups=dom.wbModelDraftGroups.children;
   assert.equal(groups.length,5);
   assert.ok(groups.every(g=>g.children.length===2||g.children.length===3));
-  assert.equal(groups.filter(g=>g.children.length===3).length,2);
-  assert.equal(groups.filter(g=>g.children.length===2).length,3);
+  assert.equal(groups.filter(g=>g.children.length===3).length,3);
+  assert.equal(groups.filter(g=>g.children.length===2).length,2);
   assert.ok(groups.every(g=>g.children[0].textContent.includes('артикул')));
   assert.ok(groups.some(g=>g.children[0].textContent.includes('Lada Vesta Cross')));
 });
