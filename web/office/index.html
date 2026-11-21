@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="ozon-finance.css">
 <link rel="stylesheet" href="profit.css">
 <link rel="stylesheet" href="/wb-import-preview.css">
+<link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
 </head>
 <body>
 
@@ -142,6 +143,63 @@
     </section>
     
 <section class="page" data-section="wbFinance" hidden><h1>Финансы · WB</h1>
+      <article class="profit-panel wb-monitor" id="wbAutoSyncPanel" aria-labelledby="wbAutoSyncTitle">
+        <div class="wb-monitor-head">
+          <div>
+            <div class="wb-monitor-eyebrow">WB FINANCE API · АВТОМАТИЧЕСКИЙ КОНТРОЛЬ</div>
+            <h2 id="wbAutoSyncTitle">Финансовый монитор Wildberries</h2>
+            <p>Прямое чтение сохранённых финансовых данных из отдельной D1. Без повторной загрузки WB, ручных SQL-запросов и смешивания с XLSX-эталонами.</p>
+          </div>
+          <button id="wbAutoSyncRefresh" class="button light" type="button">Обновить монитор</button>
+        </div>
+        <p id="wbAutoSyncStatus" class="wb-monitor-main-status" role="status" aria-live="polite">Данные будут загружены при открытии раздела.</p>
+        <div class="wb-monitor-metrics">
+          <div><span>Состояние синхронизации</span><strong id="wbMonitorHealth">—</strong></div>
+          <div><span>Обнаружено отчётов</span><strong id="wbMonitorReports">—</strong></div>
+          <div><span>Завершены и сверены</span><strong id="wbMonitorComplete">—</strong></div>
+          <div><span>Ожидают или загружаются</span><strong id="wbMonitorQueue">—</strong></div>
+          <div><span>Расхождения / конфликты / ошибки</span><strong id="wbMonitorIssues">—</strong></div>
+          <div><span>Операции, сохранённые в D1</span><strong id="wbMonitorOperations">—</strong></div>
+        </div>
+        <div class="wb-monitor-progress"><div class="wb-monitor-progress-top">
+          <span>Доля завершённых отчётов</span><strong id="wbMonitorPercent">—</strong>
+        </div><progress id="wbMonitorProgress" value="0" max="100"></progress></div>
+        <p class="wb-monitor-meta" id="wbMonitorLastRequest">Последний запрос WB: неизвестен</p>
+        <p class="wb-monitor-meta" id="wbMonitorLastChange">Последнее изменение состояния D1: неизвестно</p>
+        <p class="wb-monitor-meta" id="wbMonitorPayout">Выплаты по завершённым отчётам: ещё не рассчитаны</p>
+        <p class="wb-monitor-meta" id="wbMonitorWindow">Контрольное окно Cron: 08:00–10:55 по Самаре; предполагаемый интервал 5 минут.</p>
+        <div class="wb-monitor-warnings" id="wbMonitorWarnings" role="status" aria-live="polite"></div>
+        <div class="wb-monitor-columns">
+          <section>
+            <h3>Очередь обработки <span id="wbMonitorQueueCount">(—)</span></h3>
+            <p>Статусы pending и paging: это ещё не завершённые сверки.</p>
+            <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Статус</th><th>Строки</th></tr></thead>
+              <tbody id="wbMonitorQueueRows"></tbody></table></div>
+          </section>
+          <section>
+            <h3>Расхождения и ошибки <span id="wbMonitorIssuesCount">(—)</span></h3>
+            <p>Отдельно видны mismatch, conflict и failed. Отсутствие строк не отменяет необходимости полной сверки.</p>
+            <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Проблема</th><th>Выплата WB</th><th>По API</th></tr></thead>
+              <tbody id="wbMonitorIssueRows"></tbody></table></div>
+          </section>
+        </div>
+        <details class="wb-monitor-details" open>
+          <summary>Все отчёты WB Finance API · <span id="wbMonitorAllCount">—</span></summary>
+          <label for="wbMonitorFilter">Фильтр отчётов
+            <select id="wbMonitorFilter">
+              <option value="all">Все статусы</option><option value="pending">Ожидают</option>
+              <option value="paging">Загружаются</option><option value="complete">Завершены</option>
+              <option value="mismatch">Расхождения выплат</option>
+              <option value="conflict">Конфликт источника</option><option value="failed">Ошибка</option>
+            </select>
+          </label>
+          <div class="table-wrap"><table><thead><tr>
+            <th>Номер отчёта</th><th>Период</th><th>Тип</th><th>Состояние</th>
+            <th>Выплата WB</th><th>По API</th><th>Операции завершённого отчёта</th><th>Обновлён</th>
+          </tr></thead><tbody id="wbAutoSyncRows"></tbody></table></div>
+        </details>
+        <p class="wb-monitor-footnote">Источник — финансовые API-отчёты Wildberries, сохранённые в тестовой D1. Завершённость означает сверку с банковской суммой отчёта, а не аудит себестоимости. Рассчитаны только суммы выплат по завершённым API-отчётам, не выручка и не чистая прибыль. Сохранённые XLSX не прибавляются. Панель обновляет только D1 при открытой вкладке.</p>
+      </article>
       <article class="profit-panel" id="wbImportPreview">
         <h2>Автоматический расчёт WB · загрузка XLSX</h2>
         <p><strong>Предварительный управленческий расчёт.</strong> Выберите отчёт WB и ваш приватный справочник себестоимости. Файлы отправляются только в защищённый API владельца для обработки без постоянного сохранения.</p>
@@ -196,16 +254,6 @@
         <button id="wbReportListButton" class="button light" type="button" disabled>Получить список отчётов WB за октябрь</button>
         <p id="wbReportListStatus" role="status">Проверяем доступ владельца…</p>
         <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Тип</th><th>Банковская выплата WB</th><th>Сверка с эталоном</th></tr></thead><tbody id="wbReportListRows"></tbody></table></div>
-      </article>
-      <article class="profit-panel" id="wbAutoSyncPanel">
-        <h3>Автоматическая синхронизация WB · тестовая база</h3>
-        <p>Отдельные операции WB Finance API. Старые XLSX-эталоны не дублируются. Чистая прибыль не подтверждена.</p>
-        <button id="wbAutoSyncRefresh" class="button light" type="button">Обновить статус синхронизации</button>
-        <p>Разрешён только один ручной шаг загрузки WB через серверный API владельца; Cron выключен. После запуска страница покажет статус.</p>
-        <button id="wbAutoSyncStepButton" class="button light" type="button">Выполнить один шаг WB API в тестовой базе</button>
-        <p id="wbAutoSyncStepStatus" role="status">Запрос к Wildberries не выполнялся.</p>
-        <p id="wbAutoSyncStatus" role="status">Читаем данные тестовой базы…</p>
-        <div class="table-wrap"><table><thead><tr><th>Отчёт</th><th>Период</th><th>Тип</th><th>Статус</th><th>Выплата</th><th>Операции</th></tr></thead><tbody id="wbAutoSyncRows"></tbody></table></div>
       </article>
       <article class="profit-panel" id="wbSavedReportPanel">
         <h3>Сохранённые отчёты WB · октябрь 2026 · тестовая база</h3>
@@ -1713,6 +1761,6 @@
 <script src="/wb-saved-report.js?v=wb-multi-period-2" defer></script>
 <script src="/wb-finance-check.js?v=transport-diagnostics-2" defer></script>
 <script src="/wb-report-list.js?v=20261120" defer></script>
-<script src="/wb-auto-sync-status.js?v=20261120" defer></script>
+<script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
 </body>
 </html>

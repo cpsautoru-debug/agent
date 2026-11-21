@@ -6,6 +6,13 @@ on:
       - 'workers/wb-finance-sync-core.mjs'
       - 'workers/wb-finance-auto-sync.js'
       - 'functions/api/wb/auto-sync-status.js'
+      - 'web/office/wb-finance-monitor-core.mjs'
+      - 'web/office/wb-auto-sync-status.js'
+      - 'web/office/wb-finance-monitor.css'
+      - 'web/office/index.html'
+      - 'tests/wb/wb-finance-monitor-core.test.mjs'
+      - 'tests/wb/wb-finance-monitor-api.test.mjs'
+      - 'tests/wb/wb-finance-monitor-ui.test.mjs'
       - 'functions/api/wb/sync-once.js'
       - 'tests/wb/wb-owner-one-shot.test.mjs'
       - 'tests/wb/wb-finance-sync-core.test.mjs'
@@ -24,9 +31,11 @@ jobs:
           node-version: '22'
       - run: node --check workers/wb-finance-auto-sync.js
       - run: node --check functions/api/wb/auto-sync-status.js
+      - run: node --check web/office/wb-finance-monitor-core.mjs
       - run: node --check functions/api/wb/sync-once.js
       - run: node --test tests/wb/wb-owner-one-shot.test.mjs
       - run: node --check web/office/wb-auto-sync-status.js
+      - run: node --test tests/wb/wb-finance-monitor-core.test.mjs tests/wb/wb-finance-monitor-api.test.mjs tests/wb/wb-finance-monitor-ui.test.mjs
       - run: node --test tests/wb/wb-finance-sync-core.test.mjs
       - name: Verify staging schema on a fresh SQLite database
         run: |
