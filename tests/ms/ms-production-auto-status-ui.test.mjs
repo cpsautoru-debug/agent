@@ -9,6 +9,7 @@ test('automatic history is shown beside production manager, not a disguised live
   for(const id of [
     'msAutoHistory','msAutoHistoryTitle','msAutoHistoryStatus',
     'msAutoHistoryDetails','msAutoHistoryAttention','msAutoHistoryTable','msAutoHistoryRows',
+    'msAutoUnknown','msAutoUnknownSummary','msAutoUnknownRows',
     'msAutoHistoryRetry'
   ])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
   const cmd=html.indexOf('id="msCommandBoard"');
@@ -59,4 +60,16 @@ test('verified historical incomplete rows show risk date in Samara without claim
   assert.match(js,/const ordered=\[\.\.\.data\.items\]\.sort/);
   assert.match(css,/\.ms-auto-history \.ms-auto-overdue td/);
   assert.doesNotMatch(js,/fetch\([^]*?method:'POST'/);
+});
+
+test('unverified historical documents are visible without assigning production status',()=>{
+  assert.match(html,/Задания с неподтверждёнными этапами/);
+  assert.match(js,/data\.unverifiedItems/);
+  assert.match(js,/data\.unverifiedShown/);
+  assert.match(js,/data\.unverifiedNotShown/);
+  assert.match(js,/Этапы не подтверждены/);
+  assert.match(js,/Эти документы нельзя считать ни завершёнными, ни незавершёнными/);
+  assert.match(js,/unknownBody\.replaceChildren\(\)/);
+  assert.match(js,/unknown\.hidden=data\.unverifiedItems\.length===0/);
+  assert.match(css,/\.ms-auto-unknown\[hidden\]/);
 });

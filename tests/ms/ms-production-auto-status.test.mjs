@@ -24,6 +24,12 @@ const item={
   remaining_qty:2,planned_qty:5,first_unfinished_stage:'Пошив',
   plan_date:'2026-11-19 10:00:00.000',checked_ms:NOW-60_000
 };
+const unknownItem={
+  task_id:'00000000-0000-4000-8000-000000000002',
+  number:'00741',task_stage_status:'unverified',
+  document_updated:'2026-11-20 16:10:00.000',
+  plan_date:null,checked_ms:NOW-60_000
+};
 const envBase={
   OFFICE_SESSION_SECRET:'synthetic-session-secret',
   OFFICE_ALLOWED_EMAIL:'owner@example.invalid',
@@ -35,11 +41,11 @@ const envBase={
     }};
   }}
 };
-const db=(runtime=state,counts=tally,rows=[item])=>{
+const db=(runtime=state,counts=tally,rows=[item],unknownRows=[unknownItem])=>{
   const calls=[];
   return {calls,prepare(sql){
     assert.match(sql,/^SELECT /);
-    assert.doesNotMatch(sql,/INSERT|UPDATE|DELETE|DROP/i);
+    assert.doesNotMatch(sql,/^(?:INSERT|UPDATE|DELETE|DROP)\b/i);
     calls.push(sql);
     if(sql.includes('FROM ms_production_auto_runtime'))
       return {async first(){return runtime;}};
@@ -49,7 +55,8 @@ const db=(runtime=state,counts=tally,rows=[item])=>{
       };}};
     if(sql.includes('FROM ms_production_auto_tasks'))
       return {bind(id){assert.equal(id,runtime.generation);return{
-        async all(){return {results:rows};}
+        async all(){return {results:sql.includes("task_stage_status='unverified'")?
+          unknownRows:rows};}
       };}};
     throw Error('unexpected_sql');
   }};
@@ -114,7 +121,12 @@ test('completed historical pass uses same D1 generation and shows incomplete row
   assert.deepEqual(body.visibleDateChecks,
     {past:1,today:0,future:0,notSet:0,unverified:0});
   assert.equal(body.changedRecords,0);
-  assert.equal(storage.calls.length,3);
+  assert.equal(body.unverifiedShown,1);
+  assert.equal(body.unverifiedNotShown,0);
+  assert.equal(body.unverifiedItems[0].number,'00741');
+  assert.equal(body.unverifiedItems[0].status,'unverified');
+  assert.equal(body.unverifiedItems[0].documentUpdated,'2026-11-20 16:10:00.000');
+  assert.equal(storage.calls.length,4);
   assert.doesNotMatch(JSON.stringify(body),/00000000-0000-4000-8000|synthetic-session-secret/);
 });
 test('partial history cannot imply coverage or claim completion, even when runtime reports complete',()=>{
@@ -201,4 +213,42 @@ test('date risk indicators are only scoped to shown verified incomplete rows',()
   const tampered=[{...item,checked_ms:NOW+60_000}];
   assert.throws(()=>summarizeAutoStatus(normalizeAutoRuntime(state,NOW),
     tally,tampered,NOW),/auto_rows_unverified/);
+});
+
+test('unknown stage records are exposed by number but never counted as production work',async()=>{
+  const handler=createProductionAutoStatusHandler({now:()=>NOW});
+  const fake=db({...state,run_status:'scanning'},tally,[item],[unknownItem]);
+  const response=await handler({request:await req(),
+    env:{...envBase,MS_PRODUCTION_DB:fake}});
+  assert.equal(response.status,200);
+  const data=await response.json();
+  assert.equal(data.approvedForLiveQueue,false);
+  assert.equal(data.unverifiedShown,1);
+  assert.equal(data.unverifiedItems[0].status,'unverified');
+  assert.equal(data.unverifiedItems[0].number,'00741');
+  assert.ok(!Object.hasOwn(data.unverifiedItems[0],'remaining'));
+  assert.doesNotMatch(JSON.stringify(data),/00000000-0000-4000-8000/);
+  assert.equal(fake.calls.length,4);
+  assert.ok(fake.calls.every(sql=>!/^INSERT|^UPDATE|^DELETE/i.test(sql)));
+  assert.match(fake.calls[3],/task_stage_status='unverified'/);
+});
+
+test('tampered unverified documents are not exposed as completed or active jobs',async()=>{
+  const handler=createProductionAutoStatusHandler({now:()=>NOW});
+  const invalid=[
+    [unknownItem,unknownItem],
+    [{...unknownItem,task_stage_status:'complete'}],
+    [{...unknownItem,checked_ms:NOW+1}],
+    [{...unknownItem,number:'=HYPERLINK("evil")'}],
+    [{...unknownItem,task_id:item.task_id}],
+    [{...unknownItem,document_updated:'x'.repeat(41)}]
+  ];
+  for(const rows of invalid){
+    const result=await handler({request:await req(),
+      env:{...envBase,MS_PRODUCTION_DB:db(state,tally,[item],rows)}});
+    assert.equal(result.status,503);
+    const body=await result.json();
+    assert.equal(body.code,'ms_auto_status_unavailable');
+    assert.equal(Object.hasOwn(body,'unverifiedItems'),false);
+  }
 });

@@ -175,3 +175,10 @@
 /* Calendar warning only for verified incomplete historical sample rows. */
 .ms-auto-history .ms-auto-overdue td{border-bottom-color:#edd9bc;background:#fffaf2}
 .ms-auto-history #msAutoHistoryAttention{font-weight:650;line-height:1.5}
+
+/* Stage verification exceptions are visible but never interpreted as active work. */
+.ms-auto-unknown{margin-top:20px;border-top:1px solid #d2e1da;padding-top:16px}
+.ms-auto-unknown[hidden]{display:none}
+.ms-auto-unknown h3{margin:0 0 6px;font-size:15px;color:#805b1e}
+.ms-auto-unknown .ms-production-table{min-width:730px}
+.ms-auto-unknown .ms-production-table td:last-child{color:#805b1e;font-weight:600}

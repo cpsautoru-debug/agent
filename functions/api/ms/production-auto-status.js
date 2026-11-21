@@ -52,8 +52,9 @@ export function normalizeAutoRuntime(row,nowMs){
     freshness:!row.last_success_ms?'never':healthy?'recent':'stale'
   };
 }
-export function summarizeAutoStatus(runtime,counts,rows,nowMs){
+export function summarizeAutoStatus(runtime,counts,rows,nowMs,unverifiedRows=[]){
   if(!runtime||!Array.isArray(rows)||rows.length>LIMIT||
+    !Array.isArray(unverifiedRows)||unverifiedRows.length>LIMIT||
     !counts||!int(counts.checked)||!int(counts.incomplete)||
     !int(counts.complete)||!int(counts.unverified)||
     counts.checked!==counts.incomplete+counts.complete+counts.unverified)
@@ -94,6 +95,28 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
     };
   });
   if(visible.length>counts.incomplete)throw Error('auto_rows_unverified');
+  // Never hide unverifiable documents behind an aggregate count. These are
+  // source-data exceptions, NOT assumed active or completed work.
+  const unknownSeen=new Set();
+  const unverifiedItems=unverifiedRows.map(row=>{
+    const number=short(row?.number,10);
+    const id=short(row?.task_id,36)?.toLowerCase();
+    if(!number||!/^\d{1,10}$/.test(number)||
+      !id||!UUID.test(id)||unknownSeen.has(id)||
+      seen.has(id)||row.task_stage_status!=='unverified'||
+      !int(row.checked_ms)||row.checked_ms>nowMs||
+      (row.document_updated!==null&&short(row.document_updated,40)===null)||
+      (row.plan_date!==null&&short(row.plan_date,40)===null))
+      throw Error('auto_unverified_rows_invalid');
+    unknownSeen.add(id);
+    return {
+      number, status:'unverified', checkedMs:row.checked_ms,
+      documentUpdated:row.document_updated||null,
+      plannedDate:row.plan_date||null
+    };
+  });
+  if(unverifiedItems.length>counts.unverified)
+    throw Error('auto_unverified_rows_invalid');
   const visibleDateChecks={
     past:visible.filter(x=>x.plannedDateControl==='past').length,
     today:visible.filter(x=>x.plannedDateControl==='today').length,
@@ -122,6 +145,9 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
     totals:counts,
     shown:visible.length,
     visibleDateChecks,
+    unverifiedShown:unverifiedItems.length,
+    unverifiedNotShown:Math.max(0,counts.unverified-unverifiedItems.length),
+    unverifiedItems,
     remainingRowsNotShown:Math.max(0,counts.incomplete-visible.length),
     items:visible,
     sampleTime:new Date(nowMs).toISOString(),
@@ -168,7 +194,12 @@ export function createProductionAutoStatusHandler({now=Date.now}={}){
         "SELECT task_id,number,task_stage_status,remaining_qty,planned_qty,first_unfinished_stage,plan_date,checked_ms FROM ms_production_auto_tasks WHERE generation=? AND task_stage_status='incomplete' ORDER BY checked_ms DESC,number DESC LIMIT 20"
       ).bind(runtime.generation).all();
       if(!Array.isArray(active?.results))throw Error('invalid_results');
-      return json(200,summarizeAutoStatus(runtime,counts,active.results,timestamp));
+      const unknown=await db.prepare(
+        "SELECT task_id,number,task_stage_status,document_updated,plan_date,checked_ms FROM ms_production_auto_tasks WHERE generation=? AND task_stage_status='unverified' ORDER BY checked_ms DESC,document_updated DESC,number DESC LIMIT 20"
+      ).bind(runtime.generation).all();
+      if(!Array.isArray(unknown?.results))throw Error('invalid_results');
+      return json(200,summarizeAutoStatus(
+        runtime,counts,active.results,timestamp,unknown.results));
     }catch{
       return json(503,{code:'ms_auto_status_unavailable',readOnly:true});
     }
