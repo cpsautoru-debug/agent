@@ -1,6 +1,3 @@
--- Apply ONLY to the Pages staging D1 bound as OZON_FINANCE_DB.
--- Additive mapping registry: no WB/Ozon source financial rows or costs changed.
--- A link expresses a HUMAN-VERIFIED identical physical product, NOT shared COGS.
 CREATE TABLE IF NOT EXISTS office_finance_product_links (
   wb_vendor_code TEXT NOT NULL PRIMARY KEY
     CHECK (length(wb_vendor_code) BETWEEN 1 AND 200),
