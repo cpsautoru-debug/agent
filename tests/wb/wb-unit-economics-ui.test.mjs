@@ -67,8 +67,19 @@ test('unknown HTTP errors and 200 schema errors have separate safe identifiers',
     'configuration_unavailable','wb_profitability_unavailable_general']){
     assert.ok(js.includes(key),key);
   }
-  assert.ok(html.includes('/wb-unit-economics.js?v=20261121-http-diagnostics'));
+  assert.ok(html.includes('/wb-unit-economics.js?v=20261121-cost-hints'));
   assert.ok(js.includes('!response.ok'));
   assert.ok(js.includes('try{draw(payload);}'));
   assert.ok(!js.includes('console.error'));
+});
+
+test('Ozon cost hints are isolated and missing WB COGS is never shown as real zero',()=>{
+  for(const id of ['wbOzonCostHintsPanel','wbOzonCostHintsLoad',
+    'wbOzonCostHintsStatus','wbOzonCostHintsRows'])
+    assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
+  assert.match(html,/wb-cost-suggestions-ui\.mjs/);
+  assert.match(html,/wb-cost-suggestions-core/);
+  assert.match(js,/Нет подтверждённых данных/);
+  assert.match(js,/Не подтверждена/);
+  assert.doesNotMatch(html,/Подтверждённые затраты на пошив/);
 });
