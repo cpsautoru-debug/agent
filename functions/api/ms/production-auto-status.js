@@ -20,6 +20,9 @@ const int=(v)=>Number.isSafeInteger(v)&&v>=0;
 const finite=(v)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e9;
 const coerceCount=(v)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0?v:null;
 const STALE_MS=24*60*60*1000;
+// Cron should run every 5 minutes. More than four missed intervals means
+// the monitoring service is NOT confirmed healthy, even if its history is <24h.
+export const CRON_HEALTH_MS=20*60*1000;
 const LIMIT=20;
 
 export function validateAutoStatusScope(url){
@@ -60,6 +63,10 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
     'COMPLETED_NONATOMIC_HISTORICAL_PASS_NOT_LIVE_ACTIVE_QUEUE':
     'PARTIAL_HISTORICAL_SCAN_NOT_LIVE_ACTIVE_QUEUE';
   const recent=runtime.freshness==='recent';
+  const elapsed=runtime.lastSuccessMs===null?null:nowMs-runtime.lastSuccessMs;
+  const monitorHealth=['paused','error'].includes(runtime.scanState)?
+    'stopped':elapsed===null?'not_started':
+      elapsed>=0&&elapsed<=CRON_HEALTH_MS?'on_schedule':'delayed';
   const seen=new Set();
   const visible=rows.map(row=>{
     const number=short(row?.number,10);
@@ -94,6 +101,8 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs){
     totalAtStart:runtime.totalAtStart,
     lastSuccessMs:runtime.lastSuccessMs,
     freshness:runtime.freshness,
+    monitorHealth,
+    expectedIntervalMinutes:5,
     lastErrorCode:runtime.lastErrorCode,
     completeHistoricalPass:verifiedCoverage,
     approvedForLiveQueue:false,
