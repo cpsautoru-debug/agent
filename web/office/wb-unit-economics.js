@@ -95,7 +95,11 @@
     el('wbUnitCompleted').textContent=number(data.completeReports);
     el('wbUnitSkus').textContent=number(data.skuCount);
     el('wbUnitPayout').textContent=rub(data.bankPayoutKopecks);
-    el('wbUnitKnownCogs').textContent=rub(data.totalKnownManufacturingCogsKopecks)+
+    // A blank COGS registry is unknown, never a real 0 ₽ manufacturing cost.
+    el('wbUnitKnownCogs').textContent=
+      data.totalKnownManufacturingCogsKopecks===0&&data.missingCostSoldUnits>0?
+      'Нет подтверждённых данных':
+      rub(data.totalKnownManufacturingCogsKopecks)+
       (data.missingCostSoldUnits?' (неполная)':'');
     el('wbUnitMissingCost').textContent=number(data.missingCostSoldUnits);
     el('wbUnitNetProfit').textContent='Не рассчитана';
@@ -122,7 +126,10 @@
       td(tr,rub(x.payoutKopecks));
       td(tr,rub(x.platformFeesKopecks));
       td(tr,x.unknownSoldUnits?
-        rub(x.knownManufacturingCogsKopecks)+' · неполная':' '+rub(x.knownManufacturingCogsKopecks));
+        (x.knownManufacturingCogsKopecks===0?'Не подтверждена':
+          rub(x.knownManufacturingCogsKopecks)+' · неполная'):
+        x.soldUnits===0?'Без продаж':
+          rub(x.knownManufacturingCogsKopecks));
       td(tr,x.contributionAfterKnownCogsKopecks===null?
         'Не подтверждено':rub(x.contributionAfterKnownCogsKopecks));
       td(tr,x.blockers.map(v=>reason[v]||'Нужна проверка').join('; ')||
