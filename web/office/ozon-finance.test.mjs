@@ -317,7 +317,7 @@ test("unauthorized visitors receive an explicit Google sign-in action", async ()
     office.elements.get("ozonAuthRequired").loginHref,
     "/api/auth/google/start"
   );
-  assert.match(html, /href="\/api\/auth\/google\/start"/);
+  assert.match(html, /href="\/api\/auth\/google\/start\?next=ozonFinance"/);
   await office.elements.get("ozonRefreshButton").dispatch("click");
   assert.equal(
     office.requests.filter(request => request.options.method === "POST").length,
