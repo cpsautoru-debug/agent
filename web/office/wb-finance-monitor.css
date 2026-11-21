@@ -1,0 +1,60 @@
+/* WB Finance: D1-only automated financial controls. All figures come from
+   protected API; no sample money or false green empty states. */
+.wb-monitor{border:1px solid #cbdfd2;background:#f8fbf9;
+  border-radius:16px;padding:20px;margin:20px 0}
+.wb-monitor-head{display:flex;align-items:flex-start;
+  justify-content:space-between;gap:20px}
+.wb-monitor-head h2{margin:5px 0 10px;font-size:24px;color:#173e30}
+.wb-monitor-head p{max-width:740px;line-height:1.5}
+.wb-monitor-eyebrow{font-size:11px;letter-spacing:.13em;font-weight:750;color:#537d69}
+.wb-monitor-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;margin:16px 0}
+.wb-monitor-metrics>div{display:flex;flex-direction:column;gap:8px;
+  background:#fff;border:1px solid #dce7db;border-radius:12px;padding:14px}
+.wb-monitor-metrics span{font-size:12px;color:#5e786c}
+.wb-monitor-metrics strong{font-size:23px;line-height:1.15;color:#183c2c}
+.wb-monitor-main-status{padding:12px 14px;background:#edf5ef;
+  border:1px solid #d4e2d3;border-radius:9px;color:#315e43;
+  font-size:14px;line-height:1.5;margin:12px 0}
+.wb-monitor-main-status.wb-monitor-alert{background:#fff4e5;
+  border-color:#e9c795;color:#80511a}
+.wb-monitor-main-status.wb-monitor-ok{background:#ecf7ee;color:#246041}
+.wb-monitor-progress{margin:18px 0 12px}
+.wb-monitor-progress-top{display:flex;justify-content:space-between;
+  gap:8px;margin-bottom:7px;font-size:13px;color:#3c604c}
+.wb-monitor-progress progress{width:100%;height:12px;accent-color:#508465}
+.wb-monitor-meta{font-size:13px;color:#44634f;line-height:1.5;margin:6px 0}
+.wb-monitor-warnings{margin:14px 0}
+.wb-monitor-warnings p{margin:7px 0;color:#425f4e;font-size:13px}
+.wb-monitor-warnings .wb-monitor-warning{background:#fff4e1;
+  border-left:4px solid #d69a35;padding:10px 12px;border-radius:4px;
+  color:#73470e;font-weight:650}
+.wb-monitor-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;margin:18px 0}
+.wb-monitor-columns section{background:#fff;border:1px solid #dce7db;
+  border-radius:12px;padding:14px;min-width:0}
+.wb-monitor-columns h3{font-size:16px;margin:0 0 7px;color:#284e39}
+.wb-monitor-columns p{font-size:12px;color:#60766a}
+.wb-monitor .table-wrap{overflow:auto;max-width:100%}
+.wb-monitor table{width:100%;border-collapse:collapse;min-width:490px}
+.wb-monitor th,.wb-monitor td{padding:9px 10px;text-align:left;
+  font-size:12px;white-space:nowrap;border-bottom:1px solid #e9f0e7}
+.wb-monitor th{background:#f1f6f0;color:#3c5b48}
+.wb-monitor-error-row td{background:#fff4e4;color:#805019}
+.wb-monitor-details{margin:20px 0;border-top:1px solid #dce7db;padding-top:13px}
+.wb-monitor-details summary{font-weight:700;cursor:pointer;margin-bottom:12px}
+.wb-monitor-details label{display:flex;align-items:center;gap:8px;
+  font-size:13px;margin-bottom:13px}
+.wb-monitor-details select{border:1px solid #c8d9cd;border-radius:8px;
+  background:#fff;color:#23482f;padding:8px}
+.wb-monitor-footnote{color:#5e7668;font-size:12px;line-height:1.6}
+@media(max-width:850px){
+  .wb-monitor{padding:14px}
+  .wb-monitor-head{flex-direction:column;gap:8px}
+  .wb-monitor-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wb-monitor-columns{grid-template-columns:1fr}
+}
+@media(max-width:450px){
+  .wb-monitor-metrics{grid-template-columns:1fr 1fr}
+  .wb-monitor-metrics strong{font-size:19px}
+}
