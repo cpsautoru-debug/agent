@@ -53,3 +53,28 @@ test('preliminary price remains preliminary and not verified profit',()=>{
   assert.equal(preliminary.status,'preliminary');
   assert.equal(preliminary.explicitlyConfirmed,false);
 });
+
+test('server rejects any attempt to bulk-set seat-cover cost on door-card SKUs',()=>{
+  const door='карты_лада_веста_красные_соты';
+  assert.throws(()=>validateModelCostBatch({
+    ...good,vendorCodes:['Веста коричневая',door]
+  }),/family_mismatch/);
+  assert.throws(()=>validateModelCostBatch({
+    ...good,vendorCodes:[door]
+  }),/family_mismatch/);
+  const isolated=validateModelCostBatch({
+    ...good,familyId:'door_inserts',vendorCodes:[door],
+    source:'Внутренний расчёт дверных вставок: материал и пошив',
+    status:'preliminary',explicitlyConfirmed:false
+  });
+  assert.equal(isolated.familyId,'door_inserts');
+  assert.equal(isolated.status,'preliminary');
+  assert.equal(isolated.vendorCodes[0],door);
+});
+test('a documented internal costing explanation is valid without invented tech-card number',()=>{
+  const model=validateModelCostBatch({...good,
+    source:'Внутренний расчёт: материалы, швея, закройщик',
+    status:'preliminary',explicitlyConfirmed:false
+  });
+  assert.match(model.source,/Внутренний расчёт/);
+});
