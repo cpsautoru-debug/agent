@@ -15,6 +15,9 @@ import {
   const executive=el('msExecutiveStock');
   if(!section||!button||!form||!input||!clear||!status||!count||
     !rows||!prev||!next||!page||!warehouse||!scopeNote||!executive)return;
+  // Retired all-merchandise widget: hidden in production mode, do not issue
+  // background GETs for thousands of EVA carpets or overwrite the CEO KPI.
+  if(section.hidden)return;
   const PAGE=10;
   let state={offset:0,search:null},pending=false,hasMore=false;
   let lastPayload=null,lastLoadedAt=null;

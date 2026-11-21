@@ -1286,8 +1286,8 @@
         <div class="ms-production-header">
           <div>
             <div class="eyebrow">СКЛАДСКОЙ ПУЛЬТ · ПОДТВЕРЖДЁННЫЕ ОСТАТКИ</div>
-            <h2 id="msInventoryTitle">Материалы, крой и готовая продукция</h2>
-            <p>Автоматическое чтение отчёта остатков по складам из «МойСклад». Никаких изменений, списаний или ручного ввода номеров. Категории кроя и готовой продукции определяются только по фактической группе карточки номенклатуры.</p>
+            <h2 id="msInventoryTitle">Авточехлы, дверные карты и материалы производства</h2>
+            <p>Показываем только авточехлы, дверные карты и вставки, материалы для пошива, крой и готовые комплекты. EVA-коврики, запчасти и прочий ассортимент скрыты из пульта, но остаются в «МойСклад». Никаких списаний.</p>
           </div>
           <div class="ms-board-actions">
             <button class="ms-production-button" type="button" id="msInventoryReload">Обновить остатки</button>
@@ -1297,11 +1297,13 @@
         </div>
         <p id="msInventoryStatus" class="ms-production-status" role="status">Остатки ещё не загружены. Загрузка начнётся при открытии раздела.</p>
         <div class="ms-inventory-stats">
-          <div><span>Загружено позиций</span><strong id="msInventoryLoaded">—</strong></div>
+          <div><span>Производственных позиций</span><strong id="msInventoryLoaded">—</strong></div>
           <div><span>Менее 40 м на складе</span><strong id="msInventoryLow">—</strong></div>
           <div><span>Крой · позиции по папке</span><strong id="msInventoryCut">—</strong></div>
           <div><span>Готовое · позиции по папке</span><strong id="msInventoryFinished">—</strong></div>
-          <div><span>Группа не определена</span><strong id="msInventoryUnverified">—</strong></div>
+          <div><span>Чехлы · позиции</span><strong id="msInventoryCovers">—</strong></div>
+          <div><span>Дверные карты · позиции</span><strong id="msInventoryDoorCards">—</strong></div>
+          <div><span>Требуют уточнения</span><strong id="msInventoryUnverified">—</strong></div>
           <div><span>Склады в загруженных строках</span><strong id="msInventoryStores">—</strong></div>
         </div>
         <p class="ms-production-note" id="msInventoryCoverage">Показатели появятся после проверки API. Пока обход не завершён, не считайте их итогами всего склада.</p>
@@ -1311,17 +1313,19 @@
           </label>
           <label for="msInventoryCategory">Раздел
             <select id="msInventoryCategory">
-              <option value="all">Вся номенклатура</option>
+              <option value="all">Только производство</option>
               <option value="low">Меньше 40 метров</option>
-              <option value="materials">Материалы (подтверждённая папка)</option>
+              <option value="materials">Материалы для авточехлов</option>
+              <option value="covers">Авточехлы</option>
+              <option value="doorCards">Дверные карты и вставки</option>
               <option value="cut">Крой (по папке)</option>
               <option value="finished">Готовая продукция (по папке)</option>
               <option value="negative">Отрицательные остатки</option>
-              <option value="unverified">Неразобранные группы</option>
+              <option value="unverified">Производство — уточнить группу</option>
             </select>
           </label>
           <label for="msInventorySearch">Поиск по модели или материалу
-            <input id="msInventorySearch" type="search" maxlength="120" placeholder="Vesta, Pegas, экокожа, крой…">
+            <input id="msInventorySearch" type="search" maxlength="120" placeholder="Vesta, дверные карты, Pegas, крой…">
           </label>
         </div>
         <p class="ms-production-note" id="msInventoryFilterStatus">Ожидаем фактические данные.</p>
@@ -1350,7 +1354,23 @@
             </div>
           </article>
         </div>
-        <p class="ms-production-note">Порог срабатывания: <strong>строго меньше 40 м на каждом складе</strong> для позиций с подтверждённой единицей измерения «м» / «п.м». Ровно 40 м — без предупреждения. Отсутствующая строка склада не означает нулевой остаток; позиции без единицы измерения не подсвечиваются как метры. Категории «крой» и «готовое» опираются на названия групп каталога и не доказывают завершение производственного этапа. Цифры — учётные остатки, не физическая инвентаризация; при постраничном чтении данные не образуют единый моментальный снимок.</p>
+        <div class="ms-inventory-models">
+          <article>
+            <h3>Авточехлы по моделям</h3>
+            <p id="msInventoryCoversSummary" class="ms-production-note">Пока нет подтверждённых данных об авточехлах.</p>
+            <div class="ms-production-scroll" id="msInventoryCoversTable" hidden>
+              <table class="ms-production-table"><thead><tr><th>Модель / позиция</th><th>Склад</th><th>Учётный остаток</th></tr></thead><tbody id="msInventoryCoversRows"></tbody></table>
+            </div>
+          </article>
+          <article>
+            <h3>Дверные карты и вставки по моделям</h3>
+            <p id="msInventoryDoorCardsSummary" class="ms-production-note">Пока нет подтверждённых данных о дверных картах.</p>
+            <div class="ms-production-scroll" id="msInventoryDoorCardsTable" hidden>
+              <table class="ms-production-table"><thead><tr><th>Модель / позиция</th><th>Склад</th><th>Учётный остаток</th></tr></thead><tbody id="msInventoryDoorCardsRows"></tbody></table>
+            </div>
+          </article>
+        </div>
+        <p class="ms-production-note">В производственном пульте отображаются только позиции по пошиву авточехлов, дверным картам и связанным материалам. Коврики и другой посторонний ассортимент скрыты во всех таблицах и показателях. Категории определяются по названиям и группам карточек; позиции с неочевидными наименованиями могут не попасть в обзор, пока их не уточним. Порог срабатывания: <strong>строго меньше 40 м на каждом складе</strong> для позиций с подтверждённой единицей измерения «м» / «п.м». Ровно 40 м — без предупреждения. Отсутствующая строка склада не означает нулевой остаток; позиции без единицы измерения не подсвечиваются как метры. Категории «крой» и «готовое» опираются на названия групп каталога и не доказывают завершение производственного этапа. Цифры — учётные остатки, не физическая инвентаризация; при постраничном чтении данные не образуют единый моментальный снимок.</p>
       </section>
       <section class="ms-command-board" id="msCommandBoard" aria-labelledby="msBoardTitle">
         <div class="ms-production-header">
@@ -1535,7 +1555,7 @@
         </section>
         <p class="ms-production-note">Отображаются страницы по 5 заданий либо точный поиск по номеру, а не весь список активных заказов. Список обновляется не чаще одного раза в 10 минут при открытом разделе. Исполнители и полная загрузка цеха пока не подтверждены. Документ «Проведён» не означает, что продукция выпущена.</p>
       </section>
-      <section class="ms-production-monitor ms-stock-section" id="msStockSection" aria-labelledby="msStockTitle">
+      <section class="ms-production-monitor ms-stock-section" id="msStockSection" aria-labelledby="msStockTitle" hidden aria-hidden="true">
         <div class="ms-production-header">
           <div>
             <h2 id="msStockTitle">Остатки по складам · «МойСклад»</h2>

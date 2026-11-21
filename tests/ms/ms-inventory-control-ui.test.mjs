@@ -12,8 +12,11 @@ test('production office includes full warehouse overview, 40m and models before 
     'msInventorySearch','msInventoryTable','msInventoryRows',
     'msInventoryMoreRows','msInventoryCutSummary','msInventoryCutTable',
     'msInventoryCutRows','msInventoryFinishedSummary','msInventoryFinishedTable',
-    'msInventoryFinishedRows','msInventoryLoaded','msInventoryLow',
-    'msInventoryCut','msInventoryFinished','msInventoryUnverified','msInventoryStores'];
+    'msInventoryFinishedRows','msInventoryCoversSummary','msInventoryCoversTable',
+    'msInventoryCoversRows','msInventoryDoorCardsSummary','msInventoryDoorCardsTable',
+    'msInventoryDoorCardsRows','msInventoryLoaded','msInventoryLow',
+    'msInventoryCut','msInventoryFinished','msInventoryCovers','msInventoryDoorCards',
+    'msInventoryUnverified','msInventoryStores'];
   for(const id of ids)assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
   assert.ok(html.indexOf('id="msInventoryControl"')<html.indexOf('id="msCommandBoard"'));
   assert.match(html,/script type="module" src="ms-inventory-control\.mjs"/);
@@ -46,4 +49,22 @@ test('unit is explicitly loaded from MoySklad, and alert is warehouse-specific',
   assert.match(css,/\.ms-inventory-low td/);
   assert.match(css,/\.ms-inventory-negative td/);
   assert.match(html,/Категории «крой» и «готовое»/);
+});
+
+test('only production-oriented categories are visible; broad stock is retired',()=>{
+  assert.match(html,/Только производство/);
+  assert.match(html,/Материалы для авточехлов/);
+  assert.match(html,/Дверные карты и вставки/);
+  assert.match(html,/Авточехлы по моделям/);
+  assert.match(html,/Дверные карты и вставки по моделям/);
+  assert.match(html,/id="msStockSection"[^>]*hidden aria-hidden="true"/);
+  assert.match(css,/\.ms-stock-section\[hidden\]\{display:none!important\}/);
+  const old=readFileSync(new URL('../../web/office/ms-stock-bystore.mjs',import.meta.url),'utf8');
+  assert.match(old,/if\(section\.hidden\)return/);
+  assert.match(js,/summary\?\.productionItems/);
+  assert.match(js,/summary\?\.categories\.covers/);
+  assert.match(js,/summary\?\.categories\.doorCards/);
+  assert.match(js,/renderModelGroup\('doorCards'/);
+  assert.match(js,/renderModelGroup\('covers'/);
+  assert.match(js,/ms:production-inventory-ready/);
 });

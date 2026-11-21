@@ -16,10 +16,13 @@ import {
     tbody=el('msInventoryRows'),moreButton=el('msInventoryMoreRows'),
     filtered=el('msInventoryFilterStatus');
   const ids=['msInventoryLoaded','msInventoryLow','msInventoryCut',
-    'msInventoryFinished','msInventoryUnverified','msInventoryStores',
+    'msInventoryFinished','msInventoryCovers','msInventoryDoorCards',
+    'msInventoryUnverified','msInventoryStores',
     'msInventoryCutSummary','msInventoryFinishedSummary',
     'msInventoryCutTable','msInventoryFinishedTable',
-    'msInventoryCutRows','msInventoryFinishedRows'];
+    'msInventoryCutRows','msInventoryFinishedRows',
+    'msInventoryCoversSummary','msInventoryCoversTable','msInventoryCoversRows',
+    'msInventoryDoorCardsSummary','msInventoryDoorCardsTable','msInventoryDoorCardsRows'];
   if(!root||![runButton,pauseButton,continueButton,status,coverage,selectStore,
     selectCategory,search,table,tbody,moreButton,filtered].every(Boolean)||
     ids.some(id=>!el(id)))return;
@@ -29,8 +32,9 @@ import {
   const clock=value=>new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',
     timeStyle:'short',timeZone:'Europe/Samara'}).format(new Date(value));
   const label={
-    materials:'Материал · по папке',cut:'Крой · по папке',
-    finished:'Готовое · по папке',unverified:'Группа не подтверждена'
+    materials:'Материалы для чехлов',cut:'Крой для чехлов',
+    finished:'Готовые комплекты',covers:'Авточехлы',
+    doorCards:'Дверные карты и вставки',unverified:'Уточнить группу производства'
   };
   const value=x=>typeof x==='number'?f(x):'Неизвестно';
   const td=(tr,text)=>{
@@ -87,10 +91,12 @@ import {
       return;
     }
     const numberOrUnknown=(id,value)=>{el(id).textContent=value===null?'—':f(value);};
-    numberOrUnknown('msInventoryLoaded',summary?.loaded??null);
+    numberOrUnknown('msInventoryLoaded',summary?.productionItems??null);
     numberOrUnknown('msInventoryLow',summary?.counts.low??null);
     numberOrUnknown('msInventoryCut',summary?.categories.cut??null);
     numberOrUnknown('msInventoryFinished',summary?.categories.finished??null);
+    numberOrUnknown('msInventoryCovers',summary?.categories.covers??null);
+    numberOrUnknown('msInventoryDoorCards',summary?.categories.doorCards??null);
     numberOrUnknown('msInventoryUnverified',summary?.categories.unverified??null);
     numberOrUnknown('msInventoryStores',summary?.warehouses.length??null);
     if(summary){
@@ -104,8 +110,9 @@ import {
         selectStore.append(option);
       }
       selectStore.value=known.includes(keep)?keep:'all';
-      coverage.textContent='Получено '+f(summary.loaded)+' из '+
-        f(summary.expected)+' строк ассортимента. '+
+      coverage.textContent='Просмотрено '+f(summary.loaded)+' из '+
+        f(summary.expected)+' строк номенклатуры «МойСклад»; в пульте производства '+
+        f(summary.productionItems)+' профильных позиций. '+
         (summary.complete?'Последняя страница получена; это не физическая инвентаризация и не единый моментальный снимок.':
           'Обход не завершён, итоговые показатели и перечень дефицитов неполные.')+
         ' Отрицательных складских строк: '+f(summary.counts.negative)+
@@ -118,9 +125,9 @@ import {
     catch{rows=[];}
     // Do not display a fabricated zero: filtering may show zero rows while
     // the report itself is still only partially downloaded.
-    filtered.textContent='По фильтру среди загруженного: '+f(rows.length)+
+    filtered.textContent='По фильтру среди производственных позиций: '+f(rows.length)+
       ' строк. Показано до '+f(Math.min(rows.length,viewLimit))+
-      '. Предупреждения <40 м относятся к конкретному складу, не к сумме складов.';
+      '. Коврики и прочий ассортимент скрыты; предупреждения <40 м — на одном складе.';
     rows.sort((a,b)=>
       Number(b.negative)-Number(a.negative)||
       Number(b.low)-Number(a.low)||
@@ -149,6 +156,17 @@ import {
       'msInventoryCutTable','msInventoryCutRows');
     renderModelGroup('finished','msInventoryFinishedSummary',
       'msInventoryFinishedTable','msInventoryFinishedRows');
+    renderModelGroup('covers','msInventoryCoversSummary',
+      'msInventoryCoversTable','msInventoryCoversRows');
+    renderModelGroup('doorCards','msInventoryDoorCardsSummary',
+      'msInventoryDoorCardsTable','msInventoryDoorCardsRows');
+    const top=document.getElementById('msExecutiveStock');
+    if(top&&summary)top.textContent='В производстве: '+f(summary.productionItems)+
+      ' позиций из '+f(summary.loaded)+' просмотренных';
+    window.dispatchEvent(new CustomEvent('ms:production-inventory-ready',{
+      detail:summary?{productionItems:summary.productionItems,
+        lowMeterRows:summary.counts.low,complete:summary.complete}:null
+    }));
     lastRenderAt=Date.now();
     control();
   };
@@ -188,8 +206,8 @@ import {
         loadedAt=Date.now();pagesThisRun++;
         if(!data.hasMore&&items.length!==expected)
           throw Error('report_page_limit_reached');
-        status.textContent='Загружено '+f(items.length)+' из '+f(expected)+
-          ' позиций из отчёта остатков; предупреждения обновляются по мере чтения.';
+        status.textContent='Просмотрено '+f(items.length)+' из '+f(expected)+
+          ' строк каталога. В таблицах — только авточехлы, дверные карты и производство.';
         if(pagesThisRun===1||pagesThisRun%3===0||complete())show();
         if(complete())break;
         if(pagesThisRun<MAX_PAGES)await sleep(WAIT_MS);
@@ -203,7 +221,7 @@ import {
           '. Уже полученные строки показаны как неполные; нулевые остатки не подставлены. '+
           'Для нового прохода нажмите «Обновить остатки».';
       }else if(complete()){
-        status.textContent='Получены все '+f(items.length)+' строк отчёта «МойСклад». '+
+        status.textContent='Просмотрен весь отчёт «МойСклад» ('+f(items.length)+' строк). '+
           'Это учётные остатки на момент последовательных чтений страниц, не результаты физического пересчёта.';
       }else if(manualPause){
         status.textContent='Загрузка приостановлена. Получено '+f(items.length)+

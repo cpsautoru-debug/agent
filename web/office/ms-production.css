@@ -225,3 +225,6 @@
  .ms-inventory-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
  .ms-inventory-models{grid-template-columns:1fr}
 }
+
+/* Keep old broad merchandise report out of the production dashboard. */
+.ms-stock-section[hidden]{display:none!important}
