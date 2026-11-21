@@ -1,0 +1,43 @@
+/* Per-SKU read-only payouts and explicit owner-confirmed production COGS. */
+.wb-unit-economics{border:1px solid #d4e1d3;border-radius:15px;
+  background:#f9fbf8;padding:20px;margin:20px 0}
+.wb-unit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.wb-unit-head h2{margin:5px 0 10px;font-size:23px;color:#213e30}
+.wb-unit-head p{max-width:800px;line-height:1.5}
+.wb-unit-blockers{border-left:4px solid #d69a35;background:#fff6e5;
+  padding:12px;color:#765219;border-radius:5px;line-height:1.5;font-size:13px}
+.wb-unit-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;margin:18px 0}
+.wb-unit-columns section{min-width:0;background:#fff;border:1px solid #dee7dd;
+  border-radius:12px;padding:15px}
+.wb-unit-columns h3{margin:0 0 10px;color:#274d37;font-size:17px}
+.wb-unit-columns p{font-size:13px;color:#4b6757;line-height:1.5}
+.wb-unit-columns form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px}
+.wb-unit-columns form label{display:flex;flex-direction:column;gap:5px;font-size:12px;
+  font-weight:600;color:#34513e}
+.wb-unit-columns form input,.wb-unit-columns form select{font:inherit;
+  background:#fff;border:1px solid #cfdcce;border-radius:8px;padding:9px;
+  color:#244331;width:100%;min-width:0}
+.wb-unit-columns form label.wb-unit-checkbox{display:flex;flex-direction:row;
+  align-items:flex-start;grid-column:1/-1;gap:8px}
+.wb-unit-checkbox input{width:auto!important;margin:0}
+.wb-unit-actions{display:flex;gap:10px;flex-wrap:wrap;grid-column:1/-1}
+.wb-unit-cost-scope{display:grid;grid-template-columns:1fr 1.4fr;
+  gap:8px 11px;font-size:12px}
+.wb-unit-cost-scope dt{font-weight:700;color:#405e49}
+.wb-unit-cost-scope dd{margin:0;color:#536959}
+.wb-unit-table{min-width:1100px;width:100%;border-collapse:collapse}
+.wb-unit-table th,.wb-unit-table td{border-bottom:1px solid #e3ece4;
+  text-align:left;padding:10px 11px;font-size:12px;white-space:nowrap}
+.wb-unit-table th{background:#eff5ee;color:#35513d}
+.wb-unit-table tr.wb-unit-uncertain td{background:#fff8ed}
+@media(max-width:860px){
+  .wb-unit-head{flex-direction:column}
+  .wb-unit-columns{grid-template-columns:1fr}
+  .wb-unit-economics{padding:12px}
+}
+@media(max-width:550px){
+  .wb-unit-columns form{grid-template-columns:1fr}
+  .wb-unit-cost-scope{grid-template-columns:1fr}
+}
