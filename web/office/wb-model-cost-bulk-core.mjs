@@ -38,7 +38,7 @@ export function validateModelCostBatch(data){
     familyId:data.familyId,vendorCodes:normalized,
     validFrom:data.validFrom,costKopecks:data.costKopecks,
     status:data.status,
-    source:'Группа '+data.familyId+'; '+data.source,
+    source:data.source,
     sameTechCardConfirmed:true,
     includesMaterialsSeamstressCutterOnly:true,
     explicitlyConfirmed:data.status==='confirmed'
