@@ -56,7 +56,15 @@
           owner_login_required:'Необходимо войти через Google.',
           owner_only:'Этот раздел доступен только владельцу.',
           all_sources_unavailable:'Финансовые источники недоступны: ответ не сформирован.',
-          llm_unavailable:'OpenAI временно недоступен.',
+          openai_quota_exhausted:'Недостаточно средств или превышен лимит OpenAI API. Проверьте Billing на platform.openai.com.',
+          openai_rate_limited:'Временный лимит запросов OpenAI API. Повторите позже.',
+          openai_key_rejected:'OpenAI отклонил API-ключ. Проверьте секрет OPENAI_API_KEY в Cloudflare.',
+          openai_permission_denied:'Недостаточно прав API-ключа или проекта OpenAI.',
+          openai_model_unavailable:'Выбранная модель недоступна для проекта OpenAI. Проверьте OPENAI_ORCHESTRATOR_MODEL.',
+          openai_request_rejected:'OpenAI отклонил параметры запроса. Требуется проверка интеграции.',
+          openai_endpoint_unavailable:'Адрес OpenAI API недоступен. Требуется проверка интеграции.',
+          openai_service_error:'Сбой серверов OpenAI API. Повторите позднее.',
+          llm_unavailable:'Не удалось получить ответ OpenAI: причина пока не определена.',
           payload_too_large:'Запрос слишком длинный.'
         };
         setStatus(messages[body.code]||'Не удалось выполнить запрос. Код: '+(body.code||res.status));
