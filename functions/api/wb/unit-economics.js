@@ -87,11 +87,15 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
       }
       step='reconciliation';
       const summary=calculateWbSkuBreakdown(groupsRaw.results,costRows,stats);
+      // The pure calculation carries a descriptive "source" of its own.
+      // Keep the public API source stable for the strict office UI contract.
+      // Object-spread must precede the final, canonical source marker.
       return json(200,{
-        code:'wb_unit_economics_preview',source:'WB_FINANCE_API_D1',
+        ...summary,
+        code:'wb_unit_economics_preview',
+        source:'WB_FINANCE_API_D1',
         readOnly:true,changedRecords:0,asOfMs:now(),
-        costRegistry,profitVerified:false,
-        ...summary
+        costRegistry,profitVerified:false
       });
     }catch(error){
       // Fixed, non-sensitive diagnostic codes. Never disclose DB error text,
