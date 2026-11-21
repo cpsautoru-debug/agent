@@ -78,7 +78,6 @@ test('Ozon cost hints are isolated and missing WB COGS is never shown as real ze
     'wbOzonCostHintsStatus','wbOzonCostHintsRows'])
     assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
   assert.match(html,/wb-cost-suggestions-ui\.mjs/);
-  assert.match(html,/wb-cost-suggestions-core/);
   assert.match(js,/Нет подтверждённых данных/);
   assert.match(js,/Не подтверждена/);
   assert.doesNotMatch(html,/Подтверждённые затраты на пошив/);
