@@ -27,6 +27,8 @@
       data.approvedForLiveQueue!==false||
       !['new','scanning','pass_complete','paused','error'].includes(data.scanState)||
       !['never','recent','stale'].includes(data.freshness)||
+      !['not_started','on_schedule','delayed','stopped'].includes(data.monitorHealth)||
+      data.expectedIntervalMinutes!==5||
       !Number.isSafeInteger(data.generation)||data.generation<0||
       !Number.isSafeInteger(data.scannedOffset)||data.scannedOffset<0||
       !Array.isArray(data.items)||data.items.length>20||
@@ -44,13 +46,19 @@
       throw Error('invalid_ms_auto_status');
     reset();
     const passed=data.completeHistoricalPass;
+    const monitor={
+      not_started:'Фоновый сканер ещё не подтвердил первый успешный запуск',
+      on_schedule:'Фоновая синхронизация выполнялась в последние 20 минут',
+      delayed:'Внимание: нет успешной синхронизации более 20 минут',
+      stopped:'Внимание: фоновая синхронизация остановлена'
+    }[data.monitorHealth];
     const full=data.totalAtStart===null?'пока не известно':fmt(data.totalAtStart);
     const state={
       new:'Не запущено',scanning:'Идёт ограниченный исторический обход',
       pass_complete:'Завершён проход по историческому реестру',
       paused:'Проверка приостановлена',error:'Ошибка сканера'
     }[data.scanState];
-    status.textContent=state+'. Проверено в текущем поколении: '+
+    status.textContent=monitor+'. '+state+'. Проверено в текущем поколении: '+
       fmt(data.totals.checked)+' из '+full+
       '. Это исторический реестр, а не все активные заказы.';
     details.textContent='Этапы: незавершённые '+fmt(data.totals.incomplete)+

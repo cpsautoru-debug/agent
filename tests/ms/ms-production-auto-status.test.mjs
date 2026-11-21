@@ -100,6 +100,8 @@ test('completed historical pass uses same D1 generation and shows incomplete row
   assert.equal(body.approvedForLiveQueue,false);
   assert.equal(body.scanState,'pass_complete');
   assert.equal(body.freshness,'recent');
+  assert.equal(body.monitorHealth,'on_schedule');
+  assert.equal(body.expectedIntervalMinutes,5);
   assert.equal(body.totals.checked,15);
   assert.equal(body.totals.incomplete,2);
   assert.equal(body.shown,1);
@@ -147,4 +149,25 @@ test('any malformed counts, duplicate task rows or unsupported quantities fail c
     assert.equal(body.code,'ms_auto_status_unavailable');
     assert.equal(Object.hasOwn(body,'items'),false);
   }
+});
+
+test('5-minute monitor detects stalls long before 24-hour stale-history threshold',()=>{
+  const ready=normalizeAutoRuntime({...state,run_status:'scanning',last_success_ms:NOW-19*60_000},NOW);
+  const ok=summarizeAutoStatus(ready,tally,[item],NOW);
+  assert.equal(ok.monitorHealth,'on_schedule');
+  assert.equal(ok.freshness,'recent');
+  const slow=normalizeAutoRuntime({...state,run_status:'scanning',last_success_ms:NOW-21*60_000},NOW);
+  const stalled=summarizeAutoStatus(slow,tally,[item],NOW);
+  assert.equal(stalled.monitorHealth,'delayed');
+  assert.equal(stalled.freshness,'recent');
+  assert.equal(stalled.approvedForLiveQueue,false);
+  const paused=summarizeAutoStatus(normalizeAutoRuntime(
+    {...state,run_status:'paused',last_error_code:'ms_rate_limited'},NOW),tally,[item],NOW);
+  assert.equal(paused.monitorHealth,'stopped');
+  const initial=summarizeAutoStatus(normalizeAutoRuntime(
+    {...state,run_status:'new',last_success_ms:0},NOW),tally,[item],NOW);
+  assert.equal(initial.monitorHealth,'not_started');
+  const clockSkew=summarizeAutoStatus(normalizeAutoRuntime(
+    {...state,run_status:'scanning',last_success_ms:NOW+60_000},NOW),tally,[item],NOW);
+  assert.equal(clockSkew.monitorHealth,'delayed');
 });
