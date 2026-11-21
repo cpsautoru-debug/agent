@@ -28,7 +28,8 @@ export function mountModelCostReview({
   };
   const wrap=e('details');wrap.className='wb-model-cost-review';
   wrap.append(e('summary','Назначить себестоимость выбранным артикулам группы'));
-  const intro=e('p','Черновая модель определена по названию, а не по техкарте. '+
+  const intro=e('p','Группа определена по названию, а не по производственным документам. '+
+    'Номер техкарты не обязателен: укажи источник внутреннего расчёта. '+
     'Отметь только изделия с ОДИНАКОВОЙ реальной себестоимостью. '+
     'Не выбирай товары, если цвет/материал/пошив/комплектация отличаются по стоимости.');
   wrap.append(intro);
@@ -57,8 +58,8 @@ export function mountModelCostReview({
     'text','Например, 4200,00');
   amount.inputMode='decimal';amount.maxLength=15;
   const date=field('Действует с даты — должна покрывать нужный период WB','date');
-  const source=field('Основание: подтверждённая техкарта и расценки',
-    'text','Номер техкарты, состав и дата');source.maxLength=200;
+  const source=field('Основание расчёта (номер техкарты не обязателен)',
+    'text','Например: внутренний расчёт: материалы + пошив');source.maxLength=200;
   const qualityLabel=e('label','Качество себестоимости');
   const quality=e('select');
   for(const [value,name] of [
@@ -76,7 +77,8 @@ export function mountModelCostReview({
     return checkbox;
   }
   const same=attest('Каждый выбранный артикул — одно и то же изделие, '+
-    'комплектация и реальная техкарта; групповая себестоимость подходит всем.');
+    'комплектация и одинаковые нормы материалов и пошива; '+
+    'групповая себестоимость подходит всем. Номер техкарты не нужен.');
   const composition=attest('В цену входят только материалы, швея и '+
     'закройщик. Упаковщик, водитель, управляющий, реклама, налог, аренда — отдельно.');
   const explicit=attest('Подтверждаю точность суммы, даты и основания; '+
@@ -102,7 +104,7 @@ export function mountModelCostReview({
     for(const tick of checkboxes)tick.checked=true;
     clear();
     status.textContent='Выбраны все артикулы этой группы. '+
-      'Проверь каждый: одинаковая ли себестоимость и техкарта.';
+      'Проверь каждый: одинаковы ли конструкция, нормы затрат и пошив.';
   });
   const build=()=>validateModelCostBatch({
     familyId:group.id,
@@ -143,7 +145,7 @@ export function mountModelCostReview({
     try{doc=build();}
     catch{
       status.textContent='Выбери только одинаковые товары, введи цену, действительную дату, '+
-        'техкарту и поставь все три отметки подтверждения.';
+        'описание основания расчёта и поставь нужные отметки подтверждения.';
       return;
     }
     locked=true;previewButton.disabled=true;
