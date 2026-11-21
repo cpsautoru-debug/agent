@@ -122,7 +122,7 @@ export function createWbModelCostBatchHandler({now=Date.now}={}){
         '(account_id,vendor_code,valid_from,valid_to,cost_kopecks,status,source,actor) '+
         'VALUES (?,?,?,NULL,?,?,?,?)'
       ).bind(WB_ACCOUNT,vendorCode,doc.validFrom,doc.costKopecks,
-        doc.status,doc.source,actor));
+        doc.status,'Группа '+doc.familyId+'; '+doc.source,actor));
       const result=await db.batch(statements);
       if(!Array.isArray(result)||result.length!==statements.length||
         result.some(x=>x?.success!==true))
