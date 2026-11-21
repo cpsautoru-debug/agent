@@ -178,6 +178,7 @@ export function attachFinanceProductLinks({
       clear();previewStatus.textContent='Форма изменилась. Повтори проверку.';return;
     }
     saving=true;saveButton.disabled=true;previewButton.disabled=true;
+    let saved=false;
     try{
       const res=await request('/api/finance/product-links','POST',
         {action:'confirm',document:doc,token:receipt.token});
@@ -186,12 +187,13 @@ export function attachFinanceProductLinks({
         throw Error('invalid_response');
       receipt=null;
       previewStatus.textContent='Подтверждена одна связь. Стоимость товаров и отчёты не изменены.';
-      await load();
+      saved=true;
     }catch(error){
       clear();
       previewStatus.textContent=MESSAGES[error?.message]||
         'Сохранение не подтверждено. Обнови журнал перед повтором.';
     }finally{saving=false;previewButton.disabled=!ready;}
+    if(saved)await load();
   });
   loadButton.addEventListener('click',()=>{void load();});
   return true;
