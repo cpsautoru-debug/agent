@@ -91,3 +91,31 @@ test('suggestions do not load until WB articles are confirmed',async()=>{
   assert.equal(requests.length,0);
   assert.match(elements.wbOzonCostHintsStatus.textContent,/Сначала обнови расчёт WB/);
 });
+
+test('normalized code match is visibly tentative and never posts a cost',async()=>{
+  const row={...matched,seller_article:'vesta_3'};
+  const {elements,requests}=setup({costs:[row],articleCodes:['VESTA-3']});
+  elements.wbOzonCostHintsLoad.handlers.click();
+  await flush();
+  assert.equal(elements.wbOzonCostHintsRows.children.length,1);
+  assert.match(elements.wbOzonCostHintsRows.children[0].children[3].textContent,
+    /Только регистр/);
+  const tr=elements.wbOzonCostHintsRows.children[0];
+  tr.children.at(-1).children[0].handlers.click();
+  assert.equal(elements.wbUnitCostVendor.value,'VESTA-3');
+  assert.equal(elements.wbUnitCostFrom.value,'');
+  assert.equal(elements.wbUnitCostAttestation.checked,false);
+  assert.equal(elements.wbUnitCostStatus.value,'preliminary');
+  assert.match(elements.wbUnitCostSource.value,/Кандидат Ozon/);
+  assert.equal(elements.wbUnitCostConfirm.disabled,true);
+  assert.equal(requests.length,1);
+});
+test('empty Ozon cost register gets an explicit no-cost-source explanation',async()=>{
+  const {elements}=setup({costs:[],articleCodes:['VESTA-3','GRANTA-2']});
+  elements.wbOzonCostHintsLoad.handlers.click();
+  await flush();
+  assert.match(elements.wbOzonCostHintsStatus.textContent,
+    /Справочник Ozon: 0 записей/);
+  assert.match(elements.wbOzonCostHintsStatus.textContent,
+    /подтверждённых цен с артикулом продавца.*нет/);
+});

@@ -39,7 +39,9 @@ export function attachOzonCostSuggestions({
     date.value='';
     quality.value='preliminary';
     attestation.checked=false;
-    const origin='Подсказка Ozon: подтверждённый артикул; проверить состав и дату. ';
+    const origin=candidate.status==='normalized_candidate_needs_owner_confirmation'?
+      'Кандидат Ozon по коду: требуется сверить конкретную модель, состав и дату. ':
+      'Подсказка Ozon по точному коду: проверить состав и дату. ';
     source.value=(origin+candidate.source).slice(0,250);
     for(const node of [vendor,amount,date,quality,attestation,source]){
       node.dispatchEvent(new Event('change',{bubbles:true}));
@@ -74,26 +76,43 @@ export function attachOzonCostSuggestions({
       if(body?.currency!=='RUB'||!Array.isArray(body.costs))
         throw Error('ozon_cost_invalid');
       const result=findOzonCostSuggestions(wbArticles,body.costs);
-      for(const candidate of result.suggestions){
+      const renderCandidate=(candidate,kind)=>{
         const tr=documentRef.createElement('tr');
         cell(tr,candidate.vendorCode);
         cell(tr,candidate.model);
         cell(tr,formatCurrency(candidate.costKopecks));
+        cell(tr,kind);
         const action=documentRef.createElement('td');
         const choose=documentRef.createElement('button');
         choose.type='button';
-        choose.textContent='Подставить';
+        choose.textContent='Подставить как предварительную';
         choose.className='button light';
         choose.addEventListener('click',()=>insertHint(candidate));
         action.append(choose);tr.append(action);rows.append(tr);
-      }
-      status.textContent='Найдено точных одиночных совпадений: '+
-        result.suggestions.length+'. Без совпадений: '+result.notMatchedCount+
-        '. Неоднозначных: '+result.ambiguousVendorCodes.length+
-        '. Неопределённые цены не используются. Даты и состав нужно подтвердить вручную.';
-      if(!result.suggestions.length){
+      };
+      for(const candidate of result.suggestions)
+        renderCandidate(candidate,'Точное совпадение кода');
+      for(const candidate of result.normalizedCandidates)
+        renderCandidate(candidate,
+          'Только регистр/разделители — проверить модель и карточку');
+      const s=result.sourceStats;
+      const safeResults=result.suggestions.length+result.normalizedCandidates.length;
+      status.textContent='Справочник Ozon: '+s.ozonCostRows+
+        ' записей, подтверждённых '+s.confirmedRows+
+        ', из них с артикулом продавца '+s.confirmedWithArticle+
+        '. WB: '+wbArticles.length+' артикулов; точных совпадений '+
+        result.suggestions.length+', кандидатов по нормализованному коду '+
+        result.normalizedCandidates.length+', без точных совпадений '+
+        result.notMatchedCount+', неоднозначных '+(
+          result.ambiguousVendorCodes.length+
+          result.normalizedAmbiguousVendorCodes.length)+'. '+
+        (s.confirmedWithArticle===0?
+          'Сейчас подтверждённых цен с артикулом продавца в справочнике Ozon нет. ':
+          '')+
+        'Подсказки не подтверждают идентичность товаров, срок действия цены и состав себестоимости.';
+      if(!safeResults){
         const tr=documentRef.createElement('tr');
-        cell(tr,'Пока нет безопасных совпадений. Это не означает нулевую себестоимость.');
+        cell(tr,'Автоматических кандидатов пока нет. Это не означает нулевую себестоимость.');
         rows.append(tr);
       }
     }catch{

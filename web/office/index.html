@@ -256,11 +256,11 @@
             <p id="wbUnitCostMessage" class="wb-monitor-meta" role="status">Справочник хранит версии по дате и не изменяет документы WB.</p>
             <details class="wb-cost-hints" id="wbOzonCostHintsPanel">
               <summary>Найти подсказки себестоимости из Ozon по точному артикулу</summary>
-              <p>Только позиции с одинаковым артикулом продавца в WB и Ozon и уже подтверждённой себестоимостью Ozon. Подсказки не сохраняются и не считаются себестоимостью WB, пока ты не проверишь состав и дату.</p>
+              <p>Сначала ищем точное совпадение кодов, затем отдельно показываем предположения, где различаются лишь регистр и разделители. Показываем и число записей себестоимости Ozon, чтобы отличать пустой справочник от разных кодов. Никакие подсказки не сохраняются и не становятся себестоимостью WB без проверки конкретного товара, состава затрат и даты.</p>
               <button type="button" id="wbOzonCostHintsLoad" class="button light">Найти совпадения</button>
               <p id="wbOzonCostHintsStatus" class="wb-monitor-meta" role="status">Поиск выполняется только после нажатия кнопки.</p>
               <div class="table-wrap"><table>
-                <thead><tr><th>Артикул WB</th><th>Модель Ozon</th><th>Цена Ozon</th><th>Действие</th></tr></thead>
+                <thead><tr><th>Артикул WB</th><th>Модель Ozon</th><th>Цена Ozon</th><th>Тип сопоставления</th><th>Действие</th></tr></thead>
                 <tbody id="wbOzonCostHintsRows"></tbody>
               </table></div>
             </details>
@@ -1854,6 +1854,6 @@
 <script src="/wb-report-list.js?v=20261120" defer></script>
 <script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
 <script src="/wb-unit-economics.js?v=20261121-cost-hints" defer></script>
-<script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121"></script>
+<script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
 </body>
 </html>

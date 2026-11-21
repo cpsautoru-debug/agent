@@ -44,3 +44,43 @@ test('bad input or duplicate WB article does not silently turn into a match',()=
   assert.throws(()=>findOzonCostSuggestions([],null));
   assert.deepEqual(findOzonCostSuggestions([],[]).suggestions,[]);
 });
+
+test('zero overlap reports Ozon catalog availability, not zero production costs',()=>{
+  const result=findOzonCostSuggestions(
+    [{vendorCode:'VESTA-001'},{vendorCode:'GRANTA-002'}],[
+      cost('PRI-029','OZON-PR-3',350000),
+      cost('ISC-030','OZON-ISC-3',420000,'preliminary')
+    ]);
+  assert.equal(result.notMatchedCount,2);
+  assert.equal(result.suggestions.length,0);
+  assert.equal(result.normalizedCandidates.length,0);
+  assert.deepEqual(result.sourceStats,{
+    ozonCostRows:2,confirmedRows:1,preliminaryRows:1,
+    confirmedWithArticle:1,matchingArticleRows:0
+  });
+});
+test('unique case-and-separator differences become review-only candidates, never confirmed COGS',()=>{
+  const result=findOzonCostSuggestions([
+    {vendorCode:'VESTA-001'},{vendorCode:'Door_12'}
+  ],[
+    cost('vesta_001','OZ-V-3',420000),
+    cost('DOOR-12','OZ-DR-3',35000)
+  ]);
+  assert.equal(result.suggestions.length,0);
+  assert.deepEqual(result.normalizedCandidates.map(x=>x.vendorCode),
+    ['Door_12','VESTA-001'].sort((a,b)=>a.localeCompare(b,'ru')));
+  assert.ok(result.normalizedCandidates.every(x=>
+    x.status==='normalized_candidate_needs_owner_confirmation'));
+  assert.equal(result.readOnly,true);
+  assert.equal(result.changedRecords,0);
+});
+test('ambiguous normalized matches and numeric codes must not suggest a cost',()=>{
+  const result=findOzonCostSuggestions([
+    {vendorCode:'VESTA-001'},{vendorCode:'vesta_001'},{vendorCode:'123456789'}
+  ],[
+    cost('Vesta.001','OZ-V-3',420000),
+    cost('123-456789','OZ-000',99900)
+  ]);
+  assert.equal(result.normalizedCandidates.length,0);
+  assert.equal(result.normalizedAmbiguousVendorCodes.length,2);
+});
