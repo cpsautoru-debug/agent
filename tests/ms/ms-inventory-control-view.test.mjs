@@ -56,11 +56,11 @@ test('strictly less than 40 metres per store; do not sum external+main balances'
 });
 test('classify only confirmed folder evidence, never based on vague name',()=>{
   assert.deepEqual(sample.map(classifyInventory),[
-    'materials','materials','cut','finished','unverified','unverified'
+    'materials','materials','cut','finished','excluded','excluded'
   ]);
   assert.equal(classifyInventory({
     name:'Готовая продукция Vesta',catalogPath:'Продажа/Накидки'
-  }),'unverified');
+  }),'excluded');
   assert.equal(classifyInventory({
     name:'Крой Priora',catalogPath:null
   }),'unverified');
@@ -76,11 +76,11 @@ test('ready stock and cut only count real item/store rows and unit groups',()=>{
   assert.deepEqual(unitTotals(ready),[['шт',8]]);
   assert.deepEqual(unitTotals(inventoryRows(sample,'all','','cut')),
     [['компл',12]]);
-  assert.equal(inventoryRows(sample,'all','Vesta','all').length,3);
+  assert.equal(inventoryRows(sample,'all','Vesta','all').length,2);
   const all=inventoryRows(sample);
-  assert.equal(all.length,7);
-  assert.equal(all.find(x=>x.name==='Заготовка без группы').stock,null);
-  assert.equal(all.find(x=>x.name==='Заготовка без группы').warehouse,'Склад не указан');
+  assert.equal(all.length,5);
+  assert.equal(all.some(x=>x.name==='Заготовка без группы'),false);
+  assert.equal(all.some(x=>x.name==='Подлокотник Vesta'),false);
   assert.equal(all.find(x=>x.name==='Комплект авточехлов Vesta Cross').reserve,2);
 });
 test('status distinguishes partial inventory from completed page traversal',()=>{
@@ -90,7 +90,9 @@ test('status distinguishes partial inventory from completed page traversal',()=>
   assert.equal(a.categories.materials,2);
   assert.equal(a.categories.cut,1);
   assert.equal(a.categories.finished,1);
-  assert.equal(a.categories.unverified,2);
+  assert.equal(a.categories.unverified,0);
+  assert.equal(a.productionItems,4);
+  assert.equal(a.hiddenOtherItems,2);
   assert.ok(a.warehouses.includes('Основной склад'));
   assert.ok(a.warehouses.includes('Внешний склад'));
   const done=summarizeInventory(sample,6,6);
