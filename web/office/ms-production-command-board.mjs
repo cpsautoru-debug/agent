@@ -143,7 +143,18 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
     el('msProductionMonitor')?.scrollIntoView({behavior:'smooth',block:'start'});
   });
   toWarehouse.addEventListener('click',()=>{
-    el('msWarehouseSnapshotTitle')?.scrollIntoView({behavior:'smooth',block:'start'});
+    el('msInventoryControl')?.scrollIntoView({behavior:'smooth',block:'start'});
+  });
+  window.addEventListener('ms:production-inventory-ready',event=>{
+    const data=event.detail;
+    if(!data||!Number.isSafeInteger(data.productionItems)||
+      data.productionItems<0||!Number.isSafeInteger(data.lowMeterRows)||
+      data.lowMeterRows<0||typeof data.complete!=='boolean')return;
+    warehouseSummary.textContent='Учтено профильных складских позиций: '+
+      fmt(data.productionItems)+'. Материалов с остатком меньше 40 м: '+
+      fmt(data.lowMeterRows)+'. '+
+      (data.complete?'Обход отчёта завершён.':'Отчёт ещё загружается.')+
+      ' Коврики и прочие товары скрыты из производственного пульта.';
   });
   window.addEventListener('ms:warehouse-snapshot-ready',event=>{
     const d=event.detail;
