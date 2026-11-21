@@ -7,7 +7,7 @@ export const FAMILY_DEFINITIONS=Object.freeze([
   {id:'vesta_cross',label:'Lada Vesta Cross'},
   {id:'vesta_sw',label:'Lada Vesta SW (уточнить Cross)'},
   {id:'vesta',label:'Lada Vesta (прочие)'},
-  {id:'pr iora'.replace(' ',''),label:'Lada Priora'},
+  {id:'priora',label:'Lada Priora'},
   {id:'iskra',label:'Lada Iskra'},
   {id:'samara',label:'Lada Samara'},
   {id:'granta',label:'Lada Granta'},
@@ -24,7 +24,7 @@ const tidy=x=>x.normalize('NFKC').toLocaleLowerCase('ru')
 const has=(text,word)=>new RegExp('(?:^|[^\\p{L}])'+word+'(?:$|[^\\p{L}])','u').test(text);
 function family(value){
   const s=tidy(value);
-  if(/\b(?:eva|эва)\b/u.test(s)||
+  if(has(s,'(?:eva|эва)')||
     /коврик|подлокот|брелок|ароматизатор|накидк|универсал|порог|накладк/u.test(s))
     return 'accessories';
   if(/дверн|вставк|двере|двери|door\s*card|door\s*insert/u.test(s)&&
