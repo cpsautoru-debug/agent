@@ -15,7 +15,7 @@ const respond=(status,body)=>new Response(JSON.stringify(body),{status,headers:H
 const MAX_BODY=4096,MAX_QUESTION=900,MAX_SNIPPETS=12;
 
 export function sourceSelection(message) {
-  const wb=/\\bwb\\b|wildberries|вайлдберриз|в[бб]\\b/iu.test(message);
+  const wb=/\bwb\b|wildberries|вайлдберриз|в[бб]\b/iu.test(message);
   const ozon=/ozon|озон/iu.test(message);
   const production=/производств|шве|пошив|раскро|м[оё]йсклад|остатк.*материал|склад.*материал/iu.test(message);
   if(production&&!wb&&!ozon)return [];
@@ -90,10 +90,10 @@ async function owner(request,env) {
 
 async function parseBody(request) {
   const contentType=request.headers.get('Content-Type')||'';
-  if(!/^application\\/json(?:;|$)/i.test(contentType))
+  if(!/^application\/json(?:;|$)/i.test(contentType))
     throw Error('json_required');
   const declared=request.headers.get('Content-Length');
-  if(declared!==null&&(!/^\\d+$/.test(declared)||Number(declared)>MAX_BODY))
+  if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>MAX_BODY))
     throw Error('payload_too_large');
   const reader=request.body?.getReader();
   if(!reader)throw Error('invalid_payload');
@@ -163,7 +163,7 @@ export async function createOrchestratorReply(message,sources,env,fetcher=fetch)
     .filter(x=>x.type==='message')
     .flatMap(x=>x.content||[])
     .filter(x=>x.type==='output_text')
-    .map(x=>x.text).join('\\n').trim();
+    .map(x=>x.text).join('\n').trim();
   if(!answer)throw Error('llm_empty_output');
   return {answer,model,usage:{
     inputTokens:payload.usage?.input_tokens??null,
