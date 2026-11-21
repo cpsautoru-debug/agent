@@ -182,3 +182,46 @@
 .ms-auto-unknown h3{margin:0 0 6px;font-size:15px;color:#805b1e}
 .ms-auto-unknown .ms-production-table{min-width:730px}
 .ms-auto-unknown .ms-production-table td:last-child{color:#805b1e;font-weight:600}
+
+/* Read-only stock control surface, populated exclusively from owner-protected
+   MoySklad report rows. No decorative fake inventory values. */
+.ms-inventory-control{margin:20px 0;padding:20px;border:1px solid #d2e1da;
+  border-radius:15px;background:#f8fcf9}
+.ms-inventory-control .ms-production-header{display:flex;align-items:flex-start;
+  justify-content:space-between;gap:18px}
+.ms-inventory-control h2{margin:4px 0 8px;color:#203e2e;font-size:21px}
+.ms-inventory-control .eyebrow{font-size:10px;letter-spacing:.13em;color:#587461}
+.ms-inventory-control .ms-production-header p{max-width:850px;line-height:1.5}
+.ms-inventory-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:11px;margin:15px 0}
+.ms-inventory-stats>div{border:1px solid #dce7d9;border-radius:11px;
+  background:#fff;padding:12px;display:flex;flex-direction:column;gap:8px}
+.ms-inventory-stats span{font-size:12px;color:#5e7368}
+.ms-inventory-stats strong{color:#1e4632;font-size:23px}
+.ms-inventory-filters{display:flex;gap:12px;align-items:flex-end;
+  flex-wrap:wrap;margin:15px 0}
+.ms-inventory-filters label{display:flex;flex-direction:column;gap:5px;
+  font-size:12px;color:#385647;flex:1 1 190px}
+.ms-inventory-filters select,.ms-inventory-filters input{border:1px solid #d0decc;
+  border-radius:9px;background:#fff;padding:10px;color:#243b2f;
+  min-width:0;width:100%;font:inherit}
+.ms-inventory-table{min-width:900px}
+.ms-inventory-table td{font-size:12px;line-height:1.45}
+.ms-inventory-low td{background:#fff3d7!important}
+.ms-inventory-low td:last-child{color:#986009;font-weight:700}
+.ms-inventory-negative td{background:#fff0ed!important}
+.ms-inventory-negative td:last-child{color:#9e3526;font-weight:700}
+.ms-inventory-models{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;margin:20px 0 12px}
+.ms-inventory-models article{min-width:0;border:1px solid #dde7da;
+  border-radius:11px;padding:14px;background:#fff}
+.ms-inventory-models h3{margin:0 0 8px;font-size:16px;color:#284b36}
+.ms-inventory-models .ms-production-table{min-width:420px}
+.ms-inventory-models .ms-production-scroll{max-height:320px;overflow:auto}
+.ms-inventory-control [hidden]{display:none!important}
+@media(max-width:850px){
+ .ms-inventory-control{padding:13px}
+ .ms-inventory-control .ms-production-header{flex-direction:column}
+ .ms-inventory-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .ms-inventory-models{grid-template-columns:1fr}
+}
