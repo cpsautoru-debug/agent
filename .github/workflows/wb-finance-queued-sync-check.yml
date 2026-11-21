@@ -76,6 +76,29 @@ jobs:
       - run: node --check web/office/finance-product-links-core.mjs
       - run: node --check web/office/finance-product-links-ui.mjs
       - run: node --test tests/wb/finance-product-links-core.test.mjs tests/wb/finance-product-links-api.test.mjs tests/wb/finance-product-links-ui.test.mjs
+      - name: Verify additive finance links migration is valid and immutable
+        run: |
+          python3 - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = sqlite3.connect(':memory:')
+          sql = Path('migrations/0005_finance_product_links.sql').read_text()
+          assert sql.lstrip().startswith('CREATE TABLE'), 'Cloudflare Console copy must start with SQL'
+          db.executescript(sql)
+          columns = db.execute("PRAGMA table_info(office_finance_product_links)").fetchall()
+          assert len(columns) == 9, columns
+          example = ('Веста №2','OZ-123','vesta_brown','Lada Vesta',
+                     '2026-11-21','Физический товар проверен владельцем','owner')
+          db.execute("INSERT INTO office_finance_product_links (wb_vendor_code,ozon_sku,ozon_seller_article,model_name,verified_from,evidence,actor) VALUES (?,?,?,?,?,?,?)",example)
+          for statement in ["UPDATE office_finance_product_links SET model_name='other'",
+                            "DELETE FROM office_finance_product_links"]:
+              try:
+                  db.execute(statement)
+                  raise AssertionError('immutable trigger failed: '+statement)
+              except sqlite3.IntegrityError:
+                  pass
+          assert db.execute("SELECT count(*) FROM office_finance_product_links").fetchone()[0] == 1
+          PY
       - run: node --check web/office/unified-cost-audit-core.mjs
       - run: node --check web/office/finance-cost-audit.mjs
       - run: node --test tests/wb/unified-cost-audit-core.test.mjs tests/wb/unified-cost-audit-api.test.mjs tests/wb/unified-cost-audit-ui.test.mjs
