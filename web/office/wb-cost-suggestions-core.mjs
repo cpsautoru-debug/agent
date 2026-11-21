@@ -35,6 +35,51 @@ export function findOzonCostSuggestions(wbArticles,ozonCosts){
       status:'candidate_needs_owner_confirmation'
     });
   }
+  // Second, less certain level: two unique names become equal after removing
+  // only separators and normalizing case/Unicode. Do not match numeric codes,
+  // fragments, model names or similar-looking SKUs. No automatic cost writes.
+  const canonical=value=>value.normalize('NFKC')
+    .toLocaleLowerCase('ru').replace(/[\s._/-]+/g,'');
+  const eligible=value=>validCode(value)&&
+    /^[\p{L}\p{N}]{6,}$/u.test(canonical(value))&&
+    /\p{L}/u.test(canonical(value));
+  const wbByNorm=new Map();
+  for(const id of wb){
+    if(!eligible(id))continue;
+    const norm=canonical(id);
+    const ids=wbByNorm.get(norm)||[];
+    ids.push(id);wbByNorm.set(norm,ids);
+  }
+  const ozonByNorm=new Map();
+  for(const row of ozonCosts){
+    if(!eligible(row?.seller_article)||
+      !validText(row.sku,150)||!validText(row.model,100)||
+      !validText(row.source,250)||row.status!=='confirmed'||
+      !Number.isSafeInteger(row.cost_kopecks)||
+      row.cost_kopecks<=0||row.cost_kopecks>100000000)continue;
+    const norm=canonical(row.seller_article);
+    const list=ozonByNorm.get(norm)||[];
+    list.push(row);ozonByNorm.set(norm,list);
+  }
+  const knownExact=new Set([...matching.keys()]);
+  const normalizedCandidates=[],normalizedAmbiguous=[];
+  for(const [norm,ids] of wbByNorm){
+    const entries=ozonByNorm.get(norm)||[];
+    if(!entries.length)continue;
+    if(ids.length!==1||entries.length!==1){
+      for(const id of ids)normalizedAmbiguous.push(id);
+      continue;
+    }
+    const vendorCode=ids[0],row=entries[0];
+    if(knownExact.has(vendorCode)||row.seller_article===vendorCode)continue;
+    normalizedCandidates.push({
+      vendorCode,ozonSellerArticle:row.seller_article,ozonSku:row.sku,
+      model:row.model,costKopecks:row.cost_kopecks,source:row.source,
+      status:'normalized_candidate_needs_owner_confirmation'
+    });
+  }
+  normalizedCandidates.sort((a,b)=>a.vendorCode.localeCompare(b.vendorCode,'ru'));
+  normalizedAmbiguous.sort((a,b)=>a.localeCompare(b,'ru'));
   matches.sort((a,b)=>a.vendorCode.localeCompare(b.vendorCode,'ru'));
   ambiguous.sort((a,b)=>a.localeCompare(b,'ru'));
   return {
@@ -43,6 +88,7 @@ export function findOzonCostSuggestions(wbArticles,ozonCosts){
     suggestions:matches,ambiguousVendorCodes:ambiguous,
     rejectedMatches:rejected,
     notMatchedCount:wb.size-matches.length-ambiguous.length,
+    normalizedCandidates,normalizedAmbiguousVendorCodes:normalizedAmbiguous,
     sourceStats:{
       ozonCostRows:ozonCosts.length,
       confirmedRows:ozonCosts.filter(x=>x?.status==='confirmed').length,
