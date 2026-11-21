@@ -6,8 +6,10 @@
   const root=el('msAutoHistory'),status=el('msAutoHistoryStatus');
   const details=el('msAutoHistoryDetails'),table=el('msAutoHistoryTable');
   const body=el('msAutoHistoryRows'),retry=el('msAutoHistoryRetry');
-  if([root,status,details,table,body,retry].some(x=>!x))return;
-  const EVERY_MS=30*60*1000;
+  const attention=el('msAutoHistoryAttention');
+  if([root,status,details,table,body,retry,attention].some(x=>!x))return;
+  // D1-only owner GET, aligned with the 5-minute scheduled scanner.
+  const EVERY_MS=5*60*1000;
   const fmt=n=>new Intl.NumberFormat('ru-RU').format(n);
   const clock=n=>new Intl.DateTimeFormat('ru-RU',{
     dateStyle:'short',timeStyle:'short',timeZone:'Europe/Samara'
@@ -19,7 +21,8 @@
   let running=false,lastAttempt=0;
   const inView=()=>document.visibilityState==='visible'&&
     location.hash.split('/')[0]==='#production';
-  const reset=()=>{body.replaceChildren();table.hidden=true;details.textContent='';};
+  const reset=()=>{body.replaceChildren();table.hidden=true;
+    details.textContent='';attention.textContent='';};
   const show=(data)=>{
     if(data.code!=='ms_production_auto_status_ok'||
       data.source!=='DEDICATED_MS_PRODUCTION_D1_CURSOR'||
@@ -41,6 +44,13 @@
         data.totals.complete+data.totals.unverified||
       typeof data.completeHistoricalPass!=='boolean'||
       data.shown>data.totals.incomplete||
+      !data.visibleDateChecks||
+      !['past','today','future','notSet','unverified']
+        .every(key=>Number.isSafeInteger(data.visibleDateChecks[key])&&
+          data.visibleDateChecks[key]>=0)||
+      Object.values(data.visibleDateChecks).reduce((a,b)=>a+b,0)!==data.shown||
+      data.items.some(item=>!['past','today','future','not_set','unverified']
+        .includes(item?.plannedDateControl))||
       !Number.isSafeInteger(data.remainingRowsNotShown)||
       data.remainingRowsNotShown!==data.totals.incomplete-data.shown)
       throw Error('invalid_ms_auto_status');
@@ -71,16 +81,35 @@
       data.freshness==='stale'?'устарело':'нет данных')+
       (data.lastErrorCode?'. Код остановки: '+data.lastErrorCode:'')+
       '. Без подтверждения активного статуса эти данные нельзя использовать для планирования загрузки цеха.';
-    for(const item of data.items){
+    const dates=data.visibleDateChecks;
+    attention.textContent='Среди '+fmt(data.shown)+' показанных подтверждённо незавершённых: '+
+      'плановая дата прошла — '+fmt(dates.past)+
+      ', сегодня — '+fmt(dates.today)+
+      ', не задана — '+fmt(dates.notSet)+
+      ', не подтверждена — '+fmt(dates.unverified)+
+      '. Это контроль календарной даты только в показанной исторической выборке, не договорная просрочка и не вся очередь.';
+    const riskOrder={past:0,today:1,not_set:2,unverified:3,future:4};
+    const ordered=[...data.items].sort((a,b)=>
+      riskOrder[a.plannedDateControl]-riskOrder[b.plannedDateControl]||
+      (a.plannedDate||'').localeCompare(b.plannedDate||'')||
+      a.number.localeCompare(b.number));
+    const dateText={
+      past:'Плановая дата прошла',today:'Плановый день сегодня',
+      future:'Дата впереди',not_set:'Дата не задана',
+      unverified:'Дата не подтверждена'
+    };
+    for(const item of ordered){
       if(!item||typeof item.number!=='string'||!/^\d{1,10}$/.test(item.number)||
         item.status!=='incomplete')throw Error('invalid_ms_auto_row');
       const row=document.createElement('tr');
+      if(item.plannedDateControl==='past')row.className='ms-auto-overdue';
       td(row,item.number);
       td(row,typeof item.remaining==='number'?fmt(item.remaining):'Не подтверждено');
       td(row,typeof item.firstUnfinishedStage==='string'?
         item.firstUnfinishedStage:'Не подтверждено');
       td(row,typeof item.plannedDate==='string'?
         item.plannedDate:'Не указана');
+      td(row,dateText[item.plannedDateControl]);
       td(row,Number.isSafeInteger(item.checkedMs)?clock(item.checkedMs):'Неизвестно');
       body.append(row);
     }
