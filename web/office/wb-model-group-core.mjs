@@ -27,8 +27,13 @@ function family(value){
   if(has(s,'(?:eva|эва)')||
     /коврик|подлокот|брелок|ароматизатор|накидк|универсал|порог|накладк/u.test(s))
     return 'accessories';
-  if(/дверн|вставк|двере|двери|door\s*card|door\s*insert/u.test(s)&&
-    /карт|вставк|обшивк|двер/u.test(s))
+  // WB seller codes may use "карты_лада_веста" without the word
+  // "дверные". Treat these as door inserts BEFORE any car-model token.
+  // Otherwise a cover-family batch can assign the 4200 ₽ seat-cover cost
+  // to door cards solely because "веста" appears in their name.
+  if(has(s,'(?:карта|карты|карт)')||
+    (/дверн|вставк|двере|двери|door\s*card|door\s*insert/u.test(s)&&
+      /карт|вставк|обшивк|двер/u.test(s)))
     return 'door_inserts';
   const hasVesta=has(s,'(?:vesta|веста|vestacross|вестакросс|vestasw)');
   const cross=has(s,'(?:cross|кросс)')||/vestacross|вестакросс/u.test(s);
