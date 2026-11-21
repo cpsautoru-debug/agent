@@ -6,6 +6,16 @@ on:
       - 'workers/wb-finance-sync-core.mjs'
       - 'workers/wb-finance-auto-sync.js'
       - 'functions/api/wb/auto-sync-status.js'
+      - 'functions/api/wb/unit-economics.js'
+      - 'functions/api/wb/unit-costs.js'
+      - 'web/office/wb-unit-economics.js'
+      - 'web/office/wb-unit-economics-core.mjs'
+      - 'web/office/wb-unit-economics.css'
+      - 'migrations/wb/0007_wb_profit_unit_costs.sql'
+      - 'tests/wb/wb-unit-economics-core.test.mjs'
+      - 'tests/wb/wb-unit-economics-api.test.mjs'
+      - 'tests/wb/wb-unit-costs-api.test.mjs'
+      - 'tests/wb/wb-unit-economics-ui.test.mjs'
       - 'web/office/wb-finance-monitor-core.mjs'
       - 'web/office/wb-auto-sync-status.js'
       - 'web/office/wb-finance-monitor.css'
@@ -31,6 +41,11 @@ jobs:
           node-version: '22'
       - run: node --check workers/wb-finance-auto-sync.js
       - run: node --check functions/api/wb/auto-sync-status.js
+      - run: node --check functions/api/wb/unit-economics.js
+      - run: node --check functions/api/wb/unit-costs.js
+      - run: node --check web/office/wb-unit-economics.js
+      - run: node --check web/office/wb-unit-economics-core.mjs
+      - run: node --test tests/wb/wb-unit-economics-core.test.mjs tests/wb/wb-unit-economics-api.test.mjs tests/wb/wb-unit-costs-api.test.mjs tests/wb/wb-unit-economics-ui.test.mjs
       - run: node --check web/office/wb-finance-monitor-core.mjs
       - run: node --check functions/api/wb/sync-once.js
       - run: node --test tests/wb/wb-owner-one-shot.test.mjs
@@ -48,5 +63,18 @@ jobs:
           required={'wb_finance_api_runtime','wb_finance_api_reports','wb_finance_api_rows'}
           assert required <= got, (required, got)
           assert 'wb_saved_xlsx_reports' not in got
+          with open('migrations/wb/0007_wb_profit_unit_costs.sql',encoding='utf-8') as f:
+              con.executescript(f.read())
+          assert 'wb_profit_unit_costs' in {
+              x[0] for x in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+          }
+          # Database guarantee: a confirmed dated cost cannot silently change
+          con.execute("INSERT INTO wb_profit_unit_costs (account_id,vendor_code,valid_from,valid_to,cost_kopecks,status,source,actor) VALUES (?,?,?,?,?,?,?,?)",
+                      ('4271851','VESTA','2026-10-01',None,420000,'confirmed','verified production card','owner'))
+          try:
+              con.execute("UPDATE wb_profit_unit_costs SET cost_kopecks=2 WHERE vendor_code='VESTA'")
+              assert False, 'mutating confirmed COGS must be rejected'
+          except sqlite3.IntegrityError:
+              pass
           print('Staging API-only tables OK')
           PY
