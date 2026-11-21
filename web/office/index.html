@@ -300,6 +300,38 @@
         <p class="wb-monitor-footnote">Выплата по операциям не равна выручке. Для строк без артикула удержания остаются нераспределёнными. Возвраты нельзя автоматически считать пригодными к продаже. Полная чистая прибыль по артикулу недоступна, пока отсутствуют подтверждённые расходы рекламы, налогов и распределение накладных затрат. Суммы не смешиваются с XLSX-отчётами.</p>
       </article>
 
+      <article class="profit-panel finance-audit" id="financeCostAudit">
+        <div class="wb-unit-head">
+          <div>
+            <div class="wb-monitor-eyebrow">WB + OZON · ПРОВЕРКА ИСТОЧНИКОВ</div>
+            <h2>Единый контроль себестоимости и общих расходов</h2>
+            <p>Читаем фактический реестр себестоимости WB, отдельный справочник Ozon и <strong>версионные документы Ozon Profit</strong>, которые используются для его расчёта. Показываем различия, но не копируем цены и не меняем финансовые записи.</p>
+          </div>
+          <button type="button" id="financeAuditRefresh" class="button light">Обновить источники</button>
+        </div>
+        <p id="financeAuditStatus" class="wb-monitor-main-status" role="status" aria-live="polite">Сводка загрузится при открытии финансов WB.</p>
+        <div class="wb-monitor-metrics">
+          <div><span>Цены WB · подтверждены / всего</span><strong id="financeAuditWbCount">—</strong></div>
+          <div><span>Справочник Ozon · подтверждены / всего</span><strong id="financeAuditOzonCatalogCount">—</strong></div>
+          <div><span>Ozon Profit · подтверждены / всего</span><strong id="financeAuditProfitCount">—</strong></div>
+          <div><span>Общие расходы из Ozon Profit · записей</span><strong id="financeAuditExpenseCount">—</strong></div>
+        </div>
+        <p id="financeAuditScope" class="wb-monitor-meta">Это сверка существующих источников, не новый общий реестр и не итоговая прибыль. Отсутствующие цены, документы и распределение расходов нельзя считать нулём.</p>
+        <p id="financeAuditWarnings" class="wb-unit-blockers" role="status">Реклама, налоги и общие расходы по каналам ещё не объединены в закрытый P&amp;L.</p>
+        <h3>Текущие цены и статус источника</h3>
+        <div class="table-wrap"><table class="wb-unit-table finance-audit-table">
+          <thead><tr><th>Источник</th><th>Артикул / SKU</th><th>Модель / период</th><th>Цена за единицу</th><th>Статус</th></tr></thead>
+          <tbody id="financeAuditCostRows"></tbody>
+        </table></div>
+        <h3>Общие расходы · существующий регистр Ozon Profit</h3>
+        <p>Статьи со сферой «бизнес» потенциально относятся ко всем каналам. Пока не подтверждены первичные документы, месяцы и ключи распределения, они <strong>не вычитаются повторно</strong> из WB или Ozon.</p>
+        <div class="table-wrap"><table class="wb-unit-table">
+          <thead><tr><th>Статья</th><th>Область</th><th>Действует</th><th>Учёт</th></tr></thead>
+          <tbody id="financeAuditExpenseRows"></tbody>
+        </table></div>
+        <p class="wb-monitor-footnote">Подтверждённый артикул продавца Ozon и такой же WB-код — лишь кандидат на связь, не доказательство идентичности товара. Версии себестоимости и суммы общих расходов должны сохранять историю и первоисточник. <a href="#ozonProfit">Открыть действующий регистр Ozon Profit</a>.</p>
+      </article>
+
       <article class="profit-panel" id="wbImportPreview">
         <h2>Автоматический расчёт WB · загрузка XLSX</h2>
         <p><strong>Предварительный управленческий расчёт.</strong> Выберите отчёт WB и ваш приватный справочник себестоимости. Файлы отправляются только в защищённый API владельца для обработки без постоянного сохранения.</p>
@@ -1896,5 +1928,6 @@
 <script src="/wb-unit-economics.js?v=20261121-cost-hints" defer></script>
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
+<script type="module" src="/finance-cost-audit.mjs?v=20261121"></script>
 </body>
 </html>
