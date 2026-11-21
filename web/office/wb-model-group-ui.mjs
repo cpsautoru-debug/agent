@@ -1,7 +1,9 @@
 import {buildWbModelDraft} from './wb-model-group-core.mjs';
+import {mountModelCostReview} from './wb-model-cost-bulk-ui.mjs';
 
-// This panel is a read-only index of WB vendor names. Nothing is written
-// to WB, Ozon, MoySklad or any cost table. There is no save button by design.
+// Draft model grouping is read-only. Each eligible group offers an OPTIONAL
+// separately reviewed, signed two-step cost insertion into the existing WB
+// staging COGS register. Nothing is written by merely building groups.
 export function attachWbModelDraft({documentRef=document}={}){
   const $=id=>documentRef.getElementById(id);
   const button=$('wbModelDraftBuild');
@@ -45,6 +47,7 @@ export function attachWbModelDraft({documentRef=document}={}){
         ul.append(item);
       }
       details.append(ul);
+      mountModelCostReview({documentRef, parent:details,group});
       host.append(details);
     }
     status.textContent='Сгруппировано '+draft.totalArticles+

@@ -266,7 +266,7 @@
             </details>
             <details class="wb-cost-hints" id="wbModelDraftPanel">
               <summary>Разобрать артикулы WB по моделям — черновик</summary>
-              <p>Группируем уже загруженные артикулы WB по названию модели. Vesta Cross и Vesta учитываются отдельно; аксессуары не получают себестоимость авточехлов. Это предварительные группы для проверки, а не подтверждённое совпадение товара, лекал или себестоимости.</p>
+              <p>Группируем уже загруженные артикулы WB по названию модели. Vesta Cross и Vesta учитываются отдельно; аксессуары не получают себестоимость авточехлов. Это предварительные группы для проверки, а не подтверждённое совпадение товара, лекал или себестоимости. В группах чехлов доступно отдельное массовое назначение себестоимости: сначала выбери ТОЛЬКО одинаковые по техкарте изделия, затем укажи реальную цену и дату, проверь и отдельно подтверди запись. Ничего автоматически не сохраняется.</p>
               <button type="button" id="wbModelDraftBuild" class="button light">Показать группы моделей</button>
               <p id="wbModelDraftStatus" class="wb-monitor-meta" role="status">Группировка не запускалась. Данные WB и Ozon не изменяются.</p>
               <div id="wbModelDraftGroups" class="wb-model-draft-groups"></div>
@@ -1862,6 +1862,6 @@
 <script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
 <script src="/wb-unit-economics.js?v=20261121-cost-hints" defer></script>
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
-<script type="module" src="/wb-model-group-ui.mjs?v=20261121"></script>
+<script type="module" src="/wb-model-group-ui.mjs?v=20261121-bulk-review"></script>
 </body>
 </html>

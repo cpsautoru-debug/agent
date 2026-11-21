@@ -58,3 +58,26 @@
 .wb-model-draft-group ul{padding:0 14px 12px 26px;margin:0;
   color:#526b57;font-size:12px;line-height:1.7;max-height:180px;
   overflow:auto;overflow-wrap:anywhere}
+
+.wb-model-cost-review{margin:0 10px 10px;padding:9px 11px;
+  border:1px solid #c5d6c3;background:#f9fcf8;border-radius:9px}
+.wb-model-cost-review summary{font-size:12px;color:#2e6040;
+  cursor:pointer;font-weight:650}
+.wb-model-cost-review p{font-size:12px;line-height:1.6;color:#4c6550}
+.wb-model-cost-form{display:flex;flex-direction:column;gap:10px}
+.wb-model-cost-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;max-height:240px;overflow:auto;border:1px solid #dce8da;
+  background:white;padding:10px;border-radius:8px}
+.wb-model-cost-list label,.wb-model-cost-attestation{display:flex;align-items:flex-start;
+  gap:7px;font-size:12px;color:#305341;overflow-wrap:anywhere}
+.wb-model-cost-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.wb-model-cost-fields label{display:flex;flex-direction:column;
+  gap:5px;color:#3e5b47;font-weight:600;font-size:12px}
+.wb-model-cost-fields input,.wb-model-cost-fields select{
+  background:white;border:1px solid #ccd9cd;border-radius:8px;
+  padding:9px;min-width:0;width:100%;color:#304b38;font:inherit}
+.wb-model-cost-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.wb-model-cost-form input[type=checkbox]{margin-top:3px}
+@media(max-width:600px){
+  .wb-model-cost-list,.wb-model-cost-fields{grid-template-columns:1fr}
+}
