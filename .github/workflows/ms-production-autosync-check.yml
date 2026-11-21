@@ -4,6 +4,9 @@ on:
     branches: [feature/marketplace-agents-staging]
     paths:
       - 'workers/ms-production-autosync.js'
+      - 'workers/ms-production-bridge-auth.js'
+      - 'functions/api/ms/production-bridge.js'
+      - 'tests/ms/ms-production-bridge.test.mjs'
       - 'migrations/ms/0001_ms_production_autosync_staging.sql'
       - 'tests/ms/ms-production-autosync.test.mjs'
       - '.github/workflows/ms-production-autosync-check.yml'
@@ -19,7 +22,9 @@ jobs:
         with:
           node-version: '22'
       - run: node --check workers/ms-production-autosync.js
-      - run: node --test tests/ms/ms-production-autosync.test.mjs
+      - run: node --check workers/ms-production-bridge-auth.js
+      - run: node --check functions/api/ms/production-bridge.js
+      - run: node --test tests/ms/ms-production-autosync.test.mjs tests/ms/ms-production-bridge.test.mjs
       - name: Verify additive D1 schema isolated from finance
         run: |
           python3 - <<'PY'
