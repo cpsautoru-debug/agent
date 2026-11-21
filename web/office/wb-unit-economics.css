@@ -89,3 +89,13 @@
 .finance-audit .table-wrap{overflow-x:auto}
 .finance-audit .wb-unit-table td{white-space:normal;overflow-wrap:anywhere}
 .finance-audit .wb-unit-table td:first-child{font-weight:600;color:#294c34}
+
+.finance-link-panel{margin:18px 0;padding:14px;border:1px solid #d3e3d1;
+  border-radius:12px;background:#f8fcf7}
+.finance-link-panel>summary{cursor:pointer;color:#2c563b;
+  font-weight:700;font-size:15px}
+.finance-link-panel>p{font-size:13px;color:#526654;line-height:1.65}
+.finance-link-panel .wb-model-cost-form{margin:14px 0}
+.finance-link-panel .wb-model-cost-fields{margin:10px 0}
+.finance-link-panel .wb-model-cost-attestation{margin:6px 0}
+.finance-link-panel .table-wrap{max-height:280px;overflow:auto;margin-top:10px}
