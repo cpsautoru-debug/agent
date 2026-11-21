@@ -7,7 +7,7 @@ registerHooks({load(url,context,next){
   return next(url,context);
 }});
 const {verifyStageTaskLinks,taskPageUrl,stageUrl,parseProductionPage,normalizeTaskStages,
-  makeLimitedReader,runMsProductionTick,REQUESTS_PER_TICK,
+  makeLimitedReader,bridgeUrlFor,runMsProductionTick,REQUESTS_PER_TICK,
   REQUEST_GAP_MS,BATCH_SIZE}=await import('../../workers/ms-production-autosync.js');
 const id=i=>'00000000-0000-4000-8000-'+i.toString(16).padStart(12,'0');
 const tasks=Array.from({length:5},(_,i)=>({
@@ -332,4 +332,53 @@ test('after source-count drift, next tick autonomously restarts an isolated gene
   assert.equal(db.runtime.generation,5);
   assert.equal(db.runtime.total_first_seen,5);
   assert.equal(new URL(urls[0]).searchParams.get('offset'),'0');
+});
+
+test('Worker uses authenticated Pages read-only bridge without a second MoySklad token',async()=>{
+  const secret='A'.repeat(43);
+  const {createProductionBridgeHandler}=await import('../../functions/api/ms/production-bridge.js');
+  const db=fakeDb();
+  let external=0,relay=0;
+  const pages=createProductionBridgeHandler({fetcher:async(upstream,options)=>{
+    external++;
+    assert.equal(options.headers.Authorization,'Bearer existing-Pages-secret-token');
+    return new URL(upstream).pathname.endsWith('/productiontask')?
+      success({meta:{size:5},rows:tasks}):success(stage((external-2)%5));
+  }});
+  const out=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',
+    MS_PRODUCTION_DB:db,
+    MS_PRODUCTION_BRIDGE_SECRET:secret
+  },{
+    nowMs:1_900_000_000_000,pause:async()=>{},
+    fetcher:async(url,options)=>{
+      relay++;
+      assert.equal(new URL(url).origin,'https://autosklad63-office-staging.pages.dev');
+      assert.equal(new URL(url).pathname,'/api/ms/production-bridge');
+      assert.equal(options.method,'GET');
+      assert.equal(options.headers.Authorization,undefined);
+      assert.equal(typeof options.headers['X-MS-Bridge-Signature'],'string');
+      return pages({
+        request:new Request(url,{method:'GET',headers:options.headers}),
+        env:{MS_API_TOKEN:'existing-Pages-secret-token',MS_PRODUCTION_BRIDGE_SECRET:secret}
+      });
+    }
+  });
+  assert.equal(out.code,'ms_auto_batch_committed');
+  assert.equal(out.requests,6);
+  assert.equal(out.processed,5);
+  assert.equal(db.runtime.next_offset,5);
+  assert.equal(relay,6);
+  assert.equal(external,6);
+  assert.doesNotMatch(JSON.stringify(out),/existing-Pages-secret-token|00000000-0000-4000/);
+});
+test('Worker bridge rejects URL rewriting or non-production resource access',()=>{
+  assert.ok(bridgeUrlFor(taskPageUrl(0)).toString().includes('kind=tasks'));
+  assert.ok(bridgeUrlFor(stageUrl(tasks[0].id)).toString().includes('kind=stages'));
+  for(const bad of [
+    'http://api.moysklad.ru/api/remap/1.2/entity/productiontask?limit=5&offset=0&order=moment%2Casc',
+    'https://evil.example/productiontask?limit=5&offset=0&order=moment%2Casc',
+    'https://api.moysklad.ru/api/remap/1.2/entity/productiontask?limit=5&offset=0&order=moment%2Casc&delete=true',
+    'https://api.moysklad.ru/api/remap/1.2/entity/customerorder?limit=5&offset=0&order=moment%2Casc'
+  ])assert.throws(()=>bridgeUrlFor(bad));
 });

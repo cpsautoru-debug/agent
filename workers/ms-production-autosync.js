@@ -1,5 +1,6 @@
 import {summarizeStages} from '../functions/api/ms/production-stages.js';
 import {assessProductionTask} from '../web/office/ms-production-audit.mjs';
+import {validBridgeSecret,signBridgeRequest} from './ms-production-bridge-auth.js';
 
 // One bounded scheduled batch. No HTTP handler, no customer-data export,
 // no MoySklad writes and never a claim that all historical tasks are active.
@@ -119,17 +120,61 @@ async function readJson(response,limit){
   }finally{await reader.cancel().catch(()=>{});}
   try{return JSON.parse(raw);}catch{throw Error('ms_api_invalid_json');}
 }
+// Only the scanner's two exact MoySklad URLs can use the bridge. The Worker
+// cannot turn the Pages endpoint into an arbitrary proxy or a write endpoint.
+export function bridgeUrlFor(sourceUrl){
+  const input=new URL(sourceUrl);
+  if(input.origin!=='https://api.moysklad.ru'||input.hash)
+    throw Error('ms_auto_bridge_scope_denied');
+  const keys=[...input.searchParams.keys()];
+  const bridge=new URL('https://autosklad63-office-staging.pages.dev/api/ms/production-bridge');
+  if(input.pathname==='/api/remap/1.2/entity/productiontask'&&
+    keys.length===3&&['limit','offset','order'].every(k=>keys.includes(k))&&
+    input.searchParams.get('limit')==='5'&&
+    input.searchParams.get('order')==='moment,asc'&&
+    /^(0|[1-9]\d{0,5})$/.test(input.searchParams.get('offset')||'')&&
+    Number(input.searchParams.get('offset'))%BATCH_SIZE===0&&
+    Number(input.searchParams.get('offset'))<=100000){
+    bridge.searchParams.set('kind','tasks');
+    bridge.searchParams.set('offset',input.searchParams.get('offset'));
+    return bridge;
+  }
+  const stagesMatch=/^productionTask=https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\/([a-f0-9-]{36})$/i.exec(
+    input.searchParams.get('filter')||'');
+  if(input.pathname==='/api/remap/1.2/entity/productionstage'&&
+    keys.length===4&&['limit','offset','expand','filter'].every(k=>keys.includes(k))&&
+    input.searchParams.get('limit')==='50'&&input.searchParams.get('offset')==='0'&&
+    input.searchParams.get('expand')==='stage'&&stagesMatch&&
+    UUID.test(stagesMatch[1])){
+    bridge.searchParams.set('kind','stages');
+    bridge.searchParams.set('taskId',stagesMatch[1].toLowerCase());
+    return bridge;
+  }
+  throw Error('ms_auto_bridge_scope_denied');
+}
 export function makeLimitedReader(env,{fetcher=fetch,pause=sleep}={}){
   let count=0;
+  const direct=typeof env.MS_API_TOKEN==='string'&&!!env.MS_API_TOKEN&&
+    !/\s/.test(env.MS_API_TOKEN);
   return {
     async read(url,cap){
       if(count>=REQUESTS_PER_TICK)throw Error('ms_auto_budget_exhausted');
       if(count>0)await pause(REQUEST_GAP_MS);
       count++;
-      const response=await fetcher(url,{
-        method:'GET',redirect:'manual',
-        headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
-          Accept:'application/json;charset=utf-8'},
+      let target=url;
+      const headers={Accept:'application/json;charset=utf-8'};
+      if(direct){
+        headers.Authorization='Bearer '+env.MS_API_TOKEN;
+      }else{
+        const bridge=bridgeUrlFor(url);
+        target=bridge.toString();
+        const stamp=String(Date.now());
+        headers['X-MS-Bridge-Time']=stamp;
+        headers['X-MS-Bridge-Signature']=await signBridgeRequest(
+          env.MS_PRODUCTION_BRIDGE_SECRET,stamp,bridge.pathname+bridge.search);
+      }
+      const response=await fetcher(target,{
+        method:'GET',redirect:'manual',headers,
         signal:AbortSignal.timeout(20000)
       });
       if(response.status!==200){
@@ -152,8 +197,9 @@ async function unlock(db,status,code=''){
 export async function runMsProductionTick(env,options={}){
   if(env?.MS_PRODUCTION_AUTO_SYNC!=='enabled')return {code:'ms_auto_disabled',requests:0};
   const db=env?.MS_PRODUCTION_DB;
-  if(!db||typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
-    /\s/.test(env.MS_API_TOKEN))
+  const direct=typeof env.MS_API_TOKEN==='string'&&!!env.MS_API_TOKEN&&
+    !/\s/.test(env.MS_API_TOKEN);
+  if(!db||(!direct&&!validBridgeSecret(env?.MS_PRODUCTION_BRIDGE_SECRET)))
     return {code:'ms_auto_missing_binding',requests:0};
   const now=options.nowMs??Date.now();
   if(!Number.isSafeInteger(now)||now<=0)throw Error('invalid_runtime_clock');
