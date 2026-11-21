@@ -1273,7 +1273,7 @@
         <div>
           <div class="eyebrow">МОЙСКЛАД · РЕАЛЬНЫЕ ДАННЫЕ</div>
           <h1>Контроль производства и склада</h1>
-          <p>Реальные производственные задания и складская номенклатура из «МойСклад». Статусы только проверенных заданий; складские остатки загружаются вручную по страницам.</p>
+          <p>Реальные производственные задания, остатки материалов и номенклатуры на складах из «МойСклад». Обзор запасов собирается автоматически постранично; неподтверждённые категории и этапы не подменяются расчётными остатками.</p>
         </div>
       </div>
       <section class="ms-executive-overview" aria-label="Ключевые показатели производства и склада">
@@ -1281,6 +1281,76 @@
         <div class="ms-executive-card"><span>Проверка видимых заданий</span><strong id="msExecutiveAudit">Ещё не выполнена</strong><small>Статусы только проверенной страницы</small></div>
         <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Автообновление при открытии</strong><small>Ручное чтение, без изменений данных</small></div>
         <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
+      </section>
+      <section class="ms-inventory-control" id="msInventoryControl" aria-labelledby="msInventoryTitle">
+        <div class="ms-production-header">
+          <div>
+            <div class="eyebrow">СКЛАДСКОЙ ПУЛЬТ · ПОДТВЕРЖДЁННЫЕ ОСТАТКИ</div>
+            <h2 id="msInventoryTitle">Материалы, крой и готовая продукция</h2>
+            <p>Автоматическое чтение отчёта остатков по складам из «МойСклад». Никаких изменений, списаний или ручного ввода номеров. Категории кроя и готовой продукции определяются только по фактической группе карточки номенклатуры.</p>
+          </div>
+          <div class="ms-board-actions">
+            <button class="ms-production-button" type="button" id="msInventoryReload">Обновить остатки</button>
+            <button class="ms-production-detail-button" type="button" id="msInventoryPause" disabled>Приостановить</button>
+            <button class="ms-production-detail-button" type="button" id="msInventoryContinue" hidden>Загрузить следующую часть</button>
+          </div>
+        </div>
+        <p id="msInventoryStatus" class="ms-production-status" role="status">Остатки ещё не загружены. Загрузка начнётся при открытии раздела.</p>
+        <div class="ms-inventory-stats">
+          <div><span>Загружено позиций</span><strong id="msInventoryLoaded">—</strong></div>
+          <div><span>Менее 40 м на складе</span><strong id="msInventoryLow">—</strong></div>
+          <div><span>Крой · позиции по папке</span><strong id="msInventoryCut">—</strong></div>
+          <div><span>Готовое · позиции по папке</span><strong id="msInventoryFinished">—</strong></div>
+          <div><span>Группа не определена</span><strong id="msInventoryUnverified">—</strong></div>
+          <div><span>Склады в загруженных строках</span><strong id="msInventoryStores">—</strong></div>
+        </div>
+        <p class="ms-production-note" id="msInventoryCoverage">Показатели появятся после проверки API. Пока обход не завершён, не считайте их итогами всего склада.</p>
+        <div class="ms-inventory-filters">
+          <label for="msInventoryStore">Склад
+            <select id="msInventoryStore"><option value="all">Все показанные склады</option></select>
+          </label>
+          <label for="msInventoryCategory">Раздел
+            <select id="msInventoryCategory">
+              <option value="all">Вся номенклатура</option>
+              <option value="low">Меньше 40 метров</option>
+              <option value="materials">Материалы (подтверждённая папка)</option>
+              <option value="cut">Крой (по папке)</option>
+              <option value="finished">Готовая продукция (по папке)</option>
+              <option value="negative">Отрицательные остатки</option>
+              <option value="unverified">Неразобранные группы</option>
+            </select>
+          </label>
+          <label for="msInventorySearch">Поиск по модели или материалу
+            <input id="msInventorySearch" type="search" maxlength="120" placeholder="Vesta, Pegas, экокожа, крой…">
+          </label>
+        </div>
+        <p class="ms-production-note" id="msInventoryFilterStatus">Ожидаем фактические данные.</p>
+        <div class="ms-production-scroll" id="msInventoryTable" hidden>
+          <table class="ms-production-table ms-inventory-table">
+            <thead><tr><th>Категория</th><th>Материал / модель</th><th>Группа «МойСклад»</th><th>Склад</th><th>Остаток</th><th>Резерв</th><th>В пути</th><th>Контроль</th></tr></thead>
+            <tbody id="msInventoryRows"></tbody>
+          </table>
+        </div>
+        <div class="ms-board-actions">
+          <button type="button" id="msInventoryMoreRows" class="ms-production-detail-button" hidden>Показать ещё строки</button>
+        </div>
+        <div class="ms-inventory-models">
+          <article>
+            <h3>Крой по моделям</h3>
+            <p id="msInventoryCutSummary" class="ms-production-note">Пока нет подтверждённых данных о крое.</p>
+            <div class="ms-production-scroll" id="msInventoryCutTable" hidden>
+              <table class="ms-production-table"><thead><tr><th>Модель / позиция</th><th>Склад</th><th>Учётный остаток</th></tr></thead><tbody id="msInventoryCutRows"></tbody></table>
+            </div>
+          </article>
+          <article>
+            <h3>Готовая продукция по моделям</h3>
+            <p id="msInventoryFinishedSummary" class="ms-production-note">Пока нет подтверждённых данных о готовой продукции.</p>
+            <div class="ms-production-scroll" id="msInventoryFinishedTable" hidden>
+              <table class="ms-production-table"><thead><tr><th>Модель / позиция</th><th>Склад</th><th>Учётный остаток</th></tr></thead><tbody id="msInventoryFinishedRows"></tbody></table>
+            </div>
+          </article>
+        </div>
+        <p class="ms-production-note">Порог срабатывания: <strong>строго меньше 40 м на каждом складе</strong> для позиций с подтверждённой единицей измерения «м» / «п.м». Ровно 40 м — без предупреждения. Отсутствующая строка склада не означает нулевой остаток; позиции без единицы измерения не подсвечиваются как метры. Категории «крой» и «готовое» опираются на названия групп каталога и не доказывают завершение производственного этапа. Цифры — учётные остатки, не физическая инвентаризация; при постраничном чтении данные не образуют единый моментальный снимок.</p>
       </section>
       <section class="ms-command-board" id="msCommandBoard" aria-labelledby="msBoardTitle">
         <div class="ms-production-header">
@@ -1605,6 +1675,7 @@
 <script src="app.js" defer></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js"></script>
+<script type="module" src="ms-inventory-control.mjs"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-priority.mjs"></script>

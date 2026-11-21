@@ -274,3 +274,48 @@ test('catalog path is copied only from the real assortment grouping field',()=>{
   assert.equal(snapshot.items[1].uom,'шт');
   assert.doesNotMatch(JSON.stringify(snapshot),/009d69bb/);
 });
+
+test('inventory report safely requests confirmed UOM and falls back only once on HTTP 400',async()=>{
+  let calls=0;
+  const h=createStockHandler(async(uri)=>{
+    calls++;
+    const u=new URL(uri);
+    if(calls===1){
+      assert.match(u.pathname,/\/report\/stock\/bystore$/);
+      return reply(2,sample);
+    }
+    assert.match(u.pathname,/\/entity\/assortment$/);
+    if(calls===2){
+      assert.equal(u.searchParams.get('expand'),'uom');
+      return new Response('expand disabled for this account',{status:400});
+    }
+    assert.equal(calls,3);
+    assert.equal(u.searchParams.has('expand'),false);
+    return reply(2,assort.map(x=>({...x,uom:{meta:{href:
+      'https://api.moysklad.ru/api/remap/1.2/entity/uom/00000000-0000-4000-8000-000000000001'}}})));
+  });
+  const response=await h({request:await req(),env});
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(calls,3);
+  assert.equal(result.requests,3);
+  assert.equal(result.items[0].name,'Экокожа чёрная 0,8');
+  assert.equal(result.items[0].uom,null);
+  assert.equal(result.changedRecords,0);
+  assert.doesNotMatch(JSON.stringify(result),/synthetic-access-token/);
+});
+test('UOM expansion 429 stops without fallback or disclosure',async()=>{
+  let calls=0;
+  const h=createStockHandler(async uri=>{
+    calls++;
+    if(calls===1)return reply(2,sample);
+    assert.equal(new URL(uri).searchParams.get('expand'),'uom');
+    return new Response('private throttling payload',{status:429});
+  });
+  const r=await h({request:await req(),env});
+  assert.equal(r.status,502);
+  const b=await r.text();
+  assert.equal(JSON.parse(b).code,'ms_rate_limited');
+  assert.equal(calls,2);
+  assert.doesNotMatch(b,/private|synthetic-access-token/);
+});

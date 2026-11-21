@@ -175,9 +175,11 @@ export function createStockHandler(fetcher=fetch){
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
 
-      let upstream='stockbystore';
+      let upstream='stockbystore',requests=0;
       try{
         const get=async url=>{
+          if(requests>=3)throw Error('stock_unverified');
+          requests++;
           const response=await fetcher(url,{method:'GET',redirect:'manual',
             headers:{
               Authorization:'Bearer '+env.MS_API_TOKEN,
@@ -198,9 +200,24 @@ export function createStockHandler(fetcher=fetch){
         let names=new Map();
         if(ids.length){
           upstream='assortment';
-          names=extractNames(await get(buildNamesUrl(ids)),ids);
+          // UOM expansion enables accurate metre alerts. If this account
+          // rejects only expand with HTTP 400, revert ONCE to the established
+          // names-only lookup. Never retry 401/403/429 or hide upstream errors.
+          const base=buildNamesUrl(ids);
+          const expanded=new URL(base);
+          expanded.searchParams.set('expand','uom');
+          let data;
+          try{data=await get(expanded.toString());}
+          catch(error){
+            if(error?.http!==400)throw error;
+            data=await get(base);
+          }
+          names=extractNames(data,ids);
         }
-        return json(200,{...summarizeStockByStore(report,scope,names),upstreamHttp:200});
+        return json(200,{
+          ...summarizeStockByStore(report,scope,names),
+          requests,upstreamHttp:200
+        });
       }catch(error){
         const allowed=['ms_token_rejected','ms_stock_permission_denied',
           'ms_rate_limited','ms_stock_upstream_error','stock_unverified'];
