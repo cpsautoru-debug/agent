@@ -84,3 +84,35 @@ test('OpenAI request is stateless, bounded, and includes no write tools',async()
   assert.equal(seen.tools,undefined);
   assert.match(r.answer,/не подтверждают прибыль/);
 });
+
+test('OpenAI failure codes distinguish quota, keys, permissions, models, and rate limits',()=>{
+  assert.equal(route.classifyOpenAIError(429,'credit_balance_exhausted'),'openai_quota_exhausted');
+  assert.equal(route.classifyOpenAIError(429,'insufficient_quota'),'openai_quota_exhausted');
+  assert.equal(route.classifyOpenAIError(429,'rate_limit_exceeded'),'openai_rate_limited');
+  assert.equal(route.classifyOpenAIError(401,'invalid_api_key'),'openai_key_rejected');
+  assert.equal(route.classifyOpenAIError(403,'permissions_error'),'openai_permission_denied');
+  assert.equal(route.classifyOpenAIError(404,'model_not_found'),'openai_model_unavailable');
+  assert.equal(route.classifyOpenAIError(400,'other_bad_request'),'openai_request_rejected');
+  assert.equal(route.classifyOpenAIError(503,null),'openai_service_error');
+});
+
+test('upstream failure content is never exposed to the caller',async()=>{
+  const secret='sensitive-upstream-message-DO-NOT-LEAK';
+  const fakeFetch=async()=>new Response(JSON.stringify({
+    error:{code:'credit_balance_exhausted',message:secret}
+  }),{status:429,headers:{'Content-Type':'application/json'}});
+  await assert.rejects(
+    route.createOrchestratorReply('Проверка WB',[],env(),fakeFetch),
+    error=>error.message==='openai_quota_exhausted'&&!error.message.includes(secret)
+  );
+});
+
+test('HTTP 429 without credit error is treated as a rate limit, not proof of empty balance',async()=>{
+  const fakeFetch=async()=>new Response(JSON.stringify({
+    error:{code:'rate_limit_exceeded',message:'Rate limit'}
+  }),{status:429,headers:{'Content-Type':'application/json'}});
+  await assert.rejects(
+    route.createOrchestratorReply('Проверка Ozon',[],env(),fakeFetch),
+    error=>error.message==='openai_rate_limited'
+  );
+});
