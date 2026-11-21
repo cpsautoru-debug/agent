@@ -51,3 +51,21 @@ test('reject invalid and duplicate codes rather than pretend source is complete'
   assert.throws(()=>buildWbModelDraft(null));
   assert.equal(buildWbModelDraft([]).groupCount,0);
 });
+
+test('real WB codes for door cards MUST NOT join Vesta seat-cover cost group',()=>{
+  const values=[
+    'веста черная, середина алька с черными сотами',
+    'карты_лада_веста_белые_соты',
+    'карты_лада_веста_красные_соты',
+    'карты_лада_веста_черные_соты',
+    'Веста №1',
+    'Веста №2'
+  ];
+  const result=buildWbModelDraft(values);
+  const byId=Object.fromEntries(result.groups.map(x=>[x.id,x]));
+  assert.equal(byId.door_inserts.articleCount,3);
+  assert.equal(byId.vesta.articleCount,3);
+  assert.ok(byId.door_inserts.articles.every(x=>x.startsWith('карты_')));
+  assert.ok(byId.vesta.articles.every(x=>!x.startsWith('карты_')));
+  assert.equal(result.assignedCostCount,0);
+});
