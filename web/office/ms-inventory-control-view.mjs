@@ -73,7 +73,10 @@ export function inventoryRows(items,store='all',query='',category='all'){
     if(!Array.isArray(item?.stores))throw Error('inventory_unverified');
     if(search&&!norm([item.name,item.code,item.catalogPath].filter(Boolean).join(' ')).includes(search))
       continue;
-    for(const location of item.stores){
+    // The report can omit store rows. Such absence is unknown, never zero.
+    const locations=item.stores.length?item.stores:
+      [{name:'Склад не указан',stock:null,reserve:null,inTransit:null}];
+    for(const location of locations){
       if(store!=='all'&&store!==location.name)continue;
       const meter=isMeterUnit(item.uom);
       const qty=location.stock;
