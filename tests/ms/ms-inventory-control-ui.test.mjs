@@ -40,7 +40,7 @@ test('automatic inventory overview calls owner-only existing API with bounded pa
   assert.doesNotMatch(js,/method:'(POST|PUT|DELETE|PATCH)'/);
 });
 test('unit is explicitly loaded from MoySklad, and alert is warehouse-specific',()=>{
-  assert.match(stock,/url\.searchParams\.set\('expand','uom'\)/);
+  assert.match(stock,/uom:safeText\(row\.uom\?\.name,50\)/);
   assert.match(html,/Порог срабатывания/);
   assert.match(js,/row\.low\?'МЕНЬШЕ 40 М'/);
   assert.match(css,/\.ms-inventory-low td/);
