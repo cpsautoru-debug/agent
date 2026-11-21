@@ -62,8 +62,8 @@ test('only production-oriented categories are visible; broad stock is retired',(
   const old=readFileSync(new URL('../../web/office/ms-stock-bystore.mjs',import.meta.url),'utf8');
   assert.match(old,/if\(section\.hidden\)return/);
   assert.match(js,/summary\?\.productionItems/);
-  assert.match(js,/summary\.categories\.covers/);
-  assert.match(js,/summary\.categories\.doorCards/);
+  assert.match(js,/summary\?\.categories\.covers/);
+  assert.match(js,/summary\?\.categories\.doorCards/);
   assert.match(js,/renderModelGroup\('doorCards'/);
   assert.match(js,/renderModelGroup\('covers'/);
   assert.match(js,/ms:production-inventory-ready/);
