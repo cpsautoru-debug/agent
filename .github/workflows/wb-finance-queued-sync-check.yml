@@ -7,6 +7,12 @@ on:
       - 'workers/wb-finance-auto-sync.js'
       - 'functions/api/wb/auto-sync-status.js'
       - 'functions/api/wb/unit-economics.js'
+      - 'functions/api/finance/cost-audit.js'
+      - 'web/office/unified-cost-audit-core.mjs'
+      - 'web/office/finance-cost-audit.mjs'
+      - 'tests/wb/unified-cost-audit-core.test.mjs'
+      - 'tests/wb/unified-cost-audit-api.test.mjs'
+      - 'tests/wb/unified-cost-audit-ui.test.mjs'
       - 'functions/api/wb/unit-costs.js'
       - 'functions/api/wb/model-cost-batch.js'
       - 'web/office/wb-model-cost-bulk-core.mjs'
@@ -58,6 +64,10 @@ jobs:
       - run: node --check workers/wb-finance-auto-sync.js
       - run: node --check functions/api/wb/auto-sync-status.js
       - run: node --check functions/api/wb/unit-economics.js
+      - run: node --check functions/api/finance/cost-audit.js
+      - run: node --check web/office/unified-cost-audit-core.mjs
+      - run: node --check web/office/finance-cost-audit.mjs
+      - run: node --test tests/wb/unified-cost-audit-core.test.mjs tests/wb/unified-cost-audit-api.test.mjs tests/wb/unified-cost-audit-ui.test.mjs
       - run: node --check functions/api/wb/unit-costs.js
       - run: node --check functions/api/wb/model-cost-batch.js
       - run: node --check web/office/wb-model-cost-bulk-core.mjs
