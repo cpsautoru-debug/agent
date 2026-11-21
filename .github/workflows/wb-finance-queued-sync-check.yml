@@ -9,6 +9,10 @@ on:
       - 'functions/api/wb/unit-economics.js'
       - 'functions/api/wb/unit-costs.js'
       - 'web/office/wb-unit-economics.js'
+      - 'web/office/wb-cost-suggestions-core.mjs'
+      - 'web/office/wb-cost-suggestions-ui.mjs'
+      - 'tests/wb/wb-cost-suggestions-core.test.mjs'
+      - 'tests/wb/wb-cost-suggestions-ui.test.mjs'
       - 'web/office/wb-unit-economics-core.mjs'
       - 'web/office/shared-overheads-core.mjs'
       - 'tests/wb/shared-overheads-core.test.mjs'
@@ -46,6 +50,9 @@ jobs:
       - run: node --check functions/api/wb/unit-economics.js
       - run: node --check functions/api/wb/unit-costs.js
       - run: node --check web/office/wb-unit-economics.js
+      - run: node --check web/office/wb-cost-suggestions-core.mjs
+      - run: node --check web/office/wb-cost-suggestions-ui.mjs
+      - run: node --test tests/wb/wb-cost-suggestions-core.test.mjs tests/wb/wb-cost-suggestions-ui.test.mjs
       - run: node --check web/office/wb-unit-economics-core.mjs
       - run: node --check web/office/shared-overheads-core.mjs
       - run: node --test tests/wb/shared-overheads-core.test.mjs
