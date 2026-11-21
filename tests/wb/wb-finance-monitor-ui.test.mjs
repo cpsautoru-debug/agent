@@ -99,7 +99,7 @@ test('visible WB section automatically renders 9 complete, 7 pending, 1008 opera
   assert.equal(app.els.get('wbMonitorReports').textContent,'16');
   assert.equal(app.els.get('wbMonitorComplete').textContent,'9');
   assert.equal(app.els.get('wbMonitorQueue').textContent,'7');
-  assert.equal(app.els.get('wbMonitorOperations').textContent,'1 008'.replaceAll(' ',' '));
+  assert.equal(app.els.get('wbMonitorOperations').textContent.replace(/\D/g,''),'1008');
   assert.equal(app.els.get('wbMonitorHealth').textContent,'По расписанию');
   assert.equal(app.els.get('wbMonitorProgress').value,56);
   assert.equal(app.els.get('wbMonitorQueueRows').children.length,7);
