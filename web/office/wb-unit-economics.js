@@ -278,7 +278,7 @@
       status((reasons[error?.message]||
         'Невозможно подтвердить расшифровку по артикулам. Данные скрыты; проверьте доступ к финансовой D1.')+
         ' Код: '+(Object.hasOwn(reasons,error?.message)?
-          error.message:/^wb_unit_http_[45]\\d\\d$/.test(error?.message||'')?
+          error.message:/^wb_unit_http_[45][0-9][0-9]$/.test(error?.message||'')?
           error.message:'wb_unit_request_unavailable'),true);
     }finally{busy=false;refreshButton.disabled=false;}
   };
