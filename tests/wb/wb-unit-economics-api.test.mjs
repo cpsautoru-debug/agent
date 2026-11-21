@@ -177,3 +177,56 @@ test('unavailable database read identifies stage but does not leak backend error
     code:'wb_profitability_unavailable',stage:'completed_report_aggregation'
   });
 });
+
+test('end-to-end: authenticated API response renders real SKU cards in the unchanged browser UI',async()=>{
+  const {readFileSync}=await import('node:fs');
+  const {runInNewContext}=await import('node:vm');
+  const script=readFileSync(
+    new URL('../../web/office/wb-unit-economics.js',import.meta.url),'utf8'
+  );
+  const f=fixture();
+  const response=await handler({request:await request(),env:f.env});
+  assert.equal(response.status,200);
+  const payload=await response.json();
+  const ids=['wbUnitEconomics','wbUnitRefresh','wbUnitStatus','wbUnitRows',
+    'wbUnitCompleted','wbUnitSkus','wbUnitPayout','wbUnitKnownCogs',
+    'wbUnitMissingCost','wbUnitNetProfit','wbUnitScope','wbUnitBlockers',
+    'wbUnitCostForm','wbUnitCostVendor','wbUnitCostAmount','wbUnitCostFrom',
+    'wbUnitCostSource','wbUnitCostStatus','wbUnitCostAttestation',
+    'wbUnitCostPreview','wbUnitCostConfirm','wbUnitCostMessage'];
+  const node=()=>({
+    value:'',disabled:false,textContent:'',children:[],className:'',
+    append(child){this.children.push(child);},
+    replaceChildren(){this.children=[];},
+    addEventListener(){},
+    querySelectorAll(){return[];}
+  });
+  const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
+  let fetchCount=0;
+  const document={
+    visibilityState:'visible',
+    getElementById(id){return nodes[id]||null;},
+    createElement(){return node();},
+    addEventListener(){}
+  };
+  const window={addEventListener(){},setInterval(){}};
+  runInNewContext(script,{
+    document,window,location:{hash:'#wbFinance'},
+    fetch:async(url,options)=>{
+      assert.equal(url,'/api/wb/unit-economics');
+      assert.equal(options.method,'GET');
+      fetchCount++;
+      return {ok:true,status:200,json:async()=>payload};
+    },
+    Intl,AbortSignal:{timeout:()=>undefined},Date,Number,Math,Error,
+    Promise,Array,Object
+  });
+  for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(fetchCount,1);
+  assert.equal(nodes.wbUnitCompleted.textContent,'1');
+  assert.equal(nodes.wbUnitSkus.textContent,'2');
+  assert.equal(nodes.wbUnitRows.children.length,2);
+  assert.equal(nodes.wbUnitNetProfit.textContent,'Не рассчитана');
+  assert.match(nodes.wbUnitStatus.textContent,/сверка выплат пройдена/);
+  assert.ok(nodes.wbUnitCostVendor.children.some(x=>x.value==='VESTA-1'));
+});
