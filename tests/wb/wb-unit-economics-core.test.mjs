@@ -71,8 +71,7 @@ test('return condition and cost changes inside weekly report block exact contrib
       completed_operations:1});
   assert.equal(returned.articles[0].returnedUnits,1);
   assert.equal(returned.articles[0].contributionAfterKnownCogsKopecks,null);
-  assert.ok(returned.blockers.includes('return_condition_unverified')===
-    false); // global reason is generalized
+  assert.ok(returned.blockers.includes('return_condition_unverified'));
   assert.ok(returned.blockers.includes('return_conditions_missing'));
   const changed=[costs[0],{
     ...costs[0],valid_from:'2026-10-05',cost_kopecks:38000
