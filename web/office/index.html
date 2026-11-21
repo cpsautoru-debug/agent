@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="profit.css">
 <link rel="stylesheet" href="/wb-import-preview.css">
 <link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
+<link rel="stylesheet" href="/wb-unit-economics.css?v=20261121">
 </head>
 <body>
 
@@ -200,6 +201,86 @@
         </details>
         <p class="wb-monitor-footnote">Источник — финансовые API-отчёты Wildberries, сохранённые в тестовой D1. Завершённость означает сверку с банковской суммой отчёта, а не аудит себестоимости. Рассчитаны только суммы выплат по завершённым API-отчётам, не выручка и не чистая прибыль. Сохранённые XLSX не прибавляются. Панель обновляет только D1 при открытой вкладке.</p>
       </article>
+      <article class="profit-panel wb-unit-economics" id="wbUnitEconomics" aria-labelledby="wbUnitEconomicsTitle">
+        <div class="wb-unit-head">
+          <div>
+            <div class="wb-monitor-eyebrow">ЮНИТ-ЭКОНОМИКА · ФИНАНСОВЫЙ КОНТРОЛЬ</div>
+            <h2 id="wbUnitEconomicsTitle">Результат по каждому артикулу WB</h2>
+            <p>Только фактически завершённые финансовые отчёты. Данные получаются из WB Finance API через защищённую D1 — без повторных загрузок.</p>
+          </div>
+          <button type="button" id="wbUnitRefresh" class="button light">Обновить расчёт</button>
+        </div>
+        <p id="wbUnitStatus" class="wb-monitor-main-status" role="status" aria-live="polite">Расшифровка загрузится при открытии вкладки.</p>
+        <div class="wb-monitor-metrics">
+          <div><span>Отчёты в расчёте</span><strong id="wbUnitCompleted">—</strong></div>
+          <div><span>Артикулы WB</span><strong id="wbUnitSkus">—</strong></div>
+          <div><span>Выплата по завершённым отчётам</span><strong id="wbUnitPayout">—</strong></div>
+          <div><span>Известная себестоимость пошива</span><strong id="wbUnitKnownCogs">—</strong></div>
+          <div><span>Проданные шт. без подтверждённой цены</span><strong id="wbUnitMissingCost">—</strong></div>
+          <div><span>Чистая прибыль предприятия</span><strong id="wbUnitNetProfit">Не рассчитана</strong></div>
+        </div>
+        <p id="wbUnitScope" class="wb-monitor-meta">Период — завершённые отчёты WB, которые могут пересекать календарные месяцы. Данные по ещё не завершённым отчётам не участвуют в расчёте.</p>
+        <p id="wbUnitBlockers" class="wb-unit-blockers" role="status">Реклама, налоги и общие расходы должны быть подтверждены отдельно.</p>
+        <div class="wb-unit-columns">
+          <section>
+            <h3>Себестоимость производства</h3>
+            <p>Для каждого артикула в стоимость единицы включайте <strong>материалы + оплату швеи + оплату закройщика</strong>. Не включайте упаковщика, водителя, управляющего, аренду, маркетинг и налоги — они относятся к другим статьям.</p>
+            <form id="wbUnitCostForm" autocomplete="off">
+              <label>Артикул WB
+                <select id="wbUnitCostVendor" required><option value="">Выберите артикул из финансов WB</option></select>
+              </label>
+              <label>Себестоимость единицы, ₽
+                <input id="wbUnitCostAmount" type="text" inputmode="decimal" placeholder="Например, 3600,00" maxlength="15" required>
+              </label>
+              <label>Действует с даты
+                <input id="wbUnitCostFrom" type="date" required>
+              </label>
+              <label>Основание / техкарта
+                <input id="wbUnitCostSource" type="text" maxlength="250" placeholder="Техкарта и подтверждённые расценки" required>
+              </label>
+              <label>Качество данных
+                <select id="wbUnitCostStatus">
+                  <option value="preliminary">Предварительная</option>
+                  <option value="confirmed">Подтверждённая</option>
+                </select>
+              </label>
+              <label class="wb-unit-checkbox">
+                <input id="wbUnitCostAttestation" type="checkbox">
+                Я проверил состав себестоимости и подтверждаю выбранный статус.
+              </label>
+              <div class="wb-unit-actions">
+                <button id="wbUnitCostPreview" type="submit" class="button light">Проверить запись</button>
+                <button id="wbUnitCostConfirm" type="button" class="button primary" disabled>Сохранить подтверждённую запись</button>
+              </div>
+            </form>
+            <p id="wbUnitCostMessage" class="wb-monitor-meta" role="status">Справочник хранит версии по дате и не изменяет документы WB.</p>
+          </section>
+          <section>
+            <h3>Накладные расходы, реклама и налог</h3>
+            <p>Показатели ниже не заполняются нулями, пока нет подтверждённого регистра затрат.</p>
+            <dl class="wb-unit-cost-scope">
+              <dt>Производственная себестоимость</dt><dd>Материалы, швея, раскройщик</dd>
+              <dt>Дополнительный персонал</dt><dd>Упаковщик, водитель, управляющий, ОТК</dd>
+              <dt>Общие расходы</dt><dd>Аренда, коммунальные услуги, мусор, связь, доставка материалов, сервисы</dd>
+              <dt>Реклама</dt><dd>Отдельный реестр затрат WB, по датам и кампаниям</dd>
+              <dt>Налоги</dt><dd>По налогоплательщику и официальной налоговой базе, отдельно от выплат</dd>
+            </dl>
+            <p><strong>Правило:</strong> общие расходы будем распределять между WB, Ozon и другими каналами только по утверждённой методике, без двойного счёта. Действующий раздел <a href="#ozonProfit">Финансы · Ozon · прибыль</a> уже содержит реестр расходов. Следующим этапом объединим этот реестр с WB и добавим рекламу.</p>
+          </section>
+        </div>
+        <div class="table-wrap">
+          <table class="wb-unit-table">
+            <thead><tr>
+              <th>Артикул продавца</th><th>Продано</th><th>Возвраты</th>
+              <th>Выплата по операциям</th><th>Удержания, связанные с артикулом</th>
+              <th>Подтверждённые затраты на пошив</th><th>После известной себестоимости</th><th>Качество</th>
+            </tr></thead>
+            <tbody id="wbUnitRows"></tbody>
+          </table>
+        </div>
+        <p class="wb-monitor-footnote">Выплата по операциям не равна выручке. Для строк без артикула удержания остаются нераспределёнными. Возвраты нельзя автоматически считать пригодными к продаже. Полная чистая прибыль по артикулу недоступна, пока отсутствуют подтверждённые расходы рекламы, налогов и распределение накладных затрат. Суммы не смешиваются с XLSX-отчётами.</p>
+      </article>
+
       <article class="profit-panel" id="wbImportPreview">
         <h2>Автоматический расчёт WB · загрузка XLSX</h2>
         <p><strong>Предварительный управленческий расчёт.</strong> Выберите отчёт WB и ваш приватный справочник себестоимости. Файлы отправляются только в защищённый API владельца для обработки без постоянного сохранения.</p>
@@ -1762,5 +1843,6 @@
 <script src="/wb-finance-check.js?v=transport-diagnostics-2" defer></script>
 <script src="/wb-report-list.js?v=20261120" defer></script>
 <script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
+<script src="/wb-unit-economics.js?v=20261121" defer></script>
 </body>
 </html>
