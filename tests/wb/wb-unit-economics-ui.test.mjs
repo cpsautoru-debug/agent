@@ -50,3 +50,13 @@ test('new COGS table is additive, immutable and scoped to one WB account',()=>{
   assert.match(migration,/CREATE TRIGGER IF NOT EXISTS wb_profit_cost_no_delete/);
   assert.doesNotMatch(migration,/DROP TABLE|DELETE FROM|UPDATE wb_finance_api_rows/);
 });
+
+test('finance failure messages explain safe stages without exposing backend errors',()=>{
+  for(const key of ['wb_profit_payout_reconciliation_failed',
+    'wb_profit_operation_coverage_invalid',
+    'wb_profitability_unavailable_cost_registry_probe',
+    'wb_profitability_unavailable_completed_report_aggregation'])
+    assert.ok(js.includes(key),key);
+  assert.match(js,/Код: /);
+  assert.doesNotMatch(js,/error\\?.stack|error\\?.cause/);
+});
