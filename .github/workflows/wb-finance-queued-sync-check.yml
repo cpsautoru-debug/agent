@@ -10,6 +10,8 @@ on:
       - 'functions/api/wb/unit-costs.js'
       - 'web/office/wb-unit-economics.js'
       - 'web/office/wb-unit-economics-core.mjs'
+      - 'web/office/shared-overheads-core.mjs'
+      - 'tests/wb/shared-overheads-core.test.mjs'
       - 'web/office/wb-unit-economics.css'
       - 'migrations/wb/0007_wb_profit_unit_costs.sql'
       - 'tests/wb/wb-unit-economics-core.test.mjs'
@@ -45,6 +47,8 @@ jobs:
       - run: node --check functions/api/wb/unit-costs.js
       - run: node --check web/office/wb-unit-economics.js
       - run: node --check web/office/wb-unit-economics-core.mjs
+      - run: node --check web/office/shared-overheads-core.mjs
+      - run: node --test tests/wb/shared-overheads-core.test.mjs
       - run: node --test tests/wb/wb-unit-economics-core.test.mjs tests/wb/wb-unit-economics-api.test.mjs tests/wb/wb-unit-costs-api.test.mjs tests/wb/wb-unit-economics-ui.test.mjs
       - run: node --check web/office/wb-finance-monitor-core.mjs
       - run: node --check functions/api/wb/sync-once.js
