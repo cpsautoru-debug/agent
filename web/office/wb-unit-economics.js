@@ -212,25 +212,33 @@
         return;
       }
       if(!response.ok){
-        // API returns only predefined privacy-safe codes; never present
-        // DB exception details, cookies, SQL fragments or private rows.
-        let errorCode='unit_economics_api_unavailable';
+        // Only predefined status and error codes. No raw backend exceptions,
+        // SQL, identifiers, financial records or cookies in diagnostics.
+        let errorCode='wb_unit_http_'+response.status;
         try{
           const failure=await response.json();
           if([
             'wb_profit_payout_reconciliation_failed',
             'wb_profit_operation_coverage_invalid',
             'wb_profit_coverage_unavailable',
-            'wb_profit_cost_register_incomplete'
+            'wb_profit_cost_register_incomplete',
+            'configuration_unavailable',
+            'scope_not_supported'
           ].includes(failure?.code))errorCode=failure.code;
           else if(failure?.code==='wb_profitability_unavailable'&&
             ['completed_report_aggregation','cost_registry_probe',
               'cost_registry_read','reconciliation'].includes(failure?.stage))
             errorCode='wb_profitability_unavailable_'+failure.stage;
+          else if(failure?.code==='wb_profitability_unavailable')
+            errorCode='wb_profitability_unavailable_general';
         }catch{}
         throw Error(errorCode);
       }
-      draw(await response.json());
+      let payload;
+      try{payload=await response.json();}
+      catch{throw Error('wb_unit_response_not_json');}
+      try{draw(payload);}
+      catch{throw Error('wb_unit_response_validation_failed');}
     }catch(error){
       reset();
       const reasons={
@@ -249,12 +257,29 @@
         wb_profitability_unavailable_cost_registry_read:
           'Не удалось прочитать сохранённый справочник себестоимости.',
         wb_profitability_unavailable_reconciliation:
-          'Не удалось проверить корректность детализации по артикулам.'
+          'Не удалось проверить корректность детализации по артикулам.',
+        wb_profitability_unavailable_general:
+          'Сервер не смог завершить расчёт. Нужна дополнительная проверка условий доступа и данных.',
+        configuration_unavailable:
+          'В серверной конфигурации недоступна обязательная привязка или идентификатор WB.',
+        scope_not_supported:
+          'Неподдерживаемый формат запроса к серверу.',
+        wb_unit_http_404:
+          'Сервер не обнаружил новый API расчёта по артикулам. Проверьте публикацию Pages.',
+        wb_unit_http_500:
+          'Сервер вернул внутреннюю ошибку. Проверьте версию опубликованного API.',
+        wb_unit_http_503:
+          'Сервер временно не смог прочитать или обработать финансовые данные.',
+        wb_unit_response_not_json:
+          'Сервер ответил в неподдерживаемом формате. Проверьте API и его публикацию.',
+        wb_unit_response_validation_failed:
+          'Ответ сервера не прошёл проверку полноты и структуры. Финансовые суммы скрыты.'
       };
       status((reasons[error?.message]||
         'Невозможно подтвердить расшифровку по артикулам. Данные скрыты; проверьте доступ к финансовой D1.')+
         ' Код: '+(Object.hasOwn(reasons,error?.message)?
-          error.message:'wb_unit_economics_unavailable'),true);
+          error.message:/^wb_unit_http_[45][0-9][0-9]$/.test(error?.message||'')?
+          error.message:'wb_unit_request_unavailable'),true);
     }finally{busy=false;refreshButton.disabled=false;}
   };
   form.addEventListener('submit',async event=>{

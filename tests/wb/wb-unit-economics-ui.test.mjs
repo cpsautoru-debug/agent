@@ -60,3 +60,15 @@ test('finance failure messages explain safe stages without exposing backend erro
   assert.match(js,/Код: /);
   assert.doesNotMatch(js,/error\\?.stack|error\\?.cause/);
 });
+
+test('unknown HTTP errors and 200 schema errors have separate safe identifiers',()=>{
+  for(const key of ['wb_unit_http_404','wb_unit_http_500','wb_unit_http_503',
+    'wb_unit_response_not_json','wb_unit_response_validation_failed',
+    'configuration_unavailable','wb_profitability_unavailable_general']){
+    assert.ok(js.includes(key),key);
+  }
+  assert.ok(html.includes('/wb-unit-economics.js?v=20261121-http-diagnostics'));
+  assert.ok(js.includes('!response.ok'));
+  assert.ok(js.includes('try{draw(payload);}'));
+  assert.ok(!js.includes('console.error'));
+});
