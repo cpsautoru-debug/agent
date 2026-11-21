@@ -94,6 +94,13 @@ test('owner sees reconciled article preview and explicitly non-final net profit'
   assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
   const body=await response.json();
   assert.equal(body.code,'wb_unit_economics_preview');
+  // This MUST agree with the browser's strict validate(): previously the
+  // spread of "summary" overwrote source with the computation-only marker
+  // and HTTP 200 wrongly appeared as wb_unit_response_validation_failed.
+  assert.equal(body.source,'WB_FINANCE_API_D1');
+  assert.equal(body.readOnly,true);
+  assert.equal(body.changedRecords,0);
+  assert.equal(body.profitVerified,false);
   assert.equal(body.reportCount,undefined);
   assert.equal(body.skuCount,2);
   assert.equal(body.completeReports,1);
@@ -114,6 +121,7 @@ test('missing new cost migration still shows articles but blocks profit',async()
   assert.equal(response.status,200);
   const data=await response.json();
   assert.equal(data.costRegistry,'migration_required');
+  assert.equal(data.source,'WB_FINANCE_API_D1');
   assert.equal(data.missingCostSoldUnits,3);
   assert.equal(data.netProfitKopecks,null);
   assert.equal(data.articles[0].contributionAfterKnownCogsKopecks,null);
