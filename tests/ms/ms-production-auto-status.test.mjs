@@ -241,7 +241,7 @@ test('tampered unverified documents are not exposed as completed or active jobs'
     [{...unknownItem,checked_ms:NOW+1}],
     [{...unknownItem,number:'=HYPERLINK("evil")'}],
     [{...unknownItem,task_id:item.task_id}],
-    [{...unknownItem,document_updated:'invalid\\nmalicious'}]
+    [{...unknownItem,document_updated:'x'.repeat(41)}]
   ];
   for(const rows of invalid){
     const result=await handler({request:await req(),
