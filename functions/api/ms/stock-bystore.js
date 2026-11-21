@@ -60,6 +60,8 @@ export function buildNamesUrl(ids){
   const url=new URL(ASSORTMENT);
   url.searchParams.set('limit',String(LIMIT));
   url.searchParams.set('filter',ids.map(id=>'id='+id).join(';'));
+  // Explicit UOM expansion: under-40m alerts must never infer meter units.
+  url.searchParams.set('expand','uom');
   return url.toString();
 }
 async function boundedJson(response){
