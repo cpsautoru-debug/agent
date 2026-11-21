@@ -18,7 +18,7 @@ test('production office includes full warehouse overview, 40m and models before 
   assert.ok(html.indexOf('id="msInventoryControl"')<html.indexOf('id="msCommandBoard"'));
   assert.match(html,/script type="module" src="ms-inventory-control\.mjs"/);
   assert.match(html,/строго меньше 40 м на каждом складе/);
-  assert.match(html,/Это учётные остатки, не физическая инвентаризация/);
+  assert.match(html,/учётные остатки, не физическая инвентаризация/);
   assert.match(html,/Крой по моделям/);
   assert.match(html,/Готовая продукция по моделям/);
 });
@@ -33,7 +33,7 @@ test('automatic inventory overview calls owner-only existing API with bounded pa
   assert.match(js,/document\.visibilityState==='visible'/);
   assert.match(js,/location\.hash\.split\('\/'\)\[0\]==='#production'/);
   assert.match(js,/assortment_total_changed_restart_required/);
-  assert.match(js,/незавершён/);
+  assert.match(js,/Обход не завершён/);
   assert.match(js,/report_page_limit_reached/);
   assert.match(js,/Date\.now\(\)-lastStarted>REFRESH_MS/);
   assert.doesNotMatch(js,/localStorage|sessionStorage|indexedDB|document\.cookie|innerHTML/);
@@ -41,9 +41,9 @@ test('automatic inventory overview calls owner-only existing API with bounded pa
 });
 test('unit is explicitly loaded from MoySklad, and alert is warehouse-specific',()=>{
   assert.match(stock,/url\.searchParams\.set\('expand','uom'\)/);
-  assert.match(js,/Порог срабатывания/);
+  assert.match(html,/Порог срабатывания/);
   assert.match(js,/row\.low\?'МЕНЬШЕ 40 М'/);
   assert.match(css,/\.ms-inventory-low td/);
   assert.match(css,/\.ms-inventory-negative td/);
-  assert.match(js,/Категории кроя/);
+  assert.match(html,/Категории «крой» и «готовое»/);
 });
