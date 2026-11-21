@@ -1,0 +1,33 @@
+name: Office Google owner login regression checks
+on:
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/auth/google/start.js'
+      - 'functions/api/auth/google/callback.js'
+      - 'functions/api/auth/google/return.js'
+      - 'functions/api/auth/me.js'
+      - 'web/office/office-auth.js'
+      - 'web/office/index.html'
+      - 'web/office/style.css'
+      - 'web/office/ozon-finance.css'
+      - 'web/office/ozon-finance.test.mjs'
+      - 'tests/ozon/office-auth-flow.test.mjs'
+      - 'tests/ozon/office-auth-ui.test.mjs'
+      - '.github/workflows/office-auth-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  auth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check functions/api/auth/google/start.js
+      - run: node --check functions/api/auth/google/callback.js
+      - run: node --check functions/api/auth/google/return.js
+      - run: node --check web/office/office-auth.js
+      - run: node --test tests/ozon/office-auth-flow.test.mjs tests/ozon/office-auth-ui.test.mjs web/office/ozon-finance.test.mjs

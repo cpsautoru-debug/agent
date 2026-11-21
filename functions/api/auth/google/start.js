@@ -1,4 +1,6 @@
 
+import {safeOfficeReturn} from "./return.js";
+
 function base64url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -21,12 +23,14 @@ export async function onRequestGet({ request, env }) {
     });
   }
 
-  const origin = new URL(request.url).origin;
+  const requestUrl = new URL(request.url);
+  const origin = requestUrl.origin;
 
   if (origin !== "https://autosklad63-office-staging.pages.dev") {
     return new Response("Invalid origin", { status: 403 });
   }
 
+  const nextSection = safeOfficeReturn(requestUrl.searchParams.get("next"));
   const state = base64url(crypto.getRandomValues(new Uint8Array(32)));
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
 
@@ -62,6 +66,10 @@ export async function onRequestGet({ request, env }) {
   headers.append(
     "Set-Cookie",
     `oauth_verifier=${verifier}; Max-Age=600; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax`
+  );
+
+  headers.append("Set-Cookie",
+    `oauth_return=${nextSection}; Max-Age=600; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax`
   );
 
   return new Response(null, {

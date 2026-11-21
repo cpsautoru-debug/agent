@@ -1,5 +1,6 @@
 
 import { createSession } from "../session.js";
+import {safeOfficeReturn} from "./return.js";
 
 const ORIGIN = "https://autosklad63-office-staging.pages.dev";
 
@@ -88,27 +89,40 @@ async function verifyGoogleIdToken(token, clientId) {
   return claims;
 }
 
-export async function onRequestGet({ request, env }) {
+export function createGoogleCallbackHandler({
+  fetcher = fetch, verifyIdentity = verifyGoogleIdToken
+} = {}) {
+  return async function onRequestGet({request, env}) {
   const clearCookies = [
     "oauth_state=; Max-Age=0; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax",
-    "oauth_verifier=; Max-Age=0; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax"
+    "oauth_verifier=; Max-Age=0; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax",
+    "oauth_return=; Max-Age=0; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax"
   ];
 
-  function reply(message, status, sessionCookie = null) {
+  function responseHeaders(sessionCookie = null) {
     const headers = new Headers({
-      "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
-      "Referrer-Policy": "no-referrer"
+      "Referrer-Policy": "no-referrer",
+      "X-Content-Type-Options": "nosniff"
     });
-    for (const cookie of clearCookies) {
-      
-    if (sessionCookie) {
-      headers.append("Set-Cookie", sessionCookie);
-    }
+    // Cloudflare must set the session cookie ONCE, not once per OAuth
+    // transient cookie being cleared.
+    if (sessionCookie) headers.append("Set-Cookie", sessionCookie);
+    for (const cookie of clearCookies) headers.append("Set-Cookie", cookie);
+    return headers;
+  }
 
-      headers.append("Set-Cookie", cookie);
-    }
-    return new Response(message, { status, headers });
+  function reply(message, status) {
+    const headers = responseHeaders();
+    headers.set("Content-Type", "text/plain; charset=utf-8");
+    return new Response(message, {status, headers});
+  }
+
+  function ownerRedirect(sessionCookie) {
+    const section = safeOfficeReturn(getCookie(request, "oauth_return"));
+    const headers = responseHeaders(sessionCookie);
+    headers.set("Location", ORIGIN + "/#" + section);
+    return new Response(null, {status:303, headers});
   }
 
   if (
@@ -143,7 +157,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   try {
-    const tokenResponse = await fetch(
+    const tokenResponse = await fetcher(
       "https://oauth2.googleapis.com/token",
       {
         method: "POST",
@@ -170,7 +184,7 @@ export async function onRequestGet({ request, env }) {
       return reply("Missing Google identity token", 401);
     }
 
-    const claims = await verifyGoogleIdToken(
+    const claims = await verifyIdentity(
       tokenData.id_token,
       env.GOOGLE_CLIENT_ID
     );
@@ -206,11 +220,7 @@ export async function onRequestGet({ request, env }) {
         env.OFFICE_SESSION_SECRET
       );
 
-      return reply(
-        "Owner session established.",
-        200,
-        sessionCookie
-      );
+      return ownerRedirect(sessionCookie);
     }
 
 
@@ -232,4 +242,6 @@ export async function onRequestGet({ request, env }) {
   } catch {
     return reply("Google identity verification failed", 401);
   }
+  };
 }
+export const onRequestGet = createGoogleCallbackHandler();
