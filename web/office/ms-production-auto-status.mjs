@@ -7,7 +7,10 @@
   const details=el('msAutoHistoryDetails'),table=el('msAutoHistoryTable');
   const body=el('msAutoHistoryRows'),retry=el('msAutoHistoryRetry');
   const attention=el('msAutoHistoryAttention');
-  if([root,status,details,table,body,retry,attention].some(x=>!x))return;
+  const unknown=el('msAutoUnknown'),unknownSummary=el('msAutoUnknownSummary');
+  const unknownBody=el('msAutoUnknownRows');
+  if([root,status,details,table,body,retry,attention,
+    unknown,unknownSummary,unknownBody].some(x=>!x))return;
   // D1-only owner GET, aligned with the 5-minute scheduled scanner.
   const EVERY_MS=5*60*1000;
   const fmt=n=>new Intl.NumberFormat('ru-RU').format(n);
@@ -22,6 +25,7 @@
   const inView=()=>document.visibilityState==='visible'&&
     location.hash.split('/')[0]==='#production';
   const reset=()=>{body.replaceChildren();table.hidden=true;
+    unknownBody.replaceChildren();unknown.hidden=true;unknownSummary.textContent='';
     details.textContent='';attention.textContent='';};
   const show=(data)=>{
     if(data.code!=='ms_production_auto_status_ok'||
@@ -44,6 +48,14 @@
         data.totals.complete+data.totals.unverified||
       typeof data.completeHistoricalPass!=='boolean'||
       data.shown>data.totals.incomplete||
+      !Array.isArray(data.unverifiedItems)||data.unverifiedItems.length>20||
+      !Number.isSafeInteger(data.unverifiedShown)||
+      data.unverifiedShown!==data.unverifiedItems.length||
+      !Number.isSafeInteger(data.unverifiedNotShown)||
+      data.unverifiedNotShown!==data.totals.unverified-data.unverifiedShown||
+      data.unverifiedItems.some(item=>!item||item.status!=='unverified'||
+        typeof item.number!=='string'||!/^\d{1,10}$/.test(item.number)||
+        !Number.isSafeInteger(item.checkedMs)||item.checkedMs> Date.now())||
       !data.visibleDateChecks||
       !['past','today','future','notSet','unverified']
         .every(key=>Number.isSafeInteger(data.visibleDateChecks[key])&&
@@ -114,6 +126,23 @@
       body.append(row);
     }
     table.hidden=data.items.length===0;
+    unknown.hidden=data.unverifiedItems.length===0;
+    unknownSummary.textContent=
+      'Эти документы нельзя считать ни завершёнными, ни незавершёнными до проверки этапов. '+
+      'Показано '+fmt(data.unverifiedItems.length)+' из '+
+      fmt(data.totals.unverified)+' в текущем историческом поколении. '+
+      'Номера получены автоматически, данные «МойСклад» не изменялись.';
+    for(const item of data.unverifiedItems){
+      const row=document.createElement('tr');
+      td(row,item.number);
+      td(row,typeof item.documentUpdated==='string'?
+        item.documentUpdated:'Дата изменения неизвестна');
+      td(row,typeof item.plannedDate==='string'?
+        item.plannedDate:'Не указана');
+      td(row,clock(item.checkedMs));
+      td(row,'Этапы не подтверждены');
+      unknownBody.append(row);
+    }
     if(data.totals.incomplete>data.items.length)
       details.textContent+=' Отображены первые '+fmt(data.items.length)+
         ' из '+fmt(data.totals.incomplete)+' исторически незавершённых.';
