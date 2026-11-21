@@ -19,14 +19,14 @@ export function isMeterUnit(uom){
 // Out-of-scope merchandise (EVA carpets, accessories, parts) never reaches
 // owner-facing rows, statistics, low-stock alerts or model sub-tables.
 // Unknown items remain in MoySklad; do not treat them as zero inventory.
-const excludedItem=/ковр|(?:^|[\s/_-])(?:eva|эва)(?=$|[\s/_-])|ароматиз|брелок|бампер|радиатор|подлокотник|накладк|порог|тормозн|накидк|тюбинг|держател|органайзер|чехол\s+руля/iu;
-const coverWords=/авточехл|чехл/iu;
+const excludedItem=/чех(?:ол|л[а-я]*)\s+(?:на|для)\s+(?:подголовник|телефон|рычаг|руля)|ковр|(?:^|[\s/_-])(?:eva|эва)(?=$|[\s/_-])|ароматиз|брелок|бампер|радиатор|подлокотник|накладк|порог|тормозн|накидк|тюбинг|держател|органайзер|чехол\s+руля/iu;
+const coverWords=/авточехл|чехл|чехол/iu;
 const doorWords=/(?:дверн.{0,28}(?:карт|встав))|(?:(?:карт|встав).{0,28}двер)/iu;
 const modelWords=/(?:^|[\s/_()-])(?:vesta|веста|приора|priora|samara|самара|granta|гранта|iskra|искра|калина|kalina|niva|нива|creta|крета|rio|рио|solaris|солярис|лада|lada|2107|2114|2110|2115)(?=$|[\s/_()-])/iu;
 const materialWords=/экокож|алькантар|спанбонд|поролон|перфорац|стёжк|стежк|нитк|пегас|pegas|подклад|кож[аеи]|ткан[ьи]|обивочн/iu;
 const materialFolder=/материал|экокожа|альк|поролон|перфорац|спанбонд|стёжк|стежк|нитк|подклад|кож|ткан|pegas|пегас/iu;
 const productionRoot=new Set(['производство','производственные материалы']);
-const coverFolders=/авточехл|чехл|сиден/iu;
+const coverFolders=/авточехл|чехл|чехол|сиден/iu;
 const cutFolders=new Set(['крой','крой чехлов','комплекты кроя','раскроенные детали']);
 const finishedFolders=new Set(['готовая продукция','готовые изделия','готовые авточехлы','готовые комплекты']);
 
