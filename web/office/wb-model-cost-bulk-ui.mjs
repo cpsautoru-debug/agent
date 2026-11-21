@@ -89,7 +89,7 @@ export function mountModelCostReview({
   confirmButton.disabled=true;
   buttons.append(previewButton,confirmButton);form.append(buttons);
   const status=e('p','Пока записи не выполнялись. Артикулы не выбраны.');
-  status.className='wb-monitor-meta';status.setAttribute('role','status');
+  status.className='wb-monitor-meta';status.setAttribute?.('role','status');
   form.append(status);wrap.append(form);parent.append(wrap);
   let locked=false,preview=null;
   const clear=()=>{preview=null;confirmButton.disabled=true;};
