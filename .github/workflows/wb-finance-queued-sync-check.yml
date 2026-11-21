@@ -8,6 +8,13 @@ on:
       - 'functions/api/wb/auto-sync-status.js'
       - 'functions/api/wb/unit-economics.js'
       - 'functions/api/finance/cost-audit.js'
+      - 'functions/api/finance/product-links.js'
+      - 'web/office/finance-product-links-core.mjs'
+      - 'web/office/finance-product-links-ui.mjs'
+      - 'tests/wb/finance-product-links-core.test.mjs'
+      - 'tests/wb/finance-product-links-api.test.mjs'
+      - 'tests/wb/finance-product-links-ui.test.mjs'
+      - 'migrations/0005_finance_product_links.sql'
       - 'web/office/unified-cost-audit-core.mjs'
       - 'web/office/finance-cost-audit.mjs'
       - 'tests/wb/unified-cost-audit-core.test.mjs'
@@ -65,6 +72,10 @@ jobs:
       - run: node --check functions/api/wb/auto-sync-status.js
       - run: node --check functions/api/wb/unit-economics.js
       - run: node --check functions/api/finance/cost-audit.js
+      - run: node --check functions/api/finance/product-links.js
+      - run: node --check web/office/finance-product-links-core.mjs
+      - run: node --check web/office/finance-product-links-ui.mjs
+      - run: node --test tests/wb/finance-product-links-core.test.mjs tests/wb/finance-product-links-api.test.mjs tests/wb/finance-product-links-ui.test.mjs
       - run: node --check web/office/unified-cost-audit-core.mjs
       - run: node --check web/office/finance-cost-audit.mjs
       - run: node --test tests/wb/unified-cost-audit-core.test.mjs tests/wb/unified-cost-audit-api.test.mjs tests/wb/unified-cost-audit-ui.test.mjs
