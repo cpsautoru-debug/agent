@@ -103,7 +103,7 @@ export function summarizeInventory(items,loaded,expected){
   const counts={low:0,negative:0,unknownStock:0,meterRows:0};
   const warehouses=new Set();
   for(const row of rows){
-    warehouses.add(row.warehouse);
+    if(row.warehouse!=='Склад не указан')warehouses.add(row.warehouse);
     if(row.low)counts.low++;
     if(row.negative)counts.negative++;
     if(row.stock===null)counts.unknownStock++;
