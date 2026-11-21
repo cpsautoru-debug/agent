@@ -1,0 +1,30 @@
+name: Office orchestrator read-only checks
+on:
+  push:
+    paths:
+      - 'functions/api/orchestrator/**'
+      - 'web/office/orchestrator*'
+      - 'web/office/office-auth.js'
+      - 'tests/orchestrator/**'
+      - '.github/workflows/office-orchestrator-check.yml'
+  pull_request:
+    paths:
+      - 'functions/api/orchestrator/**'
+      - 'web/office/orchestrator*'
+      - 'web/office/office-auth.js'
+      - 'tests/orchestrator/**'
+      - '.github/workflows/office-orchestrator-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check functions/api/orchestrator/chat.js
+      - run: node --check web/office/orchestrator.js
+      - run: node --test tests/orchestrator/orchestrator-readonly.test.mjs

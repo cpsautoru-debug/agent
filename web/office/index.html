@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="office-map.css">
 <link rel="stylesheet" href="ozon-finance.css">
 <link rel="stylesheet" href="profit.css">
+<link rel="stylesheet" href="/orchestrator.css?v=20261121">
 <link rel="stylesheet" href="/wb-import-preview.css">
 <link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
 <link rel="stylesheet" href="/wb-unit-economics.css?v=20261121">
@@ -43,6 +44,7 @@
     <a href="#ozonFinance" data-page="ozonFinance">
       <span>◴</span>Финансы · Ozon
     </a>
+    <a href="#orchestrator" data-page="orchestrator"><span>✳</span>ИИ-Оркестратор</a>
     <a href="#agents" data-page="agents">
       <span>◎</span>ИИ-команда <b>12</b>
     </a>
@@ -1023,6 +1025,36 @@
 
     </section>
 
+    <!-- ИИ-ОРКЕСТРАТОР · ПИЛОТ ТОЛЬКО ЧТЕНИЕ -->
+    <section class="page" data-section="orchestrator" hidden>
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">ИИ-ЦЕНТР · ПИЛОТ</div>
+          <h1>ИИ-Оркестратор</h1>
+          <p>Задайте вопрос о финансовых данных WB или Ozon. Доступ только владельцу.</p>
+        </div>
+      </div>
+      <div class="orchestrator-panel" id="orchestratorPanel">
+        <article class="orchestrator-box">
+          <h2>Спросить Оркестратора</h2>
+          <p class="orchestrator-muted">Только чтение. Используются существующие финансовые источники; нет права изменять данные, управлять рекламой или выполнять платежи.</p>
+          <form id="orchestratorForm" class="orchestrator-form">
+            <label for="orchestratorQuestion">Ваш вопрос</label>
+            <textarea id="orchestratorQuestion" maxlength="900" required placeholder="Например: насколько подтверждена прибыль по Wildberries и чего не хватает для расчёта?"></textarea>
+            <div class="orchestrator-actions">
+              <button class="button primary" id="orchestratorSend" type="submit">Спросить</button>
+              <span id="orchestratorStatus" class="orchestrator-muted" role="status" aria-live="polite">Проверка подключения…</span>
+            </div>
+          </form>
+        </article>
+        <article class="orchestrator-box">
+          <h2>Ответ</h2>
+          <div id="orchestratorAnswer" class="orchestrator-answer" role="region" aria-live="polite" aria-label="Ответ Оркестратора"></div>
+          <p id="orchestratorSources" class="orchestrator-muted"></p>
+        </article>
+      </div>
+    </section>
+
     <!-- ИИ-КОМАНДА -->
 
     <section class="page"
@@ -1840,6 +1872,7 @@
 
 <script src="app.js" defer></script>
 <script src="office-auth.js?v=20261121" defer></script>
+<script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js"></script>
 <script type="module" src="ms-inventory-control.mjs"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
