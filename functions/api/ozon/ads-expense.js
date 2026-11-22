@@ -37,8 +37,10 @@ export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
       if(owner?.allowed!==1)return respond(403,{code:'forbidden'});
     }catch{return respond(503,{code:'owner_check_unavailable'});}
     // No caller-supplied URL: prevents SSRF and exposure of the shared token.
-    if(typeof env.ADS_READ_TOKEN!=='string'||env.ADS_READ_TOKEN.length<32)
+    if(typeof env.ADS_READ_TOKEN!=='string')
       return respond(503,{code:'ads_bridge_secret_missing'});
+    if(env.ADS_READ_TOKEN.length<32)
+      return respond(503,{code:'ads_bridge_secret_too_short'});
     try{
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
