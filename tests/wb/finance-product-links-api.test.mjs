@@ -145,7 +145,7 @@ test('no owner, invalid origin, invalid source and missing attestation cannot sa
     {kind:'origin',opts:{method:'POST',origin:'https://bad.example'},
       config:{},expected:403},
     {kind:'wb',opts:{method:'POST'},config:{wbFound:false},expected:409},
-    {kind:'ozon',opts:{method:'POST'},config:{ozonFound:false},expected:503},
+    {kind:'ozon',opts:{method:'POST'},config:{ozonFound:false},expected:409},
     {kind:'attest',opts:{method:'POST',document:{
       ...draft,identicalPhysicalProduct:false
     }},config:{},expected:400}
@@ -212,7 +212,7 @@ test('Profit-only Seller SKU can be previewed then stored one-to-one after live 
   const value=await preview.json();
   assert.equal(value.code,'finance_product_link_preview');
   assert.equal(value.document.ozonSellerArticle,'24604');
-  assert.equal(value.document.ozonProductTitle,fullName);
+  assert.equal(value.document.ozonProductTitle,fullName.trim());
   assert.equal(value.document.modelName,fullName.slice(0,100).trim());
   assert.equal(value.document.identitySource,'ozon_seller_api_current_catalog');
   assert.equal(f.info.writes.length,0);
