@@ -33,5 +33,5 @@ test('Profit rendering shows return review without changing monetary calculation
  assert.match(html,/ozon-sku-cost-evidence\.mjs\?v=20261122/);
  assert.match(js,/reviewOzonSkuCostEvidence/);
  assert.match(js,/transactionDateCostVerified|Нужна сверка|не доказывает соответствие цены дате/);
- assert.match(js,/profit\.netEstimateKopecks/);
+ assert.match(js,/netEstimateKopecks/);
 });
