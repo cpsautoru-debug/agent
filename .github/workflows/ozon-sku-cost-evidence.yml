@@ -1,0 +1,21 @@
+name: Ozon SKU Return Cost Evidence
+on:
+  push:
+    branches:
+      - feature/ozon-return-cost-review-20261122
+  pull_request:
+    paths:
+      - 'web/office/ozon-sku-cost-evidence.mjs'
+      - 'web/office/profit.js'
+      - 'tests/ozon/sku-cost-evidence.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ozon/sku-cost-evidence.test.mjs tests/ozon/profit-ui.test.mjs
