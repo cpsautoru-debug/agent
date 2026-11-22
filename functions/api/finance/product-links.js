@@ -1,5 +1,6 @@
 import {verifySession} from '../auth/session.js';
 import {WB_ACCOUNT} from '../../../web/office/wb-unit-economics-core.mjs';
+import {validateOzonSellerProductInfo} from '../../../web/office/finance-ozon-sku-lookup-core.mjs';
 import {
   validateFinanceProductLinkDraft,validatedFinanceProductLinkRead
 } from '../../../web/office/finance-product-links-core.mjs';
@@ -73,7 +74,9 @@ const INSERT="INSERT INTO office_finance_product_links "+
   "(wb_vendor_code,ozon_sku,ozon_seller_article,model_name,verified_from,evidence,actor) "+
   "VALUES (?,?,?,?,?,?,?) ON CONFLICT DO NOTHING RETURNING wb_vendor_code";
 
-export function createFinanceProductLinksHandler({now=Date.now}={}){
+export function createFinanceProductLinksHandler({
+  now=Date.now,fetchUpstream=fetch
+}={}){
   return async function({request,env}){
     if(!['GET','POST'].includes(request.method))
       return json(405,{code:'method_not_allowed'});
@@ -131,20 +134,75 @@ export function createFinanceProductLinksHandler({now=Date.now}={}){
         db.prepare(OZON_SKU).bind(draft.ozonSku).first(),
         db.prepare(ALREADY).bind(draft.wbVendorCode,draft.ozonSku).first()
       ]);
-      if(wb?.found!==1||!ozon?.sku||
-        ozon.sku!==draft.ozonSku||
-        typeof ozon.seller_article!=='string'||!ozon.seller_article||
-        typeof ozon.model!=='string'||!ozon.model)
+      if(wb?.found!==1)
         return json(409,{code:'product_source_not_verified'});
       if(existing)return json(409,{code:'product_link_already_exists'});
-      const doc={...draft,
-        ozonSellerArticle:ozon.seller_article,modelName:ozon.model};
+      let doc;
+      if(ozon?.sku===draft.ozonSku&&
+        typeof ozon.seller_article==='string'&&ozon.seller_article&&
+        typeof ozon.model==='string'&&ozon.model){
+        // Existing local catalog path remains unchanged.
+        doc={...draft,
+          ozonSellerArticle:ozon.seller_article,modelName:ozon.model};
+      }else{
+        // 33 confirmed Seller API metadata cards aren't stored in the
+        // auxiliary cost catalog. Do not invent a local cost record.
+        // Require an existing Profit SKU, exact Seller API identity and the
+        // owner's physical-product attestation before persisting a link.
+        if(!/^[1-9][0-9]{0,17}$/.test(draft.ozonSku))
+          return json(409,{code:'product_source_not_verified'});
+        if(!env.OZON_CLIENT_ID||!env.OZON_API_KEY||
+          typeof env.OZON_FINANCE_SYNC?.getProfitDocument!=='function')
+          return json(503,{code:'ozon_identity_source_unavailable'});
+        stage='ozon_profit_identity';
+        let profit;
+        try{profit=await env.OZON_FINANCE_SYNC.getProfitDocument('costs');}
+        catch{return json(503,{code:'ozon_identity_source_unavailable'});}
+        if(profit?.key!=='costs'||
+          profit?.target!=='ce9dd331-929d-4c3e-9073-368de3346bc9'||
+          !Number.isSafeInteger(profit.version)||profit.version<1||
+          !Array.isArray(profit.value?.entries)||
+          !profit.value.entries.some(x=>x.sku===draft.ozonSku&&
+            ['confirmed','preliminary'].includes(x.status)))
+          return json(409,{code:'ozon_profit_sku_not_verified'});
+        stage='ozon_seller_identity';
+        let api;
+        try{
+          api=await fetchUpstream('https://api-seller.ozon.ru/v3/product/info/list',{
+            method:'POST',
+            headers:{
+              'Client-Id':env.OZON_CLIENT_ID,'Api-Key':env.OZON_API_KEY,
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({sku:[draft.ozonSku]}),
+            signal:AbortSignal.timeout(15000)
+          });
+        }catch{return json(503,{code:'ozon_identity_source_unavailable'});}
+        if(api.status===429)return json(429,{code:'ozon_identity_rate_limited'});
+        if(!api.ok)
+          return json(503,{code:'ozon_identity_source_unavailable'});
+        let product;
+        try{
+          const result=validateOzonSellerProductInfo(
+            await api.json(),[draft.ozonSku]);
+          product=result.items[0];
+        }catch{return json(503,{code:'ozon_identity_source_unavailable'});}
+        if(!product||product.sku!==draft.ozonSku)
+          return json(409,{code:'ozon_sku_card_not_found'});
+        // The existing immutable D1 schema has a 100-character model_name
+        // field. For Seller API cards this holds a SHORTENED actual product
+        // title, never an inferred model. Full title is signed in preview.
+        doc={...draft,ozonSellerArticle:product.offerId,
+          modelName:product.name.slice(0,100).trim(),
+          ozonProductTitle:product.name,
+          identitySource:'ozon_seller_api_current_catalog'};
+      }
       if(body.action==='preview'){
         return json(200,{
           code:'finance_product_link_preview',
           readOnly:true,changedRecords:0,
           document:doc,expiryMinutes:10,
-          warning:'Подтверждается идентичность изделия. Себестоимость не переносится.',
+          warning:'Подтверждается идентичность изделия, а не перенос себестоимости. Для карточек Seller API modelName — сокращённое название товара.',
           token:await issue(env.OFFICE_SESSION_SECRET,actor,doc,now())
         });
       }

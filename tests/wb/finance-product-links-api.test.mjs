@@ -30,8 +30,8 @@ function fixture({table=true,owner=true,wbFound=true,ozonFound=true}={}){
     if(sql.startsWith('SELECT wb_vendor_code,ozon_sku,ozon_seller_article'))
       return {async all(){return{results:info.stored.map(x=>({...x}))};}};
     if(sql.startsWith('SELECT sku,seller_article,model FROM ozon_cost_entries'))
-      return {bind(sku){assert.equal(sku,draft.ozonSku);
-        return{async first(){return ozonFound?
+      return {bind(sku){
+        return{async first(){return ozonFound&&sku===draft.ozonSku?
           {sku,seller_article:'VESTA_BROWN_2',model:'Lada Vesta'}:null;}};
       }};
     if(sql.startsWith('SELECT wb_vendor_code,ozon_sku FROM office_finance_product_links'))
@@ -176,4 +176,124 @@ test('changed dates, forged receipts and expired preview fail closed',async()=>{
   }),env:f.env});
   assert.equal(result.status,409);
   assert.equal(f.info.writes.length,0);
+});
+
+
+test('Profit-only Seller SKU can be previewed then stored one-to-one after live source checks',async()=>{
+  const f=fixture({ozonFound:false});
+  let sellerCalls=0,profitCalls=0;
+  const sku='1606894548';
+  const fullName='Модельные авточехлы Lada Priora sedan черные с алькантарой и черными сотами: '+('вариант '.repeat(9));
+  f.env.OZON_CLIENT_ID='seller-client';
+  f.env.OZON_API_KEY='private-key';
+  f.env.OZON_FINANCE_SYNC={async getProfitDocument(key){
+    profitCalls++;
+    assert.equal(key,'costs');
+    return{key,target:'ce9dd331-929d-4c3e-9073-368de3346bc9',
+      version:9,value:{entries:[{sku,status:'confirmed'}]}};
+  }};
+  const live=createFinanceProductLinksHandler({now:()=>NOW,
+    fetchUpstream:async(url,opts)=>{
+      sellerCalls++;
+      assert.equal(url,'https://api-seller.ozon.ru/v3/product/info/list');
+      assert.equal(opts.method,'POST');
+      assert.deepEqual(JSON.parse(opts.body),{sku:[sku]});
+      assert.equal(opts.headers['Api-Key'],'private-key');
+      return{ok:true,status:200,async json(){return{items:[{
+        sku:Number(sku),offer_id:'24604',
+        name:fullName,id:817223,is_archived:false
+      }]};}};
+    }});
+  const doc={...draft,ozonSku:sku};
+  const preview=await live({request:await request({
+    method:'POST',document:doc
+  }),env:f.env});
+  assert.equal(preview.status,200);
+  const value=await preview.json();
+  assert.equal(value.code,'finance_product_link_preview');
+  assert.equal(value.document.ozonSellerArticle,'24604');
+  assert.equal(value.document.ozonProductTitle,fullName.trim());
+  assert.equal(value.document.modelName,fullName.slice(0,100).trim());
+  assert.equal(value.document.identitySource,'ozon_seller_api_current_catalog');
+  assert.equal(f.info.writes.length,0);
+  const saved=await live({request:await request({
+    method:'POST',action:'confirm',document:doc,token:value.token
+  }),env:f.env});
+  assert.equal(saved.status,200);
+  assert.equal((await saved.json()).costTransferred,false);
+  assert.equal(sellerCalls,2);
+  assert.equal(profitCalls,2);
+  assert.equal(f.info.writes.length,1);
+  assert.equal(f.info.writes[0].ozon_sku,sku);
+  assert.equal(f.info.writes[0].ozon_seller_article,'24604');
+  assert.equal(f.info.writes[0].model_name,fullName.slice(0,100).trim());
+  assert.equal(Object.hasOwn(f.info.writes[0],'cost_kopecks'),false);
+  assert.equal(f.info.reads.some(x=>/UPDATE |DELETE /i.test(x)),false);
+});
+test('Profit-only link fails closed if Seller product changes between preview and confirm',async()=>{
+  const f=fixture({ozonFound:false});
+  const sku='1606894548';let changed=false;
+  f.env.OZON_CLIENT_ID='client';f.env.OZON_API_KEY='secret';
+  f.env.OZON_FINANCE_SYNC={async getProfitDocument(key){
+    return{key,target:'ce9dd331-929d-4c3e-9073-368de3346bc9',
+      version:9,value:{entries:[{sku,status:'confirmed'}]}};
+  }};
+  const live=createFinanceProductLinksHandler({now:()=>NOW,
+    fetchUpstream:async()=>({ok:true,status:200,
+      async json(){return{items:[{
+        sku:Number(sku),offer_id:changed?'OTHER-CARD':'24604',
+        name:'Авточехлы Lada Priora',id:123
+      }]};}
+    })});
+  const doc={...draft,ozonSku:sku};
+  const preview=await (await live({request:await request({
+    method:'POST',document:doc
+  }),env:f.env})).json();
+  changed=true;
+  const res=await live({request:await request({
+    method:'POST',action:'confirm',document:doc,token:preview.token
+  }),env:f.env});
+  assert.equal(res.status,409);
+  assert.equal((await res.json()).code,'product_link_preview_changed_or_expired');
+  assert.equal(f.info.writes.length,0);
+});
+test('Seller-only link requires SKU in trusted Profit document, ignores unrelated cards',async()=>{
+  const f=fixture({ozonFound:false}),sku='1606894548';
+  f.env.OZON_CLIENT_ID='client';f.env.OZON_API_KEY='secret';
+  let called=0;
+  f.env.OZON_FINANCE_SYNC={async getProfitDocument(key){
+    return{key,target:'ce9dd331-929d-4c3e-9073-368de3346bc9',
+      version:9,value:{entries:[{sku:'99999',status:'confirmed'}]}};
+  }};
+  const live=createFinanceProductLinksHandler({now:()=>NOW,
+    fetchUpstream:async()=>{called++;throw Error('should not call');}});
+  const res=await live({request:await request({
+    method:'POST',document:{...draft,ozonSku:sku}
+  }),env:f.env});
+  assert.equal(res.status,409);
+  assert.equal((await res.json()).code,'ozon_profit_sku_not_verified');
+  assert.equal(called,0);
+  assert.equal(f.info.writes.length,0);
+});
+test('Seller API rate limit and no matching SKU do not create verified links',async()=>{
+  for(const [status,items,want] of [
+    [429,null,'ozon_identity_rate_limited'],
+    [200,[],'ozon_sku_card_not_found']
+  ]){
+    const f=fixture({ozonFound:false}),sku='1606894548';
+    f.env.OZON_CLIENT_ID='client';f.env.OZON_API_KEY='secret';
+    f.env.OZON_FINANCE_SYNC={async getProfitDocument(key){
+      return{key,target:'ce9dd331-929d-4c3e-9073-368de3346bc9',
+        version:9,value:{entries:[{sku,status:'confirmed'}]}};
+    }};
+    const live=createFinanceProductLinksHandler({now:()=>NOW,
+      fetchUpstream:async()=>({
+        status,ok:status===200,async json(){return{items};}
+      })});
+    const res=await live({request:await request({
+      method:'POST',document:{...draft,ozonSku:sku}
+    }),env:f.env});
+    assert.equal((await res.json()).code,want);
+    assert.equal(f.info.writes.length,0);
+  }
 });

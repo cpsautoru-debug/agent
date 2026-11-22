@@ -16,7 +16,7 @@ function node(){
     addEventListener(event,fn){this.handlers[event]=fn;}
   };
 }
-function fixture({migration=false}={}){
+function fixture({migration=false,enrich=false,sellerUnavailable=false}={}){
   const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
   const calls=[];
   const registry={code:'finance_product_links',status:'ready',
@@ -26,7 +26,8 @@ function fixture({migration=false}={}){
     articles:[{vendorCode:'веста №2'},{vendorCode:'карты_лада_веста_белые_соты'}]};
   const audit={code:'unified_finance_source_audit',
     ozonCatalog:{entries:[{sku:'OZ-VESTA-2',
-      model:'Lada Vesta',sellerArticle:'vesta-brown'}]}};
+      model:'Lada Vesta',sellerArticle:'vesta-brown'}]},
+    ...(enrich?{skuCoverage:{profitOnlySkuCount:1}}:{})};
   const fetchData=async(url,options)=>{
     calls.push({url,options});
     if(url==='/api/finance/product-links'){
@@ -58,6 +59,23 @@ function fixture({migration=false}={}){
       return{ok:true,json:async()=>wb};
     if(url==='/api/finance/cost-audit')
       return{ok:true,json:async()=>audit};
+    if(url==='/api/finance/ozon-sku-cards'){
+      if(sellerUnavailable)return{ok:false,json:async()=>({
+        code:'ozon_seller_api_unavailable'
+      })};
+      return{ok:true,json:async()=>({
+        code:'ozon_sku_cards_lookup',
+        readOnly:true,changedRecords:0,
+        source:'ozon_seller_api_v3_product_info_list',
+        accountScope:'connected_ozon_client_only',
+        missingFromLocalCatalog:1,foundCount:1,
+        attemptedCount:1,items:[{
+          sku:'1606894548',name:'Чехлы Lada Priora черные с алькантарой',
+          offerId:'24604',physicalIdentityVerified:false,
+          costTransferred:false
+        }],notFound:[],unsupported:[]
+      })};
+    }
     throw Error('unexpected URL '+url);
   };
   const documentRef={getElementById(id){return nodes[id]||null;},
@@ -125,12 +143,35 @@ test('invalid draft does not call a POST or claim a saved link',async()=>{
   assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
   assert.match(f.nodes.financeLinksPreviewStatus.textContent,/Укажи артикул/);
 });
+test('owner-triggered load includes SKU from live Ozon Seller alongside three local cost catalog SKUs',async()=>{
+  const f=fixture({enrich:true}),e=f.nodes;
+  assert.equal(f.calls.length,0);
+  e.financeLinksLoad.handlers.click();
+  await flush();
+  assert.equal(f.calls.filter(x=>x.url==='/api/finance/ozon-sku-cards').length,1);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  assert.equal(e.financeLinksOzon.children.length,3);
+  assert.equal(e.financeLinksOzon.children[2].value,'OZ-VESTA-2');
+  assert.equal(e.financeLinksOzon.children[1].value,'1606894548');
+  assert.match(e.financeLinksOzon.children[1].textContent,/Чехлы Lada Priora/);
+  assert.match(e.financeLinksStatus.textContent,/всего доступных SKU Ozon: 2/);
+  assert.match(e.financeLinksStatus.textContent,/Seller API дополнительно: 1/);
+});
+test('Seller API unavailable preserves local SKU selections and blocks nonexistent SKU',async()=>{
+  const f=fixture({enrich:true,sellerUnavailable:true}),e=f.nodes;
+  e.financeLinksLoad.handlers.click();
+  await flush();
+  assert.equal(e.financeLinksOzon.children.length,2);
+  assert.equal(e.financeLinksOzon.children[1].value,'OZ-VESTA-2');
+  assert.match(e.financeLinksStatus.textContent,/не удалось проверить/);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+});
 test('form is strictly no-cost, source-bound, and has one instance of each control',()=>{
   const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-all-sku/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));
