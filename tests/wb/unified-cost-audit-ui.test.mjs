@@ -87,7 +87,11 @@ test('unavailable Ozon Profit RPC is not represented as zero verified costs',()=
   const {nodes,documentRef}=fixture();
   renderUnifiedCostAudit(documentRef,{
     ...sample,ozonProfit:{...sample.ozonProfit,status:'unavailable',entries:[]},
-    expenses:{...sample.expenses,status:'unavailable',items:[]}
+    expenses:{...sample.expenses,status:'unavailable',items:[]},
+    skuCoverage:auditOzonProfitSkuCoverage({
+      profitEntries:[],catalogEntries:sample.ozonCatalog.entries,
+      expenses:[]
+    })
   });
   assert.equal(nodes.financeAuditProfitCount.textContent,'Источник недоступен');
   assert.equal(nodes.financeAuditExpenseCount.textContent,'Источник недоступен');
