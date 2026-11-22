@@ -64,6 +64,7 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   const e=expenses==null?null:validateProfitDocument('expenses',expenses);
   const t=tax==null?null:validateProfitDocument('tax:'+month,tax);
   const blockers=[],warnings=[],duplicateCandidates=[],groups=new Map(),skus=new Map(),fingerprints=new Map();
+  const dateCostEvidence=[];
   const block=s=>{if(!blockers.includes(s))blockers.push(s);};
   if(!d)block('report_missing');
   if(api.totalKopecks===null || !api.netVerified || !api.detailVerified || api.coveredDays!==bounds.days)block('api_unverified_or_incomplete');
@@ -85,6 +86,13 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
     else if(sale)s.soldUnits=sum([s.soldUnits,r.quantity]);else s.returnedUnits=sum([s.returnedUnits,r.quantity]);
     if(!sale)continue;
     const entry=c.entries.find(x=>x.sku===id && active(x,r.date));
+    dateCostEvidence.push({sourceRow:r.row,sku:id,date:r.date,
+      quantity:r.quantity,unitCostKopecks:entry?.costKopecks??null,
+      costVersionFrom:entry?.validFrom??null,
+      costVersionTo:entry?.validTo??null,
+      status:r.quantity===null?'quantity_missing':!id?'sku_missing':
+        !entry?'cost_missing':entry.status==='confirmed'?'matched_confirmed':'matched_preliminary',
+      confirmedOnOperationDate:r.quantity!==null&&!!id&&entry?.status==='confirmed'});
     if(!id || !entry){s.costStatus='missing';s.reason=!id?'sku_missing':'cost_missing';block(s.reason);continue;}
     s.unitCosts.add(entry.costKopecks);
     if(entry.status!=='confirmed'){if(s.costStatus!=='missing'){s.costStatus='preliminary';s.reason='cost_preliminary';}block('cost_preliminary');}
@@ -140,7 +148,17 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   const grossReady=!!d && d.rows.length>0 && d.periodVerified && costsComplete && !duplicateCandidates.length && !blockers.includes('unknown_services');
   const gross=grossReady?sum([sales,returns,-known]):null;
   const operating=complete?sum([api.totalKopecks,-known,-direct,-allocated]):null;
-  return {month,currency:'RUB',api,report:d?{totalKopecks:total,rows:d.rows.length,salesKopecks:sales,returnsKopecks:returns,groups:[...groups].map(([name,amountKopecks])=>({name,amountKopecks})),quantityVerified:d.quantityVerified,periodVerified:d.periodVerified,sourceName:d.sourceName,sourceSha256:d.sourceSha256}:null,skuRows,costs:{soldKopecks,recoveredKopecks,knownKopecks:known,complete:costsComplete,missingSkus:skuRows.filter(s=>s.costStatus==='missing').map(s=>s.sku)},allocation:{ozonKopecks:allocationKnown?sum([direct,allocated]):null,unallocatedKopecks:allocationKnown?0:overhead,reason:allocationReason||'explicit_allocation'},tax:taxResult,profit:{grossKopecks:gross,operatingKopecks:operating,netEstimateKopecks:operating!==null && taxResult.ozonKopecks!==null?sum([operating,-taxResult.ozonKopecks]):null,partialAfterKnownCostsKopecks:api.netVerified && api.totalKopecks!==null?sum([api.totalKopecks,-known]):null,status:complete?'complete':gross!==null?'preliminary':'incomplete',blockers},warnings,duplicateCandidates};
+  return {month,currency:'RUB',api,
+    dateCostEvidence:{scope:'REPORT_SALES_ROWS_ONLY',
+      source:'OWNER_CONFIRMED_XLSX_AND_DATE_EFFECTIVE_COSTS',
+      complete:!!d&&d.quantityVerified&&d.periodVerified&&
+        dateCostEvidence.length>0&&
+        dateCostEvidence.every(x=>x.confirmedOnOperationDate),
+      checkedSalesRows:dateCostEvidence.length,
+      confirmedSalesRows:dateCostEvidence.filter(x=>x.confirmedOnOperationDate).length,
+      unverifiedSalesRows:dateCostEvidence.filter(x=>!x.confirmedOnOperationDate).length,
+      rows:dateCostEvidence},
+    report:d?{totalKopecks:total,rows:d.rows.length,salesKopecks:sales,returnsKopecks:returns,groups:[...groups].map(([name,amountKopecks])=>({name,amountKopecks})),quantityVerified:d.quantityVerified,periodVerified:d.periodVerified,sourceName:d.sourceName,sourceSha256:d.sourceSha256}:null,skuRows,costs:{soldKopecks,recoveredKopecks,knownKopecks:known,complete:costsComplete,missingSkus:skuRows.filter(s=>s.costStatus==='missing').map(s=>s.sku)},allocation:{ozonKopecks:allocationKnown?sum([direct,allocated]):null,unallocatedKopecks:allocationKnown?0:overhead,reason:allocationReason||'explicit_allocation'},tax:taxResult,profit:{grossKopecks:gross,operatingKopecks:operating,netEstimateKopecks:operating!==null && taxResult.ozonKopecks!==null?sum([operating,-taxResult.ozonKopecks]):null,partialAfterKnownCostsKopecks:api.netVerified && api.totalKopecks!==null?sum([api.totalKopecks,-known]):null,status:complete?'complete':gross!==null?'preliminary':'incomplete',blockers},warnings,duplicateCandidates};
 }
 const aliases={date:['дата','дата операции','дата начисления'],service:['тип начисления','услуга','наименование услуги','статья начисления','статья'],amount:['сумма итого, руб.','итого, руб.','итого руб.','сумма, руб.','сумма транзакции, руб.','сумма начисления, руб.','сумма'],group:['группа услуг','группа'],sku:['sku','ozon id','ozon sku','sku ozon'],article:['артикул','артикул продавца'],name:['название товара','наименование товара','товар'],quantity:['количество','кол-во','количество, шт.','количество товара']};
 const text=x=>x==null?'':String(x).trim();
