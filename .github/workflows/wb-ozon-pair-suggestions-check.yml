@@ -1,0 +1,24 @@
+name: WB Ozon Pair Suggestions Check
+on:
+  push:
+    branches:
+      - feature/wb-ozon-safe-suggestions-20261122
+  pull_request:
+    paths:
+      - 'web/office/finance-pair-suggestions.mjs'
+      - 'web/office/finance-product-links-ui.mjs'
+      - 'web/office/finance-link-review-groups.mjs'
+      - 'tests/wb/finance-*.test.mjs'
+      - '.github/workflows/wb-ozon-pair-suggestions-check.yml'
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run focused tests
+        run: node --test tests/wb/finance-pair-suggestions.test.mjs tests/wb/finance-link-review-groups.test.mjs tests/wb/finance-product-links-ui.test.mjs

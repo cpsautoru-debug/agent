@@ -4,6 +4,7 @@ import {
 import {
   makeFinanceReviewGroups
 } from './finance-link-review-groups.mjs';
+import {suggestFinancePairs} from './finance-pair-suggestions.mjs';
 
 // Verified identity is owner-provided, not inferred. Read-only until explicit
 // preview + signed confirm. Existing WB/Ozon prices are never edited.
@@ -25,7 +26,7 @@ export function attachFinanceProductLinks({
     groupStatus,wbLookupButton,wbLookupStatus]=ids.map($);
   let loading=false,saving=false,receipt=null,ready=false,wbLoading=false;
   let wbCardTitles=new Map();
-  let loadedWb=[],loadedOzon=[],reviewGroups=[],ambiguousWb=0,ambiguousOzon=0;
+  let loadedWb=[],loadedOzon=[],reviewGroups=[],pairSuggestions=[],ambiguousWb=0,ambiguousOzon=0;
   const make=(tag,content)=>{
     const el=documentRef.createElement(tag);
     if(content!==undefined)el.textContent=String(content);
@@ -70,7 +71,7 @@ export function attachFinanceProductLinks({
   };
   const reset=()=>{
     ready=false;previewButton.disabled=true;clear();
-    loadedWb=[];loadedOzon=[];reviewGroups=[];wbCardTitles=new Map();
+    loadedWb=[];loadedOzon=[];reviewGroups=[];pairSuggestions=[];wbCardTitles=new Map();
     ambiguousWb=0;ambiguousOzon=0;
     wbLookupButton.disabled=true;
     wbLookupStatus.textContent='Названия WB ещё не запрашивались.';
@@ -104,12 +105,24 @@ export function attachFinanceProductLinks({
       reviewGroups.length+'. Не распознаны однозначно: WB '+ambiguousWb+
       ', Ozon '+ambiguousOzon+
       '. Это не отсутствие товара и не нулевая себестоимость.';
+    const suggestions=pairSuggestions.filter(s=>!group||
+      (group.wbArticles.includes(s.wbVendorCode)&&
+       group.ozonSkus.includes(s.ozonSku)));
+    if(suggestions.length){
+      groupStatus.textContent+=' Подсказки для ручной сверки (балл — эвристика, не вероятность и не подтверждение): '+
+        suggestions.slice(0,5).map(s=>
+          s.wbVendorCode+' ↔ '+s.ozonSku+' · '+s.score+'/100 · '+
+          s.evidence.join(', ')).join('; ')+
+        (suggestions.length>5?' · ещё '+(suggestions.length-5):'')+
+        '. Цвет, материал, конструкцию и комплектацию необходимо сверить физически.';
+    }
   };
   const rebuildGroups=()=>{
     const suggestions=makeFinanceReviewGroups(
       loadedWb,loadedOzon,wbCardTitles
     );
     reviewGroups=suggestions.groups;
+    pairSuggestions=suggestFinancePairs(loadedWb,loadedOzon,wbCardTitles);
     ambiguousWb=suggestions.ambiguousWb;
     ambiguousOzon=suggestions.ambiguousOzon;
     setSelect(groupFilter,'Все товары WB и Ozon',
