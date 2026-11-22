@@ -7,7 +7,8 @@ const ids=['financeLinksLoad','financeLinksStatus','financeLinksForm',
   'financeLinksWb','financeLinksOzon','financeLinksFrom',
   'financeLinksEvidence','financeLinksSame','financeLinksNoCost',
   'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
-  'financeLinksRows','financeLinksGroupFilter','financeLinksGroupStatus'];
+  'financeLinksRows','financeLinksGroupFilter','financeLinksGroupStatus',
+  'financeWbCardLookupButton','financeWbCardLookupStatus'];
 function node(){
   return{
     children:[],textContent:'',value:'',checked:false,disabled:false,
@@ -16,7 +17,8 @@ function node(){
     addEventListener(event,fn){this.handlers[event]=fn;}
   };
 }
-function fixture({migration=false,enrich=false,sellerUnavailable=false,grouped=false}={}){
+function fixture({migration=false,enrich=false,sellerUnavailable=false,
+  grouped=false,contentPermission=true}={}){
   const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
   const calls=[];
   const registry={code:'finance_product_links',status:'ready',
@@ -62,6 +64,22 @@ function fixture({migration=false,enrich=false,sellerUnavailable=false,grouped=f
           changedRecords:1,costTransferred:false
         })};
       }
+    }
+    if(url==='/api/finance/wb-content-cards'){
+      if(!contentPermission)return{ok:false,json:async()=>({
+        code:'wb_content_scope_required'
+      })};
+      return{ok:true,json:async()=>({
+        code:'wb_content_card_lookup',source:'wb_content_api_live',
+        readOnly:true,changedRecords:0,
+        totalFinanceCodes:wb.articles.length,matchedCount:1,
+        fullyScanned:false,pagesRead:3,
+        items:[{vendorCode:'веста №2',
+          title:'Модельные авточехлы Lada Vesta с черными сотами',
+          physicalIdentityVerified:false,costTransferred:false}],
+        unmatched:['карты_лада_веста_белые_соты'],
+        physicalIdentityVerified:false
+      })};
     }
     if(url==='/api/wb/unit-economics')
       return{ok:true,json:async()=>wb};
@@ -218,12 +236,44 @@ test('changing model after preview invalidates signed receipt before save',async
   assert.equal(f.calls.filter(x=>x.options.method==='POST').length,1);
   assert.equal(f.registry.count,0);
 });
+test('WB card titles are used only after button, make previously unknown model explicit, never auto-save',async()=>{
+  const f=fixture({grouped:true}),e=f.nodes;
+  assert.equal(f.calls.length,0);
+  e.financeLinksLoad.handlers.click();
+  await flush();
+  assert.equal(f.calls.filter(x=>x.url==='/api/finance/wb-content-cards').length,0);
+  assert.equal(e.financeWbCardLookupButton.disabled,false);
+  const before=e.financeLinksGroupStatus.textContent;
+  assert.match(before,/WB 1/);
+  e.financeWbCardLookupButton.handlers.click();
+  await flush();
+  assert.equal(f.calls.filter(x=>x.url==='/api/finance/wb-content-cards').length,1);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  assert.match(e.financeWbCardLookupStatus.textContent,/Точные карточки WB прочитаны/);
+  assert.match(e.financeWbCardLookupStatus.textContent,/не считаются отсутствующими/);
+  assert.match(e.financeLinksGroupStatus.textContent,/WB 0/);
+  assert.equal(e.financeLinksWb.value,'');
+  assert.equal(e.financeLinksSave.disabled,true);
+  assert.equal(f.registry.count,0);
+});
+test('no WB Content permission retains safe existing groups, no fake classification',async()=>{
+  const f=fixture({grouped:true,contentPermission:false}),e=f.nodes;
+  e.financeLinksLoad.handlers.click();
+  await flush();
+  const before=e.financeLinksGroupStatus.textContent;
+  e.financeWbCardLookupButton.handlers.click();
+  await flush();
+  assert.match(e.financeWbCardLookupStatus.textContent,/отклонил доступ/);
+  assert.equal(e.financeLinksGroupStatus.textContent,before);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  assert.equal(e.financeLinksSave.disabled,true);
+});
 test('form is strictly no-cost, source-bound, and has one instance of each control',()=>{
   const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-model-filters/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-wb-card-enrichment/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));

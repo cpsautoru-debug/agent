@@ -17,12 +17,14 @@ export function attachFinanceProductLinks({
     'financeLinksEvidence','financeLinksSame','financeLinksNoCost',
     'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
     'financeLinksRows','financeLinksGroupFilter',
-    'financeLinksGroupStatus'];
+    'financeLinksGroupStatus','financeWbCardLookupButton',
+    'financeWbCardLookupStatus'];
   if(!fetchData||ids.some(id=>!$(id)))return false;
   const [loadButton,status,form,wb,ozon,from,evidence,same,noCost,
     previewButton,saveButton,previewStatus,rows,groupFilter,
-    groupStatus]=ids.map($);
-  let loading=false,saving=false,receipt=null,ready=false;
+    groupStatus,wbLookupButton,wbLookupStatus]=ids.map($);
+  let loading=false,saving=false,receipt=null,ready=false,wbLoading=false;
+  let wbCardTitles=new Map();
   let loadedWb=[],loadedOzon=[],reviewGroups=[],ambiguousWb=0,ambiguousOzon=0;
   const make=(tag,content)=>{
     const el=documentRef.createElement(tag);
@@ -44,7 +46,7 @@ export function attachFinanceProductLinks({
       headers:method==='GET'?{Accept:'application/json'}:
         {'Content-Type':'application/json','Accept':'application/json'},
       ...(body===null?{}:{body:JSON.stringify(body)}),
-      signal:AbortSignal.timeout(15000)
+      signal:AbortSignal.timeout(path==='/api/finance/wb-content-cards'?28000:15000)
     });
     let json;
     try{json=await res.json();}catch{throw Error('invalid_response');}
@@ -68,8 +70,10 @@ export function attachFinanceProductLinks({
   };
   const reset=()=>{
     ready=false;previewButton.disabled=true;clear();
-    loadedWb=[];loadedOzon=[];reviewGroups=[];
+    loadedWb=[];loadedOzon=[];reviewGroups=[];wbCardTitles=new Map();
     ambiguousWb=0;ambiguousOzon=0;
+    wbLookupButton.disabled=true;
+    wbLookupStatus.textContent='Названия WB ещё не запрашивались.';
     groupFilter.disabled=true;
     setSelect(groupFilter,'Все товары WB и Ozon',[]);
     groupStatus.textContent='Группы ещё не загружены.';
@@ -101,8 +105,75 @@ export function attachFinanceProductLinks({
       ', Ozon '+ambiguousOzon+
       '. Это не отсутствие товара и не нулевая себестоимость.';
   };
+  const rebuildGroups=()=>{
+    const suggestions=makeFinanceReviewGroups(
+      loadedWb,loadedOzon,wbCardTitles
+    );
+    reviewGroups=suggestions.groups;
+    ambiguousWb=suggestions.ambiguousWb;
+    ambiguousOzon=suggestions.ambiguousOzon;
+    setSelect(groupFilter,'Все товары WB и Ozon',
+      reviewGroups.map(g=>[
+        g.label+' · WB '+g.wbCount+' / Ozon '+g.ozonCount,
+        g.key
+      ]));
+    groupFilter.disabled=reviewGroups.length===0;
+    showFiltered();
+  };
   groupFilter.addEventListener('change',()=>{
-    if(!loading&&!saving)showFiltered();
+    if(!loading&&!saving&&!wbLoading)showFiltered();
+  });
+  wbLookupButton.addEventListener('click',async()=>{
+    if(loading||saving||wbLoading||!loadedWb.length)return;
+    wbLoading=true;wbLookupButton.disabled=true;clear();
+    wbLookupStatus.textContent='Проверяем текущие карточки WB. Сохранение связей заблокировано до завершения проверки.';
+    try{
+      const result=await request('/api/finance/wb-content-cards');
+      if(result?.code!=='wb_content_card_lookup'||
+        result.source!=='wb_content_api_live'||
+        result.readOnly!==true||result.changedRecords!==0||
+        !Array.isArray(result.items)||
+        !Array.isArray(result.unmatched)||
+        !Number.isSafeInteger(result.totalFinanceCodes)||
+        result.physicalIdentityVerified!==false)
+        throw Error('invalid_wb_card_source');
+      const codeSet=new Set(loadedWb);
+      const titles=new Map();
+      for(const item of result.items){
+        if(typeof item.vendorCode!=='string'||
+          typeof item.title!=='string'||!item.title||
+          item.physicalIdentityVerified!==false||
+          item.costTransferred!==false)throw Error('invalid_wb_card_source');
+        if(codeSet.has(item.vendorCode)){
+          if(titles.has(item.vendorCode))throw Error('invalid_wb_card_source');
+          titles.set(item.vendorCode,item.title);
+        }
+      }
+      wbCardTitles=titles;
+      rebuildGroups();
+      wbLookupStatus.textContent='Точные карточки WB прочитаны: '+
+        result.matchedCount+' из '+result.totalFinanceCodes+
+        ' финансовых артикулов; улучшены подсказки для '+
+        titles.size+' доступных в форме. Просмотр страниц WB: '+
+        result.pagesRead+'. '+
+        (result.fullyScanned?
+          'Выборка текущих карточек WB завершена.':
+          'Выборка ограничена: остальные коды не считаются отсутствующими.')+
+        ' Никакие пары не выбраны и не сохранены.';
+    }catch(error){
+      const messages={
+        wb_content_token_not_configured:
+          'Токен WB Content API не настроен в Pages. Нужны права «Контент» для чтения карточек. Финансовый токен менять не требуется.',
+        wb_content_scope_required:
+          'WB отклонил доступ: текущий токен не имеет категории «Контент» для чтения карточек. Нужен отдельный Content API токен.',
+        wb_content_api_rate_limited:
+          'WB ограничил запросы. Повторите позднее.',
+        wb_content_api_cursor_unavailable:
+          'WB не вернул корректный курсор для дальнейшего чтения. Данные не применены.'
+      };
+      wbLookupStatus.textContent=messages[error?.message]||
+        'Не удалось проверить карточки WB. Группы по прежним названиям сохранены; финансовые данные не менялись.';
+    }finally{wbLoading=false;wbLookupButton.disabled=!loadedWb.length;}
   });
   const drawLinks=data=>{
     rows.replaceChildren();
@@ -200,17 +271,9 @@ export function attachFinanceProductLinks({
       const ozonCosts=[...ozonOptions.values()]
         .sort((a,b)=>a.sku.localeCompare(b.sku,'ru'));
       loadedWb=wbArticles;loadedOzon=ozonCosts;
-      const suggestions=makeFinanceReviewGroups(wbArticles,ozonCosts);
-      reviewGroups=suggestions.groups;
-      ambiguousWb=suggestions.ambiguousWb;
-      ambiguousOzon=suggestions.ambiguousOzon;
-      setSelect(groupFilter,'Все товары WB и Ozon',
-        reviewGroups.map(g=>[
-          g.label+' · WB '+g.wbCount+' / Ozon '+g.ozonCount,
-          g.key
-        ]));
-      groupFilter.disabled=reviewGroups.length===0;
-      showFiltered();
+      rebuildGroups();
+      wbLookupButton.disabled=false;
+      wbLookupStatus.textContent='Можно уточнить названия WB через Content API. Запрос только по нажатию.';
       drawLinks(registry);
       status.textContent='Подтверждённых связей: '+registry.count+
         '. Доступных артикулов WB: '+wbArticles.length+
