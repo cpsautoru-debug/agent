@@ -88,6 +88,29 @@
       $('profitAdvertisingAudit').textContent=
         'Сверка рекламных начислений и внешнего регистра недоступна. Достоверный рекламный расход не подтверждён.';
     }
+    const closing=result.financeCloseout;
+    const closingValid=closing?.status==='not_verified'&&
+      closing.readOnly===true&&closing.changedRecords===0&&
+      closing.netProfitVerified===false&&
+      closing.bankStatementVerified===false&&
+      Array.isArray(closing.missing)&&
+      closing.checks&&typeof closing.checks==='object';
+    const checksRu={
+      apiReconciled:'Полная сверка начислений Ozon',
+      datedManufacturingCostVerified:'Себестоимость всех продаж по датам',
+      returnTreatmentReviewed:'Проверка возвратов',
+      expenseAllocationCalculated:'Распределение расходов',
+      advertisingSourceReconciled:'Сверка с рекламным кабинетом',
+      taxRegisterAudited:'Проверка налогового регистра',
+      bankStatementReconciled:'Сверка с банковской выпиской'
+    };
+    $('profitCloseoutChecklist').textContent=closingValid?
+      'Чистая прибыль НЕ ПОДТВЕРЖДЕНА. '+Object.entries(checksRu)
+        .map(([key,label])=>label+': '+
+          (closing.checks[key]===true?'Проверка расчёта пройдена':
+            'Требуется подтверждение')).join('; ')+
+        '. '+closing.note:
+      'Недостаточно данных для закрытия периода Ozon. Чистая прибыль не подтверждена.';
     $('profitStatus').textContent = 'Статус: ' + explain(result.profit?.status || 'unknown') + '\n' + [...(result.profit?.blockers || []),...(result.warnings || [])].map(v=>explain(v)).join('\n');
     $('profitReasons').textContent = ['API: покрытие '+(result.api?.coveredDays ?? 'неизвестно')+' / '+(result.api?.days ?? 'неизвестно')+' дней; нетто '+(result.api?.netVerified?'сверено':'не подтверждено')+'; детализация '+(result.api?.detailVerified?'сверена':'не подтверждена'), 'Себестоимость: '+(result.costs?.complete?'полная':'неполная'), 'Неизвестные SKU: '+(result.costs?.missingSkus || []).join(', '),'Нераспределённые расходы: '+money(result.allocation?.unallocatedKopecks),explain(result.allocation?.reason),'Налоговая база организации: '+money(result.tax?.baseKopecks)+'; АУСН «Доходы» 8%, оценка по организации: '+money(result.tax?.estimateKopecks)+'; статус: '+explain(result.tax?.status || 'unknown'),explain(result.tax?.reason)].filter(Boolean).join('\n');
     let skuReview=null;
