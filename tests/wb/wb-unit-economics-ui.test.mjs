@@ -23,7 +23,7 @@ test('WB section shows real per-SKU article economics and manual cost preview',(
   assert.match(html,/материалы \+ оплату швеи \+ оплату закройщика/);
   assert.match(html,/Упаковщик, водитель, управляющий, ОТК/);
   assert.match(html,/Аренда, коммунальные услуги, мусор/);
-  assert.match(html,/wb-unit-economics\.js\?v=20261121/);
+  assert.match(html,/wb-unit-economics\.js\?v=20261122-cogs-coverage/);
   assert.match(html,/wb-unit-economics\.css\?v=20261121/);
   assert.match(css,/\.wb-unit-columns/);
 });
