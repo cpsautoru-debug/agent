@@ -273,7 +273,7 @@ test('form is strictly no-cost, source-bound, and has one instance of each contr
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-wb-card-enrichment/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-safe-suggestions/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));
