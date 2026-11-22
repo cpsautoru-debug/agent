@@ -355,6 +355,22 @@
           <label class="finance-link-filter-label" for="financeLinksGroupFilter">Сузить список по модели и виду изделия (не подтверждение идентичности)</label>
           <select id="financeLinksGroupFilter" class="finance-link-filter" disabled><option value="">Все товары WB и Ozon</option></select>
           <p id="financeLinksGroupStatus" class="wb-monitor-meta" role="status">Группы появятся после загрузки. Для нераспознанных артикулов используй полный список.</p>
+          <section aria-label="Предложения для ручной сверки" class="finance-link-review">
+            <h4>Предложения WB ↔ Ozon · проверка идентичности</h4>
+            <p class="wb-monitor-meta">Балл — эвристический приоритет проверки, не вероятность совпадения и не разрешение сохранить связь. Фото, материал, крой и комплектация требуют отдельной проверки.</p>
+            <label for="financePairRankFilter">Показать предложения</label>
+            <select id="financePairRankFilter" class="finance-link-filter">
+              <option value="all">Все предложения</option>
+              <option value="high">Высокий балл (80–100)</option>
+              <option value="review">Требует проверки (60–79)</option>
+              <option value="sparse">Недостаточно данных (до 59)</option>
+            </select>
+            <div class="table-wrap"><table class="wb-unit-table">
+              <thead><tr><th>Артикул WB</th><th>SKU Ozon</th><th>Балл</th><th>Совпавшие признаки</th><th>Неизвестные признаки</th><th>Действие</th></tr></thead>
+              <tbody id="financePairSuggestionRows"><tr><td colspan="6">Сначала загрузи товары.</td></tr></tbody>
+            </table></div>
+            <p id="financePairUnmatched" class="wb-monitor-meta" role="status">Не распознаны: пока не проверено.</p>
+          </section>
           <div class="finance-wb-card-lookup">
             <button type="button" class="button light" id="financeWbCardLookupButton" disabled>Уточнить названия товаров WB через Content API</button>
             <p id="financeWbCardLookupStatus" class="wb-monitor-meta" role="status">Проверка названий WB запускается отдельно, по кнопке; не меняет товары и себестоимость.</p>
@@ -2000,6 +2016,6 @@
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
 <script type="module" src="/finance-cost-audit.mjs?v=20261122-sku-coverage"></script>
 <script type="module" src="/finance-ozon-sku-cards.mjs?v=20261122"></script>
-<script type="module" src="/finance-product-links-ui.mjs?v=20261122-safe-suggestions"></script>
+<script type="module" src="/finance-product-links-ui.mjs?v=20261122-review-table"></script>
 </body>
 </html>
