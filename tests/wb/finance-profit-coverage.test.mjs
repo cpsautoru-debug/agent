@@ -91,3 +91,22 @@ test('source with duplicate or malformed product cards fails closed',()=>{
   assert.throws(()=>auditOzonProfitSkuCoverage({
     profitEntries:profit,catalogEntries:null,expenses:[]}));
 });
+
+test('material delivery always requires reconciliation even when COGS says not included',()=>{
+  const d=auditOzonProfitSkuCoverage({
+    profitEntries:[{sku:'1606894548',validFrom:'2026-10-01',
+      validTo:null,costKopecks:319900,status:'confirmed',
+      leatherDeliveryIncluded:false}],
+    catalogEntries:[],
+    expenses:[{id:'delivery',label:'Доставка кожи',
+      amountKopecks:2000000,scope:'business',
+      validFrom:'2026-10-01',validTo:null,
+      leatherDelivery:false}]
+  });
+  assert.equal(d.materialDeliveryCandidates,1);
+  assert.equal(d.expensesReviewed[0].risk,
+    'material_delivery_requires_document_check');
+  assert.equal(d.anyProfitCostIncludesDelivery,false);
+  assert.equal(d.deliveryInCostUnknown,false);
+  assert.equal(d.expensesReviewed[0].bookedInUnifiedProfit,false);
+});
