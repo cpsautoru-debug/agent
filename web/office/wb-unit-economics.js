@@ -66,6 +66,7 @@
       !Array.isArray(data.articles)||data.articles.length>1200||
       !Number.isSafeInteger(data.completeReports)||
       !Number.isSafeInteger(data.pendingReports)||
+      !Number.isSafeInteger(data.mismatchedReports)||data.mismatchedReports<0||
       !Number.isSafeInteger(data.skuCount)||
       data.skuCount!==data.articles.length||
       !Number.isSafeInteger(data.bankPayoutKopecks)||
@@ -117,6 +118,7 @@
     el('wbUnitNetProfit').textContent='Не рассчитана';
     el('wbUnitScope').textContent='Сверено '+number(data.completeReports)+
       ' отчётов; в очереди '+number(data.pendingReports)+
+      ', с расхождениями '+number(data.mismatchedReports)+
       '. Это периоды закрытых отчётов WB, а не полный календарный месяц. '+
       'Нераспределённые операции без артикула: '+rub(data.unassignedPayoutKopecks)+
       '; удержания без артикула: '+rub(data.unassignedFeesKopecks)+'.';
@@ -129,6 +131,8 @@
         number(data.preliminaryCostSoldUnits)+', с конфликтом периода '+
         number(data.versionConflictSoldUnits)+'. ':'')+
       (data.knownReturnUnits?'Возвраты требуют подтверждения состояния. ':'')+
+      (data.mismatchedReports?number(data.mismatchedReports)+
+        ' отчётов WB имеют расхождение и НЕ включены в подтверждённую сумму. ':'')+
       (data.unreconciledAdditionalFieldsKopecks?
         'Есть дополнительные поля WB, которые не входят в подтверждённую формулу сверки. ':'');
     table.replaceChildren();
@@ -170,7 +174,10 @@
     costMessage.textContent=data.costRegistry==='ready'?
       'Введите подтверждённую себестоимость, нажмите «Проверить запись», затем подтвердите сохранение.':
       'Для записи себестоимости требуется однократно применить миграцию migrations/wb/0007_wb_profit_unit_costs.sql к тестовой D1 WB. Расшифровка продаж работает без неё.';
-    status('WB по артикулам: сверка выплат пройдена. Чистая прибыль ещё не подтверждена.'+
+    status('WB: сверка пройдена только по завершённым отчётам. '+
+      (data.mismatchedReports?'Есть '+number(data.mismatchedReports)+
+        ' отчётов с расхождениями, они не сверены. ':'')+
+      'Чистая прибыль ещё не подтверждена.'+
       (data.costRegistry==='migration_required'?' Справочник себестоимости пока не создан.':''),false);
   };
   const clearPreview=()=>{
