@@ -1,4 +1,5 @@
 // Read-only finance coverage. No automatic mutations and no WB/Ozon sync calls.
+import {assessFinanceCloseout} from './finance-closeout-core.mjs';
 const rub=n=>new Intl.NumberFormat('ru-RU',{
   style:'currency',currency:'RUB'
 }).format(n/100);
@@ -65,9 +66,15 @@ export function renderUnifiedCostAudit(documentRef,data){
     data.ozonProfit.version+', версия расходов '+data.expenses.version+
     '. Точных совпадений кодов (только кандидаты): '+
     data.possibleArticleLinks.length+'. Признак одной модели, дата действия и состав стоимости должны быть подтверждены отдельно.';
-  $('financeAuditWarnings').textContent=data.blockers
-    .map(x=>WARNINGS[x]||'Есть непроверенный источник данных.')
-    .filter((x,i,a)=>a.indexOf(x)===i).join(' ');
+  const closeout=assessFinanceCloseout(data);
+  $('financeAuditWarnings').textContent=
+    'ЗАКРЫТИЕ ПЕРИОДА: WB — НЕ ПОДТВЕРЖДЕНО. Причины: '+
+    closeout.wbReasons.join(' ')+
+    ' OZON — НЕ ПОДТВЕРЖДЕНО. Причины: '+
+    closeout.ozonReasons.join(' ')+
+    ' Другие ограничения: '+
+    data.blockers.map(x=>WARNINGS[x]||'Есть непроверенный источник данных.')
+      .filter((x,i,a)=>a.indexOf(x)===i).join(' ');
   const node=(tag,value)=>{
     const n=documentRef.createElement(tag);
     if(value!==undefined)n.textContent=String(value);
