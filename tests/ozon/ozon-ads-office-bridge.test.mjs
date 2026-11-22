@@ -1,0 +1,99 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createSession} from '../../functions/api/auth/session.js';
+import {createOzonAdsExpenseHandler} from '../../functions/api/ozon/ads-expense.js';
+import {describeOzonAdsEvidence} from '../../web/office/ozon-ads-evidence.mjs';
+import {readFileSync} from 'node:fs';
+const SECRET='test-office-session-secret-secret-secret';
+const MONTH='2026-10';
+const url='https://autosklad63-office-staging.pages.dev/api/ozon/ads-expense?month='+MONTH;
+const envelope={
+ code:'ozon_expense_source_preview',source:'OZON_PERFORMANCE_API',
+ month:MONTH,readOnly:true,changedRecords:0,
+ recordCount:10,fieldNames:['date','campaignId'],
+ totalExpenseKopecks:null,monetaryTotalsVerified:false,
+ reconciledToFinance:false
+};
+const env=(allowed=1)=>({
+ OFFICE_SESSION_SECRET:SECRET,OFFICE_ALLOWED_EMAIL:'owner@example.com',
+ ADS_READ_TOKEN:'X'.repeat(48),
+ OZON_FINANCE_DB:{prepare(sql){assert.match(sql,/office_authorized_users/);
+ return {bind(sub,email){assert.equal(sub,'test-owner');
+ assert.equal(email,'owner@example.com');return {first:async()=>({allowed})}}}}}
+});
+async function req(path=url){
+ const cookie=(await createSession('test-owner',SECRET)).split(';')[0];
+ return new Request(path,{headers:{cookie}});
+}
+const makeFetch=(data=envelope,status=200,spy=[])=>async (address,init)=>{
+ spy.push({address,init});
+ return new Response(JSON.stringify(data),{
+ status,headers:{'content-type':'application/json'}
+ });
+};
+test('owner receives only allowlisted source evidence; not an advertising amount',async()=>{
+ const calls=[];const handler=createOzonAdsExpenseHandler({
+   fetcher:makeFetch(envelope,200,calls),
+   now:()=>Date.UTC(2026,10,22)
+ });
+ const response=await handler({request:await req(),env:env()});
+ assert.equal(response.status,200);
+ const body=await response.json();
+ assert.equal(body.recordCount,10);
+ assert.equal(body.totalExpenseKopecks,null);
+ assert.equal(body.monetaryTotalsVerified,false);
+ assert.equal(body.reconciledToFinance,false);
+ assert.equal(calls.length,1);
+ const addr=new URL(calls[0].address);
+ assert.equal(addr.origin,'https://autosklad63-ozon-ads-staging.cpsautoru.workers.dev');
+ assert.equal(addr.pathname,'/api/internal/expense');
+ assert.equal(addr.searchParams.get('month'),MONTH);
+ assert.equal(calls[0].init.headers.authorization,'Bearer '+'X'.repeat(48));
+ assert.equal(JSON.stringify(body).includes('XXXXX'),false);
+});
+test('unauthenticated and forbidden requests never reach Worker',async()=>{
+ let n=0;const handler=createOzonAdsExpenseHandler({
+   now:()=>Date.UTC(2026,10,22),
+   fetcher:async()=>{n++;throw Error('should not reach')}
+ });
+ assert.equal((await handler({request:new Request(url),env:env()})).status,401);
+ assert.equal((await handler({request:await req(),env:env(0)})).status,403);
+ assert.equal(n,0);
+});
+test('missing secret and invalid periods fail closed',async()=>{
+ const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22),
+ fetcher:async()=>{throw Error('unexpected')}});
+ const missing=env();delete missing.ADS_READ_TOKEN;
+ assert.equal((await handler({request:await req(),env:missing})).status,503);
+ assert.equal((await handler({request:await req(url.replace(MONTH,'2026-11')),env:env()})).status,400);
+ assert.equal((await handler({request:await req(url+'&other=1'),env:env()})).status,400);
+});
+test('untrusted upstream financial totals cannot pass schema validation',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+ now:()=>Date.UTC(2026,10,22),
+ fetcher:makeFetch({...envelope,monetaryTotalsVerified:true,
+ totalExpenseKopecks:100000})
+ });
+ assert.equal((await handler({request:await req(),env:env()})).status,503);
+});
+test('upstream errors never leak response or authentication secrets',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+ now:()=>Date.UTC(2026,10,22),
+ fetcher:makeFetch({error:'private data'},503)
+ });
+ const result=await handler({request:await req(),env:env()});
+ assert.equal(result.status,503);
+ assert.deepEqual(await result.json(),{code:'ozon_ads_source_unavailable'});
+});
+test('UI renders source status without calling profit mutations',()=>{
+ assert.match(describeOzonAdsEvidence({
+ ...envelope,code:'ozon_ads_office_preview'},MONTH),/НЕ СВЕРЕНЫ/);
+ assert.throws(()=>describeOzonAdsEvidence({
+ ...envelope,code:'ozon_ads_office_preview',monetaryTotalsVerified:true},MONTH));
+ const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
+ const js=readFileSync(new URL('../../web/office/ozon-ads-evidence.mjs',import.meta.url),'utf8');
+ assert.match(html,/id="profitOzonAdsApiRefresh"/);
+ assert.match(html,/id="profitOzonAdsApiStatus"/);
+ assert.match(js,/\/api\/ozon\/ads-expense/);
+ assert.doesNotMatch(js,/method:'POST'|localStorage|innerHTML/);
+});

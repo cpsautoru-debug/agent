@@ -135,6 +135,12 @@
         <p id="profitMessage" role="status" aria-live="polite"></p>
         <div id="profitCards" class="profit-cards"></div>
         <article class="profit-panel"><h2>Готовность расчёта</h2><p id="profitStatus" class="profit-status">Данные ещё не загружены.</p><p id="profitReasons" class="profit-status"></p><h3>Проверка закрытия финансового периода</h3><p id="profitCloseoutChecklist" class="profit-status" role="status">Период ещё не проверен. Чистая прибыль не подтверждена.</p><p id="profitReportStatus"></p><p>Продажи и возвраты показаны до удержаний. Сальдо API уже включает комиссии и услуги Ozon: повторно они не вычитаются. Ниже — расшифровка по группам исходного отчёта.</p><details><summary>Продажи, возвраты и удержания Ozon · расшифровка сальдо API</summary><div class="profit-scroll"><table><thead><tr><th>Группа</th><th>Сумма</th></tr></thead><tbody id="profitGroupRows"></tbody></table></div></details><details><summary>Кандидаты в дубли · номера строк</summary><pre id="profitDuplicates"></pre></details></article>
+        <article class="profit-panel" aria-label="Ozon Performance API — проверка подключения">
+          <h2>Реклама Ozon · источник Performance API</h2>
+          <button type="button" class="button light" id="profitOzonAdsApiRefresh">Проверить рекламный API за выбранный месяц</button>
+          <p id="profitOzonAdsApiStatus" role="status">Рекламный API ещё не проверен. Суммы не считаются нулевыми.</p>
+          <p>Ответ проверяется на сервере с доступом владельца. До сверки операций и начислений денежные суммы не включаются в прибыль.</p>
+        </article>
         <article class="profit-panel" aria-label="Проверка рекламы Ozon">
           <h2>Реклама Ozon · риск двойного списания</h2>
           <p id="profitAdvertisingAudit" role="status">Данные рекламных расходов пока не сверены. Отсутствие сведений не означает нулевые расходы.</p>
@@ -2050,6 +2056,7 @@
 <script src="ozon-finance.js" defer></script>
 <script type="module" src="ozon-sku-cost-evidence.mjs?v=20261122"></script>
 <script src="profit.js?v=20261122-closeout-gates" defer></script>
+<script type="module" src="ozon-ads-evidence.mjs?v=20261122-office-bridge"></script>
 <script src="ozon-xlsx-import.js" defer></script>
 
 <script src="/wb-import-preview.js?v=wb-multi-period-2" defer></script>
