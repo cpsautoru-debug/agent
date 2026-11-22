@@ -1,0 +1,23 @@
+name: WB Ozon Finance Closeout Gates Check
+on:
+  push:
+    branches:
+      - feature/finance-closeout-gates-20261122
+  pull_request:
+    paths:
+      - 'web/office/finance-closeout-core.mjs'
+      - 'web/office/finance-cost-audit.mjs'
+      - 'tests/wb/finance-closeout-gates.test.mjs'
+      - '.github/workflows/finance-closeout-gates-check.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Finance closeout gates
+        run: node --test tests/wb/finance-closeout-gates.test.mjs
