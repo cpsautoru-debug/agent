@@ -34,6 +34,12 @@ export function suggestFinancePairs(wbArticles,ozonOptions,wbCardTitles=new Map(
   if(!Array.isArray(wbArticles)||!Array.isArray(ozonOptions)||
     !(wbCardTitles instanceof Map)||wbArticles.length>2000||
     ozonOptions.length>2000)throw Error('suggestion_catalog_invalid');
+  // Validate both sources before matching; an empty opposite catalog must not
+  // hide malformed identities.
+  for(const item of ozonOptions){
+    if(typeof item?.sku!=='string'||typeof item.name!=='string')
+      throw Error('suggestion_ozon_invalid');
+  }
   const suggestions=[];
   for(const article of wbArticles){
     if(typeof article!=='string')throw Error('suggestion_article_invalid');
