@@ -1,0 +1,20 @@
+name: Ozon Ads Worker Staging Security
+on:
+  push:
+    branches:
+      - feature/ozon-performance-expense-worker-staging-20261122
+  pull_request:
+    paths:
+      - 'workers/ozon-ads-staging.js'
+      - 'tests/ozon/ozon-ads-worker.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ozon/ozon-ads-worker.test.mjs
