@@ -1,6 +1,9 @@
 import {
   validateFinanceProductLinkDraft
 } from './finance-product-links-core.mjs';
+import {
+  makeFinanceReviewGroups
+} from './finance-link-review-groups.mjs';
 
 // Verified identity is owner-provided, not inferred. Read-only until explicit
 // preview + signed confirm. Existing WB/Ozon prices are never edited.
@@ -13,11 +16,14 @@ export function attachFinanceProductLinks({
     'financeLinksWb','financeLinksOzon','financeLinksFrom',
     'financeLinksEvidence','financeLinksSame','financeLinksNoCost',
     'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
-    'financeLinksRows'];
+    'financeLinksRows','financeLinksGroupFilter',
+    'financeLinksGroupStatus'];
   if(!fetchData||ids.some(id=>!$(id)))return false;
   const [loadButton,status,form,wb,ozon,from,evidence,same,noCost,
-    previewButton,saveButton,previewStatus,rows]=ids.map($);
+    previewButton,saveButton,previewStatus,rows,groupFilter,
+    groupStatus]=ids.map($);
   let loading=false,saving=false,receipt=null,ready=false;
+  let loadedWb=[],loadedOzon=[],reviewGroups=[],ambiguousWb=0,ambiguousOzon=0;
   const make=(tag,content)=>{
     const el=documentRef.createElement(tag);
     if(content!==undefined)el.textContent=String(content);
@@ -60,7 +66,44 @@ export function attachFinanceProductLinks({
     ozon_sku_card_not_found:'SKU не найден в подключённом кабинете Ozon.',
     ozon_identity_rate_limited:'Ozon временно ограничил API. Попробуй позже.'
   };
-  const reset=()=>{ready=false;previewButton.disabled=true;clear();};
+  const reset=()=>{
+    ready=false;previewButton.disabled=true;clear();
+    loadedWb=[];loadedOzon=[];reviewGroups=[];
+    ambiguousWb=0;ambiguousOzon=0;
+    groupFilter.disabled=true;
+    setSelect(groupFilter,'Все товары WB и Ozon',[]);
+    groupStatus.textContent='Группы ещё не загружены.';
+  };
+  const showFiltered=()=>{
+    clear();
+    const group=reviewGroups.find(g=>g.key===groupFilter.value);
+    const visibleWb=group?loadedWb.filter(s=>group.wbArticles.includes(s)):
+      loadedWb;
+    const visibleOzon=group?loadedOzon.filter(o=>group.ozonSkus.includes(o.sku)):
+      loadedOzon;
+    setSelect(wb,'Выбрать артикул WB',
+      visibleWb.map(x=>[x,x]));
+    setSelect(ozon,'Выбрать SKU Ozon',
+      visibleOzon.map(x=>[
+        x.sku+' · '+x.name+
+          (x.source==='seller_api'?' · карточка Seller API':''),
+        x.sku
+      ]));
+    ready=visibleWb.length>0&&visibleOzon.length>0;
+    previewButton.disabled=!ready;
+    groupStatus.textContent=group?
+      'Для проверки, НЕ подтверждено: '+group.label+
+      '. Артикулов WB: '+visibleWb.length+
+      ', SKU Ozon: '+visibleOzon.length+
+      '. Подбор только по модели и типу, материалы, цвет, крой и комплектацию проверь отдельно.':
+      'Показаны все загруженные товары. Групп с общими моделью и типом: '+
+      reviewGroups.length+'. Не распознаны однозначно: WB '+ambiguousWb+
+      ', Ozon '+ambiguousOzon+
+      '. Это не отсутствие товара и не нулевая себестоимость.';
+  };
+  groupFilter.addEventListener('change',()=>{
+    if(!loading&&!saving)showFiltered();
+  });
   const drawLinks=data=>{
     rows.replaceChildren();
     for(const link of data.links){
@@ -156,15 +199,19 @@ export function attachFinanceProductLinks({
       }
       const ozonCosts=[...ozonOptions.values()]
         .sort((a,b)=>a.sku.localeCompare(b.sku,'ru'));
-      setSelect(wb,'Выбрать артикул WB',wbArticles.map(x=>[x,x]));
-      setSelect(ozon,'Выбрать SKU Ozon',ozonCosts.map(x=>[
-        x.sku+' · '+x.name+
-          (x.source==='seller_api'?' · карточка Seller API':''),
-        x.sku
-      ]));
+      loadedWb=wbArticles;loadedOzon=ozonCosts;
+      const suggestions=makeFinanceReviewGroups(wbArticles,ozonCosts);
+      reviewGroups=suggestions.groups;
+      ambiguousWb=suggestions.ambiguousWb;
+      ambiguousOzon=suggestions.ambiguousOzon;
+      setSelect(groupFilter,'Все товары WB и Ozon',
+        reviewGroups.map(g=>[
+          g.label+' · WB '+g.wbCount+' / Ozon '+g.ozonCount,
+          g.key
+        ]));
+      groupFilter.disabled=reviewGroups.length===0;
+      showFiltered();
       drawLinks(registry);
-      ready=wbArticles.length>0&&ozonCosts.length>0;
-      previewButton.disabled=!ready;
       status.textContent='Подтверждённых связей: '+registry.count+
         '. Доступных артикулов WB: '+wbArticles.length+
         '; всего доступных SKU Ozon: '+ozonCosts.length+
