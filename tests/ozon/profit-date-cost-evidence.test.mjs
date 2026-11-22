@@ -64,7 +64,7 @@ test('office renders an evidence table, not a claim of audited profit',()=>{
   const ui=readFileSync(new URL('../../web/office/profit.js',import.meta.url),'utf8');
   assert.match(html,/id="profitDateCostEvidenceRows"/);
   assert.match(html,/id="profitDateCostEvidenceStatus"/);
-  assert.match(html,/profit.js\?v=20261122-ad-overlap/);
+  assert.match(html,/profit.js\?v=20261122-closeout-gates/);
   assert.match(ui,/dated\.confirmedSalesRows/);
   assert.match(ui,/Возвраты проверяются отдельно/);
   assert.match(ui,/Построчная сверка|построчная сверка/);

@@ -62,7 +62,7 @@ test('Ozon advertising UI remains informational and read-only',()=>{
   const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../../web/office/profit.js',import.meta.url),'utf8');
   assert.match(html,/id="profitAdvertisingAudit"/);
-  assert.match(html,/profit.js\?v=20261122-ad-overlap/);
+  assert.match(html,/profit.js\?v=20261122-closeout-gates/);
   assert.match(ui,/advertising_overlap_unverified/);
   assert.match(ui,/ad\.advertisingSpendVerified===false/);
 });
