@@ -8,6 +8,7 @@
   if(!root)return;
   const ids=['wbUnitRefresh','wbUnitStatus','wbUnitRows','wbUnitCompleted',
     'wbUnitSkus','wbUnitPayout','wbUnitKnownCogs','wbUnitMissingCost',
+    'wbUnitUnverifiedCost',
     'wbUnitNetProfit','wbUnitScope','wbUnitBlockers','wbUnitCostForm',
     'wbUnitCostVendor','wbUnitCostAmount','wbUnitCostFrom',
     'wbUnitCostSource','wbUnitCostStatus','wbUnitCostAttestation',
@@ -40,7 +41,7 @@
   };
   const reset=()=>{
     for(const id of ['wbUnitCompleted','wbUnitSkus','wbUnitPayout',
-      'wbUnitKnownCogs','wbUnitMissingCost'])el(id).textContent='—';
+      'wbUnitKnownCogs','wbUnitMissingCost','wbUnitUnverifiedCost'])el(id).textContent='—';
     el('wbUnitNetProfit').textContent='Не рассчитана';
     el('wbUnitScope').textContent='Данные из WB ещё не подтверждены.';
     el('wbUnitBlockers').textContent='Недостаточно подтверждённых данных.';
@@ -70,6 +71,13 @@
       !Number.isSafeInteger(data.bankPayoutKopecks)||
       !Number.isSafeInteger(data.totalKnownManufacturingCogsKopecks)||
       !Number.isSafeInteger(data.missingCostSoldUnits)||
+      !Number.isSafeInteger(data.unverifiedCostSoldUnits)||
+      !Number.isSafeInteger(data.preliminaryCostSoldUnits)||
+      !Number.isSafeInteger(data.versionConflictSoldUnits)||
+      data.costEvidenceScope!=='SOLD_UNITS_IN_COMPLETED_REPORTS_NOT_CALENDAR_MONTH'||
+      data.unverifiedCostSoldUnits<data.missingCostSoldUnits||
+      data.unverifiedCostSoldUnits<
+        data.preliminaryCostSoldUnits+data.versionConflictSoldUnits||
       !Number.isSafeInteger(data.unassignedPayoutKopecks)||
       !Number.isSafeInteger(data.unassignedFeesKopecks)||
       data.reconciliation!=='matched'||
@@ -83,6 +91,9 @@
         !Number.isSafeInteger(x.platformFeesKopecks)||
         !Number.isSafeInteger(x.knownManufacturingCogsKopecks)||
         !Number.isSafeInteger(x.unknownSoldUnits)||
+        !Number.isSafeInteger(x.unverifiedCostSoldUnits)||
+        !Number.isSafeInteger(x.preliminaryCostSoldUnits)||
+        !Number.isSafeInteger(x.versionConflictSoldUnits)||
         !Array.isArray(x.blockers)||
         x.netProfitKopecks!==null||
         (x.contributionAfterKnownCogsKopecks!==null&&
@@ -102,6 +113,7 @@
       rub(data.totalKnownManufacturingCogsKopecks)+
       (data.missingCostSoldUnits?' (неполная)':'');
     el('wbUnitMissingCost').textContent=number(data.missingCostSoldUnits);
+    el('wbUnitUnverifiedCost').textContent=number(data.unverifiedCostSoldUnits);
     el('wbUnitNetProfit').textContent='Не рассчитана';
     el('wbUnitScope').textContent='Сверено '+number(data.completeReports)+
       ' отчётов; в очереди '+number(data.pendingReports)+
@@ -111,8 +123,11 @@
     el('wbUnitBlockers').textContent='Для чистой прибыли не хватает: '+
       'подтверждённых расходов рекламы, налогового регистра, распределения '+
       'зарплат упаковщика/водителя/управляющего, аренды и остальных накладных затрат. '+
-      (data.missingCostSoldUnits?'Также не подтверждена себестоимость '+number(
-        data.missingCostSoldUnits)+' проданных единиц. ':'')+
+      (data.unverifiedCostSoldUnits?'Без документально подтверждённой себестоимости: '+
+        number(data.unverifiedCostSoldUnits)+' проданных единиц, в том числе без цены '+
+        number(data.missingCostSoldUnits)+', с предварительной ценой '+
+        number(data.preliminaryCostSoldUnits)+', с конфликтом периода '+
+        number(data.versionConflictSoldUnits)+'. ':'')+
       (data.knownReturnUnits?'Возвраты требуют подтверждения состояния. ':'')+
       (data.unreconciledAdditionalFieldsKopecks?
         'Есть дополнительные поля WB, которые не входят в подтверждённую формулу сверки. ':'');
