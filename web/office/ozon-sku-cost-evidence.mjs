@@ -35,3 +35,5 @@ export function reviewOzonSkuCostEvidence(rows){
     returnRecoveryVerified:false,finalProfitVerified:false
   };
 }
+
+if(typeof window!=='undefined')window.OzonSkuCostReview={reviewOzonSkuCostEvidence};
