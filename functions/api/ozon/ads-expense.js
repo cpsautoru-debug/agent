@@ -16,7 +16,7 @@ function closedMonth(m,now=Date.now()){
   const [year,mon]=m.split('-').map(Number);
   return Date.UTC(year,mon,0)<now;
 }
-export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
+export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
   return async function onRequestGet({request,env}){
     if(request.method!=='GET')return respond(405,{code:'method_not_allowed'});
     const url=new URL(request.url);
@@ -41,10 +41,14 @@ export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
       return respond(503,{code:'ads_bridge_secret_missing'});
     if(env.ADS_READ_TOKEN.length<32)
       return respond(503,{code:'ads_bridge_secret_too_short'});
+    // Internal Cloudflare Service Binding avoids unreliable same-account
+    // workers.dev HTTP subrequests. Fail closed until Pages Production binds it.
+    if(!env?.OZON_ADS_WORKER||typeof env.OZON_ADS_WORKER.fetch!=='function')
+      return respond(503,{code:'ads_service_binding_missing'});
     try{
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
-      const result=await fetcher(upstream.toString(),{
+      const result=await (fetcher||env.OZON_ADS_WORKER.fetch.bind(env.OZON_ADS_WORKER))(upstream.toString(),{
         method:'GET',redirect:'error',
         headers:{authorization:'Bearer '+env.ADS_READ_TOKEN,accept:'application/json'},
         signal:AbortSignal.timeout(17000)
