@@ -2,6 +2,7 @@
 // This is not yet a canonical write ledger. There is no automatic cross-channel
 // cost transfer: a WB article and Ozon SKU must be explicitly verified.
 import {validateUnitCost} from './wb-unit-economics-core.mjs';
+import {auditOzonProfitSkuCoverage} from './finance-profit-coverage-core.mjs';
 const valid=(x,max)=>typeof x==='string'&&x.trim().length>0&&
   x.length<=max&&!/[\u0000-\u001f\u007f]/u.test(x);
 const safe=x=>Number.isSafeInteger(x)&&x>0&&x<=100000000;
@@ -62,7 +63,8 @@ export function auditUnifiedCostSources({
         throw Error('ozon_profit_cost_document_invalid');
       return {sku:row.sku,validFrom:row.validFrom,
         validTo:row.validTo,costKopecks:row.costKopecks,
-        status:row.status,source:row.source};
+        status:row.status,source:row.source,
+        leatherDeliveryIncluded:row.leatherDeliveryIncluded};
     });
   })();
   for(let i=0;i<ozonProfit.length;i++)for(let j=i+1;j<ozonProfit.length;j++){
@@ -89,6 +91,8 @@ export function auditUnifiedCostSources({
         throw Error('ozon_shared_expenses_document_invalid');
       seen.add(item.id);
       return {id:item.id,label:item.label,scope:item.scope,
+        amountKopecks:item.amountKopecks,
+        leatherDelivery:item.leatherDelivery===true,
         validFrom:item.validFrom,validTo:item.validTo};
     });
   })();
@@ -113,6 +117,9 @@ export function auditUnifiedCostSources({
       sameNominalCost:ref?ref.costKopecks===row.costKopecks:null,
       sellerArticle:ref?.sellerArticle??null};
   });
+  const coverage=auditOzonProfitSkuCoverage({
+    profitEntries:ozonProfit,catalogEntries:ozonCatalog,expenses:expenseItems
+  });
   const blockers=['wb_ozon_link_not_confirmed',
     'advertising_not_integrated','tax_registry_not_integrated',
     'shared_expense_allocation_not_integrated'];
@@ -127,6 +134,12 @@ export function auditUnifiedCostSources({
     blockers.push('preliminary_costs_present');
   if(profitCrosschecks.some(x=>x.sameNominalCost===false))
     blockers.push('ozon_cost_sources_disagree');
+  if(coverage.profitOnlySkuCount>0)
+    blockers.push('ozon_profit_sku_cards_missing');
+  if(coverage.catalogOnlySkuCount>0)
+    blockers.push('ozon_catalog_sku_profit_missing');
+  if(coverage.materialDeliveryCandidates>0)
+    blockers.push('material_delivery_possible_double_count');
   return {
     code:'unified_finance_source_audit',readOnly:true,changedRecords:0,
     source:'WB_D1_PLUS_OZON_COSTS_PLUS_OZON_PROFIT_RPC',month,
@@ -151,6 +164,7 @@ export function auditUnifiedCostSources({
       items:expenseItems},
     possibleArticleLinks:exact.sort((a,b)=>sort(a.sellerArticle,b.sellerArticle)),
     ozonProfitCrosschecks:profitCrosschecks,
+    skuCoverage:coverage,
     netProfitKopecks:null,canonicalSharedCatalogReady:false,
     blockers
   };

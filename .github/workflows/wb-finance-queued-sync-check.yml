@@ -16,6 +16,8 @@ on:
       - 'tests/wb/finance-product-links-ui.test.mjs'
       - 'migrations/0005_finance_product_links.sql'
       - 'web/office/unified-cost-audit-core.mjs'
+      - 'web/office/finance-profit-coverage-core.mjs'
+      - 'tests/wb/finance-profit-coverage.test.mjs'
       - 'web/office/finance-cost-audit.mjs'
       - 'tests/wb/unified-cost-audit-core.test.mjs'
       - 'tests/wb/unified-cost-audit-api.test.mjs'
@@ -100,6 +102,8 @@ jobs:
           assert db.execute("SELECT count(*) FROM office_finance_product_links").fetchone()[0] == 1
           PY
       - run: node --check web/office/unified-cost-audit-core.mjs
+      - run: node --check web/office/finance-profit-coverage-core.mjs
+      - run: node --test tests/wb/finance-profit-coverage.test.mjs
       - run: node --check web/office/finance-cost-audit.mjs
       - run: node --test tests/wb/unified-cost-audit-core.test.mjs tests/wb/unified-cost-audit-api.test.mjs tests/wb/unified-cost-audit-ui.test.mjs
       - run: node --check functions/api/wb/unit-costs.js
