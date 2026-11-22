@@ -46,15 +46,22 @@ export function classifyFinanceProductLabel(label){
     label:model.label+' · '+(kind==='seat'?'авточехлы':'дверные вставки'),
     model:model.id,kind};
 }
-export function makeFinanceReviewGroups(wbArticles,ozonOptions){
+export function makeFinanceReviewGroups(wbArticles,ozonOptions,wbCardTitles=new Map()){
   if(!Array.isArray(wbArticles)||wbArticles.length>2000||
-    !Array.isArray(ozonOptions)||ozonOptions.length>2000)
+    !Array.isArray(ozonOptions)||ozonOptions.length>2000||
+    !(wbCardTitles instanceof Map)||wbCardTitles.size>2000)
     throw Error('review_catalog_invalid');
   const groups=new Map();
   let ambiguousWb=0,ambiguousOzon=0;
   for(const article of wbArticles){
     if(typeof article!=='string')throw Error('review_wb_invalid');
-    const found=classifyFinanceProductLabel(article);
+    const cardTitle=wbCardTitles.get(article);
+    if(cardTitle!==undefined&&
+      (typeof cardTitle!=='string'||cardTitle.length>600))
+      throw Error('review_wb_card_invalid');
+    const found=classifyFinanceProductLabel(
+      cardTitle?cardTitle+' · '+article:article
+    );
     if(!found){ambiguousWb++;continue;}
     const group=groups.get(found.key)||{
       ...found,wbArticles:[],ozonSkus:[]
