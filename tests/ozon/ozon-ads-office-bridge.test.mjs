@@ -150,6 +150,25 @@ test('default handler invokes service binding directly with Request',async()=>{
  assert.equal(new URL(calls[0].url).pathname,'/api/internal/expense');
  assert.equal(calls[0].authorization,'Bearer '+'X'.repeat(48));
 });
+test('binding exception categories are sanitized without raw messages',async()=>{
+ const messages=[
+  ['Entrypoint default is not exported','ozon_ads_binding_entrypoint_error'],
+  ['fetch failed: socket unreachable','ozon_ads_binding_network_error'],
+  ['request is invalid','ozon_ads_binding_type_error']
+ ];
+ for(const [message,code] of messages){
+   const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
+   const current=env();
+   current.OZON_ADS_WORKER={fetch:async()=>{
+     throw new TypeError(message);
+   }};
+   const result=await handler({request:await req(),env:current});
+   assert.equal(result.status,503);
+   const body=await result.json();
+   assert.equal(body.code,code);
+   assert.equal(JSON.stringify(body).includes(message),false);
+ }
+});
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({
  ...envelope,code:'ozon_ads_office_preview'},MONTH),/НЕ СВЕРЕНЫ/);
