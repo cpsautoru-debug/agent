@@ -17,6 +17,8 @@ on:
       - 'functions/api/finance/product-links.js'
       - 'web/office/finance-product-links-core.mjs'
       - 'web/office/finance-product-links-ui.mjs'
+      - 'web/office/finance-link-review-groups.mjs'
+      - 'tests/wb/finance-link-review-groups.test.mjs'
       - 'tests/wb/finance-product-links-core.test.mjs'
       - 'tests/wb/finance-product-links-api.test.mjs'
       - 'tests/wb/finance-product-links-ui.test.mjs'
@@ -87,6 +89,8 @@ jobs:
       - run: node --check functions/api/finance/product-links.js
       - run: node --check web/office/finance-product-links-core.mjs
       - run: node --check web/office/finance-product-links-ui.mjs
+      - run: node --check web/office/finance-link-review-groups.mjs
+      - run: node --test tests/wb/finance-link-review-groups.test.mjs
       - run: node --test tests/wb/finance-product-links-core.test.mjs tests/wb/finance-product-links-api.test.mjs tests/wb/finance-product-links-ui.test.mjs
       - name: Verify additive finance links migration is valid and immutable
         run: |
