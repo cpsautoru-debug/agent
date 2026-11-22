@@ -1774,6 +1774,14 @@
           </div>
           <button type="button" class="ms-production-button" id="msProductionRefresh">Обновить из «МойСклад»</button>
         </div>
+        <div class="ms-production-search">
+          <label for="msProductionSort">Порядок просмотра заданий</label>
+          <select id="msProductionSort" class="finance-link-filter">
+            <option value="updated" selected>Недавно изменённые</option>
+            <option value="moment">По дате создания</option>
+          </select>
+          <span class="ms-production-note">Получаем номера автоматически. Это исторические документы, а не подтверждённая активная очередь.</span>
+        </div>
         <form class="ms-production-search" id="msProductionSearchForm">
           <label for="msProductionNumber">Номер задания</label>
           <input type="text" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10"
@@ -1991,7 +1999,7 @@
 <script src="app.js" defer></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
-<script type="module" src="ms-production.js"></script>
+<script type="module" src="ms-production.js?v=20261122-recent"></script>
 <script type="module" src="ms-inventory-control.mjs"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
