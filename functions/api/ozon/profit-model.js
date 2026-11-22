@@ -126,7 +126,7 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   // A charged advertising service may already be part of the Ozon API net.
   // A matching-looking manual expense is a possible duplicate, never an
   // authorization to subtract it twice. Name matching is only a risk signal.
-  const adLabel=/(?:реклам|продвижен|оплат[ауы] за клик|трафик|\\b(?:cpc|cpm|pay.per.click)\\b)/iu;
+  const adLabel=/(?:реклам|продвижен|оплат[ауы] за клик|трафик|(?:cpc|cpm|pay.per.click))/iu;
   const reportAdRows=(d?.rows||[]).filter(r=>
     r.service!=='Выручка'&&r.service!=='Возврат выручки'&&
     (adLabel.test(r.service)||adLabel.test(r.group)));
