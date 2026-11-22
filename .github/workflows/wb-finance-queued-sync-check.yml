@@ -8,6 +8,12 @@ on:
       - 'functions/api/wb/auto-sync-status.js'
       - 'functions/api/wb/unit-economics.js'
       - 'functions/api/finance/cost-audit.js'
+      - 'functions/api/finance/ozon-sku-cards.js'
+      - 'web/office/finance-ozon-sku-lookup-core.mjs'
+      - 'web/office/finance-ozon-sku-cards.mjs'
+      - 'tests/wb/finance-ozon-sku-lookup-core.test.mjs'
+      - 'tests/wb/finance-ozon-sku-cards-api.test.mjs'
+      - 'tests/wb/finance-ozon-sku-cards-ui.test.mjs'
       - 'functions/api/finance/product-links.js'
       - 'web/office/finance-product-links-core.mjs'
       - 'web/office/finance-product-links-ui.mjs'
@@ -74,6 +80,10 @@ jobs:
       - run: node --check functions/api/wb/auto-sync-status.js
       - run: node --check functions/api/wb/unit-economics.js
       - run: node --check functions/api/finance/cost-audit.js
+      - run: node --check functions/api/finance/ozon-sku-cards.js
+      - run: node --check web/office/finance-ozon-sku-lookup-core.mjs
+      - run: node --check web/office/finance-ozon-sku-cards.mjs
+      - run: node --test tests/wb/finance-ozon-sku-lookup-core.test.mjs tests/wb/finance-ozon-sku-cards-api.test.mjs tests/wb/finance-ozon-sku-cards-ui.test.mjs
       - run: node --check functions/api/finance/product-links.js
       - run: node --check web/office/finance-product-links-core.mjs
       - run: node --check web/office/finance-product-links-ui.mjs
