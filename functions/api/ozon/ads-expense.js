@@ -116,7 +116,19 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         monetaryTotalsVerified:false,reconciledToFinance:false,
         note:'Источник рекламы отвечает, но сумма не сверена с начислениями Ozon. Не вычитать из прибыли.'
       });
-    }catch{return respond(503,{code:'ozon_ads_transport_failure'});}
+    }catch(error){
+      // Only deterministic, non-sensitive categories reach the owner.
+      // Never expose exception messages or bearer credentials in responses.
+      const message=String(error?.message||'').toLowerCase();
+      const code=/(entrypoint|export|rpc method|not a function)/.test(message)
+        ? 'ozon_ads_binding_entrypoint_error'
+        : /(fetch failed|network|connection|socket|dns|unreachable)/.test(message)
+        ? 'ozon_ads_binding_network_error'
+        : error?.name==='TypeError'
+        ? 'ozon_ads_binding_type_error'
+        : 'ozon_ads_transport_failure';
+      return respond(503,{code});
+    }
   };
 }
 export const onRequestGet=createOzonAdsExpenseHandler();
