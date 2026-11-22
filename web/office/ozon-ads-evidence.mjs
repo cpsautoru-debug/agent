@@ -41,7 +41,7 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
           ads_bridge_token_rejected:'Секреты Pages и Worker не совпадают.',
           ozon_expense_schema_unverified:'Ответ Ozon получен, но формат расходов требует проверки.',
           ozon_ads_source_unavailable:'Ozon Ads не отвечает. Требуется проверка соединения.',
-          ads_service_binding_missing:'Не настроена внутренняя Service Binding OZON_ADS_WORKER в Pages Production.',
+          ads_service_binding_missing:'Работающий деплой Pages не видит Service Binding OZON_ADS_WORKER. Проверьте Production и повторную публикацию после создания привязки.',
           ozon_ads_transport_failure:'Не удалось вызвать Ozon Ads через внутреннюю Service Binding. Проверьте привязку и Worker.',
           ozon_ads_worker_route_not_found:'Cloudflare не нашёл маршрут /api/internal/expense в Ozon Ads Worker. Проверьте опубликованную версию.',
           ozon_ads_worker_rate_limited:'Cloudflare ограничил вызовы рекламного Worker.',
