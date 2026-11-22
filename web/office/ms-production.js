@@ -15,6 +15,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
   const searchForm=node('msProductionSearchForm');
   const searchInput=node('msProductionNumber');
   const resetButton=node('msProductionReset');
+  const sortSelect=node('msProductionSort');
   const previousButton=node('msProductionPrev');
   const nextButton=node('msProductionNext');
   const pageLabel=node('msProductionPage');
@@ -37,7 +38,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
   const auditUnknown=node('msAuditUnknown');
   const auditPastDate=node('msAuditPastDate');
   if(!panel||!refreshButton||!status||!count||!listBody||!searchForm||
-    !searchInput||!resetButton||!previousButton||!nextButton||!pageLabel||
+    !searchInput||!resetButton||!sortSelect||!previousButton||!nextButton||!pageLabel||
     !details||!stageTitle||!stageStatus||!stageRefresh||!planned||
     !finished||!remaining||!stageBody||!auditButton||!auditStatus||
     !auditStats||!auditResults||!auditBody||!auditChecked||
@@ -48,7 +49,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
   let listLoading=false;
   let stageLoading=false;
   let auditRunning=false;
-  let scope={offset:0,number:null};
+  let scope={offset:0,number:null,sort:'updated'};
   let lastAttempt=0;
   let lastSuccess=0;
   let stageEpoch=0;
@@ -73,7 +74,10 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
   const scopeUrl=criteria=>{
     const search=new URLSearchParams();
     if(criteria.number!==null)search.set('number',criteria.number);
-    else if(criteria.offset)search.set('offset',String(criteria.offset));
+    else{
+      if(criteria.offset)search.set('offset',String(criteria.offset));
+      if(criteria.sort==='updated')search.set('sort','updated');
+    }
     const query=search.toString();
     return '/api/ms/production-feed'+(query?'?'+query:'');
   };
@@ -144,6 +148,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
       if(executiveTasks)executiveTasks.textContent=new Intl.NumberFormat('ru-RU').format(payload.totalAllTime);
       count.textContent='Всего документов в «МойСклад»: '+payload.totalAllTime+
         '. Показаны '+(payload.offset+1)+'–'+(payload.offset+records.length)+
+        (scope.sort==='updated'?' по последнему изменению':' по дате документа')+
         ' (не все активные задания).';
       pageLabel.textContent='Страница '+(Math.floor(payload.offset/PAGE_SIZE)+1);
       nextButton.dataset.hasMore=payload.hasMore?'yes':'no';
@@ -154,7 +159,10 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
     if(payload?.code!=='ms_production_feed_ok'||
       !Array.isArray(payload.records)||payload.records.length>PAGE_SIZE||
       payload.offset!==criteria.offset||payload.searchNumber!==criteria.number||
-      !Number.isSafeInteger(payload.pageSize)||payload.pageSize!==PAGE_SIZE)
+      !Number.isSafeInteger(payload.pageSize)||payload.pageSize!==PAGE_SIZE||
+      (criteria.number===null&&payload.selection!==
+        (criteria.sort==='updated'?'LATEST_5_BY_UPDATE_NOT_ACTIVE_TASKS':
+          'LATEST_5_BY_DOCUMENT_DATE_NOT_ACTIVE_TASKS')))
       throw Error('invalid_production_feed');
   };
 
@@ -361,19 +369,23 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
       status.textContent='Укажи точный номер задания цифрами, например 00737.';
       return;
     }
-    refreshList({offset:0,number});
+    refreshList({offset:0,number,sort:scope.sort});
   });
   resetButton.addEventListener('click',()=>{
     searchInput.value='';
-    refreshList({offset:0,number:null});
+    refreshList({offset:0,number:null,sort:sortSelect.value});
   });
   previousButton.addEventListener('click',()=>{
     if(scope.number===null&&scope.offset>=PAGE_SIZE)
-      refreshList({offset:scope.offset-PAGE_SIZE,number:null});
+      refreshList({offset:scope.offset-PAGE_SIZE,number:null,sort:scope.sort});
   });
   nextButton.addEventListener('click',()=>{
     if(scope.number===null&&nextButton.dataset.hasMore==='yes')
-      refreshList({offset:scope.offset+PAGE_SIZE,number:null});
+      refreshList({offset:scope.offset+PAGE_SIZE,number:null,sort:scope.sort});
+  });
+  sortSelect.addEventListener('change',()=>{
+    if(!listLoading&&!auditRunning&&scope.number===null)
+      refreshList({offset:0,number:null,sort:sortSelect.value});
   });
   refreshButton.addEventListener('click',()=>refreshList());
   stageRefresh.addEventListener('click',()=>{if(selectedTask)loadStages(selectedTask);});
