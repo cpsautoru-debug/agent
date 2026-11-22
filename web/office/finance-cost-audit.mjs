@@ -17,7 +17,10 @@ const WARNINGS={
   ozon_profit_costs_not_configured:'В Ozon Profit ещё нет документа себестоимости.',
   ozon_expenses_not_configured:'В Ozon Profit ещё нет документа общих расходов.',
   preliminary_costs_present:'Есть предварительные цены — это не подтверждённая себестоимость.',
-  ozon_cost_sources_disagree:'Цены справочника Ozon и фактического Ozon Profit различаются.'
+  ozon_cost_sources_disagree:'Номинальные цены справочника Ozon и некоторых исторических версий Ozon Profit различаются — проверь сопоставимость периодов.',
+  ozon_profit_sku_cards_missing:'Некоторые SKU из Ozon Profit отсутствуют в отдельном товарном справочнике: модель и идентичность не проверены.',
+  ozon_catalog_sku_profit_missing:'Некоторые SKU из справочника товаров Ozon отсутствуют в загруженных версиях Ozon Profit.',
+  material_delivery_possible_double_count:'Обнаружен риск двойного учёта доставки материалов между себестоимостью и накладными.'
 };
 export function renderUnifiedCostAudit(documentRef,data){
   if(data?.code!=='unified_finance_source_audit'||
@@ -33,7 +36,15 @@ export function renderUnifiedCostAudit(documentRef,data){
     !Array.isArray(data.ozonProfit?.entries)||
     !Array.isArray(data.expenses?.items)||
     !Array.isArray(data.blockers)||
-    !Array.isArray(data.possibleArticleLinks))
+    !Array.isArray(data.possibleArticleLinks)||
+    data.skuCoverage?.status!=='source_coverage_only'||
+    data.skuCoverage?.readOnly!==true||
+    data.skuCoverage?.changedRecords!==0||
+    !Number.isSafeInteger(data.skuCoverage?.distinctProfitSkus)||
+    !Array.isArray(data.skuCoverage?.profitOnlySkus)||
+    !Array.isArray(data.skuCoverage?.expensesReviewed)||
+    data.skuCoverage.profitOnlySkuCount!==data.skuCoverage.profitOnlySkus.length||
+    data.skuCoverage.expensesReviewed.length!==data.expenses.items.length)
     throw Error('invalid_finance_source_payload');
   const $=id=>documentRef.getElementById(id);
   const count=(x,confirmed)=>String(confirmed)+' / '+String(x);
@@ -95,11 +106,53 @@ export function renderUnifiedCostAudit(documentRef,data){
     ])
   ];
   table('financeAuditCostRows',costs,costs.length);
-  const expenses=data.expenses.items.map(x=>[
-    x.label,x.scope==='business'?'Общая для бизнеса':'Только Ozon',
-    dateRange(x),'Не включена в общий P&L WB + Ozon'
+  const coverage=data.skuCoverage;
+  const coverageAvailable=data.ozonProfit.status==='ready';
+  $('financeAuditUniqueProfitSkus').textContent=coverageAvailable?
+    String(coverage.distinctProfitSkus):'Источник недоступен';
+  $('financeAuditProfitOnlySkus').textContent=coverageAvailable?
+    String(coverage.profitOnlySkuCount):'Источник недоступен';
+  $('financeAuditCatalogOnlySkus').textContent=coverageAvailable?
+    String(coverage.catalogOnlySkuCount):'Невозможно сверить';
+  $('financeAuditIntersectSkus').textContent=coverageAvailable?
+    String(coverage.intersectedSkus):'Невозможно сверить';
+  const missing=coverage.profitOnlySkus.flatMap(x=>x.periods.map(p=>[
+    x.sku,String(x.versionCount),dateRange(p),
+    rub(p.costKopecks),status(p.status)
+  ]));
+  table('financeAuditProfitOnlyRows',missing,missing.length);
+  $('financeAuditSkuCoverageNote').textContent=coverageAvailable?
+    'В Ozon Profit прочитано '+coverage.profitCostVersionCount+
+    ' датированных версий по '+coverage.distinctProfitSkus+
+    ' уникальным SKU. Только в Profit: '+coverage.profitOnlySkuCount+
+    '; только в справочнике: '+coverage.catalogOnlySkuCount+
+    '. Источники не доказывают ни модель, ни соответствие товару WB; цены не переносятся.':
+    'Версионный источник Ozon Profit недоступен. Отсутствие результата не равно нулю SKU.';
+  const expenseRisk={
+    possible_duplicate_material_delivery:
+      'Риск дубля: доставка материалов уже включена в часть себестоимостей Ozon Profit',
+    material_delivery_in_cogs_unknown:
+      'Неизвестно, включена ли доставка материалов в себестоимость',
+    material_delivery_requires_document_check:
+      'Доставка материалов: необходима сверка первички и состава себестоимости',
+    cross_channel_allocation_unconfirmed:
+      'Общий расход: распределение между WB и Ozon не подтверждено',
+    direct_ozon_document_unconfirmed:
+      'Прямой расход Ozon: не подтверждён фактическим платежом'
+  };
+  const expenses=coverage.expensesReviewed.map(x=>[
+    x.label,
+    x.scope==='business'?'Общая для бизнеса':'Только Ozon',
+    rub(x.amountKopecks)+' (в документе, не факт платежа)',
+    dateRange(x),expenseRisk[x.risk]||'Необходимо подтверждение источника'
   ]);
   table('financeAuditExpenseRows',expenses,expenses.length);
+  $('financeAuditOverheadReview').textContent=data.expenses.status==='ready'?
+    'Записей в регистре: '+coverage.expensesReviewed.length+
+    '; требуют специальной сверки доставки материалов: '+
+    coverage.materialDeliveryCandidates+'. Ни одна сумма из этого списка '+
+    'не признана фактическим платежом и не распределена повторно в общий P&L.':
+    'Регистр расходов Ozon Profit недоступен: нельзя считать общие расходы нулевыми.';
   const differences=data.ozonProfitCrosschecks?.filter(
     x=>x.sameNominalCost===false).length||0;
   $('financeAuditStatus').textContent='Источники прочитаны. '+
@@ -121,7 +174,10 @@ export function attachUnifiedCostAudit({
   const ids=['financeAuditStatus','financeAuditCostRows',
     'financeAuditExpenseRows','financeAuditWbCount','financeAuditOzonCatalogCount',
     'financeAuditProfitCount','financeAuditExpenseCount','financeAuditScope',
-    'financeAuditWarnings'];
+    'financeAuditWarnings','financeAuditUniqueProfitSkus',
+    'financeAuditProfitOnlySkus','financeAuditCatalogOnlySkus',
+    'financeAuditIntersectSkus','financeAuditProfitOnlyRows',
+    'financeAuditSkuCoverageNote','financeAuditOverheadReview'];
   if(ids.some(id=>!$(id)))return false;
   let busy=false,last=0;
   const active=()=>windowRef.location?.hash?.split('/')[0]==='#wbFinance'&&
@@ -131,6 +187,14 @@ export function attachUnifiedCostAudit({
       'financeAuditProfitCount','financeAuditExpenseCount'])$(id).textContent='—';
     $('financeAuditCostRows').replaceChildren();
     $('financeAuditExpenseRows').replaceChildren();
+    $('financeAuditProfitOnlyRows').replaceChildren();
+    for(const id of ['financeAuditUniqueProfitSkus','financeAuditProfitOnlySkus',
+      'financeAuditCatalogOnlySkus','financeAuditIntersectSkus'])
+      $(id).textContent='—';
+    $('financeAuditSkuCoverageNote').textContent=
+      'Нет подтверждённой сверки каталога SKU.';
+    $('financeAuditOverheadReview').textContent=
+      'Риск двойного учёта общих расходов не проверен.';
     $('financeAuditScope').textContent='Статус источников не подтверждён.';
     $('financeAuditWarnings').textContent=
       'Себестоимость, реклама, налог и общие расходы не могут считаться нулевыми.';
