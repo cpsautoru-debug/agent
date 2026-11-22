@@ -71,7 +71,7 @@ test('switching month during load queues fresh data and stale response cannot re
  const requests=[];const b=browser((url,options)=>new Promise(resolve=>requests.push({url,options,resolve})));b.enter();b.ids.profitMonth.value='2025-02';b.root.dispatch('change');b.ids.profitMonth.dispatch('change');requests[0].resolve(response(fixture));await settle();assert.equal(requests.length,2);assert.match(requests[1].url,/2025-02/);assert.equal(b.ids.profitCostRows.children.length,0);requests[1].resolve(response(fixture));await settle();assert.equal(b.ids.profitCostRows.children.length,1);
 });
 test('all referenced UI IDs exist once and navigation is registered',()=>{
- const referenced=[...script.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);for(const id of new Set(referenced))assert.equal([...html.matchAll(new RegExp('id="'+id+'"','g'))].length,1,id);assert.match(html,/data-page="ozonProfit"/);assert.match(html,/src="profit.js"/);
+ const referenced=[...script.matchAll(/\$\('([^']+)'\)/g)].map(m=>m[1]);for(const id of new Set(referenced))assert.equal([...html.matchAll(new RegExp('id="'+id+'"','g'))].length,1,id);assert.match(html,/data-page="ozonProfit"/);assert.match(html,/src="profit.js\?v=20261122-date-evidence"/);
 });
 test('owner expense draft uses exact monthly categories and leather inclusion flag',async()=>{
  const b=browser(async()=>response(fixture));b.enter();await settle();b.ids.profitExpenseDraft.dispatch('click');const draft=JSON.parse(b.ids.profitExpenses.value);

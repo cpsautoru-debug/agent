@@ -90,6 +90,39 @@
       money(r.knownCostKopecks),explain(r.reason),
       evidence[i]?.reviewLabel||'Не проверено'
     ]));
+    const dated=result.dateCostEvidence;
+    const datedValid=dated?.scope==='REPORT_SALES_ROWS_ONLY'&&
+      dated.source==='OWNER_CONFIRMED_XLSX_AND_DATE_EFFECTIVE_COSTS'&&
+      Array.isArray(dated.rows)&&dated.rows.length<=5000&&
+      dated.checkedSalesRows===dated.rows.length&&
+      Number.isSafeInteger(dated.confirmedSalesRows)&&
+      dated.confirmedSalesRows>=0&&
+      dated.unverifiedSalesRows===dated.checkedSalesRows-dated.confirmedSalesRows&&
+      typeof dated.complete==='boolean';
+    if(datedValid){
+      $('profitDateCostEvidenceStatus').textContent='Проверены даты продаж по загруженному отчёту: '+
+        dated.confirmedSalesRows+' из '+dated.checkedSalesRows+
+        ' строк имеют подтверждённую себестоимость на дату операции. '+
+        'Без подтверждения: '+dated.unverifiedSalesRows+
+        '. Возвраты проверяются отдельно. Это не утверждение чистой прибыли.';
+      const labels={matched_confirmed:'Подтверждённая цена на дату операции',
+        matched_preliminary:'Цена предварительная',
+        cost_missing:'На дату операции себестоимость не найдена',
+        sku_missing:'В строке нет SKU',quantity_missing:'Количество не подтверждено'};
+      table('profitDateCostEvidenceRows',dated.rows.slice(0,150).map(x=>[
+        x.sourceRow,x.date,x.sku||'Нет SKU',
+        x.quantity==null?'Неизвестно':x.quantity,
+        x.costVersionFrom?(x.costVersionFrom+' — '+(x.costVersionTo||'далее')):'Не найден',
+        x.unitCostKopecks==null?'Неизвестно':money(x.unitCostKopecks),
+        labels[x.status]||'Требуется проверка'
+      ]));
+      if(dated.rows.length>150)$('profitDateCostEvidenceStatus').textContent+=
+        ' Отображены первые 150 строк из '+dated.rows.length+'.';
+    }else{
+      $('profitDateCostEvidenceStatus').textContent=
+        'Подтверждённая построчная сверка себестоимости по датам недоступна.';
+      table('profitDateCostEvidenceRows',[]);
+    }
     table('profitGroupRows',(result.report?.groups || []).map(r=>[r.name,money(r.amountKopecks)]));
     $('profitReportStatus').textContent=result.report ? `Источник: ${result.report.sourceName}; количество: ${result.report.quantityVerified?'подтверждено':'не проверено'}; период: ${result.report.periodVerified?'подтверждён':'не проверен'}.` : 'Отчёт начислений не загружен.';
     $('profitDuplicates').textContent=json(result.duplicateCandidates || []);
