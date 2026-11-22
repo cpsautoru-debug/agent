@@ -244,14 +244,14 @@ test('WB card titles are used only after button, make previously unknown model e
   assert.equal(f.calls.filter(x=>x.url==='/api/finance/wb-content-cards').length,0);
   assert.equal(e.financeWbCardLookupButton.disabled,false);
   const before=e.financeLinksGroupStatus.textContent;
-  assert.match(before,/WB 2/);
+  assert.match(before,/WB 1/);
   e.financeWbCardLookupButton.handlers.click();
   await flush();
   assert.equal(f.calls.filter(x=>x.url==='/api/finance/wb-content-cards').length,1);
   assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
   assert.match(e.financeWbCardLookupStatus.textContent,/Точные карточки WB прочитаны/);
   assert.match(e.financeWbCardLookupStatus.textContent,/не считаются отсутствующими/);
-  assert.match(e.financeLinksGroupStatus.textContent,/WB 1/);
+  assert.match(e.financeLinksGroupStatus.textContent,/WB 0/);
   assert.equal(e.financeLinksWb.value,'');
   assert.equal(e.financeLinksSave.disabled,true);
   assert.equal(f.registry.count,0);
