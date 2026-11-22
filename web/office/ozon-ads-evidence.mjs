@@ -36,7 +36,8 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
         const reasons={
           unauthorized:'Требуется войти в аккаунт владельца.',
           forbidden:'Нет доступа владельца.',
-          ads_bridge_secret_missing:'В Pages ещё не добавлен секрет ADS_READ_TOKEN.',
+          ads_bridge_secret_missing:'Сервер Pages не получил ADS_READ_TOKEN. Проверьте Production и новый деплой.',
+          ads_bridge_secret_too_short:'ADS_READ_TOKEN доступен Pages, но его длина меньше 32 символов. Проверьте значение секрета.',
           ads_bridge_token_rejected:'Секреты Pages и Worker не совпадают.',
           ozon_expense_schema_unverified:'Ответ Ozon получен, но формат расходов требует проверки.',
           ozon_ads_source_unavailable:'Рекламный источник сейчас недоступен.',
