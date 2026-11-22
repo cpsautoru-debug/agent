@@ -51,10 +51,34 @@ export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
       });
       // Upstream status is mapped to fixed codes; raw body never forwarded
       // when source errors (could contain external provider details).
-      if(!result.ok)return respond(503,{code:result.status===401?
-        'ads_bridge_token_rejected':
-        result.status===422?'ozon_expense_schema_unverified':
-        'ozon_ads_source_unavailable'});
+      if(!result.ok){
+        if(result.status===401)return respond(503,{code:'ads_bridge_token_rejected'});
+        // The ads Worker emits only fixed error codes, never raw upstream Ozon
+        // text. Forward just those known diagnostic labels to the owner UI.
+        const allow=new Set([
+          'private_access_not_configured',
+          'ozon_credentials_missing',
+          'ozon_performance_auth_rejected',
+          'ozon_performance_token_unavailable',
+          'ozon_performance_token_unrecognized',
+          'ozon_performance_expense_unauthorized',
+          'ozon_performance_rate_limited',
+          'ozon_performance_expense_unavailable',
+          'ozon_performance_network_or_schema_error',
+          'ozon_expense_schema_unverified',
+          'ozon_expense_rows_unrecognized',
+          'invalid_closed_month'
+        ]);
+        let code='ozon_ads_source_unavailable';
+        try{
+          if((result.headers.get('content-type')||'').includes('application/json')){
+            const failure=await result.json();
+            if(typeof failure?.code==='string'&&allow.has(failure.code))
+              code=failure.code;
+          }
+        }catch{}
+        return respond(503,{code});
+      }
       if(!(result.headers.get('content-type')||'').includes('application/json'))
         return respond(503,{code:'ozon_ads_response_unrecognized'});
       const data=await result.json();

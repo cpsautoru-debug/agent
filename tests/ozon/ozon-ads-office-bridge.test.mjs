@@ -91,6 +91,24 @@ test('upstream errors never leak response or authentication secrets',async()=>{
  assert.equal(result.status,503);
  assert.deepEqual(await result.json(),{code:'ozon_ads_source_unavailable'});
 });
+test('known upstream errors stay actionable, secret-free and owner-only',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+  now:()=>Date.UTC(2026,10,22),
+  fetcher:makeFetch({code:'ozon_performance_auth_rejected',details:'secret cannot escape'},503)
+ });
+ const response=await handler({request:await req(),env:env()});
+ assert.equal(response.status,503);
+ assert.deepEqual(await response.json(),{code:'ozon_performance_auth_rejected'});
+});
+test('unknown upstream codes do not escape backend',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+  now:()=>Date.UTC(2026,10,22),
+  fetcher:makeFetch({code:'unknown\u005fsecret',details:'private'},503)
+ });
+ const response=await handler({request:await req(),env:env()});
+ assert.equal(response.status,503);
+ assert.deepEqual(await response.json(),{code:'ozon_ads_source_unavailable'});
+});
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({
  ...envelope,code:'ozon_ads_office_preview'},MONTH),/НЕ СВЕРЕНЫ/);
