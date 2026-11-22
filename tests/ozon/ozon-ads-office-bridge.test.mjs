@@ -17,6 +17,7 @@ const envelope={
 const env=(allowed=1)=>({
  OFFICE_SESSION_SECRET:SECRET,OFFICE_ALLOWED_EMAIL:'owner@example.com',
  ADS_READ_TOKEN:'X'.repeat(48),
+ OZON_ADS_WORKER:{fetch:async()=>{throw new Error('unexpected binding call in injected tests')}},
  OZON_FINANCE_DB:{prepare(sql){assert.match(sql,/office_authorized_users/);
  return {bind(sub,email){assert.equal(sub,'test-owner');
  assert.equal(email,'owner@example.com');return {first:async()=>({allowed})}}}}}
@@ -126,6 +127,22 @@ test('missing ads Worker route is identified without leaking upstream response',
  const res=await handler({request:await req(),env:env()});
  assert.equal(res.status,503);
  assert.deepEqual(await res.json(),{code:'ozon_ads_worker_route_not_found'});
+});
+test('binding is required and token is not leaked',async()=>{
+ const local=env();delete local.OZON_ADS_WORKER;
+ const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
+ const res=await handler({request:await req(),env:local});
+ assert.equal(res.status,503);
+ assert.deepEqual(await res.json(),{code:'ads_service_binding_missing'});
+});
+test('default handler invokes service binding rather than external fetch',async()=>{
+ const local=env();const calls=[];
+ local.OZON_ADS_WORKER={fetch:makeFetch(envelope,200,calls)};
+ const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
+ const res=await handler({request:await req(),env:local});
+ assert.equal(res.status,200);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].init.headers.authorization,'Bearer '+'X'.repeat(48));
 });
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({
