@@ -61,8 +61,14 @@ export function auditOzonProfitSkuCoverage({profitEntries,catalogEntries,expense
       bookedInUnifiedProfit:false
     };
   });
-  const flagged=expensesReviewed.filter(x=>x.risk==='possible_duplicate_material_delivery'||
-    x.risk==='material_delivery_in_cogs_unknown');
+  // Every material delivery entry requires a source/inclusion review, even
+  // if every cost version explicitly says delivery is excluded.
+  // A zero count means zero delivery entries, NOT proof of no double count.
+  const flagged=expensesReviewed.filter(x=>[
+    'possible_duplicate_material_delivery',
+    'material_delivery_in_cogs_unknown',
+    'material_delivery_requires_document_check'
+  ].includes(x.risk));
   return {
     profitCostVersionCount:profitEntries.length,
     distinctProfitSkus,
