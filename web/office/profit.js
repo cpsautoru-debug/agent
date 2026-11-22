@@ -26,7 +26,6 @@
   const root = document.querySelector('[data-section="ozonProfit"]');
   if (!root) return;
   const $ = id => document.getElementById(id);
-  const review=window.OzonSkuCostReview?.reviewOzonSkuCostEvidence;
   const money = value => value == null ? 'Неизвестно' : new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(value/100);
   const json = value => JSON.stringify(value ?? null, null, 2);
   const message = text => { $('profitMessage').textContent = text; };
@@ -75,7 +74,8 @@
     $('profitStatus').textContent = 'Статус: ' + explain(result.profit?.status || 'unknown') + '\n' + [...(result.profit?.blockers || []),...(result.warnings || [])].map(v=>explain(v)).join('\n');
     $('profitReasons').textContent = ['API: покрытие '+(result.api?.coveredDays ?? 'неизвестно')+' / '+(result.api?.days ?? 'неизвестно')+' дней; нетто '+(result.api?.netVerified?'сверено':'не подтверждено')+'; детализация '+(result.api?.detailVerified?'сверена':'не подтверждена'), 'Себестоимость: '+(result.costs?.complete?'полная':'неполная'), 'Неизвестные SKU: '+(result.costs?.missingSkus || []).join(', '),'Нераспределённые расходы: '+money(result.allocation?.unallocatedKopecks),explain(result.allocation?.reason),'Налоговая база организации: '+money(result.tax?.baseKopecks)+'; АУСН «Доходы» 8%, оценка по организации: '+money(result.tax?.estimateKopecks)+'; статус: '+explain(result.tax?.status || 'unknown'),explain(result.tax?.reason)].filter(Boolean).join('\n');
     let skuReview=null;
-    try{if(typeof review==='function')skuReview=review(result.skuRows || []);}
+    try{const review=window.OzonSkuCostReview?.reviewOzonSkuCostEvidence;
+      if(typeof review==='function')skuReview=review(result.skuRows || []);}
     catch{skuReview=null;}
     const evidence=skuReview?.rows||[];
     $('profitSkuEvidence').textContent=skuReview?
