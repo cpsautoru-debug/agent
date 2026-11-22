@@ -1,0 +1,24 @@
+name: Ozon Date-effective COGS Evidence
+on:
+  push:
+    branches:
+      - feature/ozon-date-cost-evidence-20261122
+  pull_request:
+    paths:
+      - 'functions/api/ozon/profit-model.js'
+      - 'web/office/profit.js'
+      - 'web/office/index.html'
+      - 'tests/ozon/profit-date-cost-evidence.test.mjs'
+      - 'tests/ozon/profit-model.test.mjs'
+      - 'tests/ozon/profit-ui.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ozon/profit-date-cost-evidence.test.mjs tests/ozon/profit-model.test.mjs tests/ozon/profit-ui.test.mjs
