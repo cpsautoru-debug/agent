@@ -73,7 +73,23 @@
     $('profitCards').replaceChildren(); values.forEach(([label,value])=> {const card=document.createElement('article');card.className='profit-card';const title=document.createElement('h3');title.textContent=label;const amount=document.createElement('strong');amount.textContent=money(value);card.append(title,amount);$('profitCards').append(card);});
     $('profitStatus').textContent = 'Статус: ' + explain(result.profit?.status || 'unknown') + '\n' + [...(result.profit?.blockers || []),...(result.warnings || [])].map(v=>explain(v)).join('\n');
     $('profitReasons').textContent = ['API: покрытие '+(result.api?.coveredDays ?? 'неизвестно')+' / '+(result.api?.days ?? 'неизвестно')+' дней; нетто '+(result.api?.netVerified?'сверено':'не подтверждено')+'; детализация '+(result.api?.detailVerified?'сверена':'не подтверждена'), 'Себестоимость: '+(result.costs?.complete?'полная':'неполная'), 'Неизвестные SKU: '+(result.costs?.missingSkus || []).join(', '),'Нераспределённые расходы: '+money(result.allocation?.unallocatedKopecks),explain(result.allocation?.reason),'Налоговая база организации: '+money(result.tax?.baseKopecks)+'; АУСН «Доходы» 8%, оценка по организации: '+money(result.tax?.estimateKopecks)+'; статус: '+explain(result.tax?.status || 'unknown'),explain(result.tax?.reason)].filter(Boolean).join('\n');
-    table('profitSkuRows',(result.skuRows || []).map(r=>[r.sku,r.article,r.name,r.soldUnits,r.returnedUnits,explain(r.costStatus),money(r.costKopecks),money(r.knownCostKopecks),explain(r.reason)]));
+    let skuReview=null;
+    try{const review=window.OzonSkuCostReview?.reviewOzonSkuCostEvidence;
+      if(typeof review==='function')skuReview=review(result.skuRows || []);}
+    catch{skuReview=null;}
+    const evidence=skuReview?.rows||[];
+    $('profitSkuEvidence').textContent=skuReview?
+      'Агрегировано продано: '+skuReview.soldUnits+
+      ', возвращено: '+skuReview.returnedUnits+
+      '. Требуют отдельной проверки возвраты: '+skuReview.returnsNeedingReview+
+      '. Статус себестоимости по SKU не доказывает соответствие цены дате каждой операции и состояние возвращённого товара.':
+      'Проверка статусов SKU недоступна: не считайте данные подтверждённой себестоимостью по операциям.';
+    table('profitSkuRows',(result.skuRows || []).map((r,i)=>[
+      r.sku,r.article,r.name,r.soldUnits,r.returnedUnits,
+      explain(r.costStatus),money(r.costKopecks),
+      money(r.knownCostKopecks),explain(r.reason),
+      evidence[i]?.reviewLabel||'Не проверено'
+    ]));
     table('profitGroupRows',(result.report?.groups || []).map(r=>[r.name,money(r.amountKopecks)]));
     $('profitReportStatus').textContent=result.report ? `Источник: ${result.report.sourceName}; количество: ${result.report.quantityVerified?'подтверждено':'не проверено'}; период: ${result.report.periodVerified?'подтверждён':'не проверен'}.` : 'Отчёт начислений не загружен.';
     $('profitDuplicates').textContent=json(result.duplicateCandidates || []);
