@@ -48,11 +48,18 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
     try{
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
-      const result=await (fetcher||env.OZON_ADS_WORKER.fetch.bind(env.OZON_ADS_WORKER))(upstream.toString(),{
-        method:'GET',redirect:'error',
-        headers:{authorization:'Bearer '+env.ADS_READ_TOKEN,accept:'application/json'},
-        signal:AbortSignal.timeout(17000)
-      });
+      const headers={authorization:'Bearer '+env.ADS_READ_TOKEN,accept:'application/json'};
+      // Service binding methods must be invoked on the binding object.
+      // Pass a Request, not a detached/bound function with a URL string.
+      // Keep the injected fetcher shape for isolated tests.
+      const result=fetcher
+        ? await fetcher(upstream.toString(),{
+            method:'GET',redirect:'error',headers,
+            signal:AbortSignal.timeout(17000)
+          })
+        : await env.OZON_ADS_WORKER.fetch(new Request(upstream.toString(),{
+            method:'GET',redirect:'error',headers
+          }));
       // Upstream status is mapped to fixed codes; raw body never forwarded
       // when source errors (could contain external provider details).
       if(!result.ok){

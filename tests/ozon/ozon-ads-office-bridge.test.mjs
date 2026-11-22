@@ -135,14 +135,20 @@ test('binding is required and token is not leaked',async()=>{
  assert.equal(res.status,503);
  assert.deepEqual(await res.json(),{code:'ads_service_binding_missing'});
 });
-test('default handler invokes service binding rather than external fetch',async()=>{
+test('default handler invokes service binding directly with Request',async()=>{
  const local=env();const calls=[];
- local.OZON_ADS_WORKER={fetch:makeFetch(envelope,200,calls)};
+ local.OZON_ADS_WORKER={async fetch(request){
+   assert.ok(request instanceof Request);
+   calls.push({url:request.url,authorization:request.headers.get('authorization')});
+   return new Response(JSON.stringify(envelope),
+     {status:200,headers:{'content-type':'application/json'}});
+ }};
  const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
  const res=await handler({request:await req(),env:local});
  assert.equal(res.status,200);
  assert.equal(calls.length,1);
- assert.equal(calls[0].init.headers.authorization,'Bearer '+'X'.repeat(48));
+ assert.equal(new URL(calls[0].url).pathname,'/api/internal/expense');
+ assert.equal(calls[0].authorization,'Bearer '+'X'.repeat(48));
 });
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({
