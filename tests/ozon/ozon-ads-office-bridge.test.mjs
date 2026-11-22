@@ -89,7 +89,7 @@ test('upstream errors never leak response or authentication secrets',async()=>{
  });
  const result=await handler({request:await req(),env:env()});
  assert.equal(result.status,503);
- assert.deepEqual(await result.json(),{code:'ozon_ads_source_unavailable'});
+ assert.deepEqual(await result.json(),{code:'ozon_ads_worker_http_error'});
 });
 test('known upstream errors stay actionable, secret-free and owner-only',async()=>{
  const handler=createOzonAdsExpenseHandler({
@@ -107,7 +107,25 @@ test('unknown upstream codes do not escape backend',async()=>{
  });
  const response=await handler({request:await req(),env:env()});
  assert.equal(response.status,503);
- assert.deepEqual(await response.json(),{code:'ozon_ads_source_unavailable'});
+ assert.deepEqual(await response.json(),{code:'ozon_ads_worker_http_error'});
+});
+test('network failures are distinct from an Ozon API HTTP error',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+  now:()=>Date.UTC(2026,10,22),
+  fetcher:async()=>{throw new Error('private transport detail');}
+ });
+ const res=await handler({request:await req(),env:env()});
+ assert.equal(res.status,503);
+ assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure'});
+});
+test('missing ads Worker route is identified without leaking upstream response',async()=>{
+ const handler=createOzonAdsExpenseHandler({
+  now:()=>Date.UTC(2026,10,22),
+  fetcher:makeFetch({error:'private internal detail'},404)
+ });
+ const res=await handler({request:await req(),env:env()});
+ assert.equal(res.status,503);
+ assert.deepEqual(await res.json(),{code:'ozon_ads_worker_route_not_found'});
 });
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({

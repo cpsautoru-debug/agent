@@ -77,6 +77,11 @@ export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
               code=failure.code;
           }
         }catch{}
+        if(code==='ozon_ads_source_unavailable'){
+          if(result.status===404)return respond(503,{code:'ozon_ads_worker_route_not_found'});
+          if(result.status===429)return respond(503,{code:'ozon_ads_worker_rate_limited'});
+          if(result.status>=500)return respond(503,{code:'ozon_ads_worker_http_error'});
+        }
         return respond(503,{code});
       }
       if(!(result.headers.get('content-type')||'').includes('application/json'))
@@ -100,7 +105,7 @@ export function createOzonAdsExpenseHandler({fetcher=fetch,now=Date.now}={}){
         monetaryTotalsVerified:false,reconciledToFinance:false,
         note:'Источник рекламы отвечает, но сумма не сверена с начислениями Ozon. Не вычитать из прибыли.'
       });
-    }catch{return respond(503,{code:'ozon_ads_source_unavailable'});}
+    }catch{return respond(503,{code:'ozon_ads_transport_failure'});}
   };
 }
 export const onRequestGet=createOzonAdsExpenseHandler();
