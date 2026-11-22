@@ -59,6 +59,18 @@ test('only groups with both marketplace sources are offered',()=>{
   assert.equal(found.groups.length,0);
   assert.equal(found.linkedCount,0);
 });
+test('verified WB card title can classify previously ambiguous vendorCode but does not confirm identity',()=>{
+  const matched=makeFinanceReviewGroups(
+    ['веста №2','карты_лада_веста_красные_соты'],
+    [{sku:'OZ-VESTA',name:'Модельные авточехлы Lada Vesta'}],
+    new Map([['веста №2','Модельные авточехлы на Lada Vesta']])
+  );
+  assert.equal(matched.groups.length,1);
+  assert.deepEqual(matched.groups[0].wbArticles,['веста №2']);
+  assert.equal(matched.groups[0].physicalIdentityVerified,false);
+  assert.equal(matched.changedRecords,0);
+  assert.equal(matched.ambiguousWb,0);
+});
 test('input limits and malformed identities fail closed',()=>{
   assert.throws(()=>makeFinanceReviewGroups(null,[]),/invalid/);
   assert.throws(()=>makeFinanceReviewGroups([],Array(2001).fill({sku:'a',name:'ch'})),/invalid/);
