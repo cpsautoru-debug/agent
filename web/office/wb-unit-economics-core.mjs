@@ -62,7 +62,8 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
   if(!Array.isArray(groups)||groups.length>MAX_GROUPS||
     !Array.isArray(rawCosts)||rawCosts.length>MAX_COSTS||
     !stats||!nonNegative(stats.complete_reports)||
-    !nonNegative(stats.pending_reports)||!int(stats.bank_payout_kop)||
+    !nonNegative(stats.pending_reports)||
+    !nonNegative(stats.mismatched_reports??0)||!int(stats.bank_payout_kop)||
     !nonNegative(stats.completed_operations))
     throw Error('wb_profit_input_invalid');
   const costs=rawCosts.map(validateUnitCost);
@@ -147,6 +148,7 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
   if(unknownSoldUnits)blockers.add('missing_cost_catalog');
   if(unmodelledMoney!==0)blockers.add('additional_payment_fields_not_reconciled');
   if(stats.pending_reports>0)blockers.add('reports_pending');
+  if((stats.mismatched_reports??0)>0)blockers.add('report_reconciliation_mismatch');
   const articles=[...bySku.values()].map(sku=>{
     for(const issue of sku.blockers)blockers.add(issue);
     return {
@@ -173,6 +175,7 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
     source:'wb_finance_api_complete_reports',
     scope:'ALL_COMPLETED_WB_REPORTS_NOT_CALENDAR_MONTH',
     completeReports:stats.complete_reports,pendingReports:stats.pending_reports,
+    mismatchedReports:stats.mismatched_reports??0,
     bankPayoutKopecks:stats.bank_payout_kop,
     reconciliation:'matched',
     completedOperations:stats.completed_operations,
