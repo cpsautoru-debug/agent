@@ -300,6 +300,20 @@
         <p class="wb-monitor-footnote">Выплата по операциям не равна выручке. Для строк без артикула удержания остаются нераспределёнными. Возвраты нельзя автоматически считать пригодными к продаже. Полная чистая прибыль по артикулу недоступна, пока отсутствуют подтверждённые расходы рекламы, налогов и распределение накладных затрат. Суммы не смешиваются с XLSX-отчётами.</p>
       </article>
 
+      <article class="profit-panel finance-audit" id="wbMonthBoundaryPanel">
+        <h2>WB · границы отчётного месяца</h2>
+        <p>Проверка по датам недельных отчётов. Не распределяет операции через границы месяца и не подтверждает чистую прибыль.</p>
+        <form id="wbMonthBoundaryForm">
+          <label for="wbMonthBoundaryMonth">Месяц</label>
+          <input id="wbMonthBoundaryMonth" type="month" required>
+          <button class="button light" type="submit">Проверить границы отчётов</button>
+        </form>
+        <p id="wbMonthBoundaryStatus" class="wb-monitor-main-status" role="status">Месяц ещё не проверялся.</p>
+        <div class="table-wrap"><table class="wb-unit-table">
+          <thead><tr><th>Отчёт WB</th><th>Период</th><th>Состояние</th><th>К перечислению в отчёте</th></tr></thead>
+          <tbody id="wbMonthBoundaryRows"></tbody>
+        </table></div>
+      </article>
       <article class="profit-panel finance-audit" id="financeWbPayoutEvidence" aria-labelledby="financeWbPayoutEvidenceTitle">
         <div class="wb-unit-head">
           <div><h2 id="financeWbPayoutEvidenceTitle">WB · проверка выплаты в отчётах</h2>
@@ -2032,6 +2046,7 @@
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
 <script type="module" src="/finance-cost-audit.mjs?v=20261122-closeout-gates"></script>
 <script type="module" src="/wb-payout-provenance-ui.mjs?v=20261122"></script>
+<script type="module" src="/wb-report-month-boundaries-ui.mjs?v=20261122"></script>
 <script type="module" src="/finance-ozon-sku-cards.mjs?v=20261122"></script>
 <script type="module" src="/finance-product-links-ui.mjs?v=20261122-review-buttons-fix"></script>
 </body>
