@@ -64,7 +64,13 @@ test('missing secret and invalid periods fail closed',async()=>{
  const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22),
  fetcher:async()=>{throw Error('unexpected')}});
  const missing=env();delete missing.ADS_READ_TOKEN;
- assert.equal((await handler({request:await req(),env:missing})).status,503);
+ const absent=await handler({request:await req(),env:missing});
+ assert.equal(absent.status,503);
+ assert.equal((await absent.json()).code,'ads_bridge_secret_missing');
+ const tooShort=env();tooShort.ADS_READ_TOKEN='short';
+ const invalid=await handler({request:await req(),env:tooShort});
+ assert.equal(invalid.status,503);
+ assert.equal((await invalid.json()).code,'ads_bridge_secret_too_short');
  assert.equal((await handler({request:await req(url.replace(MONTH,'2026-11')),env:env()})).status,400);
  assert.equal((await handler({request:await req(url+'&other=1'),env:env()})).status,400);
 });
