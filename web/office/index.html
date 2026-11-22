@@ -318,6 +318,21 @@
         </div>
         <p id="financeAuditScope" class="wb-monitor-meta">Это сверка существующих источников, не новый общий реестр и не итоговая прибыль. Отсутствующие цены, документы и распределение расходов нельзя считать нулём.</p>
         <p id="financeAuditWarnings" class="wb-unit-blockers" role="status">Реклама, налоги и общие расходы по каналам ещё не объединены в закрытый P&amp;L.</p>
+        <details class="finance-source-coverage" id="financeAuditProfitSkuCoverage">
+          <summary>Ozon Profit: уникальные SKU и товары без карточки в справочнике</summary>
+          <p>Версии себестоимости Ozon Profit — не количество товаров. Здесь показываем уникальные SKU, которые есть только в финансовом документе или только в отдельном справочнике товаров. Неизвестные наименования не придумываем, связи с WB автоматически не создаём.</p>
+          <div class="wb-monitor-metrics">
+            <div><span>Уникальные SKU в Ozon Profit</span><strong id="financeAuditUniqueProfitSkus">—</strong></div>
+            <div><span>Только в Ozon Profit</span><strong id="financeAuditProfitOnlySkus">—</strong></div>
+            <div><span>Только в справочнике Ozon</span><strong id="financeAuditCatalogOnlySkus">—</strong></div>
+            <div><span>SKU в обоих источниках</span><strong id="financeAuditIntersectSkus">—</strong></div>
+          </div>
+          <div class="table-wrap"><table class="wb-unit-table">
+            <thead><tr><th>SKU Ozon Profit</th><th>Версий</th><th>Действует</th><th>Себестоимость</th><th>Статус</th></tr></thead>
+            <tbody id="financeAuditProfitOnlyRows"></tbody>
+          </table></div>
+          <p id="financeAuditSkuCoverageNote" class="wb-monitor-meta">Без подтверждённой карточки товара версия себестоимости не позволяет определить модель, цвет и комплектацию.</p>
+        </details>
         <h3>Текущие цены и статус источника</h3>
         <div class="table-wrap"><table class="wb-unit-table finance-audit-table">
           <thead><tr><th>Источник</th><th>Артикул / SKU</th><th>Модель / период</th><th>Цена за единицу</th><th>Статус</th></tr></thead>
@@ -361,9 +376,11 @@
           </table></div>
         </details>
         <h3>Общие расходы · существующий регистр Ozon Profit</h3>
+        <p id="financeAuditOverheadReview" class="wb-monitor-meta">Контроль доставки материалов и повторного учёта пока не загружен.</p>
+
         <p>Статьи со сферой «бизнес» потенциально относятся ко всем каналам. Пока не подтверждены первичные документы, месяцы и ключи распределения, они <strong>не вычитаются повторно</strong> из WB или Ozon.</p>
         <div class="table-wrap"><table class="wb-unit-table">
-          <thead><tr><th>Статья</th><th>Область</th><th>Действует</th><th>Учёт</th></tr></thead>
+          <thead><tr><th>Статья</th><th>Область</th><th>Значение в документе</th><th>Действует</th><th>Контроль</th></tr></thead>
           <tbody id="financeAuditExpenseRows"></tbody>
         </table></div>
         <p class="wb-monitor-footnote">Подтверждённый артикул продавца Ozon и такой же WB-код — лишь кандидат на связь, не доказательство идентичности товара. Версии себестоимости и суммы общих расходов должны сохранять историю и первоисточник. <a href="#ozonProfit">Открыть действующий регистр Ozon Profit</a>.</p>
@@ -1965,7 +1982,7 @@
 <script src="/wb-unit-economics.js?v=20261121-cost-hints" defer></script>
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
-<script type="module" src="/finance-cost-audit.mjs?v=20261121"></script>
+<script type="module" src="/finance-cost-audit.mjs?v=20261122-sku-coverage"></script>
 <script type="module" src="/finance-product-links-ui.mjs?v=20261121"></script>
 </body>
 </html>
