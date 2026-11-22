@@ -43,6 +43,12 @@ test('reconcile real WB preliminary COGS, auxiliary Ozon prices and Profit versi
   assert.equal(r.ozonCatalog.count,2);
   assert.equal(r.ozonCatalog.confirmed,2);
   assert.equal(r.ozonProfit.count,1);
+  assert.equal(r.skuCoverage.profitCostVersionCount,1);
+  assert.equal(r.skuCoverage.distinctProfitSkus,1);
+  assert.equal(r.skuCoverage.intersectedSkus,1);
+  assert.equal(r.skuCoverage.catalogOnlySkuCount,1);
+  assert.equal(r.skuCoverage.materialDeliveryCandidates,0);
+  assert.ok(r.blockers.includes('ozon_catalog_sku_profit_missing'));
   assert.equal(r.ozonProfit.confirmed,1);
   assert.equal(r.ozonProfit.version,4);
   assert.equal(r.expenses.configuredCount,2);
@@ -69,6 +75,8 @@ test('not-configured Profit or missing WB migration are not represented as verif
   assert.equal(r.expenses.status,'unavailable');
   assert.ok(r.blockers.includes('ozon_profit_source_unavailable'));
   assert.ok(r.blockers.includes('ozon_expense_source_unavailable'));
+  assert.equal(r.skuCoverage.distinctProfitSkus,0);
+  assert.equal(r.skuCoverage.expensesReviewed.length,0);
   assert.ok(r.blockers.includes('wb_cost_migration_required'));
   assert.equal(r.netProfitKopecks,null);
 });
