@@ -1,0 +1,23 @@
+name: WB Mismatched Report Guard
+on:
+  push:
+    branches:
+      - fix/wb-mismatched-report-blocker-20261122
+  pull_request:
+    paths:
+      - 'functions/api/wb/unit-economics.js'
+      - 'web/office/wb-unit-economics-core.mjs'
+      - 'web/office/wb-unit-economics.js'
+      - 'web/office/wb-payout-provenance-core.mjs'
+      - 'tests/wb/wb-mismatched-report-source.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/wb/wb-mismatched-report-source.test.mjs tests/wb/wb-unit-economics-api.test.mjs tests/wb/wb-unit-economics-core.test.mjs tests/wb/wb-unit-economics-ui.test.mjs tests/wb/wb-payout-provenance.test.mjs
