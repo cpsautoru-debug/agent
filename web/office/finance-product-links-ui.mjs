@@ -234,7 +234,10 @@ export function attachFinanceProductLinks({
       };
       wbLookupStatus.textContent=messages[error?.message]||
         'Не удалось проверить карточки WB. Группы по прежним названиям сохранены; финансовые данные не менялись.';
-    }finally{wbLoading=false;wbLookupButton.disabled=!loadedWb.length;}
+    }finally{
+      wbLoading=false;wbLookupButton.disabled=!loadedWb.length;
+      drawSuggestions(reviewGroups.find(g=>g.key===groupFilter.value));
+    }
   });
   const drawLinks=data=>{
     rows.replaceChildren();
@@ -347,7 +350,10 @@ export function attachFinanceProductLinks({
         'Источники не удалось проверить. Записи заблокированы. Основные финансы работают отдельно.';
       rows.replaceChildren();
       reset();
-    }finally{loading=false;loadButton.disabled=false;}
+    }finally{
+      loading=false;loadButton.disabled=false;
+      drawSuggestions(reviewGroups.find(g=>g.key===groupFilter.value));
+    }
   }
   function draft(){
     if(!ready)throw Error('not_ready');
