@@ -7,7 +7,7 @@ const ids=['financeLinksLoad','financeLinksStatus','financeLinksForm',
   'financeLinksWb','financeLinksOzon','financeLinksFrom',
   'financeLinksEvidence','financeLinksSame','financeLinksNoCost',
   'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
-  'financeLinksRows'];
+  'financeLinksRows','financeLinksGroupFilter','financeLinksGroupStatus'];
 function node(){
   return{
     children:[],textContent:'',value:'',checked:false,disabled:false,
@@ -16,17 +16,25 @@ function node(){
     addEventListener(event,fn){this.handlers[event]=fn;}
   };
 }
-function fixture({migration=false,enrich=false,sellerUnavailable=false}={}){
+function fixture({migration=false,enrich=false,sellerUnavailable=false,grouped=false}={}){
   const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
   const calls=[];
   const registry={code:'finance_product_links',status:'ready',
     readOnly:true,changedRecords:0,links:[],count:0};
   const wb={code:'wb_unit_economics_preview',source:'WB_FINANCE_API_D1',
     scope:'ALL_COMPLETED_WB_REPORTS_NOT_CALENDAR_MONTH',
-    articles:[{vendorCode:'веста №2'},{vendorCode:'карты_лада_веста_белые_соты'}]};
+    articles:[{vendorCode:'веста №2'},{vendorCode:'карты_лада_веста_белые_соты'},
+      ...(grouped?[{vendorCode:'чехлы веста черные соты'},
+        {vendorCode:'чехлы веста кросс черные'}]:[])]};
   const audit={code:'unified_finance_source_audit',
     ozonCatalog:{entries:[{sku:'OZ-VESTA-2',
-      model:'Lada Vesta',sellerArticle:'vesta-brown'}]},
+      model:'Lada Vesta',sellerArticle:'vesta-brown'},
+      ...(grouped?[{sku:'OZ-VESTA-COVER',model:'Lada Vesta',
+        sellerArticle:'чехлы-черные-соты'},
+        {sku:'OZ-VESTA-CROSS',model:'Lada Vesta Cross',
+          sellerArticle:'чехлы-черные-соты'},
+        {sku:'OZ-DOOR',model:'Lada Vesta',
+          sellerArticle:'карты-белые-соты'}]:[])]},
     ...(enrich?{skuCoverage:{profitOnlySkuCount:1}}:{})};
   const fetchData=async(url,options)=>{
     calls.push({url,options});
@@ -166,12 +174,56 @@ test('Seller API unavailable preserves local SKU selections and blocks nonexiste
   assert.match(e.financeLinksStatus.textContent,/не удалось проверить/);
   assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
 });
+test('group filter narrows both selects without choosing or confirming a physical product',async()=>{
+  const f=fixture({grouped:true}),e=f.nodes;
+  assert.equal(f.calls.length,0);
+  e.financeLinksLoad.handlers.click();
+  await flush();
+  assert.equal(e.financeLinksGroupFilter.disabled,false);
+  assert.equal(e.financeLinksGroupFilter.children.length,4);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  e.financeLinksGroupFilter.value='vesta|door';
+  e.financeLinksGroupFilter.handlers.change('vesta|door');
+  assert.equal(e.financeLinksWb.children.length,2);
+  assert.equal(e.financeLinksWb.children[1].value,'карты_лада_веста_белые_соты');
+  assert.equal(e.financeLinksOzon.children.length,2);
+  assert.equal(e.financeLinksOzon.children[1].value,'OZ-DOOR');
+  assert.equal(e.financeLinksWb.value,'');
+  assert.equal(e.financeLinksOzon.value,'');
+  assert.match(e.financeLinksGroupStatus.textContent,/НЕ подтверждено/);
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  // Switching back restores all choices but does not pick a pair.
+  e.financeLinksGroupFilter.value='';
+  e.financeLinksGroupFilter.handlers.change('');
+  assert.equal(e.financeLinksWb.children.length,5);
+  assert.equal(e.financeLinksOzon.children.length,5);
+  assert.equal(e.financeLinksWb.value,'');
+});
+test('changing model after preview invalidates signed receipt before save',async()=>{
+  const f=fixture({grouped:true}),e=f.nodes;
+  e.financeLinksLoad.handlers.click();await flush();
+  e.financeLinksWb.value='чехлы веста черные соты';
+  e.financeLinksOzon.value='OZ-VESTA-COVER';
+  e.financeLinksFrom.value='2026-11-22';
+  e.financeLinksEvidence.value='Сверены фото материалы лекала и комплектация';
+  e.financeLinksSame.checked=true;e.financeLinksNoCost.checked=true;
+  e.financeLinksForm.handlers.submit({preventDefault(){}});
+  await flush();
+  assert.equal(e.financeLinksSave.disabled,false);
+  e.financeLinksGroupFilter.value='vesta-cross|seat';
+  e.financeLinksGroupFilter.handlers.change('vesta-cross|seat');
+  assert.equal(e.financeLinksSave.disabled,true);
+  e.financeLinksSave.handlers.click();
+  await flush();
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,1);
+  assert.equal(f.registry.count,0);
+});
 test('form is strictly no-cost, source-bound, and has one instance of each control',()=>{
   const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-all-sku/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-model-filters/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));
