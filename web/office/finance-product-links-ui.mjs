@@ -54,7 +54,11 @@ export function attachFinanceProductLinks({
     invalid_product_link:'Укажи артикул, SKU, действительную дату и основание. Подтверди физическое совпадение изделия.',
     origin_denied:'Неверный источник запроса.',
     forbidden:'Недостаточно прав владельца.',
-    unauthorized:'Требуется вход владельца.'
+    unauthorized:'Требуется вход владельца.',
+    ozon_identity_source_unavailable:'Не удалось повторно подтвердить карточку SKU через Ozon Seller API. Сохранение заблокировано.',
+    ozon_profit_sku_not_verified:'SKU отсутствует в подтверждённых источниках Ozon Profit.',
+    ozon_sku_card_not_found:'SKU не найден в подключённом кабинете Ozon.',
+    ozon_identity_rate_limited:'Ozon временно ограничил API. Попробуй позже.'
   };
   const reset=()=>{ready=false;previewButton.disabled=true;clear();};
   const drawLinks=data=>{
@@ -106,20 +110,66 @@ export function attachFinanceProductLinks({
       const wbArticles=[...new Set(wbData.articles.map(x=>x.vendorCode))]
         .filter(x=>typeof x==='string'&&x&&!linkedWb.has(x))
         .sort((a,b)=>a.localeCompare(b,'ru'));
-      const ozonCosts=audit.ozonCatalog.entries
+      // The auxiliary Ozon cost catalog contains only a few SKUs. Load
+      // exact Seller API identities for Profit-only numeric SKUs on the
+      // owner's explicit button press. Never copy their COGS or auto-link.
+      const ozonOptions=new Map(audit.ozonCatalog.entries
         .filter(x=>typeof x.sku==='string'&&!linkedOzon.has(x.sku))
+        .map(x=>[x.sku,{
+          sku:x.sku,name:x.model+' · '+x.sellerArticle,source:'local'
+        }]));
+      let sellerFound=0,sellerWarning='';
+      if(audit.skuCoverage?.profitOnlySkuCount>0){
+        try{
+          const fresh=await request('/api/finance/ozon-sku-cards');
+          if(fresh?.code!=='ozon_sku_cards_lookup'||
+            fresh.readOnly!==true||fresh.changedRecords!==0||
+            fresh.source!=='ozon_seller_api_v3_product_info_list'||
+            fresh.accountScope!=='connected_ozon_client_only'||
+            !Array.isArray(fresh.items)||!Array.isArray(fresh.notFound)||
+            !Array.isArray(fresh.unsupported)||
+            fresh.missingFromLocalCatalog!==
+              audit.skuCoverage.profitOnlySkuCount||
+            fresh.foundCount!==fresh.items.length)
+            throw Error('invalid_seller_source');
+          for(const item of fresh.items){
+            if(typeof item.sku!=='string'||
+              typeof item.name!=='string'||!item.name||
+              typeof item.offerId!=='string'||!item.offerId||
+              item.physicalIdentityVerified!==false||
+              item.costTransferred!==false)
+              throw Error('invalid_seller_source');
+            if(linkedOzon.has(item.sku))continue;
+            if(ozonOptions.has(item.sku))throw Error('duplicate_seller_sku');
+            ozonOptions.set(item.sku,{
+              sku:item.sku,name:item.name+' · '+item.offerId,
+              source:'seller_api'
+            });
+            sellerFound++;
+          }
+          if(fresh.notFound.length||fresh.unsupported.length)
+            sellerWarning=' Не найдены или не поддерживаются: '+
+              (fresh.notFound.length+fresh.unsupported.length)+' SKU.';
+        }catch{
+          sellerWarning=' Карточки вне локального справочника сейчас не удалось проверить; их нельзя связывать до ответа Ozon.';
+        }
+      }
+      const ozonCosts=[...ozonOptions.values()]
         .sort((a,b)=>a.sku.localeCompare(b.sku,'ru'));
       setSelect(wb,'Выбрать артикул WB',wbArticles.map(x=>[x,x]));
       setSelect(ozon,'Выбрать SKU Ozon',ozonCosts.map(x=>[
-        x.sku+' · '+x.model+' · '+x.sellerArticle,x.sku
+        x.sku+' · '+x.name+
+          (x.source==='seller_api'?' · карточка Seller API':''),
+        x.sku
       ]));
       drawLinks(registry);
       ready=wbArticles.length>0&&ozonCosts.length>0;
       previewButton.disabled=!ready;
       status.textContent='Подтверждённых связей: '+registry.count+
         '. Доступных артикулов WB: '+wbArticles.length+
-        '; SKU Ozon в справочнике: '+ozonCosts.length+
-        '. Выбирай пару только после сверки физического изделия; '+
+        '; всего доступных SKU Ozon: '+ozonCosts.length+
+        ' (из Seller API дополнительно: '+sellerFound+').'+sellerWarning+
+        ' Выбирай пару только после сверки физического изделия; '+
         'производственная себестоимость автоматически не переносится.';
     }catch(error){
       status.textContent=MESSAGES[error?.message]||
@@ -162,7 +212,8 @@ export function attachFinanceProductLinks({
       receipt={doc,token:result.token};
       saveButton.disabled=false;
       previewStatus.textContent='ПРЕДПРОСМОТР: '+doc.wbVendorCode+
-        ' ↔ '+result.document.ozonSku+' ('+result.document.modelName+
+        ' ↔ '+result.document.ozonSku+' ('+
+        (result.document.ozonProductTitle||result.document.modelName)+
         '). Проверено с '+doc.verifiedFrom+
         '. НИЧЕГО НЕ СОХРАНЕНО. Для фиксации одной связи нажми отдельную кнопку в течение 10 минут.';
     }catch(error){
