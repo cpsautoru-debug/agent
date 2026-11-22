@@ -8,7 +8,8 @@ const ids=['financeLinksLoad','financeLinksStatus','financeLinksForm',
   'financeLinksEvidence','financeLinksSame','financeLinksNoCost',
   'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
   'financeLinksRows','financeLinksGroupFilter','financeLinksGroupStatus',
-  'financeWbCardLookupButton','financeWbCardLookupStatus'];
+  'financeWbCardLookupButton','financeWbCardLookupStatus',
+  'financePairRankFilter','financePairSuggestionRows','financePairUnmatched'];
 function node(){
   return{
     children:[],textContent:'',value:'',checked:false,disabled:false,
@@ -20,6 +21,7 @@ function node(){
 function fixture({migration=false,enrich=false,sellerUnavailable=false,
   grouped=false,contentPermission=true}={}){
   const nodes=Object.fromEntries(ids.map(id=>[id,node()]));
+  nodes.financePairRankFilter.value='all';
   const calls=[];
   const registry={code:'finance_product_links',status:'ready',
     readOnly:true,changedRecords:0,links:[],count:0};
@@ -273,8 +275,32 @@ test('form is strictly no-cost, source-bound, and has one instance of each contr
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-safe-suggestions/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-review-table/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));
+});
+
+test('review table filters without POST and choosing hint clears attestations',async()=>{
+  const f=fixture({grouped:true}),e=f.nodes;
+  e.financeLinksLoad.handlers.click();await flush();
+  assert.ok(e.financePairSuggestionRows.children.length>0);
+  assert.match(e.financePairSuggestionRows.children[0].children[2].textContent,/\/100/);
+  e.financePairRankFilter.value='high';
+  e.financePairRankFilter.handlers.change('high');
+  assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
+  e.financePairRankFilter.value='all';
+  e.financePairRankFilter.handlers.change('all');
+  const match=e.financePairSuggestionRows.children.find(row=>
+    row.children[5]?.children[0]?.handlers?.click);
+  assert.ok(match);
+  e.financeLinksSame.checked=true;e.financeLinksNoCost.checked=true;
+  e.financeLinksEvidence.value='do not preserve';
+  match.children[5].children[0].handlers.click();
+  assert.equal(e.financeLinksSame.checked,false);
+  assert.equal(e.financeLinksNoCost.checked,false);
+  assert.equal(e.financeLinksEvidence.value,'');
+  assert.equal(e.financeLinksSave.disabled,true);
+  assert.match(e.financeLinksPreviewStatus.textContent,/Ничего не сохранено/);
+  assert.equal(f.registry.count,0);
 });

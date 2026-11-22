@@ -19,13 +19,16 @@ export function attachFinanceProductLinks({
     'financeLinksPreview','financeLinksSave','financeLinksPreviewStatus',
     'financeLinksRows','financeLinksGroupFilter',
     'financeLinksGroupStatus','financeWbCardLookupButton',
-    'financeWbCardLookupStatus'];
+    'financeWbCardLookupStatus','financePairRankFilter',
+    'financePairSuggestionRows','financePairUnmatched'];
   if(!fetchData||ids.some(id=>!$(id)))return false;
   const [loadButton,status,form,wb,ozon,from,evidence,same,noCost,
     previewButton,saveButton,previewStatus,rows,groupFilter,
-    groupStatus,wbLookupButton,wbLookupStatus]=ids.map($);
+    groupStatus,wbLookupButton,wbLookupStatus,rankFilter,
+    suggestionRows,unmatchedStatus]=ids.map($);
   let loading=false,saving=false,receipt=null,ready=false,wbLoading=false;
   let wbCardTitles=new Map();
+  let unmatchedWb=[];
   let loadedWb=[],loadedOzon=[],reviewGroups=[],pairSuggestions=[],ambiguousWb=0,ambiguousOzon=0;
   const make=(tag,content)=>{
     const el=documentRef.createElement(tag);
@@ -72,7 +75,9 @@ export function attachFinanceProductLinks({
   const reset=()=>{
     ready=false;previewButton.disabled=true;clear();
     loadedWb=[];loadedOzon=[];reviewGroups=[];pairSuggestions=[];wbCardTitles=new Map();
-    ambiguousWb=0;ambiguousOzon=0;
+    ambiguousWb=0;ambiguousOzon=0;unmatchedWb=[];
+    rankFilter.value='all';suggestionRows.replaceChildren();
+    unmatchedStatus.textContent='Не распознаны: пока не проверено.';
     wbLookupButton.disabled=true;
     wbLookupStatus.textContent='Названия WB ещё не запрашивались.';
     groupFilter.disabled=true;
@@ -105,18 +110,59 @@ export function attachFinanceProductLinks({
       reviewGroups.length+'. Не распознаны однозначно: WB '+ambiguousWb+
       ', Ozon '+ambiguousOzon+
       '. Это не отсутствие товара и не нулевая себестоимость.';
-    const suggestions=pairSuggestions.filter(s=>!group||
-      (group.wbArticles.includes(s.wbVendorCode)&&
-       group.ozonSkus.includes(s.ozonSku)));
-    if(suggestions.length){
-      groupStatus.textContent+=' Подсказки для ручной сверки (балл — эвристика, не вероятность и не подтверждение): '+
-        suggestions.slice(0,5).map(s=>
-          s.wbVendorCode+' ↔ '+s.ozonSku+' · '+s.score+'/100 · '+
-          s.evidence.join(', ')).join('; ')+
-        (suggestions.length>5?' · ещё '+(suggestions.length-5):'')+
-        '. Цвет, материал, конструкцию и комплектацию необходимо сверить физически.';
-    }
+    drawSuggestions(group);
+
   };
+  const drawSuggestions=group=>{
+    suggestionRows.replaceChildren();
+    const filtered=pairSuggestions.filter(s=>
+      (!group||(group.wbArticles.includes(s.wbVendorCode)&&
+        group.ozonSkus.includes(s.ozonSku)))&&
+      (rankFilter.value==='all'||
+        (rankFilter.value==='high'&&s.score>=80)||
+        (rankFilter.value==='review'&&s.score>=60&&s.score<80)||
+        (rankFilter.value==='sparse'&&s.score<60)));
+    for(const s of filtered){
+      const tr=make('tr');
+      const missingNames={color:'цвет',texture:'фактура',
+        material:'материал',fit:'тип кузова'};
+      const columns=[
+        s.wbVendorCode,s.ozonSku,s.score+'/100',
+        s.evidence.join(', '),
+        s.missing.length?s.missing.map(x=>missingNames[x]||x)
+          .join(', '):'В названии есть совпадающие признаки; остальные характеристики не проверены'
+      ];
+      for(const v of columns)tr.append(make('td',v));
+      const cell=make('td');
+      const btn=make('button','Выбрать для проверки');
+      btn.type='button';btn.disabled=loading||saving||wbLoading;
+      btn.addEventListener('click',()=>{
+        if(loading||saving||wbLoading||!ready)return;
+        // No write, attestation, date or evidence is auto-filled.
+        clear();
+        same.checked=false;noCost.checked=false;
+        evidence.value='';from.value='';
+        groupFilter.value='';
+        showFiltered();
+        wb.value=s.wbVendorCode;ozon.value=s.ozonSku;
+        previewStatus.textContent='Пара выбрана для ручной проверки. Сверь фото, материал, крой и комплектацию; укажи дату и основание. Ничего не сохранено.';
+      });
+      cell.append(btn);tr.append(cell);suggestionRows.append(tr);
+    }
+    if(!filtered.length){
+      const tr=make('tr');const td=make('td',
+        'Нет подсказок в выбранной категории. Это не означает отсутствие товара.');
+      td.colSpan=6;tr.append(td);suggestionRows.append(tr);
+    }
+    unmatchedStatus.textContent=unmatchedWb.length?
+      'Не сопоставлены с текущими карточками WB: '+unmatchedWb.join('; ')+
+      '. Эти артикулы остаются в финансовом учёте.':
+      'Не сопоставлены с карточками WB: '+(wbCardTitles.size?
+        'в проверенной выборке нет':'для уточнения нажми Content API.');
+  };
+  rankFilter.addEventListener('change',()=>{
+    if(!loading&&!saving&&!wbLoading)showFiltered();
+  });
   const rebuildGroups=()=>{
     const suggestions=makeFinanceReviewGroups(
       loadedWb,loadedOzon,wbCardTitles
@@ -163,6 +209,8 @@ export function attachFinanceProductLinks({
         }
       }
       wbCardTitles=titles;
+      unmatchedWb=result.fullyScanned?
+        result.unmatched.filter(x=>codeSet.has(x)):[];
       rebuildGroups();
       wbLookupStatus.textContent='Точные карточки WB прочитаны: '+
         result.matchedCount+' из '+result.totalFinanceCodes+
