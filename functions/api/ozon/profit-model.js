@@ -123,6 +123,37 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   const skuRows=[...skus.values()].map(({unitCosts,...s})=>({...s,costKopecks:unitCosts.size===1?[...unitCosts][0]:null}));
   const known=sum(skuRows.map(s=>s.knownCostKopecks??0));
   const costsComplete=!!d && d.quantityVerified && !blockers.some(x=>['sku_missing','cost_missing','cost_preliminary','quantity_missing','return_recovery_unverified'].includes(x));
+  // A charged advertising service may already be part of the Ozon API net.
+  // A matching-looking manual expense is a possible duplicate, never an
+  // authorization to subtract it twice. Name matching is only a risk signal.
+  const adLabel=/(?:реклам|продвижен|оплат[ауы] за клик|трафик|\\b(?:cpc|cpm|pay.per.click)\\b)/iu;
+  const reportAdRows=(d?.rows||[]).filter(r=>
+    r.service!=='Выручка'&&r.service!=='Возврат выручки'&&
+    (adLabel.test(r.service)||adLabel.test(r.group)));
+  const expenseAdItems=(e?.items||[]).filter(x=>
+    adLabel.test(x.label)&&x.validFrom<bounds.end&&
+    (x.validTo===null||x.validTo>=bounds.start));
+  const adOverlapRisk=reportAdRows.length>0&&expenseAdItems.length>0;
+  if(adOverlapRisk)block('advertising_overlap_unverified');
+  const advertisingAudit={
+    source:'OZON_REPORT_SERVICE_VS_MANUAL_EXPENSE_LABELS',
+    readOnly:true,changedRecords:0,month,
+    reportAvailable:!!d,
+    reportAdvertisingRows:reportAdRows.map(x=>({
+      sourceRow:x.row,date:x.date,service:x.service,
+      amountKopecks:x.amountKopecks
+    })),
+    externalAdvertisingItems:expenseAdItems.map(x=>({
+      id:x.id,label:x.label,scope:x.scope,
+      amountKopecks:x.amountKopecks
+    })),
+    possibleDoubleCount:adOverlapRisk,
+    duplicateConfirmed:false,
+    advertisingSpendVerified:false,
+    note:adOverlapRisk?
+      'Реклама встречается и в начислениях Ozon, и во внешних расходах: требуется проверка первички. Повторный вычет не подтверждён.':
+      'Совпадение рекламных расходов по источникам не выявлено. Это не подтверждает полноту рекламных затрат.'
+  };
   let overhead=0,direct=0,allocationReason='',allocationKnown=true;
   if(!e){block('expenses_missing');allocationKnown=false;allocationReason='expenses_missing';}
   for(const item of e?.items||[]) {
@@ -148,7 +179,7 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   const grossReady=!!d && d.rows.length>0 && d.periodVerified && costsComplete && !duplicateCandidates.length && !blockers.includes('unknown_services');
   const gross=grossReady?sum([sales,returns,-known]):null;
   const operating=complete?sum([api.totalKopecks,-known,-direct,-allocated]):null;
-  return {month,currency:'RUB',api,
+  return {month,currency:'RUB',api,advertisingAudit,
     dateCostEvidence:{scope:'REPORT_SALES_ROWS_ONLY',
       source:'OWNER_CONFIRMED_XLSX_AND_DATE_EFFECTIVE_COSTS',
       complete:!!d&&d.quantityVerified&&d.periodVerified&&
