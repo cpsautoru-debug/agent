@@ -218,7 +218,8 @@
           <div><span>Артикулы WB</span><strong id="wbUnitSkus">—</strong></div>
           <div><span>Выплата по завершённым отчётам</span><strong id="wbUnitPayout">—</strong></div>
           <div><span>Известная себестоимость пошива</span><strong id="wbUnitKnownCogs">—</strong></div>
-          <div><span>Проданные шт. без подтверждённой цены</span><strong id="wbUnitMissingCost">—</strong></div>
+          <div><span>Проданные шт. совсем без цены</span><strong id="wbUnitMissingCost">—</strong></div>
+          <div><span>Проданные шт. без подтверждённой себестоимости (включая предварительную)</span><strong id="wbUnitUnverifiedCost">—</strong></div>
           <div><span>Чистая прибыль предприятия</span><strong id="wbUnitNetProfit">Не рассчитана</strong></div>
         </div>
         <p id="wbUnitScope" class="wb-monitor-meta">Период — завершённые отчёты WB, которые могут пересекать календарные месяцы. Данные по ещё не завершённым отчётам не участвуют в расчёте.</p>
@@ -2041,7 +2042,7 @@
 <script src="/wb-finance-check.js?v=transport-diagnostics-2" defer></script>
 <script src="/wb-report-list.js?v=20261120" defer></script>
 <script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
-<script src="/wb-unit-economics.js?v=20261121-cost-hints" defer></script>
+<script src="/wb-unit-economics.js?v=20261122-cogs-coverage" defer></script>
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
 <script type="module" src="/finance-cost-audit.mjs?v=20261122-closeout-gates"></script>

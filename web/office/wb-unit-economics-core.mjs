@@ -75,7 +75,8 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
   const bySku=new Map();
   let totalGroupOperations=0,totalPayout=0,uncodedMoney=0,
     unmodelledMoney=0,unattributedFees=0,coveredSold=0,
-    knownCogs=0,unknownSoldUnits=0,returnUnits=0;
+    knownCogs=0,unknownSoldUnits=0,unverifiedCostSoldUnits=0,
+    preliminaryCostSoldUnits=0,versionConflictSoldUnits=0,returnUnits=0;
   const blockers=new Set();
   for(const raw of groups){
     const row=validateGroup(raw);
@@ -93,7 +94,9 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
     if(!sku){
       sku={vendorCode:row.vendor_code,soldUnits:0,returnedUnits:0,
         payoutKopecks:0,feesKopecks:0,knownCogsKopecks:0,
-        unknownSoldUnits:0,reportIds:new Set(),
+        unknownSoldUnits:0,unverifiedCostSoldUnits:0,
+        preliminaryCostSoldUnits:0,versionConflictSoldUnits:0,
+        reportIds:new Set(),
         blockers:new Set(),costVersions:new Set()};
       bySku.set(row.vendor_code,sku);
     }
@@ -109,7 +112,19 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
     if(row.sold_units){
       const {cost,reason}=findCostForReport(
         costs,row.vendor_code,row.date_from,row.date_to);
-      if(reason)sku.blockers.add(reason);
+      if(reason){
+        sku.blockers.add(reason);
+        sku.unverifiedCostSoldUnits=safeAdd(sku.unverifiedCostSoldUnits,row.sold_units);
+        unverifiedCostSoldUnits=safeAdd(unverifiedCostSoldUnits,row.sold_units);
+        if(reason==='cost_preliminary'){
+          sku.preliminaryCostSoldUnits=safeAdd(sku.preliminaryCostSoldUnits,row.sold_units);
+          preliminaryCostSoldUnits=safeAdd(preliminaryCostSoldUnits,row.sold_units);
+        }
+        if(reason==='cost_version_crosses_report_period'){
+          sku.versionConflictSoldUnits=safeAdd(sku.versionConflictSoldUnits,row.sold_units);
+          versionConflictSoldUnits=safeAdd(versionConflictSoldUnits,row.sold_units);
+        }
+      }
       if(cost){
         sku.costVersions.add(cost.validFrom);
         const productCost=safeMul(row.sold_units,cost.costKopecks);
@@ -140,6 +155,9 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
       platformFeesKopecks:sku.feesKopecks,
       knownManufacturingCogsKopecks:sku.knownCogsKopecks,
       unknownSoldUnits:sku.unknownSoldUnits,
+      unverifiedCostSoldUnits:sku.unverifiedCostSoldUnits,
+      preliminaryCostSoldUnits:sku.preliminaryCostSoldUnits,
+      versionConflictSoldUnits:sku.versionConflictSoldUnits,
       contributionAfterKnownCogsKopecks:
         sku.soldUnits>0&&sku.unknownSoldUnits===0&&
         sku.blockers.size===0?
@@ -162,6 +180,9 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
     totalKnownManufacturingCogsKopecks:knownCogs,
     confirmedCostSoldUnits:coveredSold,
     missingCostSoldUnits:unknownSoldUnits,
+    unverifiedCostSoldUnits,
+    preliminaryCostSoldUnits,versionConflictSoldUnits,
+    costEvidenceScope:'SOLD_UNITS_IN_COMPLETED_REPORTS_NOT_CALENDAR_MONTH',
     unassignedPayoutKopecks:uncodedMoney,
     unassignedFeesKopecks:unattributedFees,
     unreconciledAdditionalFieldsKopecks:unmodelledMoney,

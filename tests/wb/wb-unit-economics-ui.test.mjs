@@ -10,7 +10,8 @@ const migration=readFileSync(new URL('../../migrations/wb/0007_wb_profit_unit_co
 test('WB section shows real per-SKU article economics and manual cost preview',()=>{
   assert.match(html,/Результат по каждому артикулу WB/);
   for(const id of ['wbUnitEconomics','wbUnitRefresh','wbUnitStatus','wbUnitRows',
-    'wbUnitPayout','wbUnitKnownCogs','wbUnitMissingCost','wbUnitNetProfit',
+    'wbUnitPayout','wbUnitKnownCogs','wbUnitMissingCost',
+    'wbUnitUnverifiedCost','wbUnitNetProfit',
     'wbUnitCostForm','wbUnitCostVendor','wbUnitCostAmount',
     'wbUnitCostFrom','wbUnitCostSource','wbUnitCostPreview',
     'wbUnitCostConfirm','wbUnitCostAttestation','wbUnitCostMessage']){
@@ -22,7 +23,7 @@ test('WB section shows real per-SKU article economics and manual cost preview',(
   assert.match(html,/материалы \+ оплату швеи \+ оплату закройщика/);
   assert.match(html,/Упаковщик, водитель, управляющий, ОТК/);
   assert.match(html,/Аренда, коммунальные услуги, мусор/);
-  assert.match(html,/wb-unit-economics\.js\?v=20261121/);
+  assert.match(html,/wb-unit-economics\.js\?v=20261122-cogs-coverage/);
   assert.match(html,/wb-unit-economics\.css\?v=20261121/);
   assert.match(css,/\.wb-unit-columns/);
 });
@@ -67,7 +68,7 @@ test('unknown HTTP errors and 200 schema errors have separate safe identifiers',
     'configuration_unavailable','wb_profitability_unavailable_general']){
     assert.ok(js.includes(key),key);
   }
-  assert.ok(html.includes('/wb-unit-economics.js?v=20261121-cost-hints'));
+  assert.ok(html.includes('/wb-unit-economics.js?v=20261122-cogs-coverage'));
   assert.ok(js.includes('!response.ok'));
   assert.ok(js.includes('try{draw(payload);}'));
   assert.ok(!js.includes('console.error'));
