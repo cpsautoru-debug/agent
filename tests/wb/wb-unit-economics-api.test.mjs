@@ -190,7 +190,7 @@ test('end-to-end: authenticated API response renders real SKU cards in the uncha
   const payload=await response.json();
   const ids=['wbUnitEconomics','wbUnitRefresh','wbUnitStatus','wbUnitRows',
     'wbUnitCompleted','wbUnitSkus','wbUnitPayout','wbUnitKnownCogs',
-    'wbUnitMissingCost','wbUnitNetProfit','wbUnitScope','wbUnitBlockers',
+    'wbUnitMissingCost','wbUnitUnverifiedCost','wbUnitNetProfit','wbUnitScope','wbUnitBlockers',
     'wbUnitCostForm','wbUnitCostVendor','wbUnitCostAmount','wbUnitCostFrom',
     'wbUnitCostSource','wbUnitCostStatus','wbUnitCostAttestation',
     'wbUnitCostPreview','wbUnitCostConfirm','wbUnitCostMessage'];
@@ -227,6 +227,6 @@ test('end-to-end: authenticated API response renders real SKU cards in the uncha
   assert.equal(nodes.wbUnitSkus.textContent,'2');
   assert.equal(nodes.wbUnitRows.children.length,2);
   assert.equal(nodes.wbUnitNetProfit.textContent,'Не рассчитана');
-  assert.match(nodes.wbUnitStatus.textContent,/сверка выплат пройдена/);
+  assert.match(nodes.wbUnitStatus.textContent,/сверка пройдена только по завершённым отчётам/);
   assert.ok(nodes.wbUnitCostVendor.children.some(x=>x.value==='VESTA-1'));
 });

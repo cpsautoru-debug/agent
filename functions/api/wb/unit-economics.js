@@ -34,6 +34,7 @@ const GROUP_SQL=[
 const STATS_SQL=[
 "SELECT COALESCE(SUM(CASE WHEN status='complete' THEN 1 ELSE 0 END),0) AS complete_reports,",
 "COALESCE(SUM(CASE WHEN status IN('pending','paging') THEN 1 ELSE 0 END),0) AS pending_reports,",
+"COALESCE(SUM(CASE WHEN status='mismatch' THEN 1 ELSE 0 END),0) AS mismatched_reports,",
 "COALESCE(SUM(CASE WHEN status='complete' THEN bank_payment_kop ELSE 0 END),0) AS bank_payout_kop,",
 "COALESCE(SUM(CASE WHEN status='complete' THEN row_count ELSE 0 END),0) AS completed_operations",
 "FROM wb_finance_api_reports WHERE account_id=?"

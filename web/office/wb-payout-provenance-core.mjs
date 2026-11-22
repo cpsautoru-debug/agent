@@ -8,6 +8,7 @@ export function explainWbPayoutEvidence(data){
     data.readOnly!==true||data.changedRecords!==0||
     data.netProfitKopecks!==null||data.profitVerified!==false||
     !integer(data.completeReports)||!integer(data.pendingReports)||
+    !integer(data.mismatchedReports)||
     !Number.isSafeInteger(data.bankPayoutKopecks)||
     !integer(data.completedOperations)||
     data.reconciliation!=='matched')
@@ -15,9 +16,12 @@ export function explainWbPayoutEvidence(data){
   return {
     readOnly:true,calendarMonthVerified:false,bankStatementVerified:false,
     reportCount:data.completeReports,pendingCount:data.pendingReports,
+    mismatchedCount:data.mismatchedReports,
     operationCount:data.completedOperations,
     reportedPayoutKopecks:data.bankPayoutKopecks,
-    label:'Внутренняя сверка отчётов WB: совпадает',
-    note:'Сумма «К перечислению» совпала с агрегированными строками завершённых отчётов WB. Это не банковская выписка, не сверка календарного месяца и не чистая прибыль.'
+    label:data.mismatchedReports?'Внутренняя сверка завершённых отчётов WB: совпадает; есть другие отчёты с расхождениями':'Внутренняя сверка отчётов WB: совпадает',
+    note:'Сумма «К перечислению» совпала только для завершённых отчётов WB. '+
+      (data.mismatchedReports?'Отчётов со статусом mismatch: '+data.mismatchedReports+'; они исключены из этой суммы. ':'')+
+      'Это не банковская выписка, не сверка календарного месяца и не чистая прибыль.'
   };
 }
