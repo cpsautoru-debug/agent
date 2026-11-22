@@ -1,0 +1,21 @@
+name: WB Report Month Boundaries Check
+on:
+  push:
+    branches:
+      - feature/wb-month-report-boundaries-20261122
+  pull_request:
+    paths:
+      - 'web/office/wb-report-month-boundaries-*.mjs'
+      - 'functions/api/wb/report-month-boundaries.js'
+      - 'tests/wb/wb-report-month-boundaries.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/wb/wb-report-month-boundaries.test.mjs
