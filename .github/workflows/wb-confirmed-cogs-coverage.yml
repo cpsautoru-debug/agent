@@ -1,0 +1,21 @@
+name: WB Confirmed COGS Coverage
+on:
+  push:
+    branches:
+      - feature/wb-confirmed-cogs-coverage-20261122
+  pull_request:
+    paths:
+      - 'web/office/wb-unit-economics-core.mjs'
+      - 'web/office/wb-unit-economics.js'
+      - 'tests/wb/wb-confirmed-cogs-coverage.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/wb/wb-confirmed-cogs-coverage.test.mjs
