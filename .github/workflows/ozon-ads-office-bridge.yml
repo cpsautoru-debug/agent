@@ -1,0 +1,22 @@
+name: Ozon Ads Office Bridge
+on:
+  push:
+    branches:
+      - feature/ozon-ads-office-bridge-20261122
+  pull_request:
+    paths:
+      - 'functions/api/ozon/ads-expense.js'
+      - 'web/office/ozon-ads-evidence.mjs'
+      - 'web/office/index.html'
+      - 'tests/ozon/ozon-ads-office-bridge.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ozon/ozon-ads-office-bridge.test.mjs tests/ozon/profit-ui.test.mjs
