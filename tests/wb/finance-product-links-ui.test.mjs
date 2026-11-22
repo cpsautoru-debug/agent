@@ -252,6 +252,8 @@ test('WB card titles are used only after button, make previously unknown model e
   assert.equal(f.calls.filter(x=>x.url==='/api/finance/wb-content-cards').length,1);
   assert.equal(f.calls.filter(x=>x.options.method==='POST').length,0);
   assert.match(e.financeWbCardLookupStatus.textContent,/Точные карточки WB прочитаны/);
+  assert.equal(e.financePairSuggestionRows.children[0].children[5].children[0].disabled,false,
+    'review action is enabled after Content API enrichment');
   assert.match(e.financeWbCardLookupStatus.textContent,/не считаются отсутствующими/);
   assert.match(e.financeLinksGroupStatus.textContent,/WB 0/);
   assert.equal(e.financeLinksWb.value,'');
@@ -275,7 +277,7 @@ test('form is strictly no-cost, source-bound, and has one instance of each contr
   const ui=readFileSync(new URL('../../web/office/finance-product-links-ui.mjs',import.meta.url),'utf8');
   for(const id of ['financeProductLinksPanel',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-review-table/);
+  assert.match(html,/finance-product-links-ui\.mjs\?v=20261122-review-buttons-fix/);
   assert.match(html,/номер[а-я ]*техкарты/i);
   assert.ok(!ui.includes('costKopecks='));
   assert.ok(!ui.includes('innerHTML'));
@@ -294,6 +296,8 @@ test('review table filters without POST and choosing hint clears attestations',a
   const match=e.financePairSuggestionRows.children.find(row=>
     row.children[5]?.children[0]?.handlers?.click);
   assert.ok(match);
+  assert.equal(match.children[5].children[0].disabled,false,
+    'review action is enabled after initial catalog loading');
   e.financeLinksSame.checked=true;e.financeLinksNoCost.checked=true;
   e.financeLinksEvidence.value='do not preserve';
   match.children[5].children[0].handlers.click();
