@@ -40,7 +40,18 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
           ads_bridge_secret_too_short:'ADS_READ_TOKEN доступен Pages, но его длина меньше 32 символов. Проверьте значение секрета.',
           ads_bridge_token_rejected:'Секреты Pages и Worker не совпадают.',
           ozon_expense_schema_unverified:'Ответ Ozon получен, но формат расходов требует проверки.',
-          ozon_ads_source_unavailable:'Рекламный источник сейчас недоступен.',
+          ozon_ads_source_unavailable:'Ozon Ads не отвечает. Требуется проверка соединения.',
+          private_access_not_configured:'В рекламном Worker не настроен защитный токен.',
+          ozon_credentials_missing:'Рекламный Worker не получил ключи Ozon Performance.',
+          ozon_performance_auth_rejected:'Ozon отклонил Client ID или Client Secret рекламного API (401/403).',
+          ozon_performance_token_unavailable:'Ozon не выдал OAuth-токен. Проверьте API Ozon и статус сервисного аккаунта.',
+          ozon_performance_token_unrecognized:'Ответ Ozon при получении OAuth-токена имеет неизвестный формат.',
+          ozon_performance_expense_unauthorized:'Ozon отклонил доступ к статистике расходов (401/403).',
+          ozon_performance_rate_limited:'Ozon ограничил частоту запросов. Не повторяйте запросы часто.',
+          ozon_performance_expense_unavailable:'Метод расходов Ozon вернул ошибку. Требуется проверить метод и параметры.',
+          ozon_performance_network_or_schema_error:'Не удалось получить или разобрать ответ рекламного Ozon API.',
+          ozon_expense_schema_unverified:'Ответ Ozon получен, но структура статистики пока не распознана.',
+          ozon_expense_rows_unrecognized:'Ozon вернул строки расходов неизвестного формата.',
           invalid_closed_month:'Выберите полностью завершённый месяц.'
         };
         status.textContent=reasons[data?.code]||
