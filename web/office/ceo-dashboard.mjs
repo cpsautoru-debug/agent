@@ -40,31 +40,39 @@ function showProduction(data){
      data.totals.checked<0||data.totals.incomplete<0||
      data.totals.unverified<0||data.totals.incomplete>data.totals.checked)
      throw Error('schema');
-  reportSource('moysklad','partial','Исторический монитор: '+count(data.totals.checked)+' проверено; живая очередь не доказана');
+  const snap=data.completedHistoricalSnapshot;
+  const complete=snap&&
+    snap.scope==='COMPLETED_HISTORICAL_PASS_NOT_LIVE_ACTIVE_QUEUE'&&
+    ['generation','checked','incomplete','complete','unverified','lastCheckedMs']
+      .every(k=>validInt(snap[k])&&snap[k]>=0)&&
+    snap.checked>0&&
+    snap.checked===snap.incomplete+snap.complete+snap.unverified&&
+    snap.lastCheckedMs>0&&snap.lastCheckedMs<=Date.now();
+  // A complete historic scan is an actual finished technical milestone,
+  // not a verified active production backlog or a shop-floor dispatch queue.
+  if(complete){
+    reportSource('moysklad','partial','Фоновый обход завершён: '+
+      count(snap.checked)+' документов; живая очередь ещё не подтверждена');
+    set('ceoProductionValue',count(snap.checked)+' / '+count(snap.checked));
+    status('ceoProductionState','Автоматический обход реестра выполнен','success');
+    set('ceoProductionNote','Подтверждён полный исторический проход №'+
+      count(snap.generation)+': '+count(snap.incomplete)+
+      ' незавершённых этапов, '+count(snap.unverified)+
+      ' требуют уточнения. Текущий проход №'+count(data.generation)+
+      ': '+count(data.totals.checked)+' проверено. Это не список действующих заказов.');
+    set('ceoProductionWarning','Обход реестра работает автоматически. '+
+      'Отдельный этап — подтверждение текущих заказов и распределение по цехам.');
+  }else{
+    reportSource('moysklad','partial','Фоновый исторический обход: '+
+      count(data.totals.checked)+' документов; полный проход не подтверждён');
+    set('ceoProductionValue',count(data.totals.checked));
+    status('ceoProductionState','Идёт исторический обход · не живая очередь','warning');
+    set('ceoProductionNote','Проверено в текущем проходе: '+
+      count(data.totals.checked)+'; неизвестный этап у '+
+      count(data.totals.unverified)+'. Полный проход не подтверждён.');
+    set('ceoProductionWarning','Текущая выборка не равна всей очереди цеха.');
+  }
   reportSource('inventory','partial','Остатки двух складов требуют отдельной сверки');
-  set('ceoProductionValue',count(data.totals.incomplete));
-  status('ceoProductionState','Исторический монитор · не живая очередь','warning');
-  const drift=data.generationDrift;
-  const driftNote=drift&&drift.comparisonScope===
-    'OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE'&&
-    ['baselineRows','comparedRows','matchedRows','newSinceBaseline',
-      'sourceUpdatedRows','stageChangedRows'].every(k=>validInt(drift[k])&&drift[k]>=0)&&
-    drift.comparedRows===data.totals.checked&&
-    drift.matchedRows+drift.newSinceBaseline===drift.comparedRows?
-    ' С прошлого исторического прохода: изменение даты обновления у '+
-      count(drift.sourceUpdatedRows)+', смена статуса этапов у '+
-      count(drift.stageChangedRows)+' документов (только пересечение поколений).':
-    ' Изменения между поколениями не подтверждены.';
-  set('ceoProductionNote','Проверено '+count(data.totals.checked)+
-    '; неизвестный этап у '+count(data.totals.unverified)+'.'+driftNote+
-    ' Монитор: '+(data.monitorHealth||'неизвестно')+
-    '. Последний пакет: '+(validInt(data.lastSuccessMs)&&data.lastSuccessMs>0?
-    new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Samara'})
-      .format(new Date(data.lastSuccessMs)):'нет подтверждения')+'.');
-  const overdue=data.visibleDateChecks?.past;
-  set('ceoProductionWarning',validInt(overdue)?
-    'С прошедшей плановой датой в показанной выборке: '+count(overdue):
-    'Просроченные плановые даты не подтверждены');
 }
 function showWB(data){
   if(data.code!=='wb_api_sync_status'||
