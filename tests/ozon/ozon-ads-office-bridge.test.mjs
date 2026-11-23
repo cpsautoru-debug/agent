@@ -23,7 +23,7 @@ const env=(allowed=1)=>({
    assert.equal(start,'2026-10-01');assert.equal(end,'2026-11-01');
    return {first:async()=>({all_rows:2144,ad_rows:71,
      ad_kopecks:-30479185,first_date:'2026-10-01',
-     last_date:'2026-10-29'})};
+     last_date:'2026-10-29',present_dates:'2026-10-01,2026-10-02,2026-10-03,2026-10-04,2026-10-05,2026-10-06,2026-10-07,2026-10-08,2026-10-09,2026-10-10,2026-10-11,2026-10-12,2026-10-13,2026-10-14,2026-10-15,2026-10-16,2026-10-17,2026-10-18,2026-10-19,2026-10-20,2026-10-21,2026-10-22,2026-10-23,2026-10-24,2026-10-25,2026-10-26,2026-10-27,2026-10-28,2026-10-29'})};
  }};
  assert.match(sql,/office_authorized_users/);
  return {bind(sub,email){assert.equal(sub,'test-owner');
@@ -56,6 +56,8 @@ test('owner receives only allowlisted source evidence; not an advertising amount
    source:'ozon_accruals_export',month:MONTH,accrualRows:2144,
    advertisingRows:71,advertisingAccrualKopecks:-30479185,
    firstDate:'2026-10-01',lastDate:'2026-10-29',
+   daysWithAccrualRows:29,daysInMonth:31,
+   missingAccrualDates:['2026-10-30','2026-10-31'],
    matchedToPerformance:false,reconciled:false
  });
  assert.equal(calls.length,1);
@@ -196,11 +198,18 @@ test('UI renders source status without calling profit mutations',()=>{
    source:'ozon_accruals_export',month:MONTH,accrualRows:2144,
    advertisingRows:71,advertisingAccrualKopecks:-30479185,
    firstDate:'2026-10-01',lastDate:'2026-10-29',
+   daysWithAccrualRows:29,daysInMonth:31,
+   missingAccrualDates:['2026-10-30','2026-10-31'],
    matchedToPerformance:false,reconciled:false
  }};
  const description=describeOzonAdsEvidence(safe,MONTH);
  assert.match(description,/НЕ СВЕРЕНЫ/);
  assert.match(description,/71 рекламных строк/);
+ assert.match(description,/29\/31/);
+ assert.match(description,/2026-10-30, 2026-10-31/);
+ assert.throws(()=>describeOzonAdsEvidence({...safe,financeAudit:{
+   ...safe.financeAudit,missingAccrualDates:[]
+ }},MONTH));
  assert.match(description,/Поля ответа Performance API: date, campaignId/);
  assert.throws(()=>describeOzonAdsEvidence({...safe,monetaryTotalsVerified:true},MONTH));
  assert.throws(()=>describeOzonAdsEvidence({...safe,financeAudit:{...safe.financeAudit,reconciled:true}},MONTH));
