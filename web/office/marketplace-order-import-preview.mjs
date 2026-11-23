@@ -59,9 +59,11 @@
         cell(tr,order.externalKey);
         cell(tr,order.status);
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
-        cell(tr,order.duplicateStatus==='already_exists'?'Уже существует':
-          order.duplicateStatus==='not_found'?'Не найден · создание запрещено':
-          'Не подтверждено');
+        cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
+          order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
+          order.duplicateLookup==='context_search'?
+            'Поиск без точного фильтра · дубль не исключён':
+            'Не подтверждено');
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
@@ -69,6 +71,8 @@
         ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
         data.counts.existing+', не найдены: '+data.counts.notFound+
         ', не подтверждены: '+data.counts.uncertain+
+        (data.duplicateLookupMode==='CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE'?
+          '. МойСклад отклонил точный фильтр: пустой поиск не исключает дубликат.':'')+
         '. Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
       status.textContent='Не удалось проверить структуру ответа или доступность сервиса. '+
