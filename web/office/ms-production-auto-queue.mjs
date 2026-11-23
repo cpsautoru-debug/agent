@@ -77,6 +77,16 @@ import {assessProductionTask} from './ms-production-audit.mjs';
       numberCell.append(button);tr.append(numberCell);
       td(tr,statuses[item.liveStatus||item.status]||'Не подтверждено');
       td(tr,item.liveStage||item.firstUnfinishedStage||'Не подтверждено');
+      const ev=item.orderEvidence;
+      const label=ev?.code==='ms_order_evidence_ok'?
+        (ev.linkage==='none'?'Связи нет':
+          ev.orderStatusVerified?
+            'Статусы: '+ev.orders.map(x=>x.stateName).join('; '):
+            'Связь есть, статусы не подтверждены'):
+        ev?.code==='ms_order_evidence_unverified'?
+          'Связь не подтверждена':
+          item.orderEvidenceError?'Ошибка проверки':'Ещё не проверен';
+      td(tr,label);
       td(tr,item.plannedDate||'Не задана');
       const check=td(tr,(item.liveCheckedMs?clock(item.liveCheckedMs):clock(item.checkedMs))+
         ' · '+(item.liveCheckedMs?'API':'фоновый сканер'));
@@ -92,6 +102,9 @@ import {assessProductionTask} from './ms-production-audit.mjs';
     const verifiedComplete=items.filter(x=>x.liveStatus==='live_complete').length;
     const unknown=items.filter(x=>x.liveStatus==='live_unverified').length;
     const remaining=items.length-ready-verifiedComplete-unknown;
+    const linked=items.filter(x=>x.orderEvidence?.linkage==='linked').length;
+    const checkedLinks=items.filter(x=>x.orderEvidence!==undefined||
+      x.orderEvidenceError).length;
     const health=data.monitorHealthy?'Сканер работает по расписанию.':
       'Внимание: свежесть фонового сканера не подтверждена.';
     status.textContent=health+' Найдено кандидатов: '+fmt(data.counts.incomplete+
@@ -103,7 +116,11 @@ import {assessProductionTask} from './ms-production-audit.mjs';
       ', требуют отдельной проверки: '+fmt(remaining+unknown)+
       ', этапы уже выполнены: '+fmt(verifiedComplete)+
       '. Скрыто по лимиту списка: '+fmt(data.additionalCandidatesNotShown)+
-      '. Сотрудникам задания автоматически не назначаются.';
+      '. Проверены связи с заказами: '+fmt(checkedLinks)+
+      ', связь обнаружена: '+fmt(linked)+
+      '. Названия статусов показаны без автоматической трактовки: '+
+      'их соответствие рабочим/закрытым заказам пока не настроено. '+
+      'Сотрудникам задания автоматически не назначаются.';
   };
   const liveCheck=async item=>{
     // Compare the live task ID to the saved scan ID: never transfer a
@@ -118,8 +135,21 @@ import {assessProductionTask} from './ms-production-audit.mjs';
     const result=assessProductionTask({number:item.number},stages);
     if(!['incomplete','complete'].includes(result.status))
       throw Error('live_stages_unverified');
+    let orderEvidence,orderEvidenceError=false;
+    // Only do extra order lookups after the task identity and stages have
+    // been verified. This endpoint is owner-only and never returns PII.
+    try{
+      const evidence=await request(
+        '/api/ms/production-order-evidence?number='+encodeURIComponent(item.number));
+      if(evidence?.taskId!==item.taskId||
+        !['ms_order_evidence_ok','ms_order_evidence_unverified']
+          .includes(evidence?.code)||evidence.approvedForDispatch!==false)
+        throw Error('unverified_order_evidence');
+      orderEvidence=evidence;
+    }catch{orderEvidenceError=true;}
     return {
-      ...item,liveStatus:result.status==='incomplete'?'live_incomplete':'live_complete',
+      ...item,orderEvidence,orderEvidenceError,
+      liveStatus:result.status==='incomplete'?'live_incomplete':'live_complete',
       liveStage:result.status==='incomplete'?result.firstUnfinishedStage:null,
       liveCheckedMs:Date.now()
     };
