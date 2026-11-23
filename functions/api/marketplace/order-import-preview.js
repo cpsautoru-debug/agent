@@ -37,7 +37,7 @@ export function normalizeMarketplaceOrders(source,body,account){
     if(!Array.isArray(rows)||rows.length===0||rows.length>50)
       throw Error('unexpected_order_lines');
     const items=rows.map(p=>{
-      const sku=source==='wb'?p.article:p.offer_id;
+      const sku=source==='wb'?(p.article||p.supplierArticle):p.offer_id;
       const count=source==='wb'?1:p.quantity;
       if(!safe(sku)||!Number.isSafeInteger(count)||count<1||count>1000)
         throw Error('unmapped_order_line');
@@ -93,6 +93,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     const account=source==='wb'?'wb-primary':String(env.OZON_CLIENT_ID||'');
     if(typeof token!=='string'||!token||/\s/.test(token)||
       !safe(account))return json(503,{code:'marketplace_credentials_missing'});
+    let failedStage='marketplace';
     try{
       let upstream,options;
       if(source==='wb'){
@@ -104,7 +105,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         options={method:'POST',headers:{'Client-Id':account,
           'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
           body:JSON.stringify({filter:{since:start.toISOString(),to:end.toISOString()},
-            limit:LIMIT,dir:'DESC'})};
+            limit:LIMIT,sort_dir:'DESC',cursor:''})};
       }
       const body=await requestJson(fetcher,upstream,options);
       const orders=normalizeMarketplaceOrders(source,body,account);
@@ -112,6 +113,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         /\s/.test(env.MS_API_TOKEN))
         return json(503,{code:'moysklad_credentials_missing'});
       let msQueries=0;
+      failedStage='moysklad';
       for(const order of orders){
         // Query exact stable externalCode; never infer duplicate from name.
         // A duplicate MUST be verified before creating any future document.
@@ -140,10 +142,12 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     }catch(error){
       const code=['token_rejected','permission_denied','rate_limited',
         'unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
+        'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified'].includes(error?.message)?
         error.message:'import_preview_unavailable';
-      return json(503,{code,source,readOnly:true,changedRecords:0,
-        approvedForWrite:false});
+      return json(503,{code,source,stage:failedStage,
+        upstreamHttp:Number.isInteger(error?.status)?error.status:null,
+        readOnly:true,changedRecords:0,approvedForWrite:false});
     }
   };
 }
