@@ -177,6 +177,10 @@
           <a href="#dashboard">Сводная прибыль бизнеса →</a>
         </div>
         <p id="wbProfitStatus" role="status">Откройте раздел для проверки финансовых сумм WB.</p>
+        <div class="wb-sync-controls">
+          <button id="wbCostSyncButton" type="button" class="button light">Синхронизировать 35 себестоимостей WB за октябрь</button>
+          <p id="wbCostSyncStatus" role="status">Исторические XLSX подтверждены; основной реестр WB пока не синхронизирован.</p>
+        </div>
         <div class="profit-cards" id="wbProfitCards"></div>
         <p id="wbProfitComparison" role="status">Сравнение месяцев доступно после загрузки.</p>
       </article>
@@ -2314,6 +2318,7 @@
 <link rel="stylesheet" href="business-pnl.css?v=20261124-wb-month-finance">
 <script type="module" src="business-pnl.mjs?v=20261124-wb-profit-closed-costs-v3"></script>
 <script type="module" src="wb-management-profit.mjs?v=20261124-wb-profit-closed-costs-v3"></script>
+<script type="module" src="wb-cost-sync-ui.mjs?v=20261124-approved-oct-sync"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
