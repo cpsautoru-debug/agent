@@ -11,10 +11,9 @@ export const OCTOBER_OWNER_DECISIONS=Object.freeze({
 export function summarizeOctoberAllocation({taxIncome=null,revenue=null,
  ipChannels=null,allChannels=null}={}){
  const decision=OCTOBER_OWNER_DECISIONS;
- const tax=taxIncome&&ipChannels?
-  allocateEntityTotal({totalKopecks:decision.taxKopecks,
-    amounts:taxIncome,eligibleChannels:ipChannels,
-    source:decision.source}):null;
+ // Tax belongs to the IP's consolidated P&L only.
+ // Never allocate its charge to individual marketplace cards.
+ const tax=null;
  const overhead=revenue&&allChannels?
   allocateEntityTotal({totalKopecks:decision.overheadKopecks,
     amounts:revenue,eligibleChannels:allChannels,
@@ -22,28 +21,42 @@ export function summarizeOctoberAllocation({taxIncome=null,revenue=null,
  return {month:decision.month,taxEntity:decision.taxEntity,
   taxKopecks:decision.taxKopecks,overheadKopecks:decision.overheadKopecks,
   taxAllocation:tax,overheadAllocation:overhead,
+  taxAccountingMode:'entity_only_no_channel_allocation',
   taxVerifiedByFNS:false,
   verifiedNetProfit:false,
   source:decision.source};
 }
+
+/** Entity-only consolidated tax deduction; no guessed channel totals. */
+export function consolidatedIpAfterTax({profitBeforeTaxKopecks=null,
+ allIpChannelsComplete=false,taxKopecks=OCTOBER_OWNER_DECISIONS.taxKopecks}={}){
+ if(!Number.isSafeInteger(taxKopecks)||taxKopecks<0)
+   throw Error('invalid_entity_tax');
+ if(allIpChannelsComplete!==true||
+   !Number.isSafeInteger(profitBeforeTaxKopecks))
+   return {status:'incomplete',profitBeforeTaxKopecks:null,
+     taxKopecks,profitAfterTaxKopecks:null,scope:'IP_ONLY'};
+ const profitAfterTaxKopecks=profitBeforeTaxKopecks-taxKopecks;
+ if(!Number.isSafeInteger(profitAfterTaxKopecks))throw Error('unsafe_entity_profit');
+ return {status:'management_estimate',profitBeforeTaxKopecks,
+   taxKopecks,profitAfterTaxKopecks,scope:'IP_ONLY'};
+}
+
 const RUB=n=>new Intl.NumberFormat('ru-RU',
  {style:'currency',currency:'RUB'}).format(n/100);
 export function describeOctoberAllocation(summary){
  if(!summary||summary.month!=='2026-10')throw Error('invalid_owner_decisions');
- const tax=summary.taxAllocation;
  const overhead=summary.overheadAllocation;
- return 'Налог ИП (сумма сообщена владельцем, ФНС не сверена): '+
-  RUB(summary.taxKopecks)+'\nОбщие расходы: '+
-  RUB(summary.overheadKopecks)+' в месяц.\n'+
-  'Налог Ozon: '+(tax?.status==='allocated_management_only'?
-    RUB(tax.allocations.ozon):
-    'доля не рассчитана: нет полного реестра налоговых доходов этого ИП')+
+ return 'ОБЩИЙ НАЛОГ ИП · ОКТЯБРЬ 2026: '+RUB(summary.taxKopecks)+
+  '\nНалог учитывается ОДИН РАЗ в сводном P&L ИП и НЕ распределяется между Ozon, WB и отдельным ООО.'+
+  '\nСводная прибыль ИП после налога: пока неизвестна — не все каналы закрыты.'+
+  '\nОбщие расходы бизнеса: '+RUB(summary.overheadKopecks)+' в месяц.'+
   '\nДоля общих расходов Ozon: '+
   (overhead?.status==='allocated_management_only'?
     RUB(overhead.allocations.ozon):
     'не рассчитана: нет подтверждённой выручки всех каналов')+
-  '\nВыручку нельзя заменять суммами выплат Ozon/WB или нулями.'+
-  ' Чистая прибыль остаётся неподтверждённой.';
+  '\nОбщий налог нельзя повторно вычитать из прибыли отдельных маркетплейсов.'+
+  ' Подтверждённая чистая прибыль пока недоступна.';
 }
 export function attachOctoberAllocation({documentRef=document}={}){
  const node=documentRef.getElementById('profitOwnerAllocation');
