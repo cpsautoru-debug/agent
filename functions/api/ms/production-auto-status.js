@@ -228,6 +228,37 @@ export function createProductionAutoStatusHandler({now=Date.now}={}){
       if(!Array.isArray(unknown?.results))throw Error('invalid_results');
       const result=summarizeAutoStatus(
         runtime,counts,active.results,timestamp,unknown.results);
+      // A new generation begins at zero every full pass. Preserve the
+      // completed historical baseline separately, rather than showing a
+      // misleading zero in the CEO dashboard while scanning restarts.
+      const baselineGeneration=runtime.fullHistoricalPass?
+        runtime.generation:runtime.generation-1;
+      if(baselineGeneration>0){
+        const baseline=await db.prepare(
+          "SELECT COUNT(*) AS checked, "+
+          "COALESCE(SUM(CASE WHEN task_stage_status='incomplete' THEN 1 ELSE 0 END),0) AS incomplete, "+
+          "COALESCE(SUM(CASE WHEN task_stage_status='complete' THEN 1 ELSE 0 END),0) AS complete, "+
+          "COALESCE(SUM(CASE WHEN task_stage_status='unverified' THEN 1 ELSE 0 END),0) AS unverified, "+
+          "MAX(checked_ms) AS last_checked_ms FROM ms_production_auto_tasks WHERE generation=?"
+        ).bind(baselineGeneration).first();
+        const validBaseline=baseline&&
+          ['checked','incomplete','complete','unverified']
+            .every(k=>coerceCount(baseline[k])!==null)&&
+          baseline.checked===baseline.incomplete+baseline.complete+
+            baseline.unverified&&
+          baseline.checked===runtime.totalAtStart&&
+          baseline.checked>0&&int(baseline.last_checked_ms)&&
+          baseline.last_checked_ms<=timestamp;
+        result.completedHistoricalSnapshot=validBaseline?{
+          generation:baselineGeneration,
+          checked:baseline.checked,
+          incomplete:baseline.incomplete,
+          complete:baseline.complete,
+          unverified:baseline.unverified,
+          lastCheckedMs:baseline.last_checked_ms,
+          scope:'COMPLETED_HISTORICAL_PASS_NOT_LIVE_ACTIVE_QUEUE'
+        }:null;
+      }else result.completedHistoricalSnapshot=null;
       if(runtime.generation>=2){
         const drift=await db.prepare(
           "SELECT "+
