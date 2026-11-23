@@ -33,16 +33,16 @@ export function describeOctoberAllocation(summary){
  const tax=summary.taxAllocation;
  const overhead=summary.overheadAllocation;
  return 'Налог ИП (сумма сообщена владельцем, ФНС не сверена): '+
-  RUB(summary.taxKopecks)+'. Общие расходы: '+
-  RUB(summary.overheadKopecks)+' в месяц. '+
+  RUB(summary.taxKopecks)+'\nОбщие расходы: '+
+  RUB(summary.overheadKopecks)+' в месяц.\n'+
   'Налог Ozon: '+(tax?.status==='allocated_management_only'?
     RUB(tax.allocations.ozon):
     'доля не рассчитана: нет полного реестра налоговых доходов этого ИП')+
-  '. Доля общих расходов Ozon: '+
+  '\nДоля общих расходов Ozon: '+
   (overhead?.status==='allocated_management_only'?
     RUB(overhead.allocations.ozon):
     'не рассчитана: нет подтверждённой выручки всех каналов')+
-  '. Выручку нельзя заменять суммами выплат Ozon/WB или нулями.'+
+  '\nВыручку нельзя заменять суммами выплат Ozon/WB или нулями.'+
   ' Чистая прибыль остаётся неподтверждённой.';
 }
 export function attachOctoberAllocation({documentRef=document}={}){
