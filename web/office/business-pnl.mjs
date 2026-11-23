@@ -40,7 +40,14 @@ function render(root,pnl,sourceNotes={},interim={}){
    }
    card.append(fold);
   }
-  const evidence=sourceNotes[ch.id];
+  if(ch.id==='ozon'||ch.id==='wb'){
+   const link=el('a','business-pnl-detail-link',
+     ch.id==='ozon'?'Подробная прибыль Ozon →':
+       'Подробная экономика WB →');
+   link.href=ch.id==='ozon'?'#ozonProfit':'#wbFinance';
+   card.append(link);
+  }
+    const evidence=sourceNotes[ch.id];
   if(evidence)card.append(el('small','business-pnl-evidence',evidence));
   cards.append(card);
  }
