@@ -112,7 +112,7 @@ async function requestJson(fetcher,url,options){
 // A full-text search can establish a duplicate only when an exact externalCode
 // is returned. An empty search NEVER proves that an order does not exist.
 export async function lookupMoyskladDuplicate(fetcher,token,key){
-  const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+  const headers={Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'};
   const query=new URL(MS);
   query.searchParams.set('limit','2');
   query.searchParams.set('filter','externalCode='+key);
@@ -149,7 +149,7 @@ export async function scanMoyskladOrderKeys(fetcher,token,keys){
   const PAGE=25,MAX_PAGES=8;
   const counts=new Map(keys.map(k=>[k,0]));
   let pages=0,seen=0,complete=false,declaredSize=null;
-  const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+  const headers={Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'};
   for(let page=0;page<MAX_PAGES;page++){
     const url=new URL(MS);
     url.searchParams.set('limit',String(PAGE));
