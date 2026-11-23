@@ -121,8 +121,21 @@ export async function onRequestPost({request,env}){
    'wb_sync_historical_version_conflict','wb_sync_existing_october_invalid',
    'wb_sync_older_history_conflict','wb_sync_count_mismatch'
   ]);
-  // No raw database or auth errors are returned to a client.
+  // Classify D1 failures without leaking raw database messages, SQL,
+  // credentials or vendor codes. This is diagnostic only, not a retry.
+  const message=String(error?.message||'').toLowerCase();
+  let safeDatabaseReason='database_operation_failed';
+  if(/readonly|read.only|not authorized|permission denied|write access/.test(message))
+   safeDatabaseReason='database_write_forbidden';
+  else if(/unique constraint|primary key|constraint failed|check constraint/.test(message))
+   safeDatabaseReason='database_constraint_rejected';
+  else if(/too many sql variables|too many statements|batch size|statement limit/.test(message))
+   safeDatabaseReason='database_batch_limit';
+  else if(/timeout|timed out|deadline exceeded/.test(message))
+   safeDatabaseReason='database_timeout';
+  else if(/no such table|no such column/.test(message))
+   safeDatabaseReason='database_schema_mismatch';
   return reply(503,{code:'wb_sync_blocked_or_unavailable',stage,
-   reason:approved.has(error?.message)?error.message:'database_operation_failed'});
+   reason:approved.has(error?.message)?error.message:safeDatabaseReason});
  }
 }
