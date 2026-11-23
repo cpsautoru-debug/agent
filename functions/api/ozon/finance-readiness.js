@@ -50,7 +50,10 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs){
     (report.complete!==1||report.processed_days!==bounds.days));
   add('report_not_reconciled',!!report&&report.reconciled!==1);
   add('report_not_final',!!report&&report.final!==1);
-  add('accruals_incomplete',accrual.observed_days!==bounds.days);
+  // DISTINCT operation dates are not sync coverage: days with zero activity
+  // can be legitimately absent. Only an authoritative sync cursor/run can
+  // establish that the source was loaded for every date.
+  add('accrual_sync_coverage_unverified',true);
   add('costs_missing_for_sold_skus',
     accrual.covered_sold_skus!==accrual.sold_skus||
     accrual.sold_skus===0);
@@ -66,6 +69,7 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs){
     }:null,
     accruals:{rows:accrual.rows_checked,
       observedDays:accrual.observed_days,expectedDays:bounds.days,
+      observedDaysAreCoverage:false,
       firstDay:accrual.first_day||null,lastDay:accrual.last_day||null,
       totalKop:accrual.accrual_total_kopecks},
     cogs:{confirmedEntries:costs.n,
