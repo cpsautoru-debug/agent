@@ -1,5 +1,6 @@
 import {verifySession} from '../auth/session.js';
 import {monthBounds} from '../ozon/profit-model.js';
+import {WB_ACCOUNT} from '../../../web/office/wb-unit-economics-core.mjs';
 const HEADER={'Content-Type':'application/json; charset=utf-8',
  'Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 const json=(status,body)=>new Response(JSON.stringify(body),{status,headers:HEADER});
@@ -32,6 +33,9 @@ export function summarizeIncomeEvidence(month,source,wb){
  const bounds=monthBounds(month);
  const end=new Date(Date.parse(bounds.end+'T00:00:00Z')-86400000)
    .toISOString().slice(0,10);
+ const savedRows=wb.operations.reduce((n,x)=>add(n,x.rows),0);
+ const declaredRows=wb.reports.reduce((n,x)=>add(n,x.row_count),0);
+ if(savedRows!==declaredRows)throw Error('wb_report_row_count_mismatch');
  const reportTypes=new Map();
  for(const row of wb.reports){
    if(!['complete'].includes(row.status)||!int(row.row_count)||row.row_count<0||
@@ -68,6 +72,7 @@ export function createEntityIncomeEvidence({now=Date.now}={}){
   if(Date.parse(bounds.end+'T00:00:00Z')>now())return json(400,{code:'period_not_closed'});
   if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||
      !env.OZON_FINANCE_DB||!env.WB_REPORT_SNAPSHOT_DB||
+     env.WB_REPORT_ACCOUNT_ID!==WB_ACCOUNT||
      typeof env.OZON_FINANCE_SYNC?.getProfitData!=='function')
     return json(503,{code:'sources_unavailable'});
   let sub;
@@ -85,12 +90,12 @@ export function createEntityIncomeEvidence({now=Date.now}={}){
       'SELECT r.seller_oper_name, COUNT(*) AS rows, SUM(r.for_pay_kop) AS for_pay_kop '+
       'FROM wb_finance_api_rows r JOIN wb_finance_api_reports p '+
       'ON p.report_id=r.report_id AND p.account_id=r.account_id '+
-      "WHERE p.date_from>=? AND p.date_to<? AND p.status='complete' "+
+      "WHERE p.account_id=? AND p.date_from>=? AND p.date_to<? AND p.status='complete' "+
       'GROUP BY r.seller_oper_name'
-    ).bind(bounds.start,bounds.end).all();
+    ).bind(WB_ACCOUNT,bounds.start,bounds.end).all();
     const reports=await env.WB_REPORT_SNAPSHOT_DB.prepare(
       'SELECT date_from,date_to,report_type,status,row_count '+
-      'FROM wb_finance_api_reports WHERE date_from>=? AND date_to<? '
+      'FROM wb_finance_api_reports WHERE account_id=? AND date_from>=? AND date_to<? '
       +'ORDER BY date_from,report_type'
     ).bind(bounds.start,bounds.end).all();
     if(!Array.isArray(operations?.results)||!Array.isArray(reports?.results))
