@@ -104,7 +104,7 @@ export async function reconcileStoredAcceptanceMismatch(db){
     "AND error_code='payout_needs_review' ORDER BY report_id LIMIT 1"
   ).bind(ACCOUNT).first();
   if(!report)return false;
-  if(typeof report.report_id!=='string'||!/^\\d{1,20}$/.test(report.report_id)||
+  if(typeof report.report_id!=='string'||!/^\d{1,20}$/.test(report.report_id)||
     !Number.isSafeInteger(report.bank_payment_kop)||
     !Number.isSafeInteger(report.api_calculated_payment_kop)||
     !Number.isSafeInteger(report.row_count)||report.row_count<1)return false;
