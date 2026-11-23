@@ -4,7 +4,7 @@
 export const PNL_CHANNELS=['ozon','wb','yandex','avito','offline'];
 const valid=x=>Number.isSafeInteger(x);
 export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
- completeSources=false}){
+ completeSources=false,sharedExpensesComplete=false,taxesComplete=false}){
  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||'')||
    !channels||!Array.isArray(sharedExpenses)||!Array.isArray(taxes))
    throw Error('pnl_input_invalid');
@@ -28,7 +28,8 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
  const expenses=[...sharedExpenses.map(x=>checkExpense(x,'shared')),
   ...taxes.map(x=>checkExpense(x,'tax'))];
  const missing=entries.filter(x=>x.status==='unknown').map(x=>x.id);
- const confirmed=completeSources===true&&missing.length===0&&
+ const confirmed=completeSources===true&&sharedExpensesComplete===true&&
+   taxesComplete===true&&missing.length===0&&
    entries.every(x=>x.status==='verified');
  const allPresent=missing.length===0;
  const moneySum=arr=>arr.reduce((n,x)=>{
@@ -37,12 +38,16 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
    return next;
  },0);
  const channelsTotal=allPresent?moneySum(entries.map(x=>x.profitKopecks)):null;
- const sharedTotal=moneySum(sharedExpenses.map(x=>x.amountKopecks));
- const taxTotal=moneySum(taxes.map(x=>x.amountKopecks));
- const after=channelsTotal===null?null:
+ const sharedTotal=sharedExpenses.length?
+   moneySum(sharedExpenses.map(x=>x.amountKopecks)):null;
+ const taxTotal=taxes.length?
+   moneySum(taxes.map(x=>x.amountKopecks)):null;
+ const after=channelsTotal===null||sharedExpensesComplete!==true||
+   taxesComplete!==true||sharedTotal===null||taxTotal===null?null:
    moneySum([channelsTotal,-sharedTotal,-taxTotal]);
  return {month,channels:entries,sharedExpenses, taxes,
-   status:confirmed?'verified':allPresent?'management_estimate':'incomplete',
+   status:confirmed?'verified':after!==null?'management_estimate':'incomplete',
+   sharedExpensesComplete,taxesComplete,
    missingChannels:missing,channelsTotalKopecks:channelsTotal,
    sharedExpenseTotalKopecks:sharedTotal,taxTotalKopecks:taxTotal,
    finalProfitKopecks:after,verified:confirmed,
