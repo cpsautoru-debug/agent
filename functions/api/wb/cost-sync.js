@@ -91,13 +91,26 @@ export async function onRequestPost({request,env}){
   const plan=buildOctoberWbSyncPlan(e,old.results);
   if(plan.inserts.length){
    stage='write';
-   const ops=[
-    ...plan.closeOlder.map(code=>db.prepare(
-      "UPDATE wb_profit_unit_costs SET valid_to='2026-09-30' WHERE account_id=? AND vendor_code=? AND valid_from<'2026-10-01' AND valid_to IS NULL AND status='preliminary'").bind(WB_ACCOUNT,code)),
-    ...plan.inserts.map(x=>db.prepare(
-      "INSERT INTO wb_profit_unit_costs(account_id,vendor_code,valid_from,valid_to,cost_kopecks,status,source,actor) VALUES (?,?, '2026-10-01','2026-10-31',?,'confirmed','WB_OWNER_CONFIRMED_XLSX_2026_10','owner_reconfirmation_2026_11_24')").bind(WB_ACCOUNT,x.code,x.cost))
-   ];
-   await db.batch(ops);
+   // Instead of 35+ individual D1 batch statements, use two bounded
+   // set-based statements. The batch remains a single atomic transaction.
+   const statements=[];
+   if(plan.closeOlder.length){
+    statements.push(db.prepare(
+      "UPDATE wb_profit_unit_costs SET valid_to='2026-09-30' "+
+      "WHERE account_id=? AND valid_from<'2026-10-01' "+
+      "AND valid_to IS NULL AND status='preliminary' "+
+      "AND vendor_code IN (SELECT value FROM json_each(?))")
+      .bind(WB_ACCOUNT,JSON.stringify(plan.closeOlder)));
+   }
+   statements.push(db.prepare(
+     "INSERT INTO wb_profit_unit_costs "+
+     "(account_id,vendor_code,valid_from,valid_to,cost_kopecks,status,source,actor) "+
+     "SELECT ?,json_extract(value,'$.code'),'2026-10-01','2026-10-31',"+
+     "CAST(json_extract(value,'$.cost') AS INTEGER),'confirmed',"+
+     "'WB_OWNER_CONFIRMED_XLSX_2026_10','owner_reconfirmation_2026_11_24' "+
+     "FROM json_each(?)")
+     .bind(WB_ACCOUNT,JSON.stringify(plan.inserts)));
+   await db.batch(statements);
   }
   stage='verify';
   const checked=await db.prepare(
