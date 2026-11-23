@@ -5,6 +5,7 @@
   const ozon=el('marketplaceOrderCheckOzon'),wb=el('marketplaceOrderCheckWb');
   const status=el('marketplaceOrderCheckStatus'),table=el('marketplaceOrderCheckTable');
   const rows=el('marketplaceOrderCheckRows');
+  const login=el('marketplaceOrderLogin');
   const perSource={ozon:el('marketplaceOrderStatusOzon'),
     wb:el('marketplaceOrderStatusWb')};
   if(!ozon||!wb||!status||!table||!rows)return;
@@ -33,6 +34,7 @@
   async function load(source){
     if(busy)return;
     busy=true;ozon.disabled=true;wb.disabled=true;rows.replaceChildren();
+    if(login)login.hidden=true;
     setSource(source,'Проверяем заказы и дубли…');
     table.hidden=true;
     status.textContent='Проверяем '+(source==='ozon'?'Ozon':'Wildberries')+
@@ -43,6 +45,28 @@
         headers:{Accept:'application/json'},signal:AbortSignal.timeout(150000)});
       const data=await res.json();
       if(!res.ok){
+        if(res.status===401||data?.code==='owner_session_required'){
+          const message='Сессия владельца истекла или вход не выполнен. '+
+            'Войдите через Google и повторите проверку. '+
+            'Подключения Ozon/WB не проверялись, документы не создавались.';
+          status.textContent=message;setSource(source,message);
+          if(login)login.hidden=false;
+          return;
+        }
+        if(res.status===403||data?.code==='owner_only'){
+          const message='Вход выполнен, но аккаунт не имеет прав владельца. '+
+            'Используйте разрешённый Google-аккаунт. '+
+            'Запросы к маркетплейсу не выполнялись.';
+          status.textContent=message;setSource(source,message);
+          if(login)login.hidden=false;
+          return;
+        }
+        if(data?.code==='owner_auth_unavailable'){
+          const message='Проверка входа владельца сейчас недоступна. '+
+            'Это ошибка авторизации онлайн-офиса, не API маркетплейса.';
+          status.textContent=message;setSource(source,message);
+          return;
+        }
         const label={
           token_rejected:'Ключ API отклонён',
           permission_denied:'Недостаточно прав у ключа API',
