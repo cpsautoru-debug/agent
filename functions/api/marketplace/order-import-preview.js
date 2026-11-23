@@ -146,22 +146,42 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))
         return json(503,{code:'moysklad_credentials_missing'});
-      let msQueries=0,usedFallback=false;
+      let msQueries=0,usedFallback=false,lookupFailure=null;
       failedStage='moysklad';
       for(const order of orders){
-        const match=await lookupMoyskladDuplicate(fetcher,env.MS_API_TOKEN,
-          order.externalKey);
-        msQueries+=match.queries;
-        usedFallback ||= match.method==='context_search';
-        order.duplicateStatus=match.status;
-        order.duplicateLookup=match.method;
+        if(lookupFailure){
+          order.duplicateStatus='unverified';
+          order.duplicateLookup='skipped_after_source_error';
+          continue;
+        }
+        try{
+          const match=await lookupMoyskladDuplicate(fetcher,env.MS_API_TOKEN,
+            order.externalKey);
+          msQueries+=match.queries;
+          usedFallback ||= match.method==='context_search';
+          order.duplicateStatus=match.status;
+          order.duplicateLookup=match.method;
+        }catch(error){
+          // Preserve VERIFIED marketplace results when MoySklad refuses the
+          // lookup. No matching claim can be made, even for later records.
+          // Stop further calls to prevent repeated bad requests/rate limits.
+          lookupFailure={code:Number.isInteger(error?.status)&&error.status===400?
+            'moysklad_query_rejected':
+            Number.isInteger(error?.status)&&error.status===403?
+              'moysklad_permission_denied':'moysklad_lookup_unavailable',
+            http:Number.isInteger(error?.status)?error.status:null};
+          order.duplicateStatus='unverified';
+          order.duplicateLookup='source_error';
+        }
         // Never return person, address, phone or raw source payload.
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
         coverage:'FBS_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
         sampledAt:new Date(now()).toISOString(),
-        duplicateLookupMode:usedFallback?'CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE':'EXACT_FILTER',
+        duplicateLookupMode:lookupFailure?'UNVERIFIED_SOURCE_ERROR':
+          usedFallback?'CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE':'EXACT_FILTER',
+        duplicateLookupFailure:lookupFailure,
         counts:{received:orders.length,msLookups:msQueries,
           existing:orders.filter(x=>x.duplicateStatus==='already_exists').length,
           notFound:orders.filter(x=>x.duplicateStatus==='not_found').length,
