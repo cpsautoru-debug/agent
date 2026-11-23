@@ -1851,11 +1851,11 @@
         <p id="msAutoQueueSummary" class="ms-production-note"></p>
         <div class="ms-production-scroll" id="msAutoQueueTable" hidden>
           <table class="ms-production-table">
-            <thead><tr><th>Задание</th><th>Контроль этапов</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Проверено</th><th>Детали</th></tr></thead>
+            <thead><tr><th>Задание</th><th>Контроль этапов</th><th>Первый незавершённый этап</th><th>Заказ покупателя</th><th>Плановая дата</th><th>Проверено</th><th>Детали</th></tr></thead>
             <tbody id="msAutoQueueRows"></tbody>
           </table>
         </div>
-        <p class="ms-production-note">Поиск заданий автоматический; номера вводить не нужно. При открытии офис перепроверяет через API до 6 кандидатов за один раз, с ограничением частоты запросов. Список не подтверждает фактический статус заказа покупателя, отгрузку, исполнителя или полную актуальность всего реестра. Ничего не назначается и не списывается автоматически.</p>
+        <p class="ms-production-note">Поиск заданий автоматический; номера вводить не нужно. При открытии офис перепроверяет через API до 6 кандидатов за один раз, с ограничением частоты запросов. Для каждого проверенного кандидата также проверяет ссылки на заказы покупателей и их исходные статусы, без персональных данных. Список не подтверждает фактический статус заказа покупателя, отгрузку, исполнителя или полную актуальность всего реестра. Ничего не назначается и не списывается автоматически.</p>
       </section>
       <section class="ms-auto-history" id="msAutoHistory" aria-labelledby="msAutoHistoryTitle">
         <div class="ms-production-header">
@@ -2152,7 +2152,7 @@
 <script type="module" src="ms-inventory-control.mjs"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
-<script type="module" src="ms-production-auto-queue.mjs?v=20261123"></script>
+<script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
