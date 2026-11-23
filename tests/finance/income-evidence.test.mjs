@@ -22,6 +22,11 @@ test('income evidence identifies source figures without calling payouts tax reve
  assert.equal(result.ozon.serviceAmounts['Баллы за скидки'].amountKopecks,1800);
  assert.equal(result.wb.operationAmounts['Продажа'].forPayKopecks,5000);
  assert.equal(result.ozon.taxIncomeConfirmed,false);
+ assert.equal(result.ozon.nonAdditiveTotals,true);
+ assert.equal(result.ozon.classification.discountPoints.status,
+   'marketplace_bonus_not_separate_sales_revenue');
+ assert.equal(result.ozon.classification.customerRevenue.status,
+   'accrual_not_cash_basis');
  assert.equal(result.wb.taxIncomeConfirmed,false);
  assert.equal(result.distributionReady,false);
  assert.equal(result.fnsRegisterReconciled,false);
