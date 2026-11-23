@@ -28,7 +28,10 @@ export function externalKey(source,account,id){
 export function buildOzonFbsPreviewBody(nowMs){
   if(!Number.isFinite(nowMs)||nowMs<0)throw Error('invalid_preview_clock');
   const end=new Date(nowMs),start=new Date(nowMs-7*86400000);
-  return {filter:{since:start.toISOString(),to:end.toISOString()},
+  // v4 takes statuses[] (not the deprecated v3 filter.status).
+  // Select new FBS assembly work rather than already shipped postings.
+  return {filter:{since:start.toISOString(),to:end.toISOString(),
+    statuses:['awaiting_packaging']},
     limit:LIMIT,sort_dir:'DESC',cursor:''};
 }
 // Dispatch eligibility is intentionally stricter than successful API read.
@@ -214,6 +217,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       }
       const body=await requestJson(fetcher,upstream,options);
       const orders=normalizeMarketplaceOrders(source,body,account);
+      if(source==='ozon'&&orders.some(x=>x.status!=='awaiting_packaging'))
+        throw Error('ozon_status_filter_unverified');
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))
         return json(503,{code:'moysklad_credentials_missing'});
@@ -246,7 +251,9 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
-        coverage:'FBS_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
+        coverage:source==='ozon'?
+          'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
+          'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
         sampledAt:new Date(now()).toISOString(),
         duplicateLookupMode:scan?.complete?
           'COMPLETE_BOUNDED_LIST_SCAN':'PARTIAL_BOUNDED_LIST_SCAN',
@@ -274,7 +281,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         'unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
-        'source_error'].includes(error?.message)?
+        'source_error','ozon_status_filter_unverified'].includes(error?.message)?
           error.message:'import_preview_unavailable');
       return json(503,{code,source,stage:failedStage,
         upstreamHttp:Number.isInteger(error?.status)?error.status:null,
