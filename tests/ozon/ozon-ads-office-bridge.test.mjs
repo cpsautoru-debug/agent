@@ -117,7 +117,7 @@ test('network failures are distinct from an Ozon API HTTP error',async()=>{
  });
  const res=await handler({request:await req(),env:env()});
  assert.equal(res.status,503);
- assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure'});
+ assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure',phase:'service_binding_fetch'});
 });
 test('missing ads Worker route is identified without leaking upstream response',async()=>{
  const handler=createOzonAdsExpenseHandler({
