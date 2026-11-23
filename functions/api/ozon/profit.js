@@ -3,6 +3,7 @@ import { calculateProfit, validateProfitDocument, normalizeProfitWorkbook, month
 import { createProfitPreview, verifyProfitPreview } from './profit-preview.js';
 import { parseWorkbookXlsx } from './xlsx-parser.js';
 import { summarizeOzonFinanceReadiness } from './finance-readiness.js';
+import { compareOzonDailyTotals } from './daily-parity.js';
 
 const TARGET='ce9dd331-929d-4c3e-9073-368de3346bc9';
 const JSON_LIMIT=1500000, FILE_LIMIT=6000000;
@@ -39,6 +40,22 @@ export async function onRequestGet({request,env}){
   const configuration=data.configuration;
   const result=calculateProfit({month,api:data.api,documents:configuration.month,costs:configuration.costs,expenses:configuration.expenses,tax:configuration.tax});
   const readiness=summarizeOzonFinanceReadiness(month,data,result);
+  // Daily aggregates add evidence but do not mark detailed Ozon operations
+  // reconciled. Fail closed if the optional second source is unavailable.
+  let dailyParity=null;
+  if(configuration.month?.rows&&result.report?.totalKopecks===
+      data.api.totalKopecks&&typeof rpc.getFinanceDashboard==='function'){
+    try{
+      const bounds=monthBounds(month);
+      const last=new Date(Date.parse(bounds.end+'T00:00:00Z')-86400000)
+        .toISOString().slice(0,10);
+      const dashboard=await rpc.getFinanceDashboard(bounds.start,last);
+      if(dashboard?.source==='ozon_seller_api'&&Array.isArray(dashboard.daily))
+        dailyParity=compareOzonDailyTotals(month,
+          configuration.month.rows,dashboard.daily);
+    }catch{/* Partial data must not become a matched signal. */}
+  }
+  readiness.dailyParity=dailyParity;
   return json({result,readiness,configuration,versions:data.versions,audit:data.audit,target:data.target});
  }catch(error){return failure(error);}
 }
