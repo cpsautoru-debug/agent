@@ -51,11 +51,11 @@ test('Ozon expense read uses current host, correct month and separate OAuth toke
   assert.equal(out.body.reconciledToFinance,false);
   assert.deepEqual(out.body.columnAudit,[
     {field:'moneySpent',validRows:1,missingRows:0,invalidRows:0,
-      rawColumnSumKopecks:1000,sourceReconciled:false},
+      rawColumnSumKopecks:1000,invalidFormats:{object:0,array:0,boolean:0,decimalPrecision:0,other:0},sourceReconciled:false},
     {field:'bonusSpent',validRows:0,missingRows:1,invalidRows:0,
-      rawColumnSumKopecks:null,sourceReconciled:false},
+      rawColumnSumKopecks:null,invalidFormats:{object:0,array:0,boolean:0,decimalPrecision:0,other:0},sourceReconciled:false},
     {field:'prepaymentSpent',validRows:0,missingRows:1,invalidRows:0,
-      rawColumnSumKopecks:null,sourceReconciled:false}
+      rawColumnSumKopecks:null,invalidFormats:{object:0,array:0,boolean:0,decimalPrecision:0,other:0},sourceReconciled:false}
   ]);
   assert.equal(calls.length,2);
   assert.equal(calls[0].url,'https://api-performance.ozon.ru/api/client/token');
@@ -133,8 +133,30 @@ test('unrecognized monetary columns cannot imply zero or verified spend',async()
  assert.equal(r.status,200);
  const [money,bonus,prepayment]=r.body.columnAudit;
  assert.deepEqual([money.validRows,money.invalidRows,money.rawColumnSumKopecks],[1,1,null]);
+ assert.equal(money.invalidFormats.decimalPrecision,1);
  assert.deepEqual([bonus.validRows,bonus.rawColumnSumKopecks],[2,313]);
  assert.deepEqual([prepayment.validRows,prepayment.missingRows,prepayment.rawColumnSumKopecks],[1,1,null]);
  assert.equal(r.body.totalExpenseKopecks,null);
  assert.equal(r.body.monetaryTotalsVerified,false);
+});
+
+test('format diagnostics support comma, grouping and reject objects or excessive decimals',async()=>{
+ const fetcher=async url=>url.endsWith('/token')?
+   response({access_token:'ok'}):response([
+     {moneySpent:'1 234,56',bonusSpent:'1.50',prepaymentSpent:{value:'5.00'}},
+     {moneySpent:'1234.56',bonusSpent:'3,25',prepaymentSpent:'5.123'},
+     {moneySpent:'1\u00a0234,56',bonusSpent:'0',prepaymentSpent:null}
+   ]);
+ const result=await readOzonExpense('2026-10',env,fetcher);
+ assert.equal(result.status,200);
+ const [money,bonus,prepayment]=result.body.columnAudit;
+ assert.equal(money.rawColumnSumKopecks,370368);
+ assert.equal(money.validRows,3);
+ assert.equal(bonus.rawColumnSumKopecks,475);
+ assert.equal(prepayment.rawColumnSumKopecks,null);
+ assert.equal(prepayment.invalidFormats.object,1);
+ assert.equal(prepayment.invalidFormats.decimalPrecision,1);
+ assert.equal(prepayment.missingRows,1);
+ assert.equal(result.body.totalExpenseKopecks,null);
+ assert.equal(result.body.reconciledToFinance,false);
 });
