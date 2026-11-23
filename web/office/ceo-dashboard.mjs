@@ -120,7 +120,14 @@ function showWB(data){
   reportSource('wb','partial',count(data.completedCount)+' из '+count(data.reportCount)+' финансовых отчётов обработано; прибыль не рассчитана');
   set('ceoWbValue',count(data.completedCount)+' / '+count(data.reportCount));
   const issues=data.mismatchCount+data.conflictCount+data.failedCount;
-  status('ceoWbState',issues?'Есть расхождения: '+count(issues):'Монитор отчётов · только сохранённые',issues?'danger':'neutral');
+  const allReportsLoaded=data.reportCount>0&&
+    data.completedCount===data.reportCount&&
+    data.queuedCount===0&&issues===0;
+  status('ceoWbState',
+    issues?'Есть расхождения: '+count(issues):
+      allReportsLoaded?'Все API-отчёты загружены · прибыль отдельно':
+      'Монитор отчётов · только сохранённые',
+    issues?'danger':allReportsLoaded?'success':'neutral');
   const evidence=Array.isArray(data.payoutDifferenceEvidence)?
     data.payoutDifferenceEvidence.filter(e=>
       e?.status==='PAYOUT_DIFFERENCE_EXACTLY_PAID_ACCEPTANCE'&&
