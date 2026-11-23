@@ -188,7 +188,7 @@ function showOzonFinanceAudit(data){
   const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
   set('ceoOzonAuditNote',
     'Начисления: '+count(a.rows)+' операций, даты операций '+a.observedDays+
-    ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: +c.confirmedSoldSkus+
+    ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: '+c.confirmedSoldSkus+
     ' из '+c.soldSkus+' продававшихся SKU имеют базовую себестоимость. '+
     'Исторических записей себестоимости: '+c.dateEffectiveCostEntries+'. Отчёт: '+
     (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
