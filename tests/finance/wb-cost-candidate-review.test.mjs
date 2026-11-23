@@ -12,7 +12,9 @@ test('WB candidates use owner known product-category costs but remain unconfirme
   ['самара_белые_соты',320000,'samara'],
   ['искра с белыми сотами',469700,'iskra'],
   ['веста_чех_подлокот1',10000,'armrest'],
-  ['накладка_на_бампер_калина_кросс',30000,'bumper']
+  ['накладка_на_бампер_калина_кросс',30000,'bumper'],
+  ['пламя1',5000,'spinner'],
+  ['wb4emqym9a',26000,'fragrance']
  ];
  for(const [article,price,category] of cases){
   const x=classifyWbCostCandidate(article);
@@ -21,8 +23,8 @@ test('WB candidates use owner known product-category costs but remain unconfirme
   assert.equal(x.status,'needs_owner_confirmation');
  }
 });
-test('ambiguous WB articles do not get fabricated unit costs',()=>{
- for(const name of ['пламя1','wb4emqym9a']){
+test('genuinely unknown WB articles do not get fabricated costs',()=>{
+ for(const name of ['unidentified_sku_code','sample_123']){
   const x=classifyWbCostCandidate(name);
   assert.equal(x.costKopecks,null);
   assert.equal(x.status,'unknown');
@@ -32,7 +34,7 @@ test('category candidates do not change WB D1 or represent confirmed unit price'
  const data={code:'entity_income_evidence',month:'2026-10',
   readOnly:true,changedRecords:0,wb:{costReview:[
    {vendorCode:'веста №6',soldUnits:18,costStatus:'missing'},
-   {vendorCode:'пламя1',soldUnits:17,costStatus:'missing'}
+   {vendorCode:'unidentified_sku_code',soldUnits:17,costStatus:'missing'}
   ]}};
  const out=proposeWbCostsFromEvidence(data);
  assert.equal(out.articles,2);
