@@ -23,13 +23,12 @@ export function normalizeOrderStates(metadata){
     const id=row.id.toLowerCase();ids.add(id);
     names.add(row.name.toLocaleLowerCase('ru-RU'));
     const type=row.stateType;
-    // MoySklad exposes Regular/Successful/Unsuccessful. Only the latter
-    // two establish a source-level terminal classification; Regular does
-    // not prove the production job is active.
-    if(!['Regular','Successful','Unsuccessful'].includes(type))
-      throw Error('ms_order_state_type_unverified');
-    return {id,name:row.name,stateType:type,
-      terminal:type==='Successful'||type==='Unsuccessful'};
+    // Missing/unknown type remains unverified; never infer terminal status.
+    const verifiedType=['Regular','Successful','Unsuccessful'].includes(type);
+    return {id,name:row.name,
+      stateType:verifiedType?type:null,
+      terminal:verifiedType?
+        (type==='Successful'||type==='Unsuccessful'):null};
   });
   return {states,count:states.length,interpretation:'UNMAPPED_SOURCE_STATES_NOT_ACTIVE_ORDER_CLASSIFICATION'};
 }
