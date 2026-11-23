@@ -1,3 +1,4 @@
+import {createSourceRegistry,renderSourceRegistry} from './office-source-registry.mjs';
 /* AutoСклад63 CEO board: protected source summaries, read-only, fail-closed. */
 const byId=id=>document.getElementById(id);
 const validInt=x=>Number.isSafeInteger(x);
@@ -22,8 +23,15 @@ async function jsonGet(path,ms=16000){
 const messages={auth:'Требуется вход владельца',unavailable:'Источник недоступен',schema:'Ответ не подтверждён'};
 function unavailable(prefix,error){
   const msg=messages[error?.message]||'Нет подтверждённых данных';
+  const source={ceoOzon:'ozon',ceoWb:'wb',ceoProduction:'moysklad',ceoAds:'ozonads'}[prefix];
+  if(source)reportSource(source,'blocked',msg);
   status(prefix+'State',msg,'warning');
   set(prefix+'Note','Нет данных для безопасного вывода. Откройте подробный раздел.');
+}
+const sourceRegistry=createSourceRegistry();
+function reportSource(id,status,detail){
+  sourceRegistry.update(id,{status,detail,checkedAt:Date.now()});
+  renderSourceRegistry(byId('ceoSourceRegistry'),sourceRegistry.snapshot());
 }
 function showProduction(data){
   if(data.code!=='ms_production_auto_status_ok'||data.readOnly!==true||
@@ -32,6 +40,8 @@ function showProduction(data){
      data.totals.checked<0||data.totals.incomplete<0||
      data.totals.unverified<0||data.totals.incomplete>data.totals.checked)
      throw Error('schema');
+  reportSource('moysklad','partial','Исторический монитор: '+count(data.totals.checked)+' проверено; живая очередь не доказана');
+  reportSource('inventory','partial','Остатки двух складов требуют отдельной сверки');
   set('ceoProductionValue',count(data.totals.incomplete));
   status('ceoProductionState','Исторический монитор · не живая очередь','warning');
   set('ceoProductionNote','Проверено '+count(data.totals.checked)+
@@ -58,6 +68,7 @@ function showWB(data){
     !validInt(data.mismatchCount)||!validInt(data.conflictCount)||
     !validInt(data.failedCount)||!validInt(data.queuedCount)||
     !validInt(data.totalBankPaymentKop))throw Error('schema');
+  reportSource('wb','partial',count(data.completedCount)+' из '+count(data.reportCount)+' финансовых отчётов обработано; прибыль не рассчитана');
   set('ceoWbValue',count(data.completedCount)+' / '+count(data.reportCount));
   const issues=data.mismatchCount+data.conflictCount+data.failedCount;
   status('ceoWbState',issues?'Есть расхождения: '+count(issues):'Монитор отчётов · только сохранённые',issues?'danger':'neutral');
@@ -73,6 +84,7 @@ function showOzon(data){
     money(report.salesKopecks):'Нет подтверждения');
   const c=p.financeCloseout;
   const verified=c?.netProfitVerified===true&&c?.bankStatementVerified===true;
+  reportSource('ozon',verified?'verified':'partial',verified?'Период закрыт и сверен':'Оценка прибыли, полный финансовый период не закрыт');
   status('ceoOzonState',verified?'Период подтверждён':'Прибыль НЕ подтверждена',verified?'success':'warning');
   set('ceoOzonNote','Оценка чистой прибыли: '+(validInt(net)?money(net):'неизвестно')+
     '. Полная сверка операций, возвратов, рекламы и банка обязательна.');
@@ -87,6 +99,7 @@ function showAds(data){
   if(!m||!validInt(m.validRows)||!validInt(data.recordCount)||
     m.validRows!==data.recordCount||!validInt(m.rawColumnSumKopecks)||
     !validInt(fin.advertisingAccrualKopecks))throw Error('schema');
+  reportSource('ozonads','partial','Performance API ответил; рекламные суммы с Finance не сверены');
   set('ceoAdsValue',money(m.rawColumnSumKopecks));
   status('ceoAdsState','Не сверено с Finance','warning');
   set('ceoAdsNote','Performance: '+count(data.recordCount)+' строк. Отдельные начисления D1: '+
@@ -151,6 +164,7 @@ if(typeof document!=='undefined'){
     byId('ceoAdsRefresh')?.addEventListener('click',refreshAds);
     window.addEventListener('hashchange',maybeRefresh);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')maybeRefresh();});
+    renderSourceRegistry(byId('ceoSourceRegistry'),sourceRegistry.snapshot());
     maybeRefresh();
   }
 }

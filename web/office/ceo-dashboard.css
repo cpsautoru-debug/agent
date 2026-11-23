@@ -26,3 +26,14 @@
 .ceo-backlog span{font-size:12px;color:var(--muted,#607267)}
 @media(max-width:1050px){.ceo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.ceo-grid,.ceo-backlog{grid-template-columns:1fr}.ceo-card{padding:17px}.ceo-heading{display:block}}
+
+.ceo-sources-section{margin-top:6px;display:grid;gap:15px}
+.ceo-sources-heading h2{font-size:21px;margin:0 0 6px}
+.ceo-sources-heading p{font-size:13px;line-height:1.5;color:var(--muted,#607267);margin:0}
+.ceo-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ceo-source{min-width:0;background:var(--surface,#fff);border:1px solid #dce5de;border-radius:13px;padding:14px;display:grid;gap:8px;align-content:start}
+.ceo-source-header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px}
+.ceo-source-header strong{font-size:14px}
+.ceo-source p{font-size:12px;line-height:1.45;color:var(--muted,#607267);margin:0}
+.ceo-source a{font-size:12px;font-weight:650;color:inherit;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:640px){.ceo-source-grid{grid-template-columns:1fr}}
