@@ -23,7 +23,7 @@ async function jsonGet(path,ms=16000){
 const messages={auth:'Требуется вход владельца',unavailable:'Источник недоступен',schema:'Ответ не подтверждён'};
 function unavailable(prefix,error){
   const msg=messages[error?.message]||'Нет подтверждённых данных';
-  const source={ceoOzon:'ozon',ceoWb:'wb',ceoProduction:'moysklad',ceoAds:'ozonads'}[prefix];
+  const source={ceoOzon:'ozon',ceoWb:'wb',ceoProduction:'moysklad',ceoMsQueue:'msqueue',ceoAds:'ozonads'}[prefix];
   if(source)reportSource(source,'blocked',msg);
   status(prefix+'State',msg,'warning');
   set(prefix+'Note','Нет данных для безопасного вывода. Откройте подробный раздел.');
@@ -73,6 +73,36 @@ function showProduction(data){
     set('ceoProductionWarning','Текущая выборка не равна всей очереди цеха.');
   }
   reportSource('inventory','partial','Остатки двух складов требуют отдельной сверки');
+}
+function showProductionQueue(data){
+  const counts=data?.counts;
+  const valid=data?.code==='ms_production_queue_candidates_ok'&&
+    data.readOnly===true&&data.changedRecords===0&&
+    data.approvedForDispatch===false&&
+    data.scope==='HISTORICAL_CANDIDATES_NEED_LIVE_STAGE_AND_ORDER_VERIFICATION'&&
+    data.completeHistoricalCoverage===true&&
+    data.monitorHealthy===true&&
+    validInt(counts?.incomplete)&&counts.incomplete>=0&&
+    validInt(counts?.unverified)&&counts.unverified>=0&&
+    validInt(data.shown)&&data.shown>=0&&
+    validInt(data.additionalCandidatesNotShown)&&
+    data.additionalCandidatesNotShown>=0&&
+    Array.isArray(data.items)&&data.items.length===data.shown&&
+    data.shown+data.additionalCandidatesNotShown===
+      counts.incomplete+counts.unverified&&
+    validInt(data.lastSuccessMs)&&data.lastSuccessMs>0&&
+    data.lastSuccessMs<=Date.now();
+  if(!valid)throw Error('schema');
+  const n=counts.incomplete+counts.unverified;
+  const label='Очередь проверки сформирована';
+  reportSource('msqueue','verified',
+    'Автоматическая очередь кандидатов: '+count(n)+
+    '; история сверена. Действующие заказы отдельно не подтверждены');
+  set('ceoMsQueueValue',count(n));
+  status('ceoMsQueueState',label,'success');
+  set('ceoMsQueueNote','Из истории обнаружено: '+count(counts.incomplete)+
+    ' с незавершёнными этапами и '+count(counts.unverified)+
+    ' с неподтверждёнными. Это не живая очередь цеха и не назначения.');
 }
 function showWB(data){
   if(data.code!=='wb_api_sync_status'||
@@ -126,7 +156,7 @@ function showAds(data){
     'Бонусы не прибавляются к денежным расходам автоматически.');
 }
 function reset(){
-  for(const p of ['ceoOzon','ceoWb','ceoProduction','ceoAds'])
+  for(const p of ['ceoOzon','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
     {set(p+'Value','Загрузка…');status(p+'State','Читаем источник');set(p+'Note','');}
   set('ceoProfitValue','Не подтверждена');set('ceoProductionWarning','');
 }
@@ -141,7 +171,8 @@ async function refresh(){
   const sources=[
     ['ceoOzon','/api/ozon/profit?month='+encodeURIComponent(month),showOzon],
     ['ceoWb','/api/wb/auto-sync-status',showWB],
-    ['ceoProduction','/api/ms/production-auto-status',showProduction]
+    ['ceoProduction','/api/ms/production-auto-status',showProduction],
+    ['ceoMsQueue','/api/ms/production-queue',showProductionQueue]
   ];
   let confirmed=0;
   await Promise.all(sources.map(async([key,url,paint])=>{
