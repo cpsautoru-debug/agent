@@ -47,7 +47,7 @@ export function createWbMonthSettlement({now=Date.now}={}){
   const url=new URL(request.url),month=url.searchParams.get('month');
   if(url.pathname!=='/api/wb/month-settlement'||url.hash||
     url.searchParams.size!==1||
-    !/^20\\d{2}-(0[1-9]|1[0-2])$/.test(month||''))
+    !/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||''))
    return json(400,{code:'invalid_month'});
   const start=month+'-01',next=new Date(start+'T00:00:00Z');
   next.setUTCMonth(next.getUTCMonth()+1);
