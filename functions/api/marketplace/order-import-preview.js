@@ -191,15 +191,16 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   const bySku=new Map(skus.map(s=>[s,'unverified']));
   // Scan the collection by pages rather than depending on filter support
   // across MoySklad entity types. Never equate a partial scan with absence.
-  const MAX_SKUS=25,PAGE=100,MAX_PAGES=8;
+  const MAX_SKUS=25,PAGE=20,MAX_PAGES=30;
   const selected=skus.filter(s=>safe(s)&&s.length<=100).slice(0,MAX_SKUS);
   const matches=new Map(selected.map(s=>[s,new Map()]));
   const headers={Authorization:'Bearer '+token,
     Accept:'application/json;charset=utf-8'};
   let pages=0,checkedRows=0,complete=false,sourceError=false;
+  let failureCode=null;
   let total=null;
   if(!selected.length)return {bySku,requests:0,
-    coverage:{pages:0,checkedRows:0,complete:false,sourceError:false}};
+    coverage:{pages:0,checkedRows:0,complete:false,sourceError:false,failureCode:null}};
   for(let n=0;n<MAX_PAGES;n++){
     const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
     url.searchParams.set('limit',String(PAGE));
@@ -209,12 +210,25 @@ export async function matchMoyskladArticles(fetcher,token,orders){
       data=await requestJson(fetcher,url.toString(),{
         method:'GET',headers,signal:AbortSignal.timeout(12000)
       });
-    }catch{sourceError=true;break;}
+    }catch(error){
+      sourceError=true;
+      failureCode=error?.message==='source_response_too_large'?
+        'response_too_large':error?.message==='rate_limited'?
+        'rate_limited':error?.message==='token_rejected'?
+        'token_rejected':error?.message==='permission_denied'?
+        'permission_denied':Number.isInteger(error?.status)?
+        'upstream_http_error':'response_unavailable';
+      break;
+    }
     if(!Array.isArray(data?.rows)||data.rows.length>PAGE||
       !Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
-      data.meta.size<data.rows.length){sourceError=true;break;}
+      data.meta.size<data.rows.length){
+      sourceError=true;failureCode='schema_unverified';break;
+    }
     if(total===null)total=data.meta.size;
-    if(total!==data.meta.size){sourceError=true;break;}
+    if(total!==data.meta.size){
+      sourceError=true;failureCode='size_changed';break;
+    }
     for(let i=0;i<data.rows.length;i++){
       const row=data.rows[i];
       if(!row||typeof row!=='object')continue;
@@ -231,7 +245,9 @@ export async function matchMoyskladArticles(fetcher,token,orders){
     }
     pages++;checkedRows+=data.rows.length;
     if(checkedRows>=total){complete=true;break;}
-    if(data.rows.length<PAGE){sourceError=true;break;}
+    if(data.rows.length<PAGE){
+      sourceError=true;failureCode='short_page';break;
+    }
   }
   // A unique match is only proven if the ENTIRE collection was checked.
   for(const sku of selected){
@@ -243,7 +259,7 @@ export async function matchMoyskladArticles(fetcher,token,orders){
         'matched_exact_article':'matched_exact_code');
   }
   return {bySku,requests:pages,
-    coverage:{pages,checkedRows,complete,sourceError}};
+    coverage:{pages,checkedRows,complete,sourceError,failureCode}};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
@@ -318,7 +334,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       // Article comparison is informative only. It can never authorize a
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
-        coverage:{pages:0,checkedRows:0,complete:false,sourceError:false}};
+        coverage:{pages:0,checkedRows:0,complete:false,sourceError:false,failureCode:null}};
       if(orders.length)articleScan=await matchMoyskladArticles(
         fetcher,env.MS_API_TOKEN,orders);
       for(const order of orders){
