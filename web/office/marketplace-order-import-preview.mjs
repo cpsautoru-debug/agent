@@ -55,7 +55,12 @@
         typeof p.sku==='string'&&Number.isSafeInteger(p.quantity)&&
         p.quantity>0&&
         ['matched_exact_article','matched_exact_code','not_matched','unverified']
-          .includes(p.assortmentMatch))&&
+          .includes(p.assortmentMatch)&&
+        (d.source==='wb'||(p.ozonCatalog&&
+          ['not_confirmed','ambiguous','seller_product_with_barcode',
+            'seller_product_without_barcode'].includes(p.ozonCatalog.status)&&
+          Array.isArray(p.ozonCatalog.barcodes)&&
+          p.ozonCatalog.barcodes.length<=4)))&&
       ['already_exists','not_found','unverified'].includes(x.duplicateStatus));
   const cell=(tr,value)=>{const td=document.createElement('td');
     td.textContent=value;tr.append(td);};
@@ -132,6 +137,16 @@
             order.productionQueue==='candidate_needs_inventory'?
               ' · нужен контроль остатков':' · назначение не определено'));
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
+        cell(tr,order.items.map(p=>{
+          if(!p.ozonCatalog)return 'Не применяется к WB';
+          const v=p.ozonCatalog;
+          return v.status==='ambiguous'?'Неоднозначная карточка Ozon':
+            v.status==='not_confirmed'?'Карточка Ozon не подтверждена':
+            v.status==='seller_product_without_barcode'?
+              'Артикул Ozon подтверждён, штрихкод отсутствует':
+              'Штрихкод Ozon: '+v.barcodes.join(', ')+
+              (v.productId?' · ID '+v.productId:'');
+        }).join('; '));
         cell(tr,order.items.map(p=>
           p.assortmentMatch==='matched_exact_article'?
             p.sku+' — точный артикул найден':
@@ -149,6 +164,19 @@
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
+      const sellerEvidence=source==='wb'?'':(
+        ' Карточки Ozon по API: '+
+        (Number.isSafeInteger(data.ozonProductLookup?.productsConfirmed)?
+          data.ozonProductLookup.productsConfirmed:0)+
+        ', статус: '+({
+          ok:'данные получены',
+          empty:'нет товаров в выборке',
+          permission_denied:'недостаточно прав',
+          rate_limited:'лимит API',
+          request_rejected:'ошибка формата запроса',
+          schema_unverified:'неподтверждённая структура ответа',
+          source_unavailable:'API карточек недоступен'
+        }[data.ozonProductLookup?.status]||'неизвестно')+'.');
       setSource(source,(source==='ozon_fbo'?
         'Заказы со склада Ozon FBO (за 7 дней): ':
         source==='ozon'?
@@ -159,7 +187,7 @@
         '; не направлять в пошив: '+data.counts.notForSewing+
         '; неясный статус: '+data.counts.statusUnverified+
         '. Неопределённых дублей: '+data.counts.uncertain+
-        '. Запись отключена.');
+        '.'+sellerEvidence+' Запись отключена.');
       status.textContent='Проверка выполнена: '+data.counts.received+
         ' заказов в ограниченной выборке. Точных совпадений по ID интеграции: '+
         data.counts.existing+', без совпадения по новому ID: '+data.counts.notFound+
