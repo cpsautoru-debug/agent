@@ -193,8 +193,11 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       let msQueries=0,scan=null,lookupFailure=null;
       failedStage='moysklad';
       try{
-        scan=await scanMoyskladOrderKeys(fetcher,env.MS_API_TOKEN,
-          orders.map(o=>o.externalKey));
+        scan=orders.length?
+          await scanMoyskladOrderKeys(fetcher,env.MS_API_TOKEN,
+            orders.map(o=>o.externalKey)):
+          {matches:new Map(),pages:0,checkedRows:0,complete:false,
+            sourceError:false};
         msQueries=scan.pages;
         if(scan.sourceError)
           lookupFailure={code:'moysklad_partial_scan',http:null};
