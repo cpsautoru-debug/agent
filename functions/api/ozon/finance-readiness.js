@@ -60,6 +60,7 @@ export function summarizeOzonFinanceReadiness(month,data,result){
         /^[a-z0-9_]{1,80}$/.test(x.detailReason)?
         x.detailReason:'unverified'
     }));
+  const allDailyVerified=days.length===a.days&&unresolvedDays.length===0;
   const netVerifiedDays=days.filter(x=>x.netStatus==='verified').length;
   const detailVerifiedDays=days.filter(x=>x.detailStatus==='verified').length;
   const missingAuditDays=days.filter(x=>
@@ -77,7 +78,7 @@ export function summarizeOzonFinanceReadiness(month,data,result){
     month,
     report:r?{processedDays:r.periodVerified?a.days:null,
       records:r.rows,complete:r.periodVerified&&r.quantityVerified,
-      reconciled:a.netVerified&&a.detailVerified,
+      reconciled:aggregateMatched&&allDailyVerified&&a.netVerified&&a.detailVerified,
       final:false,controlTotalKop:reportTotal}:null,
     accruals:{rows:a.records??0,coveredDays:a.coveredDays,
       expectedDays:a.days,totalKop:apiTotal,
@@ -98,7 +99,7 @@ export function summarizeOzonFinanceReadiness(month,data,result){
       netVerifiedDays,detailVerifiedDays,missingAuditDays,
       unresolvedCount:unresolvedDays.length,
       unresolvedDays:unresolvedDays.slice(0,31),
-      fullyVerified:days.length===a.days&&unresolvedDays.length===0,
+      fullyVerified:allDailyVerified&&a.netVerified&&a.detailVerified&&aggregateMatched,
       aggregateParityIsNotDetailReconciliation:true
     },
     missingCostProducts,blockers,
