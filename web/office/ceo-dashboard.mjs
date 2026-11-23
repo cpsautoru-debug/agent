@@ -155,8 +155,31 @@ function showAds(data){
     money(fin.advertisingAccrualKopecks)+'. Разница не означает задолженность. '+ 
     'Бонусы не прибавляются к денежным расходам автоматически.');
 }
+function showOzonOrdersReadiness(data){
+  if(data?.code!=='ozon_orders_readiness'||data.readOnly!==true||
+    data.changedRecords!==0||typeof data.ready!=='boolean'||
+    typeof data.checkedAt!=='string')throw Error('invalid_readiness');
+  if(data.ready===true&&data.status==='verified'&&data.http===200&&
+    Number.isSafeInteger(data.checkedSample)&&
+    data.checkedSample>=0&&data.checkedSample<=1){
+    set('ceoOzonOrdersValue','API работает');
+    status('ceoOzonOrdersState','Чтение Ozon подтверждено','success');
+    set('ceoOzonOrdersNote','Проверено: '+data.checkedAt.slice(0,16).replace('T',' ')+
+      ' UTC. Проверка только чтения FBO; импорт в «МойСклад» остаётся отдельным этапом.');
+  }else{
+    set('ceoOzonOrdersValue','Не подтверждено');
+    status('ceoOzonOrdersState','Доступ к заказам не подтверждён','warning');
+    set('ceoOzonOrdersNote','Причина: '+({
+      permission_denied:'права API',
+      token_rejected:'авторизация Ozon',
+      rate_limited:'лимит запросов',
+      upstream_error:'ответ API',
+      unverified_response:'формат/доступность ответа'
+    }[data.status]||'неизвестно')+'. Никаких записей нет.');
+  }
+}
 function reset(){
-  for(const p of ['ceoOzon','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
+  for(const p of ['ceoOzon','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
     {set(p+'Value','Загрузка…');status(p+'State','Читаем источник');set(p+'Note','');}
   set('ceoProfitValue','Не подтверждена');set('ceoProductionWarning','');
 }
@@ -170,6 +193,7 @@ async function refresh(){
   status('ceoOverallState','Проверяем источники','neutral');
   const sources=[
     ['ceoOzon','/api/ozon/profit?month='+encodeURIComponent(month),showOzon],
+    ['ceoOzonOrders','/api/ozon/orders-readiness',showOzonOrdersReadiness],
     ['ceoWb','/api/wb/auto-sync-status',showWB],
     ['ceoProduction','/api/ms/production-auto-status',showProduction],
     ['ceoMsQueue','/api/ms/production-queue',showProductionQueue]
