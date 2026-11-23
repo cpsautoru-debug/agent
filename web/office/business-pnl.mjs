@@ -55,6 +55,7 @@ function render(root,pnl,sourceNotes={},interim={}){
  root.append(cards);
  const sheet=el('div','business-pnl-sheet');
  const rows=[
+  ['Промежуточная сумма рассчитанных каналов ('+pnl.knownChannelCount+' из '+pnl.channels.length+') — до общих расходов и налога',pnl.knownChannelsTotalKopecks],
   ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
