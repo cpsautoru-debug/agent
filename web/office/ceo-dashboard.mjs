@@ -186,6 +186,15 @@ function showOzonFinanceAudit(data){
     date_effective_costs_missing:'нет себестоимости с датами действия для операций'
   };
   const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
+  const gaps=Array.isArray(data.missingCostProducts)?
+    data.missingCostProducts.slice(0,5).filter(x=>
+      /^[0-9]{1,30}$/.test(x?.sku||'')&&
+      validInt(x.salesKop)&&x.costStatus==='missing'):[];
+  const gapText=gaps.length?
+    ' Наибольшие SKU без себестоимости: '+
+    gaps.map(x=>(typeof x.article==='string'&&x.article?
+      x.article.slice(0,40):x.sku)+
+      ' ('+money(x.salesKop)+' продаж по операциям)').join('; ')+'.':'';
   set('ceoOzonAuditNote',
     'Начисления: '+count(a.rows)+' операций, даты операций '+a.observedDays+
     ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: '+c.confirmedSoldSkus+
@@ -193,7 +202,7 @@ function showOzonFinanceAudit(data){
     'Исторических записей себестоимости: '+c.dateEffectiveCostEntries+'. Отчёт: '+
     (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
       'отсутствует')+'. Не завершено: '+blockers.join('; ')+
-    '. Чистая прибыль не подтверждена.');
+    '. Чистая прибыль не подтверждена.'+gapText);
 }
 function showAds(data){
   const audit=data.columnAudit,fin=data.financeAudit;
