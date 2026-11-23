@@ -22,6 +22,15 @@ export function checkProductionFeed(payload,offset,view='document'){
     (payload.hasMore&&payload.records.length!==5))
     throw invalid('ms_feed_unverified');
   for(const task of payload.records){
+    if(!task?.customerOrderLinks||
+      !['linked','none','unverified'].includes(task.customerOrderLinks.status)||
+      (task.customerOrderLinks.status==='unverified'?
+        task.customerOrderLinks.count!==null:
+        !Number.isSafeInteger(task.customerOrderLinks.count)||
+        task.customerOrderLinks.count<0||task.customerOrderLinks.count>100||
+        (task.customerOrderLinks.status==='linked')!==
+          (task.customerOrderLinks.count>0)))
+      throw invalid('ms_customer_order_links_unverified');
     if(!task||typeof task.number!=='string'||task.number.length>80||
       !/^\d{1,10}$/.test(task.number)||
       (task.id!==null&&(typeof task.id!=='string'||!UUID.test(task.id)))||
@@ -110,6 +119,7 @@ export async function collectRecentProduction({
       const result={
         ...assessed,plannedDate:task.plannedDate||null,date:task.date,
         documentPosted:task.documentPosted,
+        customerOrderLinks:task.customerOrderLinks,
         planDateStatus:classifyProductionPlanDate(task,assessed,nowMs)
       };
       items.push(result);
