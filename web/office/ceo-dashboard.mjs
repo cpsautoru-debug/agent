@@ -27,6 +27,11 @@ function unavailable(prefix,error){
   if(source)reportSource(source,'blocked',msg);
   status(prefix+'State',msg,'warning');
   set(prefix+'Note','Нет данных для безопасного вывода. Откройте подробный раздел.');
+  if(prefix==='ceoOzon'){
+    set('ceoOzonAuditValue','Нет данных');
+    status('ceoOzonAuditState',msg,'warning');
+    set('ceoOzonAuditNote','Проверка источника Ozon не состоялась; прибыль не подтверждена.');
+  }
 }
 const sourceRegistry=createSourceRegistry();
 function reportSource(id,status,detail){
@@ -148,6 +153,7 @@ function showWB(data){
 function showOzon(data){
   const p=data.result;
   if(!p||typeof p!=='object')throw Error('schema');
+  showOzonFinanceAudit(data.readiness);
   const net=p.profit?.netEstimateKopecks,report=p.report;
   set('ceoOzonValue',validInt(report?.salesKopecks)?
     money(report.salesKopecks):'Нет подтверждения');
@@ -264,7 +270,6 @@ async function refresh(){
   status('ceoOverallState','Проверяем источники','neutral');
   const sources=[
     ['ceoOzon','/api/ozon/profit?month='+encodeURIComponent(month),showOzon],
-    ['ceoOzonAudit','/api/ozon/finance-readiness?month='+encodeURIComponent(month),showOzonFinanceAudit],
     ['ceoOzonOrders','/api/ozon/orders-readiness',showOzonOrdersReadiness],
     ['ceoWb','/api/wb/auto-sync-status',showWB],
     ['ceoProduction','/api/ms/production-auto-status',showProduction],
