@@ -12,7 +12,7 @@ const accrual={rows_checked:2144,observed_days:29,
 test('October source audit refuses to claim financial closeout',()=>{
  const a=summarizeOzonFinanceReadiness('2026-10',base,accrual,{n:3});
  assert.deepEqual(a.blockers,[
-   'report_not_reconciled','report_not_final','accruals_incomplete',
+   'report_not_reconciled','report_not_final','accrual_sync_coverage_unverified',
    'costs_missing_for_sold_skus'
  ]);
  assert.equal(a.accruals.observedDays,29);
