@@ -38,6 +38,7 @@ export function reconcileWbOwnerCostSnapshots(month,snapshots,sales){
  }
  const soldCodes=new Set();
  let sold=0,returned=0,soldCogs=0,recovered=0;
+ const costLines=[];
  for(const row of sales){
   if(typeof row.vendor_code!=='string'||!row.vendor_code||
     soldCodes.has(row.vendor_code)||!int(row.sold_units)||
@@ -53,6 +54,9 @@ export function reconcileWbOwnerCostSnapshots(month,snapshots,sales){
   if(!int(gross)||!int(ret))throw Error('wb_cost_overflow');
   soldCogs=safe(soldCogs,gross);
   recovered=safe(recovered,ret);
+  costLines.push({vendorCode:row.vendor_code,unitCostKopecks:cost,
+   soldUnits:row.sold_units,resalableReturnedUnits:row.returned_units,
+   netCostKopecks:safe(gross,-ret)});
  }
  // These are the specifically verified October sale/return source boundaries.
  if(soldCodes.size!==35||sold!==173||returned!==6||
@@ -67,6 +71,7 @@ export function reconcileWbOwnerCostSnapshots(month,snapshots,sales){
   grossManufacturingCostKopecks:soldCogs,
   recoveredReturnCostKopecks:recovered,
   netManufacturingCostKopecks:net,
+  costLines:costLines.sort((a,b)=>a.vendorCode.localeCompare(b.vendorCode,'ru')),
   returnBasis:'OWNER_CONFIRMED_ALL_6_RESALABLE_2026_11_24',
   bankAndAdvertisingVerified:false};
 }
