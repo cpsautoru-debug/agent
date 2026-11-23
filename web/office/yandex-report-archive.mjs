@@ -59,8 +59,19 @@ export async function parseYandexZip(buffer){
   else{
    const stream=new Blob([part]).stream().pipeThrough(
     new DecompressionStream('deflate-raw'));
-   const result=await new Response(stream).arrayBuffer();
-   expanded=new Uint8Array(result);
+   const reader=stream.getReader(),chunks=[];let length=0;
+   for(;;){
+    const {done,value}=await reader.read();
+    if(done)break;
+    length+=value.length;
+    if(length>uncompressed||length>MAX_UNCOMPRESSED){
+     await reader.cancel();fail('yandex_zip_decompressed_limit');
+    }
+    chunks.push(value);
+   }
+   expanded=new Uint8Array(length);
+   let offset=0;
+   for(const chunk of chunks){expanded.set(chunk,offset);offset+=chunk.length;}
   }
   if(expanded.byteLength!==uncompressed||
     crc32(expanded)!==checksum)fail('yandex_zip_checksum_mismatch');
