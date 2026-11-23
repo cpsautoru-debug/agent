@@ -1,4 +1,5 @@
 import {verifySession} from '../auth/session.js';
+import {normalizeOrderStates} from './customer-order-status-catalog.js';
 
 // Owner-only read of links between one production task and customer orders.
 // This exposes NO buyer details and NEVER guesses which custom status means
@@ -50,6 +51,29 @@ export function summarizeLinkedOrder(order,id){
     stateType:knownType?type:null,
     terminal:knownType?(type!=='Regular'):null};
 }
+// Expanded order state may contain only name + meta.href. Resolve type
+// against authoritative customerorder metadata by immutable state UUID.
+// A conflict or an unknown reference must NOT produce a terminal decision.
+export function resolveOrderState(order,stateCatalog){
+  const state=order?.state;
+  const href=state?.meta?.href;
+  const match=typeof href==='string'?
+    /^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/customerorder\/metadata\/states\/([a-f0-9-]{36})$/i.exec(href):null;
+  const id=typeof state?.id==='string'&&UUID.test(state.id)?
+    state.id.toLowerCase():
+    match&&UUID.test(match[1])?match[1].toLowerCase():null;
+  if(!id||!Array.isArray(stateCatalog?.states))
+    return {stateType:null,terminal:null,statusEvidence:'state_id_unverified'};
+  const entry=stateCatalog.states.find(row=>row.id===id);
+  if(!entry||entry.stateType===null||
+    (typeof state?.name==='string'&&state.name!==entry.name)||
+    (typeof state?.stateType==='string'&&
+      state.stateType!==entry.stateType))
+    return {stateType:null,terminal:null,statusEvidence:'state_metadata_unverified'};
+  return {stateType:entry.stateType,terminal:entry.terminal,
+    statusEvidence:'metadata_state_id_matched'};
+}
+
 async function fetchJson(fetcher,url,token){
   const res=await fetcher(url,{method:'GET',redirect:'manual',
     headers:{Authorization:'Bearer '+token,Accept:'application/json'},
@@ -114,6 +138,17 @@ export function createProductionOrderEvidenceHandler({fetcher=fetch,pause=
           changedRecords:0,number,taskId:task.id.toLowerCase(),
           linkage:'unverified',reason:links.reason,
           orderStatusVerified:false,approvedForDispatch:false,requests});
+      let catalog=null;
+      if(links.ids.length){
+        // Fetch once per request; never map custom names to assumptions.
+        // Invalid/unavailable metadata leaves finality unknown, not active.
+        try{
+          const metadata=await fetchJson(fetcher,ROOT+'customerorder/metadata',
+            env.MS_API_TOKEN);
+          requests++;
+          catalog=normalizeOrderStates(metadata);
+        }catch{catalog=null;}
+      }
       const orders=[];
       for(const id of links.ids){
         await pause(2000);
@@ -121,7 +156,11 @@ export function createProductionOrderEvidenceHandler({fetcher=fetch,pause=
         orderUrl.searchParams.set('expand','state');
         const raw=await fetchJson(fetcher,orderUrl.toString(),env.MS_API_TOKEN);
         requests++;
-        orders.push(summarizeLinkedOrder(raw,id));
+        const summary=summarizeLinkedOrder(raw,id);
+        const resolved=resolveOrderState(raw,catalog);
+        // Explicitly ignore any unverified inline state type. Only matching
+        // source metadata and immutable ID may establish finality.
+        orders.push({...summary,...resolved});
       }
       return json(200,{code:'ms_order_evidence_ok',readOnly:true,
         changedRecords:0,number,taskId:task.id.toLowerCase(),
@@ -129,7 +168,10 @@ export function createProductionOrderEvidenceHandler({fetcher=fetch,pause=
         orders,orderStatusVerified:orders.length>0&&
           orders.every(x=>x.verification==='state_read'),
         approvedForDispatch:false,requests,
-        meaning:'CUSTOM_STATUS_LABELS_NOT_MAPPED_TO_LIVE_QUEUE'});
+        allLinkedOrdersFinal:orders.length>0&&
+          orders.every(x=>x.statusEvidence==='metadata_state_id_matched'&&
+            x.terminal===true),
+        meaning:'TERMINAL_BY_VERIFIED_METADATA_ONLY_NOT_LIVE_DISPATCH'});
     }catch(error){
       const code=/^(ms_rate_limited|ms_token_rejected|ms_permission_denied)$/.test(error?.code||'')?
         error.code:'ms_order_evidence_unavailable';
