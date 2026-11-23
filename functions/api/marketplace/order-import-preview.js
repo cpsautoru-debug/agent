@@ -415,7 +415,7 @@ export async function fetchOzonProductEvidence(fetcher,account,token,orders){
         offerId:id,barcodes:safeCodes,
         productId:Number.isSafeInteger(x.id)&&x.id>0?x.id:null,
         title:typeof x.name==='string'&&x.name.length>=4&&
-          x.name.length<=200&&!/[\\u0000-\\u001f\\u007f]/.test(x.name)?
+          x.name.length<=200&&!/[\u0000-\u001f\u007f]/.test(x.name)?
           x.name:null});
     }
     return {byOffer:evidence,code:'ok',count:visited.size};
@@ -496,8 +496,8 @@ export async function findMoyskladNameSuggestion(fetcher,token,orders){
     typeof x.ozonCatalog?.title==='string'&&
     x.ozonCatalog.title.length>=4);
   if(!item)return {sku:null,status:'no_product_name',candidates:[],requests:0};
-  const title=item.ozonCatalog.title.replace(/[^\\p{L}\\p{N} -]/gu,' ')
-    .replace(/\\s+/g,' ').trim();
+  const title=item.ozonCatalog.title.replace(/[^\p{L}\p{N} -]/gu,' ')
+    .replace(/\s+/g,' ').trim();
   const tokens=title.split(' ').filter(x=>x.length>=3);
   const phrase=tokens.slice(0,3).join(' ').slice(0,60);
   if(phrase.length<4)return {
