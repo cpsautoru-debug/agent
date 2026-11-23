@@ -580,6 +580,25 @@
  <div class="business-pnl-actions"><h2>Яндекс Маркет · API и финансы</h2>
  <button id="yandexConnectionCheck" class="button light" type="button">Проверить API Яндекс Маркета</button></div>
  <p id="yandexConnectionStatus" role="status">Проверяем подключение к Яндекс Маркету при открытии дашборда. Секрет остаётся в Cloudflare.</p>
+ <div id="yandexFinanceReports" class="yandex-finance-report-panel">
+   <h3>Октябрь 2026 · проверка финансовых источников</h3>
+   <p>Формирование отчётов Яндекса асинхронное. Отчёты по заказам, услугам и платежам проверяются отдельно: перечисления не равны прибыли.</p>
+   <button id="yandexFinanceDiscover" type="button" class="button light">Обновить список магазинов</button>
+   <div id="yandexFinanceCampaigns" aria-label="Магазины из API"></div>
+   <div class="profit-toolbar">
+    <label for="yandexFinanceReportType">Тип отчёта</label>
+    <select id="yandexFinanceReportType">
+     <option value="orders">Заказы и товары</option>
+     <option value="services">Стоимость услуг Маркета</option>
+     <option value="payments">Платежи и взаимозачёты</option>
+    </select>
+    <button id="yandexFinanceGenerate" type="button" class="button light" disabled>Запросить отчёт</button>
+    <button id="yandexFinanceCheckStatus" type="button" class="button light" disabled>Проверить готовность</button>
+    <button id="yandexFinanceAnalyze" type="button" class="button light" disabled>Проверить суммы и строки</button>
+   </div>
+   <p id="yandexFinanceReportsStatus" role="status">Сначала определяем кабинеты, доступные по серверному токену.</p>
+   <div id="yandexFinanceReportLines" aria-label="Проверенные исходные суммы отчёта"></div>
+ </div>
 </section>
 <div class="ceo-grid">
           <article class="ceo-card">
@@ -2325,6 +2344,7 @@
 <script type="module" src="wb-management-profit.mjs?v=20261124-wb-profit-closed-costs-v3"></script>
 <script type="module" src="wb-cost-sync-ui.mjs?v=20261124-write-classification"></script>
 <script type="module" src="yandex-connection-ui.mjs?v=20261124-cloudflare-secret-verified"></script>
+<script type="module" src="yandex-finance-reports-ui.mjs?v=20261124-oct-source-reports"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
