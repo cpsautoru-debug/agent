@@ -17,7 +17,7 @@ const sourceError=(status)=>status===401?'token_rejected':
   'source_error';
 
 export function externalKey(source,account,id){
-  if(!['ozon','wb'].includes(source)||!safe(account)||!safe(id)||
+  if(!['ozon','ozon_fbo','wb'].includes(source)||!safe(account)||!safe(id)||
     !/^[a-zA-Z0-9._:-]{1,100}$/.test(account)||
     !/^[a-zA-Z0-9._:-]{1,100}$/.test(id))
     throw Error('invalid_external_order_identity');
@@ -38,6 +38,7 @@ export function buildOzonFbsPreviewBody(nowMs){
 // These labels describe FBS shipment lifecycle, NOT confirmed demand to sew.
 // Only awaiting_packaging can be considered for later inventory-driven planning.
 export function classifyMarketplaceOrder(source,status){
+  if(source==='ozon_fbo')return {queue:'not_for_sewing',reason:'OZON_FBO_ALREADY_SUPPLIED_TO_MARKETPLACE'};
   if(source==='wb'&&status==='new_fbs_assembly_order')
     return {queue:'candidate_needs_inventory',reason:'WB_NEW_FBS_REQUIRES_STOCK_CHECK'};
   if(source!=='ozon')return {queue:'not_for_sewing',reason:'UNKNOWN_SOURCE'};
@@ -51,7 +52,8 @@ export function classifyMarketplaceOrder(source,status){
 }
 
 export function normalizeMarketplaceOrders(source,body,account){
-  const raw=source==='wb'?body?.orders:body?.postings;
+  const raw=source==='wb'?body?.orders:
+    source==='ozon_fbo'?(body?.result?.postings||body?.postings):body?.postings;
   if(!Array.isArray(raw)||raw.length>100)throw Error('unexpected_order_feed');
   const ids=new Set();
   const records=raw.slice(0,LIMIT).map(x=>{
@@ -72,7 +74,7 @@ export function normalizeMarketplaceOrders(source,body,account){
       safe(x.status)?x.status:'unknown';
     const queue=classifyMarketplaceOrder(source,status);
     return {externalKey:code,source,status,items,
-      supplyScheme:'FBS',productionQueue:queue.queue,
+      supplyScheme:source==='ozon_fbo'?'FBO':'FBS',productionQueue:queue.queue,
       productionQueueReason:queue.reason,
       assortmentVerified:false,legalEntityVerified:false,readyToWrite:false};
   });
@@ -187,7 +189,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     const keys=[...url.searchParams.keys()];
     const source=url.searchParams.get('source');
     if(url.origin!==ORIGIN||url.pathname!==PATH||url.hash||
-      keys.length!==1||keys[0]!=='source'||!['ozon','wb'].includes(source))
+      keys.length!==1||keys[0]!=='source'||!['ozon','ozon_fbo','wb'].includes(source))
       return json(400,{code:'invalid_scope'});
     if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||
       !env.OZON_FINANCE_DB)return json(503,{code:'owner_auth_unavailable'});
@@ -209,6 +211,13 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(source==='wb'){
         upstream='https://marketplace-api.wildberries.ru/api/v3/orders/new';
         options={method:'GET',headers:{Authorization:token,Accept:'application/json'}};
+      }else if(source==='ozon_fbo'){
+        upstream='https://api-seller.ozon.ru/v3/posting/fbo/list';
+        const end=new Date(now()),start=new Date(end.getTime()-7*86400000);
+        options={method:'POST',headers:{'Client-Id':account,
+          'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
+          body:JSON.stringify({filter:{since:start.toISOString(),to:end.toISOString()},
+            limit:LIMIT,offset:0,dir:'DESC'})};
       }else{
         upstream='https://api-seller.ozon.ru/v4/posting/fbs/list';
         options={method:'POST',headers:{'Client-Id':account,
@@ -251,7 +260,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
-        coverage:source==='ozon'?
+        coverage:source==='ozon_fbo'?'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE':
+          source==='ozon'?
           'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
           'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
         sampledAt:new Date(now()).toISOString(),
