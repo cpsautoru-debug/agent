@@ -13,7 +13,16 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  if(!root||!status||!scope||!reportSelect||!generate||!check||
    !analyze||!output||!monthInput)return false;
  const jobs=new Map();
- let campaigns=null,loading=false;
+ let campaigns=null,loading=false,pollTimer=null,pollAttempts=0;
+ function stopPolling(){if(pollTimer!==null){clearTimeout(pollTimer);pollTimer=null;}}
+ function schedulePolling(){
+  stopPolling();
+  const job=getJob();
+  if(!job||!['PENDING','PROCESSING'].includes(job.status)||
+    pollAttempts>=12)return;
+  pollAttempts++;
+  pollTimer=setTimeout(()=>{pollTimer=null;if(!loading)void checkStatus();},25000);
+ }
  const names={orders:'Заказы и товары',
   services:'Стоимость услуг Маркета',payments:'Платежи и взаимозачёты'};
  const say=text=>{status.textContent=text;};
@@ -79,6 +88,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
      data.reportType!==type||typeof data.reportId!=='string')
     throw Error('report_response_invalid');
    jobs.set(month+':'+type,{reportId:data.reportId,status:'PENDING'});
+   pollAttempts=0;schedulePolling();
    say('Отчёт «'+names[type]+'» принят Яндексом. Статус: формируется. '+
     'Проверяйте готовность без повторного запуска генерации.');
   }catch(e){say('Запрос отчёта не выполнен: '+safeReason(e)+
@@ -93,7 +103,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
     encodeURIComponent(getJob().reportId));
    if(data.code!=='yandex_report_status')throw Error('unexpected_status');
    getJob().status=data.status;
-   say(data.status==='DONE'?
+    say(data.status==='DONE'?
      'Отчёт сформирован. Можно проверить строки и агрегаты исходных данных.':
      data.status==='FAILED'?
        'Яндекс отклонил генерацию: '+(data.subStatus||'FAILED')+'.':
@@ -149,8 +159,14 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  generate.addEventListener('click',startReport);
  check.addEventListener('click',checkStatus);
  analyze.addEventListener('click',analyzeReport);
- reportSelect.addEventListener('change',buttonState);
- monthInput.addEventListener('change',buttonState);
+ reportSelect.addEventListener('change',()=>{
+  stopPolling();pollAttempts=0;buttonState();
+  if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
+   schedulePolling();
+ });
+ monthInput.addEventListener('change',()=>{
+  stopPolling();pollAttempts=0;buttonState();
+ });
  buttonState();
  const onVisit=()=>{
   if(location.hash.split('/')[0]==='#dashboard'&&!campaigns&&!loading)
