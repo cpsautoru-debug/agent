@@ -180,6 +180,15 @@
         <div class="profit-cards" id="wbProfitCards"></div>
         <p id="wbProfitComparison" role="status">Сравнение месяцев доступно после загрузки.</p>
       </article>
+      <article class="profit-panel" id="wbCostCandidates">
+        <h2>Себестоимость WB · кандидаты из существующих нормативов</h2>
+        <p>Подбираем вероятную себестоимость для каждого артикула за октябрь 2026 по типу изделия. Это предварительные предложения, не подтверждённые цены WB. Для закрытия прибыли нужно подтвердить точную комплектацию и себестоимость на дату продажи.</p>
+        <button class="button light" id="wbCostCandidatesRefresh" type="button">Обновить предложения по себестоимости</button>
+        <p role="status" id="wbCostCandidatesStatus">Источники ещё не проверены.</p>
+        <div class="table-wrap"><table><thead><tr><th>Артикул WB</th><th>Продано</th><th>Категория</th><th>Норматив / единица</th><th>Статус</th><th>Что проверить</th></tr></thead>
+          <tbody id="wbCostCandidatesRows"></tbody></table></div>
+        <p>Пока нет подтверждения, общая себестоимость и прибыль WB не вычисляются автоматически. Сохранение стоимости по отдельному артикулу производится только через существующую форму подтверждения в разделе юнит-экономики WB.</p>
+      </article>
       <article class="profit-panel wb-monitor" id="wbAutoSyncPanel" aria-labelledby="wbAutoSyncTitle">
         <div class="wb-monitor-head">
           <div>
@@ -2339,6 +2348,7 @@
 <script src="/wb-auto-sync-status.js?v=20261121-full-monitor" defer></script>
 <script src="/wb-unit-economics.js?v=20261122-cogs-coverage" defer></script>
 <script type="module" src="/wb-cost-suggestions-ui.mjs?v=20261121-diagnostics"></script>
+<script type="module" src="/wb-cost-review-ui.mjs?v=20261124-oct-cost-candidates"></script>
 <script type="module" src="/wb-model-group-ui.mjs?v=20261121-door-cards-fixed"></script>
 <script type="module" src="/finance-cost-audit.mjs?v=20261122-closeout-gates"></script>
 <script type="module" src="/wb-payout-provenance-ui.mjs?v=20261122"></script>
