@@ -174,7 +174,23 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   }
   if(!allocationKnown)block(allocationReason);
   const taxResult={baseKopecks:null,estimateKopecks:null,ozonKopecks:null,status:'missing',reason:'tax_register_missing'};
-  if(t?.complete && t.entity && t.source){const base=sum(t.events.map(x=>x.kind==='refund'?-x.amountKopecks:x.amountKopecks));taxResult.baseKopecks=base;taxResult.estimateKopecks=ratio(Math.max(0,base),800,10000);taxResult.status='preliminary';taxResult.reason='preliminary_AUSN_income_8_percent_estimate';if(t.ozonShareBps!==null)taxResult.ozonKopecks=ratio(taxResult.estimateKopecks,t.ozonShareBps,10000);else taxResult.reason+=';ozon_allocation_missing';}else if(t){taxResult.status='incomplete';taxResult.reason='entity_register_incomplete';}
+  if(t?.complete && t.entity && t.source){
+    // An offset is not necessarily taxable income. Until its economic nature
+    // is documented, never silently classify it as an incoming payment.
+    if(t.events.some(x=>x.kind==='offset')){
+      taxResult.status='incomplete';
+      taxResult.reason='tax_offset_classification_required';
+      warnings.push('Tax register has offsets requiring classification before an AUSN estimate.');
+    }else{
+      const base=sum(t.events.map(x=>x.kind==='refund'?-x.amountKopecks:x.amountKopecks));
+      taxResult.baseKopecks=base;
+      taxResult.estimateKopecks=ratio(Math.max(0,base),800,10000);
+      taxResult.status='preliminary';
+      taxResult.reason='preliminary_AUSN_income_8_percent_estimate';
+      if(t.ozonShareBps!==null)taxResult.ozonKopecks=ratio(taxResult.estimateKopecks,t.ozonShareBps,10000);
+      else taxResult.reason+=';ozon_allocation_missing';
+    }
+  }else if(t){taxResult.status='incomplete';taxResult.reason='entity_register_incomplete';}
   const complete=blockers.length===0;
   const grossReady=!!d && d.rows.length>0 && d.periodVerified && costsComplete && !duplicateCandidates.length && !blockers.includes('unknown_services');
   const gross=grossReady?sum([sales,returns,-known]):null;
