@@ -49,6 +49,11 @@ export function summarizeOzonFinanceReadiness(month,data,result){
         /^[a-z0-9_]{1,80}$/.test(x.detailReason)?
         x.detailReason:'unverified'
     }));
+  const netVerifiedDays=days.filter(x=>x.netStatus==='verified').length;
+  const detailVerifiedDays=days.filter(x=>x.detailStatus==='verified').length;
+  const missingAuditDays=days.filter(x=>
+    x.netStatus!=='verified'&&
+    x.detailReason==='official_report_not_registered').length;
   const blockers=[...result.profit.blockers];
   if(!aggregateMatched&&!blockers.includes('report_api_mismatch'))
     blockers.push('report_api_aggregate_unverified');
@@ -79,6 +84,7 @@ export function summarizeOzonFinanceReadiness(month,data,result){
         reportTotal-apiTotal:null},
     reconciliation:{
       checkedDays:days.length,
+      netVerifiedDays,detailVerifiedDays,missingAuditDays,
       unresolvedCount:unresolvedDays.length,
       unresolvedDays:unresolvedDays.slice(0,31),
       fullyVerified:days.length===a.days&&unresolvedDays.length===0,
