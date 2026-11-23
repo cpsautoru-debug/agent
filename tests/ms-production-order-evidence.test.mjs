@@ -44,3 +44,12 @@ test('public endpoint never reads a task without authentication',async()=>{
   ),env:{}});
   assert.equal(wrong.status,400);
 });
+
+test('source finality is reported independently of labels',()=>{
+  const id='01234567-89ab-4cde-8fab-0123456789ab';
+  assert.equal(summarizeLinkedOrder({id,state:{name:'Закрыт',
+    stateType:'Successful'}},id).terminal,true);
+  assert.equal(summarizeLinkedOrder({id,state:{name:'В работе',
+    stateType:'Regular'}},id).terminal,false);
+  assert.equal(summarizeLinkedOrder({id,state:{name:'Отменён'}},id).terminal,null);
+});
