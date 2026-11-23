@@ -68,9 +68,22 @@
   }
   function cell(row, value) { const node = document.createElement('td'); node.textContent = value == null ? 'Неизвестно' : String(value); row.append(node); return node; }
   function table(id, rows) { const body = $(id); body.replaceChildren(); rows.forEach(values => { const row = document.createElement('tr'); values.forEach(value => cell(row,value)); body.append(row); }); }
-  function render(result) {
-    const values = [['Продажи · по отчёту',result.report?.salesKopecks],['Возвраты · по отчёту',result.report?.returnsKopecks],['Валовая прибыль',result.profit?.grossKopecks],['Операционная прибыль',result.profit?.operatingKopecks],['Чистая прибыль · оценка',result.profit?.netEstimateKopecks],['После известных затрат · частичный итог',result.profit?.partialAfterKnownCostsKopecks],['Сальдо API · после удержаний Ozon',result.api?.totalKopecks],['Себестоимость · известная часть',result.report?result.costs?.knownKopecks:null],['Внешние расходы Ozon · прямые и распределённые',result.allocation?.ozonKopecks],['АУСН «Доходы» 8% · доля Ozon, оценка',result.tax?.ozonKopecks]];
-    $('profitCards').replaceChildren(); values.forEach(([label,value])=> {const card=document.createElement('article');card.className='profit-card';const title=document.createElement('h3');title.textContent=label;const amount=document.createElement('strong');amount.textContent=money(value);card.append(title,amount);$('profitCards').append(card);});
+  function render(result,readiness) {
+    const cards=window.OzonProfitCards?.makeOzonCards;
+    if(typeof cards!=='function')throw new Error('Модуль финансовых карточек Ozon недоступен.');
+    const view=cards(result,readiness,{
+      month:'2026-10',source:'OWNER_STATEMENT_2026-11-23',
+      taxKopecks:20550700,overheadKopecks:5400000
+    });
+    $('profitCards').replaceChildren();
+    for(const row of view.cards){
+      const card=document.createElement('article');
+      card.className='profit-card profit-card-'+row.kind;
+      const title=document.createElement('h3');title.textContent=row.label;
+      const amount=document.createElement('strong');amount.textContent=row.value;
+      const note=document.createElement('small');note.textContent=row.detail;
+      card.append(title,amount,note);$('profitCards').append(card);
+    }
     const ad=result.advertisingAudit;
     if(ad?.source==='OZON_REPORT_SERVICE_VS_MANUAL_EXPENSE_LABELS'&&
       ad.readOnly===true&&ad.changedRecords===0&&
@@ -198,7 +211,7 @@
     const response=await fetch('/api/ozon/profit?month='+encodeURIComponent(month),{credentials:'same-origin',cache:'no-store'});
     const data=await response.json(); if(current!==generation)return;
     if(!response.ok)throw new Error(response.status===401||response.status===403?'Требуется вход владельца в разделе «Финансы · Ozon».':data.error || 'Не удалось загрузить расчёт.');
-    render(data.result);const config=data.configuration || {};
+    render(data.result,data.readiness);const config=data.configuration || {};
     $('profitCostRows').replaceChildren();(config.costs?.entries || []).forEach(addCost);
     $('profitExpenses').value=config.expenses?json(config.expenses):'';
     $('profitTax').value=config.tax?json(config.tax):'';
