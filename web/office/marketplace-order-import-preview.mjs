@@ -51,7 +51,13 @@
           unexpected_order_lines:'Неполные товарные позиции',
           unmapped_order_line:'Не определён артикул или количество',
           duplicate_source_order:'Повтор идентификатора в ответе',
-          moysklad_lookup_unverified:'Не удалось однозначно проверить дубли'
+          moysklad_lookup_unverified:'Не удалось однозначно проверить дубли',
+          upstream_invalid_json:'API вернул некорректный JSON',
+          upstream_response_too_large:'Ответ превышает безопасный лимит',
+          upstream_body_missing:'API вернул пустое тело ответа',
+          invalid_external_order_identity:'Формат номера заказа не прошёл проверку',
+          external_order_key_too_long:'Слишком длинный внешний идентификатор',
+          source_error:'API вернул ошибку запроса'
         }[data?.code]||'Ответ источника не удалось проверить';
         const sourceName=data?.stage==='moysklad'?'МойСклад':'маркетплейс';
         const result='Источник ошибки: '+sourceName+'. '+label+
