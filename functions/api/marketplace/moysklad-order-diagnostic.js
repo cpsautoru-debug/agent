@@ -62,7 +62,7 @@ export function createMoyskladOrderDiagnostic({fetcher=fetch}={}){
         const response=await fetcher(probe.url,{
           method:'GET',redirect:'manual',
           headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
-            Accept:'application/json'},
+            Accept:'application/json;charset=utf-8'},
           signal:AbortSignal.timeout(12000)
         });
         status=response.status;
