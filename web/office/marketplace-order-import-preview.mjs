@@ -169,6 +169,11 @@
         (data.duplicateScan?.complete===true?
           ' Обход ограниченного реестра завершён.':
           ' Полный реестр не подтверждён — отсутствие дублей не доказано.')+
+        ' Ассортимент «МойСклад»: просмотрено '+
+        (data.assortmentCoverage?.checkedRows||0)+' позиций, '+
+        (data.assortmentCoverage?.pages||0)+' страниц'+
+        (data.assortmentCoverage?.complete===true?
+          ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.')+
         (data.duplicateLookupFailure?
           ' Ошибка доступа к списку заказов'+
           (Number.isInteger(data.duplicateLookupFailure.http)?
