@@ -19,13 +19,17 @@ export function describeOzonAdsEvidence(data,month){
   const amount=(Math.abs(a.advertisingAccrualKopecks)/100)
     .toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
   const last=a.lastDate||'нет дат';
+  const fields=Array.isArray(data.fieldNames)&&data.fieldNames.every(x=>
+    typeof x==='string'&&/^[a-zA-Z_][a-zA-Z0-9_]{0,80}$/.test(x))
+    ? data.fieldNames.slice(0,12).join(', '):'не определены';
   return 'Ozon Performance API: '+data.recordCount+' строк за '+month+
     '. Отдельный источник D1 (ozon_accruals_export): '+
     a.advertisingRows+' рекламных строк из '+a.accrualRows+
     ' начислений, сумма '+(a.advertisingAccrualKopecks<0?'-':'')+
     amount+' ₽, последняя дата '+last+
     '. Источники имеют разную детализацию и пока НЕ СВЕРЕНЫ. '+
-    'Это не сумма расходов Performance API. Реклама повторно из прибыли не вычитается.';
+    'Это не сумма расходов Performance API. Реклама повторно из прибыли не вычитается.'+
+    ' Поля ответа Performance API: '+fields+'.';
 }
 export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locationRef=location}={}){
   const status=documentRef.getElementById('profitOzonAdsApiStatus');
