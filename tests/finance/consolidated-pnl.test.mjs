@@ -16,7 +16,7 @@ test('separate channel results, one consolidated tax, one shared charge',()=>{
   avito:{status:'verified',profitKopecks:5000000},
   offline:{status:'verified',profitKopecks:2000000}};
  const r=consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
-  completeSources:true});
+  completeSources:true,sharedExpensesComplete:true,taxesComplete:true});
  assert.equal(r.channelsTotalKopecks,101836991);
  assert.equal(r.sharedExpenseTotalKopecks,5400000);
  assert.equal(r.taxTotalKopecks,20550700);
@@ -46,4 +46,21 @@ test('dashboard includes separated channels and tax section',()=>{
  assert.match(html,/id="businessPnl"/);
  assert.match(html,/business-pnl.mjs/);
  assert.match(html,/business-pnl.css/);
+});
+
+test('known taxes do not imply all entity taxes and common costs are complete',()=>{
+ const channels=Object.fromEntries(['ozon','wb','yandex','avito','offline']
+   .map(id=>[id,{status:'verified',profitKopecks:100000}]));
+ const r=consolidateBusinessPnl({month,channels,sharedExpenses,taxes});
+ assert.equal(r.channelsTotalKopecks,500000);
+ assert.equal(r.sharedExpenseTotalKopecks,5400000);
+ assert.equal(r.taxTotalKopecks,20550700);
+ assert.equal(r.finalProfitKopecks,null);
+ assert.equal(r.verified,false);
+});
+test('unknown months do not silently display zero expenses or taxes',()=>{
+ const r=consolidateBusinessPnl({month:'2026-11',channels:{},sharedExpenses:[],taxes:[]});
+ assert.equal(r.sharedExpenseTotalKopecks,null);
+ assert.equal(r.taxTotalKopecks,null);
+ assert.equal(r.finalProfitKopecks,null);
 });
