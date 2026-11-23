@@ -97,7 +97,7 @@ export function createEntityIncomeEvidence({now=Date.now}={}){
       'SELECT date_from,date_to,report_type,status,row_count '+
       'FROM wb_finance_api_reports WHERE account_id=? AND date_from>=? AND date_to<? '
       +'ORDER BY date_from,report_type'
-    ).bind(bounds.start,bounds.end).all();
+    ).bind(WB_ACCOUNT,bounds.start,bounds.end).all();
     if(!Array.isArray(operations?.results)||!Array.isArray(reports?.results))
       throw Error('missing_wb_rows');
     return json(200,summarizeIncomeEvidence(month,finance,{
