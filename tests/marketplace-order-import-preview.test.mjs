@@ -137,7 +137,7 @@ test('scan failure after one page retains partial match with incomplete evidence
     return Response.json({meta:{size:100},rows:Array.from({length:25},(_,i)=>({
       externalCode:i===2?key:'other-'+i
     }))});
-  },'test-token',[key]);
+  },'test-token',[key,'AS63:ozon:123:NOT-IN-PAGE']);
   assert.equal(scan.complete,false);
   assert.equal(scan.sourceError,true);
   assert.equal(scan.matches.get(key),1);
