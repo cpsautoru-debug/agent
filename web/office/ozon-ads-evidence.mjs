@@ -14,11 +14,38 @@ export function describeOzonAdsEvidence(data,month){
     !Number.isSafeInteger(a.advertisingRows)||a.advertisingRows<0||
     !Number.isSafeInteger(a.advertisingAccrualKopecks)||
     a.advertisingRows>a.accrualRows||a.matchedToPerformance!==false||
-    a.reconciled!==false)
+    a.reconciled!==false||
+    !Number.isSafeInteger(a.daysInMonth)||a.daysInMonth<28||a.daysInMonth>31||
+    !Number.isSafeInteger(a.daysWithAccrualRows)||
+    a.daysWithAccrualRows<0||a.daysWithAccrualRows>a.daysInMonth||
+    !Array.isArray(a.missingAccrualDates)||
+    a.missingAccrualDates.length!==a.daysInMonth-a.daysWithAccrualRows||
+    new Set(a.missingAccrualDates).size!==a.missingAccrualDates.length||
+    a.missingAccrualDates.some(d=>typeof d!=='string'||
+      !/^20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/.test(d)||
+      !d.startsWith(month+'-')))
     throw Error('unverified_finance_audit');
   const amount=(Math.abs(a.advertisingAccrualKopecks)/100)
     .toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
   const last=a.lastDate||'нет дат';
+  const coverage=' Даты с записями начислений в D1: '+
+    a.daysWithAccrualRows+'/'+a.daysInMonth+
+    (a.missingAccrualDates.length?
+      '; без записей: '+a.missingAccrualDates.join(', ')+
+      ' (не считать расходы за эти даты нулевыми).':
+      '; даты присутствуют, но полнота начислений всё равно не доказана.');
+  const monetary=data.columnAudit?.find(x=>x?.field==='moneySpent');
+  const comparable=(monetary?.rawColumnSumKopecks!==null&&
+    Number.isSafeInteger(monetary?.rawColumnSumKopecks)&&
+    monetary?.validRows===data.recordCount);
+  const difference=comparable?
+    Math.abs(monetary.rawColumnSumKopecks)-Math.abs(a.advertisingAccrualKopecks):null;
+  const comparison=difference===null?'':(
+    ' Арифметическая разница абсолютных сумм moneySpent и рекламной категории D1: '+
+    (difference/100).toLocaleString('ru-RU',{
+      minimumFractionDigits:2,maximumFractionDigits:2})+
+    ' ₽. Это НЕ подтверждённое расхождение операций: периоды и состав источников ещё не сопоставлены.');
+
   const fields=Array.isArray(data.fieldNames)&&data.fieldNames.every(x=>
     typeof x==='string'&&/^[a-zA-Z_][a-zA-Z0-9_]{0,80}$/.test(x))
     ? data.fieldNames.slice(0,12).join(', '):'не определены';
@@ -58,7 +85,7 @@ export function describeOzonAdsEvidence(data,month){
     amount+' ₽, последняя дата '+last+
     '. Источники имеют разную детализацию и пока НЕ СВЕРЕНЫ. '+
     'Это не сумма расходов Performance API. Реклама повторно из прибыли не вычитается.'+
-    ' Поля ответа Performance API: '+fields+'.'+columnDetails;
+    ' Поля ответа Performance API: '+fields+'.'+columnDetails+coverage+comparison;
 }
 export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locationRef=location}={}){
   const status=documentRef.getElementById('profitOzonAdsApiStatus');

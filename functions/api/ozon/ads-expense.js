@@ -131,6 +131,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         finance=await env.OZON_FINANCE_DB.prepare(
           "SELECT COUNT(*) AS all_rows, MIN(operation_date) AS first_date, "+
           "MAX(operation_date) AS last_date, "+
+          "GROUP_CONCAT(DISTINCT operation_date) AS present_dates, "+
           "SUM(CASE WHEN category='Продвижение и реклама' THEN 1 ELSE 0 END) AS ad_rows, "+
           "COALESCE(SUM(CASE WHEN category='Продвижение и реклама' THEN amount_kopecks ELSE 0 END),0) AS ad_kopecks "+
           "FROM ozon_accruals WHERE operation_date>=? AND operation_date<? "+
@@ -145,6 +146,19 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         finance.all_rows<0||finance.ad_rows<0||
         finance.ad_rows>finance.all_rows)
         return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+      // Presence of D1 rows is not evidence that *all* ad operations
+      // were imported. Report missing calendar dates, never infer zero.
+      const daysInMonth=new Date(Date.UTC(year,mon,0)).getUTCDate();
+      const calendarDates=Array.from({length:daysInMonth},(_,i)=>
+        month+'-'+String(i+1).padStart(2,'0'));
+      const present=finance.present_dates===null?[]:
+        typeof finance.present_dates==='string'?finance.present_dates.split(','):[];
+      const presentSet=new Set(present);
+      if(presentSet.size!==present.length||present.some(d=>
+        !calendarDates.includes(d))||(!present.length&&finance.all_rows>0)||
+        (present.length>0&&finance.all_rows===0))
+        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+      const missingDates=calendarDates.filter(d=>!presentSet.has(d));
       // Require exact, non-derived column diagnostics when the Worker
       // provides them. Older Worker deployments may omit them.
       const fields=['moneySpent','bonusSpent','prepaymentSpent'];
@@ -184,6 +198,8 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
           advertisingAccrualKopecks:finance.ad_kopecks,
           firstDate:finance.first_date||null,
           lastDate:finance.last_date||null,
+          daysWithAccrualRows:present.length,
+          daysInMonth,missingAccrualDates:missingDates,
           matchedToPerformance:false,
           reconciled:false
         },
