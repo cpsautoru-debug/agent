@@ -17,7 +17,7 @@ const envelope={
 const env=(allowed=1)=>({
  OFFICE_SESSION_SECRET:SECRET,OFFICE_ALLOWED_EMAIL:'owner@example.com',
  ADS_READ_TOKEN:'X'.repeat(48),
- OZON_ADS_WORKER:{fetch:async()=>{throw new Error('unexpected binding call in injected tests')}},
+ OZON_ADS_WORKER:{expensePreview:async()=>{throw new Error('unexpected binding call in injected tests')}},
  OZON_FINANCE_DB:{prepare(sql){assert.match(sql,/office_authorized_users/);
  return {bind(sub,email){assert.equal(sub,'test-owner');
  assert.equal(email,'owner@example.com');return {first:async()=>({allowed})}}}}}
@@ -117,7 +117,7 @@ test('network failures are distinct from an Ozon API HTTP error',async()=>{
  });
  const res=await handler({request:await req(),env:env()});
  assert.equal(res.status,503);
- assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure',phase:'service_binding_fetch'});
+ assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure',phase:'service_binding_rpc'});
 });
 test('missing ads Worker route is identified without leaking upstream response',async()=>{
  const handler=createOzonAdsExpenseHandler({
@@ -135,21 +135,18 @@ test('binding is required and token is not leaked',async()=>{
  assert.equal(res.status,503);
  assert.deepEqual(await res.json(),{code:'ads_service_binding_missing'});
 });
-test('default handler uses binding fetch(url, init) without constructing Request',async()=>{
+test('owner handler invokes authenticated named RPC method with no HTTP fetch',async()=>{
  const local=env();const calls=[];
- local.OZON_ADS_WORKER={async fetch(url,init){
-   assert.equal(typeof url,'string');
-   assert.equal(init.method,'GET');
-   calls.push({url,authorization:init.headers.authorization});
-   return new Response(JSON.stringify(envelope),
-     {status:200,headers:{'content-type':'application/json'}});
+ local.OZON_ADS_WORKER={async expensePreview(month,token){
+   calls.push({month,token});
+   return {status:200,body:envelope};
  }};
  const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
  const res=await handler({request:await req(),env:local});
  assert.equal(res.status,200);
  assert.equal(calls.length,1);
- assert.equal(new URL(calls[0].url).pathname,'/api/internal/expense');
- assert.equal(calls[0].authorization,'Bearer '+'X'.repeat(48));
+ assert.equal(calls[0].month,MONTH);
+ assert.equal(calls[0].token,'X'.repeat(48));
 });
 test('binding exception categories are sanitized without raw messages',async()=>{
  const messages=[
@@ -160,7 +157,7 @@ test('binding exception categories are sanitized without raw messages',async()=>
  for(const [message,code] of messages){
    const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
    const current=env();
-   current.OZON_ADS_WORKER={fetch:async()=>{
+   current.OZON_ADS_WORKER={expensePreview:async()=>{
      throw new TypeError(message);
    }};
    const result=await handler({request:await req(),env:current});
@@ -172,12 +169,12 @@ test('binding exception categories are sanitized without raw messages',async()=>
 });
 test('transport diagnostics identify binding call stage without leaking message',async()=>{
  const local=env();
- local.OZON_ADS_WORKER={fetch:async()=>{throw new TypeError('private authorization value')}};
+ local.OZON_ADS_WORKER={expensePreview:async()=>{throw new TypeError('private authorization value')}};
  const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
  const response=await handler({request:await req(),env:local});
  const body=await response.json();
  assert.equal(body.code,'ozon_ads_binding_type_error');
- assert.equal(body.phase,'service_binding_fetch');
+ assert.equal(body.phase,'service_binding_rpc');
  assert.equal(JSON.stringify(body).includes('private authorization value'),false);
 });
 test('UI renders source status without calling profit mutations',()=>{
@@ -202,6 +199,7 @@ test('ads Worker exposes default class entrypoint compatible with Pages binding'
  assert.ok(source.includes('export class OzonAdsInternal extends WorkerEntrypoint'));
  assert.ok(source.includes('fetch(request){return handleAdsRequest(request,this.env);}'));
  assert.ok(source.includes('async function handleAdsRequest(request,env)'));
+ assert.ok(source.includes('async expensePreview(month,sharedToken)'));
  assert.ok(source.includes("if(auth!=='Bearer '+env.ADS_READ_TOKEN)"));
  assert.equal(source.includes('export default {'),false);
 });
