@@ -86,7 +86,7 @@ test('Yandex source ZIP is checked and raw transaction sums are not net profit',
  assert.equal(x.sheets[0].sumFields.transactionSum.totalKopecks,10025);
  assert.match(x.note,/NOT accounting revenue or net profit/);
  const tampered=new Uint8Array(makeStoredZip('transaction_date.json',input));
- tampered[40]^=0x01;
+ tampered[30+'transaction_date.json'.length+5]^=0x01;
  await assert.rejects(parseYandexZip(tampered.buffer),/checksum|json_invalid/);
 });
 test('Yandex finance reporting is present in office UI without browser secret',()=>{
