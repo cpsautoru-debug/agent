@@ -17,7 +17,9 @@
   const valid=d=>d?.code==='marketplace_order_import_preview_ok'&&
     ['ozon','wb'].includes(d.source)&&d.readOnly===true&&
     d.changedRecords===0&&d.approvedForWrite===false&&
-    d.coverage==='FBS_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS'&&
+    d.coverage===(d.source==='ozon'?
+      'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
+      'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS')&&
     Array.isArray(d.orders)&&d.orders.length<=10&&
     Number.isSafeInteger(d.counts?.received)&&
     d.counts.received===d.orders.length&&
@@ -88,7 +90,8 @@
           upstream_body_missing:'API вернул пустое тело ответа',
           invalid_external_order_identity:'Формат номера заказа не прошёл проверку',
           external_order_key_too_long:'Слишком длинный внешний идентификатор',
-          source_error:'API вернул ошибку запроса'
+          source_error:'API вернул ошибку запроса',
+          ozon_status_filter_unverified:'Ozon не подтвердил фильтр новых заказов'
         }[data?.code]||'Ответ источника не удалось проверить';
         const sourceName=data?.stage==='moysklad'?'МойСклад':'маркетплейс';
         const result='Источник ошибки: '+sourceName+'. '+label+
@@ -116,8 +119,10 @@
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
-      setSource(source,'Маркетплейс ответил: '+data.counts.received+
-        ' заказов. Потенциально требуют проверки остатков: '+
+      setSource(source,(source==='ozon'?
+        'Новые FBS-заказы на сборку (за 7 дней): ':
+        'Новые сборочные задания WB: ')+data.counts.received+
+        '. Потенциально требуют проверки остатков: '+
         data.counts.candidateNeedsInventory+
         '; не направлять в пошив: '+data.counts.notForSewing+
         '; неясный статус: '+data.counts.statusUnverified+
