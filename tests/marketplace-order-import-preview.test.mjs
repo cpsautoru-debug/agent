@@ -182,3 +182,18 @@ test('Ozon FBO shipments are read-only and never counted as sewing jobs',()=>{
   assert.equal(result[0].readyToWrite,false);
   assert.equal(result[0].externalKey,'AS63:ozon_fbo:123:FBO-2026-1');
 });
+
+test('MoySklad duplicate requests send exact JSON UTF-8 Accept header',async()=>{
+  const key='AS63:ozon:123:A-1';
+  const accepts=[];
+  const fetcher=async(_url,opts)=>{
+    accepts.push(opts.headers.Accept);
+    return Response.json({meta:{size:0},rows:[]});
+  };
+  await lookupMoyskladDuplicate(fetcher,'test-token',key);
+  await scanMoyskladOrderKeys(fetcher,'test-token',[key]);
+  assert.deepEqual(accepts,[
+    'application/json;charset=utf-8',
+    'application/json;charset=utf-8'
+  ]);
+});
