@@ -29,7 +29,8 @@ export function validateDashboardWbMonth(data,month){
    throw Error('wb_month_amount_mismatch');
  const c=data.managementCost;
  let managementCost=null;
- if(c?.status==='management_after_wb_charges_and_cogs'&&
+ if(c?.status==='management_cost_reconciled'&&
+   c.profitStatus==='management_after_wb_charges_and_cogs'&&
    c.source==='WB_SAVED_XLSX_OWNER_CONFIRMED_UNIT_COSTS'&&
    c.scope===month&&c.readOnly===true&&c.changedRecords===0&&
    c.confirmedSkuCount===data.soldArticles&&c.confirmedSkuCount===35&&
