@@ -1,6 +1,6 @@
 import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs';
 import {summarizeOzonProvisionalProfit} from './ozon-provisional-profit.mjs';
-import {describeDashboardWbEvidence} from './business-pnl-source-evidence.mjs';
+import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
  avito:'Авито',offline:'Магазин · Пламя'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
@@ -11,7 +11,7 @@ const el=(tag,cls,value)=>{
  if(value!==undefined)node.textContent=value;
  return node;
 };
-function render(root,pnl,sourceNotes={}){
+function render(root,pnl,sourceNotes={},interim={}){
  root.replaceChildren();
  const summary=el('div','business-pnl-heading');
  summary.append(el('h2','','Финансовый результат по каналам'),
@@ -25,6 +25,21 @@ function render(root,pnl,sourceNotes={}){
    el('small','',ch.status==='known_cost_result'?
      'По известным затратам · не чистая прибыль':
      ch.status==='verified'?'Подтверждено':'Нет закрытого расчёта'));
+  if(ch.id==='wb'&&interim.wb){
+   const detail=interim.wb;
+   card.append(el('small','business-pnl-subhead',
+     'Расчёты после удержаний WB · до себестоимости'),
+    el('strong','business-pnl-interim-value',money(detail.amountKopecks)),
+    el('small','business-pnl-interim-warning',detail.label));
+   const fold=el('details','business-pnl-wb-details');
+   fold.append(el('summary','','Расшифровка удержаний WB'));
+   for(const [label,amount] of detail.breakdown){
+    const row=el('div','business-pnl-wb-line');
+    row.append(el('span','',label),el('strong','',money(amount)));
+    fold.append(row);
+   }
+   card.append(fold);
+  }
   const evidence=sourceNotes[ch.id];
   if(evidence)card.append(el('small','business-pnl-evidence',evidence));
   cards.append(card);
@@ -65,6 +80,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   if(notice)notice.textContent='Обновляем Ozon и Wildberries за '+month+'…';
   const base={month,channels:{},sharedExpenses:[],taxes:[],
     completeSources:false};
+  const interim={};
   const sourceNotes={
     ozon:'Ожидает расчёт по сверенным данным.',
     wb:'Данные прибыли пока не подтверждены.',
@@ -108,12 +124,18 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     })(),
     (async()=>{
      try{
-      const response=await fetcher('/api/finance/income-evidence?month='+encodeURIComponent(month),{
+      const response=await fetcher('/api/wb/month-settlement?month='+encodeURIComponent(month),{
        method:'GET',credentials:'same-origin',cache:'no-store',
        signal:AbortSignal.timeout(16000)});
-      if(!response.ok)throw Error('wb_income_source_unavailable');
-      sourceNotes.wb=describeDashboardWbEvidence(await response.json(),month);
-     }catch(e){wbError=e;sourceNotes.wb='Нет проверенной сводки WB за выбранный период.';}
+      if(!response.ok)throw Error('wb_month_settlement_unavailable');
+      const wb=validateDashboardWbMonth(await response.json(),month);
+      interim.wb=wb;
+      sourceNotes.wb=wb.reports+' отчётов, '+wb.rows+
+       ' операций. Себестоимость подтверждена для '+
+       wb.confirmedCostArticles+' из '+wb.soldArticles+
+       ' проданных артикулов ('+wb.preliminaryCostArticles+
+       ' предварительно). Прибыль WB пока не рассчитана.';
+     }catch(e){wbError=e;sourceNotes.wb='Нет полной сверенной расчётной суммы WB за выбранный период.';}
     })()
    ]);
   }
@@ -125,11 +147,11 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   let pnl;
   try{pnl=consolidateBusinessPnl(base);}
   catch{root.textContent='Невозможно сформировать сводный отчёт: неверный период или данные.';return;}
-  render(root,pnl,sourceNotes);
+  render(root,pnl,sourceNotes,interim);
   if(error)root.append(el('p','business-pnl-disclaimer',
    'Источник Ozon недоступен. Показатели не подставляются из предыдущих периодов.'));
   if(wbError)root.append(el('p','business-pnl-disclaimer',
-   'Диагностика WB временно недоступна. Прибыль WB не подставляется.'));
+   'Расчётный источник WB недоступен. Выручка и прибыль WB не подставляются из других периодов.'));
  }
  refresh.addEventListener('click',load);
  monthInput.addEventListener('change',load);
