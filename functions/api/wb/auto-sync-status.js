@@ -58,8 +58,33 @@ export function createWbFinanceMonitorHandler({now=Date.now}={}){
           },[],0,now())
         });
       }
-      return json(200,summarizeWbFinance(
-        runtime,reportResult.results,operations.count,now()));
+      const summary=summarizeWbFinance(
+        runtime,reportResult.results,operations.count,now());
+      // Explain an exactly attributable payout difference by stored paid
+      // acceptance charges. Read-only: report status must remain "mismatch"
+      // until the normal ingestion/reconciliation worker recalculates it.
+      const evidence=[];
+      for(const report of summary.reports.filter(r=>r.status==='mismatch').slice(0,3)){
+        if(!Number.isSafeInteger(report.calculatedPaymentKop)||
+          !Number.isSafeInteger(report.bankPaymentKop))continue;
+        const totals=await db.prepare(
+          'SELECT COUNT(*) AS row_count, COALESCE(SUM(paid_acceptance_kop),0) AS paid_acceptance_kop '+
+          'FROM wb_finance_api_rows WHERE account_id=? AND report_id=?'
+        ).bind(ACCOUNT,report.reportId).first();
+        if(!totals||!Number.isSafeInteger(totals.row_count)||
+          !Number.isSafeInteger(totals.paid_acceptance_kop)||
+          totals.row_count!==report.rowCount||
+          totals.paid_acceptance_kop<=0)continue;
+        const difference=report.calculatedPaymentKop-report.bankPaymentKop;
+        if(difference!==totals.paid_acceptance_kop)continue;
+        evidence.push({reportId:report.reportId,
+          differenceKop:difference,
+          paidAcceptanceKop:totals.paid_acceptance_kop,
+          rowCount:totals.row_count,
+          status:'PAYOUT_DIFFERENCE_EXACTLY_PAID_ACCEPTANCE',
+          correctionApplied:false});
+      }
+      return json(200,{...summary,payoutDifferenceEvidence:evidence});
     }catch{
       return json(503,{code:'wb_api_sync_status_unavailable'});
     }
