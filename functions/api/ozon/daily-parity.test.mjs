@@ -40,3 +40,22 @@ test('duplicate day or unverified pagination fails closed',()=>{
   {...days[0],complete:false}
  ]),/invalid_daily_api_row/);
 });
+
+test('same daily net can conceal different XLSX/service positive and negative splits',()=>{
+ const dates=Array.from({length:31},(_,i)=>({
+  date:'2026-10-'+String(i+1).padStart(2,'0'),
+  complete:true,totalKopecks:i===0?100:0,
+  positiveKopecks:i===0?250:0,
+  negativeKopecks:i===0?-150:0,
+  recordCount:i===0?2:0
+ }));
+ const audit=compareOzonDailyTotals('2026-10',[
+   {date:'2026-10-01',amountKopecks:400},
+   {date:'2026-10-01',amountKopecks:-300}
+ ],dates);
+ assert.equal(audit.match,true);
+ assert.equal(audit.granularity.comparedDays,31);
+ assert.equal(audit.granularity.differingDays,1);
+ assert.equal(audit.granularity.examples[0].xlsxPositiveKop,400);
+ assert.equal(audit.officialDetailReconciled,false);
+});
