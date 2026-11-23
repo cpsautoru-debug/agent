@@ -58,3 +58,13 @@ test('unclassified tax offsets never silently inflate AUSN income or appear as v
  assert.equal(result.profit.netEstimateKopecks,null);
  assert.ok(result.warnings.some(x=>x.includes('offset')));
 });
+
+test('AUSN cannot infer zero tax from an empty purportedly complete register',()=>{
+ const tax={month,entity:'synthetic IP',complete:true,source:'register',events:[],ozonShareBps:10000,allocationSource:'owner'};
+ const r=m.calculateProfit(input({tax}));
+ assert.equal(r.tax.status,'incomplete');
+ assert.equal(r.tax.reason,'tax_events_missing');
+ assert.equal(r.tax.baseKopecks,null);
+ assert.equal(r.tax.estimateKopecks,null);
+ assert.equal(r.profit.netEstimateKopecks,null);
+});
