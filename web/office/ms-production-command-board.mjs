@@ -77,6 +77,9 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
       if(item.status==='unverified')cell.className='ms-board-unknown';
       td(tr,item.remaining===undefined?'Неизвестно':fmt(item.remaining));
       td(tr,item.firstUnfinishedStage||'—');
+      const links=item.customerOrderLinks;
+      td(tr,links?.status==='linked'?'Есть связь: '+fmt(links.count):
+        links?.status==='none'?'Связи нет':'Не подтверждено');
       td(tr,item.plannedDate?formatMsMomentForSamara(item.plannedDate):'Не указана');
       const date=td(tr,dates[item.planDateStatus]||'Не подтверждено');
       if(item.planDateStatus==='past')date.className='ms-plan-date-past';
@@ -90,7 +93,7 @@ import {formatMsMomentForSamara} from './ms-production-date.mjs';
     if(board.items.length===0){
       const tr=document.createElement('tr');
       const empty=td(tr,'В реестре нет заданий. Не приравнивайте это к отсутствию работы.');
-      empty.colSpan=7;tbody.append(tr);
+      empty.colSpan=8;tbody.append(tr);
     }
     status.textContent='Автоматически проверено '+fmt(s.checked)+' недавно обновлённых документов из исторического реестра '+
       fmt(board.totalAllTime)+' · '+now()+' (Самара). '+
