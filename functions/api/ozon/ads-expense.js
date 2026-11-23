@@ -44,26 +44,32 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
     // Production binding targets the named OzonAdsInternal WorkerEntrypoint.
     // Internal Cloudflare Service Binding avoids unreliable same-account
     // workers.dev HTTP subrequests. Fail closed until Pages Production binds it.
-    if(!env?.OZON_ADS_WORKER||typeof env.OZON_ADS_WORKER.fetch!=='function')
+    if(!env?.OZON_ADS_WORKER||typeof env.OZON_ADS_WORKER.expensePreview!=='function')
       return respond(503,{code:'ads_service_binding_missing'});
     let phase='request_setup';
     try{
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
       const headers={authorization:'Bearer '+env.ADS_READ_TOKEN,accept:'application/json'};
-      // Avoid Request constructor failures in the Pages runtime. Service
-      // bindings support fetch(url, init) directly; no external fetch is used.
-      // The URL is hardcoded above and cannot be controlled by the caller.
+      // RPC against the named WorkerEntrypoint avoids HTTP fetch() on a
+      // named Service Binding. Only the injected fetcher in unit tests uses URL.
+      // No caller-supplied upstream URL or secret is accepted.
       const upstreamUrl=upstream.toString();
-      phase='service_binding_fetch';
+      phase='service_binding_rpc';
       const result=fetcher
         ? await fetcher(upstreamUrl,{
             method:'GET',redirect:'error',headers,
             signal:AbortSignal.timeout(17000)
           })
-        : await env.OZON_ADS_WORKER.fetch(upstreamUrl,{
-            method:'GET',redirect:'error',headers
-          });
+        : await (async()=>{
+            const rpc=await env.OZON_ADS_WORKER.expensePreview(
+              url.searchParams.get('month'),env.ADS_READ_TOKEN);
+            if(!rpc||!Number.isInteger(rpc.status)||rpc.status<200||
+              rpc.status>599||!rpc.body||typeof rpc.body!=='object'||
+              Array.isArray(rpc.body))
+              return respond(503,{code:'ozon_ads_rpc_response_unrecognized'});
+            return respond(rpc.status,rpc.body);
+          })();
       phase='upstream_response';
       // Upstream status is mapped to fixed codes; raw body never forwarded
       // when source errors (could contain external provider details).
