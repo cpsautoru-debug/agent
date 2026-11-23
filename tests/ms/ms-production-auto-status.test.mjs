@@ -8,7 +8,7 @@ registerHooks({load(url,context,next){
 }});
 const {
   createProductionAutoStatusHandler,validateAutoStatusScope,
-  normalizeAutoRuntime,summarizeAutoStatus
+  normalizeAutoRuntime,summarizeAutoStatus,normalizeGenerationDrift
 }=await import('../../functions/api/ms/production-auto-status.js');
 const {createSession}=await import('../../functions/api/auth/session.js');
 const URL_BASE='https://autosklad63-office-staging.pages.dev/api/ms/production-auto-status';
@@ -49,6 +49,16 @@ const db=(runtime=state,counts=tally,rows=[item],unknownRows=[unknownItem])=>{
     calls.push(sql);
     if(sql.includes('FROM ms_production_auto_runtime'))
       return {async first(){return runtime;}};
+    if(sql.includes('AS previous_rows'))
+      return {bind(previous,previousAgain,current){
+        assert.equal(previous,runtime.generation-1);
+        assert.equal(previousAgain,previous);
+        assert.equal(current,runtime.generation);
+        return {async first(){return {
+          previous_rows:15,matched_rows:14,new_rows:1,
+          modified_rows:2,stage_changed_rows:1
+        };}};
+      }};
     if(sql.includes('COUNT(*)'))
       return {bind(id){assert.equal(id,runtime.generation);return{
         async first(){return counts;}
@@ -121,12 +131,18 @@ test('completed historical pass uses same D1 generation and shows incomplete row
   assert.deepEqual(body.visibleDateChecks,
     {past:1,today:0,future:0,notSet:0,unverified:0});
   assert.equal(body.changedRecords,0);
+  assert.deepEqual(body.generationDrift,{
+    baselineGeneration:1,baselineRows:15,comparedRows:15,
+    matchedRows:14,newSinceBaseline:1,sourceUpdatedRows:2,
+    stageChangedRows:1,
+    comparisonScope:'OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE'
+  });
   assert.equal(body.unverifiedShown,1);
   assert.equal(body.unverifiedNotShown,0);
   assert.equal(body.unverifiedItems[0].number,'00741');
   assert.equal(body.unverifiedItems[0].status,'unverified');
   assert.equal(body.unverifiedItems[0].documentUpdated,'2026-11-20 16:10:00.000');
-  assert.equal(storage.calls.length,4);
+  assert.equal(storage.calls.length,5);
   assert.doesNotMatch(JSON.stringify(body),/00000000-0000-4000-8000|synthetic-session-secret/);
 });
 test('partial history cannot imply coverage or claim completion, even when runtime reports complete',()=>{
@@ -228,9 +244,10 @@ test('unknown stage records are exposed by number but never counted as productio
   assert.equal(data.unverifiedItems[0].number,'00741');
   assert.ok(!Object.hasOwn(data.unverifiedItems[0],'remaining'));
   assert.doesNotMatch(JSON.stringify(data),/00000000-0000-4000-8000/);
-  assert.equal(fake.calls.length,4);
+  assert.equal(fake.calls.length,5);
   assert.ok(fake.calls.every(sql=>!/^INSERT|^UPDATE|^DELETE/i.test(sql)));
   assert.match(fake.calls[3],/task_stage_status='unverified'/);
+  assert.match(fake.calls[4],/AS previous_rows/);
 });
 
 test('tampered unverified documents are not exposed as completed or active jobs',async()=>{
@@ -251,4 +268,22 @@ test('tampered unverified documents are not exposed as completed or active jobs'
     assert.equal(body.code,'ms_auto_status_unavailable');
     assert.equal(Object.hasOwn(body,'unverifiedItems'),false);
   }
+});
+
+test('historical generation drift is explicitly limited to overlapping rows',()=>{
+ const baseline={previous_rows:15,matched_rows:14,new_rows:1,
+   modified_rows:2,stage_changed_rows:1};
+ const r=normalizeGenerationDrift(baseline,2,15);
+ assert.equal(r.approvedForLiveQueue,undefined);
+ assert.equal(r.matchedRows,14);
+ assert.equal(r.newSinceBaseline,1);
+ assert.equal(r.comparisonScope,'OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE');
+ assert.equal(normalizeGenerationDrift(null,1,0),null);
+ for(const invalid of [
+   {...baseline,matched_rows:16},
+   {...baseline,new_rows:0},
+   {...baseline,modified_rows:15},
+   {...baseline,stage_changed_rows:15},
+   {...baseline,previous_rows:-1}
+ ])assert.throws(()=>normalizeGenerationDrift(invalid,2,15));
 });
