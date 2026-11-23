@@ -413,7 +413,10 @@ export async function fetchOzonProductEvidence(fetcher,account,token,orders){
       evidence.set(id,{status:safeCodes.length?
         'seller_product_with_barcode':'seller_product_without_barcode',
         offerId:id,barcodes:safeCodes,
-        productId:Number.isSafeInteger(x.id)&&x.id>0?x.id:null});
+        productId:Number.isSafeInteger(x.id)&&x.id>0?x.id:null,
+        title:typeof x.name==='string'&&x.name.length>=4&&
+          x.name.length<=200&&!/[\\u0000-\\u001f\\u007f]/.test(x.name)?
+          x.name:null});
     }
     return {byOffer:evidence,code:'ok',count:visited.size};
   }catch(error){
@@ -483,6 +486,46 @@ export async function matchMoyskladOzonBarcodes(fetcher,token,orders){
     diagnostics.push({sku,category});
   }
   return {bySku,requests,diagnostics,rateLimited};
+}
+
+// Only a *suggestion*, never evidence that products represent the same SKU.
+// At most one read-only MoySklad search for a safely normalized Ozon title.
+// A prospective match requires explicit review and persistable identity evidence.
+export async function findMoyskladNameSuggestion(fetcher,token,orders){
+  const item=orders.flatMap(o=>o.items).find(x=>
+    typeof x.ozonCatalog?.title==='string'&&
+    x.ozonCatalog.title.length>=4);
+  if(!item)return {sku:null,status:'no_product_name',candidates:[],requests:0};
+  const title=item.ozonCatalog.title.replace(/[^\\p{L}\\p{N} -]/gu,' ')
+    .replace(/\\s+/g,' ').trim();
+  const tokens=title.split(' ').filter(x=>x.length>=3);
+  const phrase=tokens.slice(0,3).join(' ').slice(0,60);
+  if(phrase.length<4)return {
+    sku:item.sku,status:'no_usable_query',candidates:[],requests:0
+  };
+  const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+  url.searchParams.set('limit','3');url.searchParams.set('search',phrase);
+  try{
+    const body=await requestJson(fetcher,url.toString(),{
+      method:'GET',headers:{Authorization:'Bearer '+token,
+        Accept:'application/json;charset=utf-8'},
+      signal:AbortSignal.timeout(8000)
+    });
+    if(!Array.isArray(body?.rows)||body.rows.length>3||
+      !Number.isSafeInteger(body?.meta?.size))
+      return {sku:item.sku,status:'unverified_response',
+        candidates:[],requests:1};
+    const candidates=body.rows.filter(x=>typeof x?.name==='string'&&
+      x.name.length<=200&&typeof x.id==='string'&&x.id.length<=100)
+      .map(x=>({id:x.id,name:x.name}));
+    return {sku:item.sku,status:candidates.length?'possible_candidates':'none_in_search',
+      candidates,requests:1};
+  }catch(error){
+    return {sku:item.sku,status:error?.status===429?'rate_limited':
+      error?.status===400?'search_rejected':
+      error?.status===403?'permission_denied':'source_unavailable',
+      candidates:[],requests:1};
+  }
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
@@ -579,6 +622,9 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(orders.length&&!barcodeScan.rateLimited)
         articleScan=await matchMoyskladArticlesBudgeted(
           fetcher,env.MS_API_TOKEN,orders,barcodeCandidates);
+      const nameSuggestion=source==='wb'||!orders.length||
+        barcodeScan.rateLimited?null:
+        await findMoyskladNameSuggestion(fetcher,env.MS_API_TOKEN,orders);
       for(const order of orders){
         for(const item of order.items){
           item.assortmentMatch=
@@ -615,6 +661,11 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         barcodeLookup:{requests:barcodeScan.requests,
           diagnostics:barcodeScan.diagnostics,
           rateLimited:barcodeScan.rateLimited},
+        nameSuggestion:nameSuggestion?{
+          sku:nameSuggestion.sku,status:nameSuggestion.status,
+          candidates:nameSuggestion.candidates,
+          requests:nameSuggestion.requests,
+          approvedForWrite:false}:null,
         articleLookupRequests:articleScan.requests,
         assortmentCoverage:articleScan.coverage,
         counts:{received:orders.length,
