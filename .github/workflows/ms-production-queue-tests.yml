@@ -10,6 +10,8 @@ on:
       - 'web/office/ms-production-plan-date.mjs'
       - 'tests/ms-production-queue.test.mjs'
       - 'tests/ms-production-order-evidence.test.mjs'
+      - 'web/office/ms-production-queue-selection.mjs'
+      - 'tests/ms-production-queue-selection.test.mjs'
       - '.github/workflows/ms-production-queue-tests.yml'
   workflow_dispatch:
 permissions:
@@ -24,4 +26,4 @@ jobs:
         with:
           node-version: '22'
       - name: Validate owner-only queue and order evidence
-        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs
+        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs tests/ms-production-queue-selection.test.mjs
