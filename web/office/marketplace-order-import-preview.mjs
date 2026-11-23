@@ -100,11 +100,8 @@
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
           order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
-          order.duplicateLookup==='source_error'||
-            order.duplicateLookup==='skipped_after_source_error'?
-            'МойСклад не ответил · дубль не исключён':
-          order.duplicateLookup==='context_search'?
-            'Поиск без точного фильтра · дубль не исключён':
+          order.duplicateLookup==='bounded_list_scan'?
+            'Не найден в просмотренной части реестра · дубль не исключён':
             'Не подтверждено');
         rows.append(tr);
       }
@@ -116,13 +113,16 @@
         ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
         data.counts.existing+', не найдены: '+data.counts.notFound+
         ', не подтверждены: '+data.counts.uncertain+
-        (data.duplicateLookupMode==='CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE'?
-          '. МойСклад отклонил точный фильтр: пустой поиск не исключает дубликат.':
-          data.duplicateLookupMode==='UNVERIFIED_SOURCE_ERROR'?
-          '. Сверка дублей не выполнена: МойСклад отклонил запрос'+
-            (Number.isInteger(data.duplicateLookupFailure?.http)?
-              ' (HTTP '+data.duplicateLookupFailure.http+')':'')+'.':'')+
-        '. Документы не созданы, ассортимент и юридические лица не сверены.';
+        '. По «МойСклад» просмотрено '+(data.duplicateScan?.checkedRows||0)+
+        ' заказов в '+(data.duplicateScan?.pages||0)+' страницах.'+
+        (data.duplicateScan?.complete===true?
+          ' Обход ограниченного реестра завершён.':
+          ' Полный реестр не подтверждён — отсутствие дублей не доказано.')+
+        (data.duplicateLookupFailure?
+          ' Ошибка доступа к списку заказов'+
+          (Number.isInteger(data.duplicateLookupFailure.http)?
+            ' (HTTP '+data.duplicateLookupFailure.http+')':'')+'.':'')+
+        ' Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
       const result='Сервис недоступен или ответ не прошёл проверку. '+
         'Операция только на чтение; импорт не выполнялся.';
