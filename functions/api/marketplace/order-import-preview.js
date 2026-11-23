@@ -188,8 +188,12 @@ export async function scanMoyskladOrderKeys(fetcher,token,keys){
 // scanning an entire large assortment. A negative or unavailable filter never
 // establishes absence. Both fields must respond successfully to rule out a
 // different item sharing the same numeric marketplace SKU.
-export async function verifyExactAssortmentSku(fetcher,token,sku){
-  if(!safe(sku)||sku.length>100)return 'unverified';
+// Diagnostic evidence reports only validation categories, never customer data
+// or raw MoySklad catalog entries. One response per exact source field.
+export async function probeExactAssortmentSku(fetcher,token,sku){
+  const fields={article:'not_checked',code:'not_checked'};
+  if(!safe(sku)||sku.length>100)
+    return {match:'unverified',fields};
   const ids=new Map();
   for(const field of ['article','code']){
     const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
@@ -202,21 +206,38 @@ export async function verifyExactAssortmentSku(fetcher,token,sku){
           Accept:'application/json;charset=utf-8'},
         signal:AbortSignal.timeout(8000)
       });
-    }catch{return 'unverified';}
+    }catch(error){
+      fields[field]=error?.status===400?'filter_rejected':
+        error?.status===403?'permission_denied':
+        error?.status===429?'rate_limited':
+        error?.message==='source_response_too_large'?'response_too_large':
+        'source_unavailable';
+      return {match:'unverified',fields};
+    }
     if(!Array.isArray(data?.rows)||data.rows.length>2||
       !Number.isSafeInteger(data?.meta?.size)||
-      data.meta.size<0||data.meta.size>2||
-      data.meta.size!==data.rows.length)return 'unverified';
+      data.meta.size<0||data.meta.size!==data.rows.length){
+      fields[field]='schema_unverified';
+      return {match:'unverified',fields};
+    }
+    if(data.meta.size===0){fields[field]='absent_exact';continue;}
+    if(data.meta.size===2){fields[field]='ambiguous';return {match:'unverified',fields};}
     for(const item of data.rows){
-      if(item?.[field]!==sku||typeof item?.id!=='string'||!item.id)
-        return 'unverified';
+      if(item?.[field]!==sku||typeof item?.id!=='string'||!item.id){
+        fields[field]='schema_unverified';
+        return {match:'unverified',fields};
+      }
       const matched=ids.get(item.id)||'';
       ids.set(item.id,matched==='article'||field==='article'?'article':'code');
     }
+    fields[field]='one_exact';
   }
-  if(ids.size!==1)return 'unverified';
-  return [...ids.values()][0]==='article'?
-    'matched_exact_article':'matched_exact_code';
+  if(ids.size!==1)return {match:'unverified',fields};
+  return {match:[...ids.values()][0]==='article'?
+    'matched_exact_article':'matched_exact_code',fields};
+}
+export async function verifyExactAssortmentSku(fetcher,token,sku){
+  return (await probeExactAssortmentSku(fetcher,token,sku)).match;
 }
 
 export async function matchMoyskladArticles(fetcher,token,orders){
@@ -297,6 +318,7 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   // checks on the first eight SKUs. The two filtered requests must BOTH agree.
   // No filtered zero or failed query ever becomes a 'not_matched' result.
   let exactQueries=0,confirmedByFilter=0;
+  const exactDiagnostics=[];
   if(!complete){
     const candidates=selected.filter(s=>bySku.get(s)==='unverified')
       .slice(0,8);
@@ -306,10 +328,12 @@ export async function matchMoyskladArticles(fetcher,token,orders){
           exactQueries++;
           return fetcher(url,options);
         };
-        const verified=await verifyExactAssortmentSku(countedFetcher,token,sku);
-        if(verified==='matched_exact_article'||
-          verified==='matched_exact_code'){
-          bySku.set(sku,verified);
+        const evidence=await probeExactAssortmentSku(countedFetcher,token,sku);
+        exactDiagnostics.push({sku,article:evidence.fields.article,
+          code:evidence.fields.code,match:evidence.match});
+        if(evidence.match==='matched_exact_article'||
+          evidence.match==='matched_exact_code'){
+          bySku.set(sku,evidence.match);
           confirmedByFilter++;
         }
       }));
@@ -317,7 +341,9 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   }
   return {bySku,requests:pages+exactQueries,
     coverage:{pages,checkedRows,complete,sourceError,failureCode,
-      exactQueries,confirmedByFilter}};
+      exactQueries,confirmedByFilter,
+      exactDiagnostics:exactDiagnostics.sort((a,b)=>
+        selected.indexOf(a.sku)-selected.indexOf(b.sku))}};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
