@@ -161,49 +161,55 @@ function showOzon(data){
 }
 function showOzonFinanceAudit(data){
   if(data?.code!=='ozon_finance_readiness'||data.readOnly!==true||
+    data.source!=='CANONICAL_OZON_FINANCE_SYNC'||
     data.netProfitVerified!==false||data.changedRecords!==0||
-    !Array.isArray(data.blockers)||!data.accruals||!data.cogs)
-    throw Error('schema');
+    !Array.isArray(data.blockers)||!data.accruals||!data.cogs||
+    !data.sourcesMatch)throw Error('schema');
   const r=data.report,a=data.accruals,c=data.cogs;
-  if(![a.rows,a.observedDays,a.expectedDays,c.soldSkus,
+  if(![a.rows,a.coveredDays,a.expectedDays,c.soldSkus,
     c.confirmedSoldSkus,c.confirmedEntries,
-    c.dateEffectiveCostEntries].every(x=>validInt(x)&&x>=0)||
+    c.checkedSalesRows,c.confirmedSalesRows].every(x=>validInt(x)&&x>=0)||
     !validInt(a.totalKop)||c.confirmedSoldSkus>c.soldSkus||
-    a.observedDays>a.expectedDays||
+    c.confirmedSalesRows>c.checkedSalesRows||
+    a.coveredDays>a.expectedDays||
     (r&&!validInt(r.controlTotalKop)))throw Error('schema');
-  set('ceoOzonAuditValue',count(a.rows)+' операций');
+  const sourceReady=r?.complete===true&&
+    a.coveredDays===a.expectedDays&&
+    data.sourcesMatch.apiVsXlsxKopecks===true;
+  set('ceoOzonAuditValue',a.coveredDays+' / '+a.expectedDays+' дней');
   status('ceoOzonAuditState',
-    data.blockers.length?'Не закрыт: '+data.blockers.length+' проверок':
-      'Внутренние данные проверены; внешняя сверка отдельно',
-    data.blockers.length?'warning':'neutral');
+    sourceReady?'API и XLSX по месяцу совпадают · прибыль отдельно':
+      'Источник не подтверждён: требуется сверка',
+    sourceReady?'success':'warning');
   const descriptions={
-    report_missing:'финансовый отчёт отсутствует',
-    report_days_incomplete:'финансовый отчёт неполный',
-    report_not_reconciled:'финансовый отчёт не сверен',
-    report_not_final:'финансовый отчёт не окончательный',
-    accrual_sync_coverage_unverified:'полнота синхронизации начислений не подтверждена',
-    costs_missing_for_sold_skus:'базовая себестоимость известна не для всех проданных SKU',
-    date_effective_costs_missing:'нет себестоимости с датами действия для операций'
+    report_missing:'XLSX-отчёт отсутствует',
+    report_api_mismatch:'сумма XLSX и API не совпадает',
+    report_api_aggregate_unverified:'сумма XLSX и API не подтверждена',
+    api_unverified_or_incomplete:'детальная сверка начислений не завершена',
+    api_net_unverified:'начисления по дням не сверены',
+    api_details_unverified:'детали начислений не сверены',
+    cost_missing:'отсутствует себестоимость части товаров',
+    return_recovery_unverified:'возвраты требуют проверки',
+    advertising_overlap_unverified:'возможен двойной учёт рекламы',
+    allocation_missing:'распределение расходов не утверждено',
+    tax_register_missing:'нет подтверждённого налогового регистра',
+    expenses_missing:'неполный реестр расходов'
   };
-  const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
-  const gaps=Array.isArray(data.missingCostProducts)?
-    data.missingCostProducts.slice(0,5).filter(x=>
-      /^[0-9]{1,30}$/.test(x?.sku||'')&&
-      validInt(x.salesKop)&&x.costStatus==='missing'):[];
-  const gapText=gaps.length?
-    ' Наибольшие SKU без себестоимости: '+
-    gaps.map(x=>(typeof x.article==='string'&&x.article?
-      x.article.slice(0,40):x.sku)+
-      ' ('+money(x.salesKop)+' продаж по операциям)').join('; ')+'.':'';
+  const blockers=data.blockers.slice(0,10)
+    .map(x=>descriptions[x]||String(x).replaceAll('_',' '));
   set('ceoOzonAuditNote',
-    'Начисления: '+count(a.rows)+' операций, даты операций '+a.observedDays+
-    ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: '+c.confirmedSoldSkus+
-    ' из '+c.soldSkus+' продававшихся SKU имеют базовую себестоимость. '+
-    'Исторических записей себестоимости: '+c.dateEffectiveCostEntries+'. Отчёт: '+
-    (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
-      'отсутствует')+'. Не завершено: '+blockers.join('; ')+
-    '. Чистая прибыль не подтверждена.'+gapText);
+    'Основной Finance API: '+count(a.rows)+' начислений за '+
+    a.coveredDays+' из '+a.expectedDays+' дней. '+
+    'Загруженный XLSX: '+(r?count(r.records):'нет')+' строк. '+
+    'Суммы за месяц: '+(data.sourcesMatch.apiVsXlsxKopecks?
+      'совпадают ('+money(a.totalKop)+')':'НЕ подтверждены')+'. '+
+    'Себестоимость по датам: '+c.confirmedSalesRows+
+    ' из '+c.checkedSalesRows+' строк продаж. '+
+    'Ежедневная детализация, реклама, налоги, банк: отдельно. '+
+    (blockers.length?'Не закрыто: '+blockers.join('; ')+'. ':'')+
+    'Чистая прибыль не подтверждена.');
 }
+
 function showAds(data){
   const audit=data.columnAudit,fin=data.financeAudit;
   if(data.code!=='ozon_ads_office_preview'||data.readOnly!==true||
