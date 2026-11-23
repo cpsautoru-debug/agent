@@ -12,7 +12,8 @@ const json=(status,v)=>new Response(JSON.stringify(v),{status,headers:H});
 const PROBES=[
   {id:'customerorder_default',url:ROOT+'customerorder?limit=1'},
   {id:'customerorder_offset_zero',url:ROOT+'customerorder?limit=1&offset=0'},
-  {id:'productiontask_control',url:ROOT+'productiontask?limit=1'}
+  {id:'productiontask_control',url:ROOT+'productiontask?limit=1'},
+  {id:'assortment_catalog',url:ROOT+'assortment?limit=1'}
 ];
 function safeCode(payload){
   const e=Array.isArray(payload?.errors)?payload.errors[0]:null;
@@ -75,11 +76,13 @@ export function createMoyskladOrderDiagnostic({fetcher=fetch}={}){
     }
     const orders=results.find(x=>x.probe==='customerorder_default');
     const control=results.find(x=>x.probe==='productiontask_control');
+    const assortment=results.find(x=>x.probe==='assortment_catalog');
     return json(200,{
       code:'moysklad_orders_diagnostic_ok',
       readOnly:true,changedRecords:0,approvedForWrite:false,
       customerOrderRead:orders?.http===200,
       productionTaskRead:control?.http===200,
+      assortmentRead:assortment?.http===200,
       results,sampledAt:new Date().toISOString(),
       meaning:'HTTP_ONLY_NO_CUSTOMER_ORDER_DATA_NO_DUPLICATE_CLEARANCE'
     });
