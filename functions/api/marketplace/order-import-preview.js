@@ -188,33 +188,48 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   if(!Array.isArray(orders)||orders.length>LIMIT)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
-  const limit=12,result=new Map();
-  const allowed=skus.filter(s=>safe(s)&&s.length<=100).slice(0,limit);
+  const maxSkus=12,result=new Map();
+  const allowed=skus.filter(s=>safe(s)&&s.length<=100).slice(0,maxSkus);
   for(const sku of skus)result.set(sku,'unverified');
-  // Two independent read-only requests at a time; each has a short deadline.
-  // Keep the preview responsive even if one SKU lookup stalls.
+  let requests=0;
+  const getExact=async(sku,field)=>{
+    const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+    url.searchParams.set('limit','2');
+    url.searchParams.set('filter',field+'='+sku);
+    const response=await requestJson(fetcher,url.toString(),{
+      method:'GET',headers:{
+        Authorization:'Bearer '+token,
+        Accept:'application/json;charset=utf-8'
+      },signal:AbortSignal.timeout(8000)
+    });
+    if(!Array.isArray(response?.rows)||response.rows.length>2||
+      !Number.isSafeInteger(response?.meta?.size)||
+      response.meta.size<response.rows.length)
+      return 'unverified';
+    const exact=response.rows.filter(row=>row?.[field]===sku);
+    if(response.meta.size===0)return 'not_matched';
+    if(response.meta.size===1&&exact.length===1)
+      return field==='article'?'matched_exact_article':'matched_exact_code';
+    return 'unverified';
+  };
+  // Keep throughput bounded and fail closed on unsupported filters.
   for(let i=0;i<allowed.length;i+=2){
     await Promise.all(allowed.slice(i,i+2).map(async sku=>{
+      let article='unverified';
+      try{requests++;article=await getExact(sku,'article');}catch{}
+      if(article==='matched_exact_article'){
+        result.set(sku,article);return;
+      }
+      // Only after a proven empty article result attempt the product code.
+      // A failed code lookup must never imply that the SKU is absent.
+      if(article!=='not_matched')return;
       try{
-        const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
-        url.searchParams.set('limit','2');
-        url.searchParams.set('filter','article='+sku);
-        const response=await requestJson(fetcher,url.toString(),{
-          method:'GET',headers:{
-            Authorization:'Bearer '+token,
-            Accept:'application/json;charset=utf-8'
-          },signal:AbortSignal.timeout(8000)
-        });
-        if(!Array.isArray(response?.rows)||
-          !Number.isSafeInteger(response?.meta?.size))return;
-        const exact=response.rows.filter(row=>row?.article===sku);
-        result.set(sku,response.meta.size===1&&exact.length===1?
-          'matched_exact_article':response.meta.size===0?
-            'not_matched':'unverified');
-      }catch{/* Keep ambiguous article lookup unverified. */}
+        requests++;
+        result.set(sku,await getExact(sku,'code'));
+      }catch{/* Ambiguous status is safer than a false no-match. */}
     }));
   }
-  return {bySku:result,requests:allowed.length};
+  return {bySku:result,requests};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
