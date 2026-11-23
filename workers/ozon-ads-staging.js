@@ -128,4 +128,15 @@ export default class OzonAdsWorker extends WorkerEntrypoint {
 // WorkerEntrypoint with fetch(request) and the same bearer protection.
 export class OzonAdsInternal extends WorkerEntrypoint {
   fetch(request){return handleAdsRequest(request,this.env);}
+
+  // Named entrypoints use RPC methods, not an HTTP fetch() subrequest.
+  // Only the authenticated Pages owner backend knows the shared token.
+  async expensePreview(month,sharedToken){
+    const env=this.env;
+    if(typeof env?.ADS_READ_TOKEN!=='string'||env.ADS_READ_TOKEN.length<32)
+      return {status:503,body:{code:'private_access_not_configured'}};
+    if(typeof sharedToken!=='string'||sharedToken!==env.ADS_READ_TOKEN)
+      return {status:401,body:{code:'unauthorized'}};
+    return readOzonExpense(month,env);
+  }
 }
