@@ -6,7 +6,7 @@ import {verifySession} from '../auth/session.js';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/production-order-evidence';
 const ROOT='https://api.moysklad.ru/api/remap/1.2/entity/';
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NUMBER=/^\d{1,10}$/;
 const MAX_LINKS=3;
 const HEADERS={'Content-Type':'application/json; charset=utf-8',
