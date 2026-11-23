@@ -31,13 +31,28 @@ export function describeIncomeEvidence(data,month){
    data.ozon.classification?.discountPoints?.status!==
      'marketplace_bonus_not_separate_sales_revenue')
    throw Error('income_components_unverified');
- const rub=n=>new Intl.NumberFormat('ru-RU',
+ const review=data.wb.costReview;
+ if(review!==null&&review!==undefined&&
+   (!Array.isArray(review)||review.length>40||
+    review.some(r=>typeof r.vendorCode!=='string'||
+      !Number.isSafeInteger(r.soldUnits)||
+      !Number.isSafeInteger(r.saleRows)||
+      !['confirmed','preliminary','missing'].includes(r.costStatus)||
+      r.candidateOzonSku!==null||
+      typeof r.requiresPhysicalConfirmation!=='boolean')))
+   throw Error('invalid_wb_cost_review');
+  const rub=n=>new Intl.NumberFormat('ru-RU',
     {style:'currency',currency:'RUB'}).format(n/100);
  return 'Ozon XLSX — отдельные статьи (не налоговая база):\n'+
   keys.map(k=>k+': '+rub(services[k].amountKopecks)).join('\n')+
   '\nВажно: «Баллы за скидки» не прибавляются второй раз к выручке; суммы по статьям разного экономического смысла не суммируются.'+
   '\nВыручка XLSX — начисление, а не подтверждённый доход АУСН за календарный месяц.'+
   '\nWildberries: '+data.wb.reports+' финансовых отчётов. Суммы к перечислению не равны выручке до удержаний.'+
+  '\nПриоритет проверки WB (больше всего продаж, только артикулы):\n'+
+    (review?.length?review.slice(0,12).map((r,i)=>
+      (i+1)+'. '+r.vendorCode+' — '+r.soldUnits+' шт.; себестоимость: '+
+      ({confirmed:'подтверждена',preliminary:'предварительная',missing:'нет'}[r.costStatus])
+    ).join('\n'):'список не получен')+
   '\nWB — себестоимость: '+
     (data.wb.costCoverage?
       data.wb.costCoverage.confirmedArticles+' из '+
