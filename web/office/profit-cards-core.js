@@ -109,7 +109,7 @@ function makeOzonCards(result,readiness,ownerAmounts){
        'Уже включено в сальдо API Ozon — не списывать дважды')),
    box('Всего удержаний и услуг Ozon',amount(totalFees,valid),
      'Сумма семи групп услуг; реклама уже включена'),
-   box('Результат Ozon после всех прямых затрат',
+   box('Операционный результат Ozon · до общих расходов',
      amount(contribution,valid),
      'Сальдо Ozon минус себестоимость. До общих затрат и налога ИП.',
      'interim'),
