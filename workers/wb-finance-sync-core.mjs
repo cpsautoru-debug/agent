@@ -61,7 +61,10 @@ export function payoutFromRows(rows){
   for(const x of rows){
     if(x.sellerOperName==='Продажа')total+=x.forPayKop;
     if(x.sellerOperName==='Возврат')total-=x.forPayKop;
-    total-=x.deliveryServiceKop+x.paidStorageKop+x.deductionKop+x.penaltyKop;
+    // Paid acceptance / product processing is a real WB deduction and
+    // must be counted even when no goods were sold on that operation row.
+    total-=x.deliveryServiceKop+x.paidStorageKop+x.deductionKop+
+      x.penaltyKop+x.paidAcceptanceKop;
   }
   if(!Number.isSafeInteger(total))throw Error('money_overflow');
   return total;
