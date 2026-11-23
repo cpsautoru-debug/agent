@@ -181,3 +181,14 @@ test('UI renders source status without calling profit mutations',()=>{
  assert.match(js,/\/api\/ozon\/ads-expense/);
  assert.doesNotMatch(js,/method:'POST'|localStorage|innerHTML/);
 });
+
+// The Ads worker is deployed separately from Pages. The Pages binding
+// specifies entrypoint:"default", which must target a WorkerEntrypoint class.
+test('ads Worker exposes default class entrypoint compatible with Pages binding',()=>{
+ const source=readFileSync(new URL('../../workers/ozon-ads-staging.js',import.meta.url),'utf8');
+ assert.ok(source.includes("import { WorkerEntrypoint } from 'cloudflare:workers'"));
+ assert.ok(source.includes('export default class OzonAdsWorker extends WorkerEntrypoint'));
+ assert.ok(source.includes('const env=this.env;'));
+ assert.ok(source.includes("if(auth!=='Bearer '+env.ADS_READ_TOKEN)"));
+ assert.equal(source.includes('export default {'),false);
+});
