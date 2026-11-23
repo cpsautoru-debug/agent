@@ -223,19 +223,29 @@ function showOzonFinanceAudit(data){
     .map(x=>descriptions[x]||String(x).replaceAll('_',' '));
   const reconciliation=data.reconciliation;
   if(!reconciliation||!validInt(reconciliation.checkedDays)||
+    !validInt(reconciliation.netVerifiedDays)||
+    !validInt(reconciliation.detailVerifiedDays)||
+    !validInt(reconciliation.missingAuditDays)||
+    reconciliation.netVerifiedDays>reconciliation.checkedDays||
+    reconciliation.detailVerifiedDays>reconciliation.checkedDays||
+    reconciliation.missingAuditDays>reconciliation.checkedDays||
     !validInt(reconciliation.unresolvedCount)||
     reconciliation.unresolvedCount>reconciliation.checkedDays||
     !Array.isArray(reconciliation.unresolvedDays)||
     reconciliation.unresolvedDays.length>31||
     reconciliation.aggregateParityIsNotDetailReconciliation!==true)
     throw Error('schema');
-  const reconciliationNote=reconciliation.unresolvedCount===0?
-    (reconciliation.fullyVerified?'Детальные статусы по всем дням подтверждены. ':
-    'Детальная сверка по всем дням ещё не подтверждена. '):
-    'Не закрыта детальная сверка: '+reconciliation.unresolvedCount+
-    ' из '+reconciliation.checkedDays+' проверенных дат; например '+
-    reconciliation.unresolvedDays.slice(0,5)
-      .map(x=>x.date).join(', ')+'. ';
+  const reconciliationNote=
+    'Формальная сверка Ozon: подтверждены суммы по '+
+    reconciliation.netVerifiedDays+' из '+reconciliation.checkedDays+
+    ' дней; детализация по '+reconciliation.detailVerifiedDays+
+    ' дням. '+reconciliation.missingAuditDays+
+    ' дней без зарегистрированного независимого акта. '+
+    (reconciliation.unresolvedCount?
+      'Не закрыты '+reconciliation.unresolvedCount+
+      ' дней, включая '+reconciliation.unresolvedDays.slice(0,3)
+        .map(x=>x.date).join(', ')+'. ':
+      'Нет незавершённых дневных проверок. ');
   set('ceoOzonAuditNote',
     'Основной Finance API: '+count(a.rows)+' начислений за '+
     a.coveredDays+' из '+a.expectedDays+' дней. '+
