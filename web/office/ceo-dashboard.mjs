@@ -161,9 +161,19 @@ function showOzon(data){
   const verified=c?.netProfitVerified===true&&c?.bankStatementVerified===true;
   reportSource('ozon',verified?'verified':'partial',verified?'Период закрыт и сверен':'Оценка прибыли, полный финансовый период не закрыт');
   status('ceoOzonState',verified?'Период подтверждён':'Прибыль НЕ подтверждена',verified?'success':'warning');
-  set('ceoOzonNote','Оценка чистой прибыли: '+(validInt(net)?money(net):'неизвестно')+
-    '. Полная сверка операций, возвратов, рекламы и банка обязательна.');
-  set('ceoProfitValue',verified&&validInt(net)?money(net):'Не подтверждена');
+  const gross=p.profit?.grossKopecks;
+  const grossProvisional=validInt(gross)&&
+    p.dateCostEvidence?.complete===true&&
+    p.report?.periodVerified===true&&
+    p.report?.quantityVerified===true&&
+    Array.isArray(p.duplicateCandidates)&&p.duplicateCandidates.length===0;
+  set('ceoOzonNote',
+    (grossProvisional?'Предварительная валовая прибыль до услуг маркетплейса: '+
+      money(gross)+'. ':'')+
+    'Чистая прибыль Ozon: '+(validInt(net)?money(net):'неизвестна')+
+    '. Нужна сверка деталей начислений, рекламы, налогов и банка.');
+  // Never copy Ozon-only net into the all-channel business-profit card.
+  // A separate multi-channel closeout is required for that figure.
 }
 function showOzonFinanceAudit(data){
   if(data?.code!=='ozon_finance_readiness'||data.readOnly!==true||
