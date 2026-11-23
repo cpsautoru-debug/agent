@@ -54,7 +54,7 @@
       Array.isArray(x.items)&&x.items.every(p=>
         typeof p.sku==='string'&&Number.isSafeInteger(p.quantity)&&
         p.quantity>0&&
-        ['matched_exact_article','not_matched','unverified']
+        ['matched_exact_article','matched_exact_code','not_matched','unverified']
           .includes(p.assortmentMatch))&&
       ['already_exists','not_found','unverified'].includes(x.duplicateStatus));
   const cell=(tr,value)=>{const td=document.createElement('td');
@@ -135,11 +135,14 @@
         cell(tr,order.items.map(p=>
           p.assortmentMatch==='matched_exact_article'?
             p.sku+' — точный артикул найден':
+          p.assortmentMatch==='matched_exact_code'?
+            p.sku+' — точный код товара найден':
           p.assortmentMatch==='not_matched'?
             p.sku+' — артикул не найден':
             p.sku+' — сопоставление не подтверждено').join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
-          order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
+          order.duplicateStatus==='not_found'?
+            'Не найден по новому ID интеграции · старые дубли возможны':
           order.duplicateLookup==='bounded_list_scan'?
             'Не найден в просмотренной части реестра · дубль не исключён':
             'Не подтверждено');
@@ -158,8 +161,8 @@
         '. Неопределённых дублей: '+data.counts.uncertain+
         '. Запись отключена.');
       status.textContent='Проверка выполнена: '+data.counts.received+
-        ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
-        data.counts.existing+', не найдены: '+data.counts.notFound+
+        ' заказов в ограниченной выборке. Точных совпадений по ID интеграции: '+
+        data.counts.existing+', без совпадения по новому ID: '+data.counts.notFound+
         ', не подтверждены: '+data.counts.uncertain+
         '. По «МойСклад» просмотрено '+(data.duplicateScan?.checkedRows||0)+
         ' заказов в '+(data.duplicateScan?.pages||0)+' страницах.'+
