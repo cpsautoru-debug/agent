@@ -27,8 +27,38 @@ export function validateDashboardWbMonth(data,month){
     data.productPayoutKopecks-data.returnsKopecks-
     data.platformFeesKopecks)
    throw Error('wb_month_amount_mismatch');
- return {amountKopecks:data.afterWbChargesKopecks,
-  reports:data.reports,rows:data.rows,
+ const c=data.managementCost;
+ let managementCost=null;
+ if(c?.status==='management_after_wb_charges_and_cogs'&&
+   c.source==='WB_SAVED_XLSX_OWNER_CONFIRMED_UNIT_COSTS'&&
+   c.scope===month&&c.readOnly===true&&c.changedRecords===0&&
+   c.confirmedSkuCount===data.soldArticles&&c.confirmedSkuCount===35&&
+   c.confirmedSoldUnits===173&&c.resalableReturnedUnits===6&&
+   c.snapshotReports===9&&
+   c.returnBasis==='OWNER_CONFIRMED_ALL_6_RESALABLE_2026_11_24'&&
+   c.verifiedNetProfit===false&&
+   Number.isSafeInteger(c.grossManufacturingCostKopecks)&&
+   Number.isSafeInteger(c.recoveredReturnCostKopecks)&&
+   Number.isSafeInteger(c.netManufacturingCostKopecks)&&
+   Number.isSafeInteger(c.contributionKopecks)&&
+   c.grossManufacturingCostKopecks-c.recoveredReturnCostKopecks===
+     c.netManufacturingCostKopecks&&
+   data.afterWbChargesKopecks-c.netManufacturingCostKopecks===
+     c.contributionKopecks){
+  managementCost={
+   grossManufacturingCostKopecks:c.grossManufacturingCostKopecks,
+   recoveredReturnCostKopecks:c.recoveredReturnCostKopecks,
+   netManufacturingCostKopecks:c.netManufacturingCostKopecks,
+   contributionKopecks:c.contributionKopecks,
+   confirmedSkuCount:c.confirmedSkuCount,
+   confirmedSoldUnits:c.confirmedSoldUnits,
+   resalableReturnedUnits:c.resalableReturnedUnits,
+   source:c.source,
+   status:'known_cost_result'
+  };
+ }
+  return {amountKopecks:data.afterWbChargesKopecks,
+  reports:data.reports,rows:data.rows,managementCost,
   soldArticles:data.soldArticles,
   confirmedCostArticles:data.confirmedCostArticles,
   preliminaryCostArticles:data.preliminaryCostArticles,
