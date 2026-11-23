@@ -30,6 +30,17 @@ export function summarizeIncomeEvidence(month,source,wb){
    if(Object.hasOwn(wbByOperation,row.seller_oper_name))throw Error('duplicate_wb_operation');
    wbByOperation[row.seller_oper_name]={rows:row.rows,forPayKopecks:row.for_pay_kop};
  }
+ // Accounting classification deliberately does not turn XLSX accruals
+ // into AUSN taxable income. Marketplace points are not cash proceeds.
+ const classifier={
+   customerRevenue:{sourceService:'Выручка',status:'accrual_not_cash_basis'},
+   returnedRevenue:{sourceService:'Возврат выручки',status:'return_requires_tax_period_check'},
+   discountPoints:{sourceService:'Баллы за скидки',
+     status:'marketplace_bonus_not_separate_sales_revenue'},
+   partnerProgram:{sourceService:'Программы партнёров',
+     status:'requires_primary_document_classification'}
+ };
+ const nonAdditiveTotals=true;
  const bounds=monthBounds(month);
  const end=new Date(Date.parse(bounds.end+'T00:00:00Z')-86400000)
    .toISOString().slice(0,10);
@@ -51,7 +62,8 @@ export function summarizeIncomeEvidence(month,source,wb){
  return {code:'entity_income_evidence',month,readOnly:true,
    source:'OZON_OWNER_XLSX_AND_WB_REPORT_D1',
    ozon:{reportRows:doc.rows.length,sourceVerifiedPeriod:true,
-     serviceAmounts:amounts,taxIncomeConfirmed:false},
+     serviceAmounts:amounts,classification:classifier,
+     nonAdditiveTotals,taxIncomeConfirmed:false},
    wb:{reports:wb.reports.length,operationAmounts:wbByOperation,
      periodStart:bounds.start,periodEnd:end,
      payoutIsNotTaxRevenue:true,taxIncomeConfirmed:false},
