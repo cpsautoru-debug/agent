@@ -55,6 +55,7 @@ test('Ozon FBS v4 request uses documented cursor and sort_dir',()=>{
   const payload=buildOzonFbsPreviewBody(Date.parse('2026-11-23T10:00:00.000Z'));
   assert.equal(payload.sort_dir,'DESC');
   assert.equal(payload.cursor,'');
+  assert.deepEqual(payload.filter.statuses,['awaiting_packaging']);
   assert.equal(payload.limit,10);
   assert.equal('dir' in payload,false);
   assert.equal(payload.filter.since,'2026-11-16T10:00:00.000Z');
@@ -160,4 +161,12 @@ test('Ozon read-only preview flags cancelled shipment as not for sewing',()=>{
   }]},'1001')[0];
   assert.equal(order.productionQueue,'not_for_sewing');
   assert.equal(order.readyToWrite,false);
+});
+
+test('mixed shipped status cannot enter Ozon new-order preview',()=>{
+  const raw={postings:[{posting_number:'123-1',status:'delivering',
+    products:[{offer_id:'VESTA',quantity:1}]}]};
+  const orders=normalizeMarketplaceOrders('ozon',raw,'1001');
+  assert.equal(orders[0].productionQueue,'not_for_sewing');
+  assert.equal(orders[0].readyToWrite,false);
 });
