@@ -29,7 +29,21 @@ export function describeOzonAdsEvidence(data,month){
       typeof canonical.sourceTotalsMatched==='boolean'&&
       canonical.matchedToPerformance===false&&
       canonical.reconciled===false&&
-      canonical.deductedFromProfit===false;
+      canonical.deductedFromProfit===false&&
+      Number.isSafeInteger(canonical.performanceComparableKopecks)&&
+      Number.isSafeInteger(canonical.premiumKopecks)&&
+      Number.isSafeInteger(canonical.comparableRows)&&
+      Number.isSafeInteger(canonical.premiumRows)&&
+      Number.isSafeInteger(canonical.otherRows)&&
+      canonical.comparableRows>=0&&canonical.premiumRows>=0&&
+      canonical.otherRows>=0&&
+      canonical.comparableRows+canonical.premiumRows+
+        canonical.otherRows===canonical.advertisingRows&&
+      canonical.performanceComparableKopecks+canonical.premiumKopecks<=0&&
+      (canonical.otherRows!==0||
+       canonical.advertisingAccrualKopecks===
+         canonical.performanceComparableKopecks+canonical.premiumKopecks)&&
+      canonical.performanceSourceReconciled===false;
     if(!valid)throw Error('unverified_finance_audit');
     const amount=(Math.abs(canonical.advertisingAccrualKopecks)/100)
       .toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -38,11 +52,24 @@ export function describeOzonAdsEvidence(data,month){
     const moneyValid=money&&Number.isSafeInteger(money.rawColumnSumKopecks)&&
       money.validRows===data.recordCount&&money.invalidRows===0&&
       money.missingRows===0;
+    const rub=n=>(Math.abs(n)/100).toLocaleString('ru-RU',
+      {minimumFractionDigits:2,maximumFractionDigits:2})+' ₽';
+    const aggregateComparable=moneyValid&&canonical.otherRows===0;
+    const difference=aggregateComparable?
+      Math.abs(money.rawColumnSumKopecks)-
+      Math.abs(canonical.performanceComparableKopecks):null;
     const comparison=moneyValid?
-      ' Необработанная сумма moneySpent: '+
-      (money.rawColumnSumKopecks/100).toLocaleString('ru-RU',
-        {minimumFractionDigits:2,maximumFractionDigits:2})+
-      ' ₽. Это не сверка одинаковых операций.':'';
+      ' Performance moneySpent: '+rub(money.rawColumnSumKopecks)+'.'+
+      (aggregateComparable?
+        ' Арифметическая разница с продвижением XLSX без Premium: '+
+          (difference<0?'-':'')+rub(difference)+'.':
+        ' Другие рекламные услуги требуют отдельной классификации.')+
+      ' Совпадение общей суммы не доказывает совпадение операций.':'';
+    const components=' Продвижение в XLSX без Premium: '+
+      rub(canonical.performanceComparableKopecks)+
+      ' ('+canonical.comparableRows+' строк); Premium Plus: '+
+      rub(canonical.premiumKopecks)+' ('+canonical.premiumRows+
+      ' строк); прочие рекламные строки: '+canonical.otherRows+'.';
     return 'Ozon Performance API ответил: '+data.recordCount+
       ' строк за '+month+'. В официальном XLSX: '+
       canonical.advertisingRows+' рекламных строк, сумма '+
@@ -50,7 +77,7 @@ export function describeOzonAdsEvidence(data,month){
       ' ₽ (уже включена в сальдо). Покрытие API Finance: '+
       canonical.financeApiCoveredDays+'/'+canonical.daysInMonth+
       ' дней. Совпадение итогов XLSX и API Finance: '+
-      (canonical.sourceTotalsMatched?'да':'нет')+'.'+comparison+
+      (canonical.sourceTotalsMatched?'да':'нет')+'.'+components+comparison+
       ' Расходы Performance ещё не сопоставлены по операциям. '+
       'Повторно вычитать рекламу из прибыли нельзя.';
   }
