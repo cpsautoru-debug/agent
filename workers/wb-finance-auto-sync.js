@@ -94,6 +94,49 @@ async function finishReport(db,report){
   await release(db,status==='complete'?'report_complete':'report_mismatch');
   return status;
 }
+// Recover an existing mismatch only when the EXACT discrepancy is explained
+// by the already stored paid acceptance operations, with complete row coverage.
+// No API mutation and no report metadata/operations changes. Idempotent.
+export async function reconcileStoredAcceptanceMismatch(db){
+  const report=await db.prepare(
+    "SELECT report_id,bank_payment_kop,api_calculated_payment_kop,row_count "+
+    "FROM wb_finance_api_reports WHERE account_id=? AND status='mismatch' "+
+    "AND error_code='payout_needs_review' ORDER BY report_id LIMIT 1"
+  ).bind(ACCOUNT).first();
+  if(!report)return false;
+  if(typeof report.report_id!=='string'||!/^\\d{1,20}$/.test(report.report_id)||
+    !Number.isSafeInteger(report.bank_payment_kop)||
+    !Number.isSafeInteger(report.api_calculated_payment_kop)||
+    !Number.isSafeInteger(report.row_count)||report.row_count<1)return false;
+  const totals=await db.prepare(
+    "SELECT COUNT(*) AS n, "+
+    "COALESCE(SUM(paid_acceptance_kop),0) AS acceptance, "+
+    "COALESCE(SUM(CASE WHEN seller_oper_name='Продажа' THEN for_pay_kop "+
+    "WHEN seller_oper_name='Возврат' THEN -for_pay_kop ELSE 0 END),0) "+
+    "-COALESCE(SUM(delivery_service_kop+paid_storage_kop+deduction_kop+"+
+    "penalty_kop+paid_acceptance_kop),0) AS corrected "+
+    "FROM wb_finance_api_rows WHERE account_id=? AND report_id=?"
+  ).bind(ACCOUNT,report.report_id).first();
+  if(!totals||!Number.isSafeInteger(totals.n)||
+    !Number.isSafeInteger(totals.acceptance)||
+    !Number.isSafeInteger(totals.corrected)||
+    totals.n!==report.row_count||totals.acceptance<=0||
+    totals.corrected!==report.bank_payment_kop||
+    report.api_calculated_payment_kop-report.bank_payment_kop!==
+      totals.acceptance)return false;
+  const updated=await db.prepare(
+    "UPDATE wb_finance_api_reports SET status='complete',"+
+    "api_calculated_payment_kop=?,error_code='',"+
+    "updated_at=CURRENT_TIMESTAMP WHERE account_id=? AND report_id=? "+
+    "AND status='mismatch' AND error_code='payout_needs_review' "+
+    "AND api_calculated_payment_kop=? AND bank_payment_kop=? "+
+    "AND row_count=?"
+  ).bind(totals.corrected,ACCOUNT,report.report_id,
+    report.api_calculated_payment_kop,report.bank_payment_kop,
+    report.row_count).run();
+  return updated?.meta?.changes===1;
+}
+
 async function getPage(db,env,report){
   // rrdId is serialized as a JSON number without JS Number conversion, preserving int64.
   if(!/^\d{1,20}$/.test(report.cursor_rrd_id))throw Error('invalid_cursor');
@@ -142,6 +185,10 @@ export async function runWbSync(env,date=new Date()){
   if(prior?.last_status?.startsWith('halted_'))return 'manual_intervention_required';
   if(!await lock(db,date.getTime()))return 'throttled';
   try{
+    if(await reconcileStoredAcceptanceMismatch(db)){
+      await release(db,'acceptance_reconciled');
+      return 'acceptance_reconciled';
+    }
     const day=samaraDay(date);
     const state=await db.prepare("SELECT last_list_day,list_offset FROM wb_finance_api_runtime WHERE account_id=?")
       .bind(ACCOUNT).first();
