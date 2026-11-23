@@ -76,6 +76,36 @@ async function requestJson(fetcher,url,options){
   }
   return readJson(response);
 }
+// Some MoySklad installations reject externalCode as a filter (HTTP 400).
+// A full-text search can establish a duplicate only when an exact externalCode
+// is returned. An empty search NEVER proves that an order does not exist.
+export async function lookupMoyskladDuplicate(fetcher,token,key){
+  const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+  const query=new URL(MS);
+  query.searchParams.set('limit','2');
+  query.searchParams.set('filter','externalCode='+key);
+  let result,method='exact_filter',queries=0;
+  try{
+    result=await requestJson(fetcher,query.toString(),{method:'GET',headers});
+    queries++;
+  }catch(error){
+    if(error?.status!==400)throw error;
+    // Reserve one query for an API-supported contextual lookup.
+    const search=new URL(MS);
+    search.searchParams.set('limit','2');
+    search.searchParams.set('search',key);
+    result=await requestJson(fetcher,search.toString(),{method:'GET',headers});
+    queries+=2;method='context_search';
+  }
+  if(!Array.isArray(result?.rows)||!Number.isSafeInteger(result?.meta?.size)||
+    result.meta.size<result.rows.length||result.rows.length>2)
+    throw Error('moysklad_lookup_unverified');
+  const matches=result.rows.filter(x=>x?.externalCode===key);
+  return {status:matches.length===1&&result.meta.size===1?'already_exists':
+    method==='exact_filter'&&result.meta.size===0?'not_found':'unverified',
+    method,queries};
+}
+
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -116,28 +146,22 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))
         return json(503,{code:'moysklad_credentials_missing'});
-      let msQueries=0;
+      let msQueries=0,usedFallback=false;
       failedStage='moysklad';
       for(const order of orders){
-        // Query exact stable externalCode; never infer duplicate from name.
-        // A duplicate MUST be verified before creating any future document.
-        const query=new URL(MS);query.searchParams.set('limit','2');
-        query.searchParams.set('filter','externalCode='+order.externalKey);
-        const existing=await requestJson(fetcher,query.toString(),{
-          method:'GET',headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
-            Accept:'application/json'}});
-        msQueries++;
-        if(!Array.isArray(existing?.rows)||!Number.isSafeInteger(existing?.meta?.size))
-          throw Error('moysklad_lookup_unverified');
-        const exact=existing.rows.filter(x=>x?.externalCode===order.externalKey);
-        order.duplicateStatus=existing.meta.size===0?'not_found':
-          exact.length===1&&existing.meta.size===1?'already_exists':'unverified';
+        const match=await lookupMoyskladDuplicate(fetcher,env.MS_API_TOKEN,
+          order.externalKey);
+        msQueries+=match.queries;
+        usedFallback ||= match.method==='context_search';
+        order.duplicateStatus=match.status;
+        order.duplicateLookup=match.method;
         // Never return person, address, phone or raw source payload.
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
         coverage:'FBS_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
         sampledAt:new Date(now()).toISOString(),
+        duplicateLookupMode:usedFallback?'CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE':'EXACT_FILTER',
         counts:{received:orders.length,msLookups:msQueries,
           existing:orders.filter(x=>x.duplicateStatus==='already_exists').length,
           notFound:orders.filter(x=>x.duplicateStatus==='not_found').length,
