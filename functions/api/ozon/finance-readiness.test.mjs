@@ -107,3 +107,26 @@ test('repeated or outside-period audit dates cannot certify financial completene
    ...baseResult,api:{...baseResult.api,days:30}
  }),/invalid_canonical_finance_data/);
 });
+
+test('reconciled badges require daily, aggregate and API detail verification together',()=>{
+ const verifiedDays=baseResult.api.audit.map(x=>({...x,netStatus:'verified',detailStatus:'verified'}));
+ const variant={...baseResult,api:{...baseResult.api,netVerified:true,detailVerified:true,audit:verifiedDays}};
+ const good=summarizeOzonFinanceReadiness('2026-10',baseData,variant);
+ assert.equal(good.report.reconciled,true);
+ assert.equal(good.reconciliation.fullyVerified,true);
+ const mismatched=summarizeOzonFinanceReadiness('2026-10',baseData,{
+  ...variant,report:{...variant.report,totalKopecks:variant.report.totalKopecks-1}
+ });
+ assert.equal(mismatched.report.reconciled,false);
+ assert.equal(mismatched.reconciliation.fullyVerified,false);
+ const incomplete=summarizeOzonFinanceReadiness('2026-10',baseData,{
+  ...variant,api:{...variant.api,audit:verifiedDays.slice(1)}
+ });
+ assert.equal(incomplete.report.reconciled,false);
+ assert.equal(incomplete.reconciliation.fullyVerified,false);
+ const unverified=summarizeOzonFinanceReadiness('2026-10',baseData,{
+  ...variant,api:{...variant.api,detailVerified:false}
+ });
+ assert.equal(unverified.report.reconciled,false);
+ assert.equal(unverified.reconciliation.fullyVerified,false);
+});
