@@ -35,3 +35,14 @@ test('unauthenticated request cannot fetch metadata',async()=>{
   ),env:{}});
   assert.equal(invalid.status,400);
 });
+
+test('source terminal state types are explicit, regular is not treated as active',()=>{
+  const id='01234567-89ab-4cde-8fab-0123456789ab';
+  const a=normalizeOrderStates({states:[
+    {id,name:'В пути',stateType:'Regular'},
+    {id:'11111111-1111-4111-8111-111111111111',name:'Сдано',stateType:'Successful'}
+  ]});
+  assert.equal(a.states[0].terminal,false);
+  assert.equal(a.states[1].terminal,true);
+  assert.equal(normalizeOrderStates({states:[{id,name:'Неизвестно'}]}).states[0].terminal,null);
+});
