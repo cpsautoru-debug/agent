@@ -30,10 +30,16 @@ export function summarizeOzonProvisionalProfit(month,data){
  // covers their aggregate, but the detailed transactions remain unverified.
  // A duplicate candidate involving SALE or RETURN still blocks COGS.
  const candidateGroups=result.duplicateCandidates;
- const saleRowIds=new Set((dated?.rows||[]).map(x=>x.sourceRow));
+ const rawLines=data?.configuration?.month?.rows;
+ const bySourceRow=Array.isArray(rawLines)?
+   new Map(rawLines.map(x=>[x.row,x])):null;
  const duplicateGroupsSafe=Array.isArray(candidateGroups)&&
    candidateGroups.every(group=>Array.isArray(group)&&group.length>1&&
-     group.every(row=>Number.isSafeInteger(row)&&!saleRowIds.has(row)));
+     group.every(row=>{
+       const line=bySourceRow?.get(row);
+       return Number.isSafeInteger(row)&&!!line&&
+         line.service!=='Выручка'&&line.service!=='Возврат выручки';
+     }));
  const blockingCodes=[
    'return_recovery_unverified','unknown_services',
    'sku_missing','cost_missing','cost_preliminary','quantity_missing',
