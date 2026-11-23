@@ -49,6 +49,14 @@ test('Ozon expense read uses current host, correct month and separate OAuth toke
   assert.equal(out.body.totalExpenseKopecks,null);
   assert.equal(out.body.monetaryTotalsVerified,false);
   assert.equal(out.body.reconciledToFinance,false);
+  assert.deepEqual(out.body.columnAudit,[
+    {field:'moneySpent',validRows:1,missingRows:0,invalidRows:0,
+      rawColumnSumKopecks:1000,sourceReconciled:false},
+    {field:'bonusSpent',validRows:0,missingRows:1,invalidRows:0,
+      rawColumnSumKopecks:null,sourceReconciled:false},
+    {field:'prepaymentSpent',validRows:0,missingRows:1,invalidRows:0,
+      rawColumnSumKopecks:null,sourceReconciled:false}
+  ]);
   assert.equal(calls.length,2);
   assert.equal(calls[0].url,'https://api-performance.ozon.ru/api/client/token');
   assert.equal(JSON.parse(calls[0].opts.body).grant_type,'client_credentials');
@@ -113,4 +121,20 @@ test('named RPC expensePreview rejects invalid shared secret without Ozon API ca
  assert.deepEqual(blocked,{status:503,body:{code:'private_access_not_configured'}});
  const malformed=await rpc.expensePreview('2026-13',env.ADS_READ_TOKEN);
  assert.deepEqual(malformed,{status:400,body:{code:'invalid_closed_month'}});
+});
+
+test('unrecognized monetary columns cannot imply zero or verified spend',async()=>{
+ const fetcher=async url=>url.endsWith('/token')?
+   response({access_token:'ok'}):response([
+     {moneySpent:'0.01',bonusSpent:'3.12',prepaymentSpent:'5'},
+     {moneySpent:'0.123',bonusSpent:'0.01',prepaymentSpent:null}
+   ]);
+ const r=await readOzonExpense('2026-10',env,fetcher);
+ assert.equal(r.status,200);
+ const [money,bonus,prepayment]=r.body.columnAudit;
+ assert.deepEqual([money.validRows,money.invalidRows,money.rawColumnSumKopecks],[1,1,null]);
+ assert.deepEqual([bonus.validRows,bonus.rawColumnSumKopecks],[2,313]);
+ assert.deepEqual([prepayment.validRows,prepayment.missingRows,prepayment.rawColumnSumKopecks],[1,1,null]);
+ assert.equal(r.body.totalExpenseKopecks,null);
+ assert.equal(r.body.monetaryTotalsVerified,false);
 });
