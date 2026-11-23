@@ -129,7 +129,7 @@ function expenseColumnAudit(rows,field){
       const kind=Array.isArray(value)?'array':
         value&&typeof value==='object'?'object':
         typeof value==='boolean'?'boolean':
-        typeof value==='string'&&/[.,]\\d{3,}$/.test(value.trim())?
+        typeof value==='string'&&/[.,]\d{3,}$/.test(value.trim())?
           'decimalPrecision':'other';
       invalidFormats[kind]++;
       continue;
