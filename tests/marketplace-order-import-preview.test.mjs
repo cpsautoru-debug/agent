@@ -198,54 +198,46 @@ test('MoySklad duplicate requests send exact JSON UTF-8 Accept header',async()=>
   ]);
 });
 
-test('exact SKU article match requires one exact source record',async()=>{
-  const sku='VESTA-01';
-  const orders=[{items:[{sku,quantity:1}]}];
-  const calls=[];
-  const res=await matchMoyskladArticles(async(url,options)=>{
-    calls.push({url,headers:options.headers});
-    return Response.json({meta:{size:1},rows:[{article:sku}]});
-  },'test-token',orders);
-  assert.equal(res.bySku.get(sku),'matched_exact_article');
-  assert.equal(res.requests,1);
-  assert.equal(calls[0].headers.Accept,'application/json;charset=utf-8');
-  assert.equal(new URL(calls[0].url).searchParams.get('filter'),'article='+sku);
+test('complete assortment scan matches unique article and code',async()=>{
+  const source=[{id:'1',article:'VESTA-01'}, {id:'2',code:'24086'}];
+  const seen=[];
+  const scan=await matchMoyskladArticles(async(url,options)=>{
+    seen.push({url,accept:options.headers.Accept});
+    return Response.json({meta:{size:2},rows:source});
+  },'test-token',[{items:[{sku:'VESTA-01',quantity:1},
+    {sku:'24086',quantity:1},{sku:'NOT-THERE',quantity:1}]}]);
+  assert.equal(scan.bySku.get('VESTA-01'),'matched_exact_article');
+  assert.equal(scan.bySku.get('24086'),'matched_exact_code');
+  assert.equal(scan.bySku.get('NOT-THERE'),'not_matched');
+  assert.equal(scan.coverage.complete,true);
+  assert.equal(scan.requests,1);
+  assert.equal(seen[0].accept,'application/json;charset=utf-8');
+  assert.equal(new URL(seen[0].url).searchParams.get('limit'),'100');
+  assert.equal(new URL(seen[0].url).searchParams.has('filter'),false);
 });
-test('article ambiguity and API failures cannot be treated as matched',async()=>{
-  const orders=[{items:[{sku:'A',quantity:1},{sku:'B',quantity:1},
-    {sku:'C',quantity:1}]}];
-  const res=await matchMoyskladArticles(async(url)=>{
-    const sku=new URL(url).searchParams.get('filter');
-    if(sku==='article=A')
-      return Response.json({meta:{size:2},rows:[{article:'A'},{article:'A'}]});
-    if(sku==='article=B'||sku==='code=B')
-      return Response.json({meta:{size:0},rows:[]});
-    return new Response('{}',{status:400});
-  },'test-token',orders);
-  assert.equal(res.bySku.get('A'),'unverified');
-  assert.equal(res.bySku.get('B'),'not_matched');
-  assert.equal(res.bySku.get('C'),'unverified');
+test('partial assortment scan does not claim a unique match or no-match',async()=>{
+  const scan=await matchMoyskladArticles(async url=>{
+    const offset=Number(new URL(url).searchParams.get('offset'));
+    return Response.json({meta:{size:1200},rows:Array.from({length:100},
+      (_,i)=>({id:String(offset+i),code:offset+i===2?'24086':'OTHER-'+(offset+i)}))});
+  },'test-token',[{items:[{sku:'24086',quantity:1},
+    {sku:'UNKNOWN',quantity:1}]}]);
+  assert.equal(scan.coverage.complete,false);
+  assert.equal(scan.coverage.checkedRows,800);
+  assert.equal(scan.bySku.get('24086'),'unverified');
+  assert.equal(scan.bySku.get('UNKNOWN'),'unverified');
 });
-
-test('Ozon numeric offer ID can match product code after absent article',async()=>{
-  const requests=[];
-  const result=await matchMoyskladArticles(async(url)=>{
-    const field=new URL(url).searchParams.get('filter');
-    requests.push(field);
-    if(field==='article=24086')
-      return Response.json({meta:{size:0},rows:[]});
-    if(field==='code=24086')
-      return Response.json({meta:{size:1},rows:[{id:'item-1',code:'24086'}]});
-    throw Error('unexpected field');
-  },'test-token',[{items:[{sku:'24086',quantity:1}]}]);
-  assert.deepEqual(requests,['article=24086','code=24086']);
-  assert.equal(result.bySku.get('24086'),'matched_exact_code');
-});
-test('failed fallback code filter cannot prove a missing SKU',async()=>{
-  const result=await matchMoyskladArticles(async(url)=>{
-    if(new URL(url).searchParams.get('filter')==='article=24086')
-      return Response.json({meta:{size:0},rows:[]});
-    return new Response('{}',{status:400});
-  },'test-token',[{items:[{sku:'24086',quantity:1}]}]);
+test('duplicate cross-field matches cannot be treated as one SKU',async()=>{
+  const result=await matchMoyskladArticles(async()=>Response.json({
+    meta:{size:2},rows:[
+      {id:'a',article:'24086'}, {id:'b',code:'24086'}
+    ]}), 'test-token',[{items:[{sku:'24086',quantity:1}]}]);
   assert.equal(result.bySku.get('24086'),'unverified');
+});
+test('assortment API failure leaves SKU mapping unverified',async()=>{
+  const result=await matchMoyskladArticles(async()=>new Response('{}',
+    {status:400}),'test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.equal(result.bySku.get('24086'),'unverified');
+  assert.equal(result.coverage.complete,false);
+  assert.equal(result.coverage.sourceError,true);
 });
