@@ -220,6 +220,25 @@
             }).join('; ')+'.':'')+
           (data.barcodeLookup.rateLimited?' Проверка остановлена из-за лимита.':''):
           '')+
+        (data.nameSuggestion&&data.nameSuggestion.sku?
+          ' Поиск возможных карточек по названию для SKU '+
+          String(data.nameSuggestion.sku).slice(0,100)+': '+
+          ({
+            possible_candidates:'найдены варианты для проверки',
+            none_in_search:'вариантов в поиске нет',
+            no_usable_query:'название нельзя использовать для поиска',
+            rate_limited:'ограничение API',
+            search_rejected:'поиск отклонён API',
+            permission_denied:'нет доступа',
+            unverified_response:'формат ответа не подтверждён',
+            source_unavailable:'источник недоступен'
+          }[data.nameSuggestion.status]||'не подтверждено')+
+          (Array.isArray(data.nameSuggestion.candidates)&&
+            data.nameSuggestion.candidates.length?
+            ' — '+data.nameSuggestion.candidates.slice(0,3)
+              .filter(x=>typeof x?.name==='string')
+              .map(x=>x.name.slice(0,130)).join('; '):'')+
+          '. Это только кандидаты, автоматическое сопоставление запрещено.':'')+
         (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?
           (data.assortmentCoverage.exactQueries>0?
             ' Дополнительные проверки артикула/кода: '+
