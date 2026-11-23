@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -59,4 +59,29 @@ test('Ozon FBS v4 request uses documented cursor and sort_dir',()=>{
   assert.equal('dir' in payload,false);
   assert.equal(payload.filter.since,'2026-11-16T10:00:00.000Z');
   assert.equal(payload.filter.to,'2026-11-23T10:00:00.000Z');
+});
+
+test('MoySklad filter 400 falls back without claiming absence of a duplicate',async()=>{
+  const urls=[];
+  const fetcher=async url=>{
+    urls.push(url);
+    if(url.includes('filter='))return new Response('{}',{status:400});
+    return Response.json({meta:{size:0},rows:[]});
+  };
+  const result=await lookupMoyskladDuplicate(fetcher,'test-token','AS63:ozon:123:A-1');
+  assert.deepEqual(result,{status:'unverified',method:'context_search',queries:2});
+  assert.equal(urls.length,2);
+  assert.match(urls[1],/search=/);
+});
+test('exact MoySklad externalCode match is recognized as existing',async()=>{
+  const key='AS63:ozon:123:A-1';
+  const fetcher=async()=>Response.json({meta:{size:1},rows:[{externalCode:key}]});
+  const result=await lookupMoyskladDuplicate(fetcher,'test-token',key);
+  assert.equal(result.status,'already_exists');
+  assert.equal(result.method,'exact_filter');
+});
+test('empty exact MoySklad filter is distinct from uncertain fallback',async()=>{
+  const fetcher=async()=>Response.json({meta:{size:0},rows:[]});
+  const result=await lookupMoyskladDuplicate(fetcher,'test-token','AS63:wb:primary:123');
+  assert.equal(result.status,'not_found');
 });
