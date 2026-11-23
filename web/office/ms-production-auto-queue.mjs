@@ -96,7 +96,10 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
       const label=ev?.code==='ms_order_evidence_ok'?
         (ev.linkage==='none'?'Связи нет':
           ev.orderStatusVerified?
-            'Статусы: '+ev.orders.map(x=>x.stateName).join('; '):
+            'Статусы: '+ev.orders.map(x=>x.stateName+
+              (x.terminal===true?' (финальный)':
+                x.stateType==='Regular'?' (обычный)':
+                ' (тип не подтверждён)')).join('; '):
             'Связь есть, статусы не подтверждены'):
         ev?.code==='ms_order_evidence_unverified'?
           'Связь не подтверждена':
