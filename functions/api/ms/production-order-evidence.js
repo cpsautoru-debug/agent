@@ -76,7 +76,7 @@ export function resolveOrderState(order,stateCatalog){
 
 async function fetchJson(fetcher,url,token){
   const res=await fetcher(url,{method:'GET',redirect:'manual',
-    headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+    headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
     signal:AbortSignal.timeout(20000)});
   if(res.status!==200){await res.body?.cancel().catch(()=>{});
     const err=Error(safeCode(res.status));err.code=safeCode(res.status);throw err;}
