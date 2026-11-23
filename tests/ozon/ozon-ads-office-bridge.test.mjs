@@ -28,7 +28,7 @@ const env=(allowed=1)=>({
  assert.match(sql,/office_authorized_users/);
  return {bind(sub,email){assert.equal(sub,'test-owner');
  assert.equal(email,'owner@example.com');return {first:async()=>({allowed})};}};
- }}}
+ }}
 });
 async function req(path=url){
  const cookie=(await createSession('test-owner',SECRET)).split(';')[0];
