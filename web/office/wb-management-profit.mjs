@@ -66,6 +66,11 @@ export function attachWbFinancialPnl({documentRef=document,fetcher=fetch}={}){
       money(c.recoveredReturnCostKopecks)));
     cards.append(row(documentRef,'Себестоимость WB · нетто',
       money(-c.netManufacturingCostKopecks)));
+    cards.append(row(documentRef,'Сверенные исторические нормы WB',
+      c.confirmedSkuCount+' из '+result.soldArticles+' артикулов','separate'));
+    cards.append(row(documentRef,'Статус основного реестра WB',
+      result.confirmedCostArticles+' из '+result.soldArticles+
+      ' синхронизировано','separate'));
     cards.append(row(documentRef,'Результат товаров WB до удержаний, после себестоимости',
       money(result.basisKopecks-c.netManufacturingCostKopecks),'interim'));
     cards.append(row(documentRef,'Операционный результат WB · после известных прямых затрат',
@@ -80,7 +85,8 @@ export function attachWbFinancialPnl({documentRef=document,fetcher=fetch}={}){
    cards.append(row(documentRef,'Чистая прибыль всего бизнеса','Ожидает закрытия','pending'));
    status.textContent='Сверены '+result.reports+' отчётов, '+result.rows+
     ' операций. '+(c?
-      'Из 9 сохранённых XLSX подтверждены затраты на 173 продажи по 35 артикулам и восстановление себестоимости 6 пригодных возвратов. '+
+      'Историческая себестоимость подтверждена по 35 из 35 артикулов через 9 сохранённых XLSX, 173 продажи и 6 пригодных возвратов. '+
+      'Основной реестр себестоимости WB пока не синхронизирован (в нём '+result.confirmedCostArticles+' из '+result.soldArticles+'). '+
       'Результат после известных прямых затрат '+money(c.contributionKopecks)+
       ' — управленческий, не окончательная чистая прибыль.':
       'Себестоимость ещё не сверена.')+
