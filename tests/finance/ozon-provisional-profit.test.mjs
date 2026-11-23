@@ -78,3 +78,41 @@ test('different report total is explicitly blocked without a guessed amount',()=
  assert.equal(s.beforeAllocationKopecks,null);
  assert.ok(s.missingEvidence.includes('source_net_amount_not_confirmed'));
 });
+
+test('identical service fee rows are review warnings, not missing manufacturing cost',()=>{
+ const x=evidence();
+ x.result.profit.blockers.push('duplicate_candidates');
+ x.result.duplicateCandidates=[[901,902],[1001,1002]];
+ x.configuration={month:{rows:[
+  {row:901,service:'Логистика'},{row:902,service:'Логистика'},
+  {row:1001,service:'Вознаграждение за продажу'},
+  {row:1002,service:'Вознаграждение за продажу'}
+ ]}};
+ const s=summarizeOzonProvisionalProfit(month,x);
+ assert.equal(s.status,'provisional_known_cost_result');
+ assert.equal(s.beforeAllocationKopecks,54836991);
+ assert.deepEqual(s.reviewWarnings,
+   ['identical_non_sale_fee_rows_require_detail_review']);
+ assert.equal(s.verifiedNetProfit,false);
+});
+test('duplicate sale or return source rows block intermediate result',()=>{
+ for(const service of ['Выручка','Возврат выручки']){
+  const x=evidence();
+  x.result.profit.blockers.push('duplicate_candidates');
+  x.result.duplicateCandidates=[[901,902]];
+  x.configuration={month:{rows:[
+   {row:901,service},{row:902,service}
+  ]}};
+  const s=summarizeOzonProvisionalProfit(month,x);
+  assert.equal(s.status,'insufficient_evidence');
+  assert.equal(s.beforeAllocationKopecks,null);
+  assert.match(s.missingEvidence.join(','),/duplicate_candidates/);
+ }
+});
+test('unmapped charge duplicates block instead of being silently excused',()=>{
+ const x=evidence();
+ x.result.profit.blockers.push('duplicate_candidates');
+ x.result.duplicateCandidates=[[901,902]];
+ const s=summarizeOzonProvisionalProfit(month,x);
+ assert.equal(s.status,'insufficient_evidence');
+});
