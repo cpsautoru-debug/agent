@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,verifyExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -249,4 +249,50 @@ test('oversized first assortment response reports failure rather than absence',a
   assert.equal(result.coverage.pages,0);
   assert.equal(result.coverage.failureCode,'response_too_large');
   assert.equal(result.bySku.get('24086'),'unverified');
+});
+
+test('exact filtered SKU validates both fields for the same product id',async()=>{
+  const sku='24086';
+  const calls=[];
+  const found=await verifyExactAssortmentSku(async url=>{
+    const filter=new URL(url).searchParams.get('filter');calls.push(filter);
+    return Response.json(filter==='article=24086'?
+      {meta:{size:0},rows:[]}:
+      {meta:{size:1},rows:[{id:'item-123',code:sku}]});
+  },'test-token',sku);
+  assert.equal(found,'matched_exact_code');
+  assert.deepEqual(calls,['article=24086','code=24086']);
+});
+test('exact filtered SKU remains unverified if a different item shares code',async()=>{
+  const found=await verifyExactAssortmentSku(async url=>{
+    const field=new URL(url).searchParams.get('filter').split('=')[0];
+    return Response.json({meta:{size:1},rows:[
+      {id:field==='article'?'item-one':'item-two',[field]:'24086'}
+    ]});
+  },'test-token','24086');
+  assert.equal(found,'unverified');
+});
+test('failed second SKU filter must not confirm first filter positive',async()=>{
+  const found=await verifyExactAssortmentSku(async url=>{
+    if(new URL(url).searchParams.get('filter').startsWith('code='))
+      return new Response('{}',{status:403});
+    return Response.json({meta:{size:1},rows:[
+      {id:'item-one',article:'24086'}]});
+  },'test-token','24086');
+  assert.equal(found,'unverified');
+});
+test('partial assortment scan may verify exact positive SKU but not absence',async()=>{
+  const result=await matchMoyskladArticles(async url=>{
+    const u=new URL(url),filter=u.searchParams.get('filter');
+    if(filter==='article=24086')return Response.json({meta:{size:0},rows:[]});
+    if(filter==='code=24086')return Response.json({meta:{size:1},rows:[{id:'42',code:'24086'}]});
+    if(filter)return Response.json({meta:{size:0},rows:[]});
+    return Response.json({meta:{size:1000},rows:Array.from({length:20},(_,i)=>
+      ({id:'page-'+u.searchParams.get('offset')+'-'+i,code:'unrelated'}))});
+  },'test-token',[{items:[{sku:'24086',quantity:1},
+    {sku:'not-present',quantity:1}]}]);
+  assert.equal(result.coverage.complete,false);
+  assert.equal(result.bySku.get('24086'),'matched_exact_code');
+  assert.equal(result.bySku.get('not-present'),'unverified');
+  assert.equal(result.coverage.confirmedByFilter,1);
 });
