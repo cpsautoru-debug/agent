@@ -11,12 +11,17 @@ export function describeIncomeEvidence(data,month){
  if(!services||keys.some(k=>!Number.isSafeInteger(services[k]?.amountKopecks)||
    !Number.isSafeInteger(services[k]?.rows))||
    !Number.isSafeInteger(data.wb.reports)||
-   !data.wb.operationAmounts||typeof data.wb.operationAmounts!=='object')
+   !data.wb.operationAmounts||typeof data.wb.operationAmounts!=='object'||
+   data.ozon.nonAdditiveTotals!==true||
+   data.ozon.classification?.discountPoints?.status!==
+     'marketplace_bonus_not_separate_sales_revenue')
    throw Error('income_components_unverified');
  const rub=n=>new Intl.NumberFormat('ru-RU',
     {style:'currency',currency:'RUB'}).format(n/100);
  return 'Ozon XLSX — отдельные статьи (не налоговая база):\n'+
   keys.map(k=>k+': '+rub(services[k].amountKopecks)).join('\n')+
+  '\nВажно: «Баллы за скидки» не прибавляются второй раз к выручке; суммы по статьям разного экономического смысла не суммируются.'+
+  '\nВыручка XLSX — начисление, а не подтверждённый доход АУСН за календарный месяц.'+
   '\nWildberries: '+data.wb.reports+' финансовых отчётов. Суммы к перечислению не равны выручке до удержаний.'+
   '\nНе подтверждены: доходы ФНС по каналам ИП; юрлица остальных каналов; выручка Авито, Яндекс и офлайна.'+
   '\nРаспределение налога и расходов пока невозможно.';
