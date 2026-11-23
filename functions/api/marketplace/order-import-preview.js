@@ -350,13 +350,15 @@ export async function matchMoyskladArticles(fetcher,token,orders){
 // avoid 30-page reads and stop immediately on 429. Limit to two unique SKUs.
 // The existing bulk matcher remains for offline tests and future scheduled
 // incremental sync, not for a button-driven production check.
-export async function matchMoyskladArticlesBudgeted(fetcher,token,orders){
+export async function matchMoyskladArticlesBudgeted(fetcher,token,orders,
+  skipSkus=new Set()){
   if(!Array.isArray(orders)||orders.length>LIMIT)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
   const bySku=new Map(skus.map(s=>[s,'unverified']));
   const diagnostics=[];let calls=0,rateLimited=false,confirmed=0;
-  for(const sku of skus.filter(x=>safe(x)&&x.length<=100).slice(0,2)){
+  for(const sku of skus.filter(x=>safe(x)&&x.length<=100&&
+    !skipSkus.has(x)).slice(0,2)){
     const counted=(url,options)=>{calls++;return fetcher(url,options);};
     const evidence=await probeExactAssortmentSku(counted,token,sku);
     diagnostics.push({sku,article:evidence.fields.article,
@@ -420,6 +422,67 @@ export async function fetchOzonProductEvidence(fetcher,account,token,orders){
       error?.status===400?'request_rejected':'source_unavailable';
     return {byOffer:evidence,code,count:0};
   }
+}
+
+// Try up to two Ozon barcode values against MoySklad. A 200 with an exact
+// entity barcode plus one unique document is positive evidence. Filter failures
+// and empty responses NEVER prove absence or authorize creating an entity.
+export function barcodeValues(row){
+  const allowed=['ean13','ean8','code128','upc','gtin','code39'];
+  if(!Array.isArray(row?.barcodes))return [];
+  return [...new Set(row.barcodes.flatMap(item=>{
+    if(typeof item==='string')return [item];
+    if(!item||typeof item!=='object')return [];
+    return allowed.map(field=>item[field]).filter(v=>typeof v==='string');
+  }).filter(v=>/^[0-9A-Za-z-]{6,40}$/.test(v)))];
+}
+export async function matchMoyskladOzonBarcodes(fetcher,token,orders){
+  const bySku=new Map(),diagnostics=[];
+  const selected=new Map();
+  for(const order of orders){
+    for(const item of order.items){
+      const sku=item.sku;
+      if(bySku.has(sku))continue;
+      bySku.set(sku,'unverified');
+      const codes=item.ozonCatalog?.status==='seller_product_with_barcode'?
+        item.ozonCatalog.barcodes:[];
+      if(!Array.isArray(codes)||!codes.length)continue;
+      selected.set(sku,codes[0]);
+    }
+  }
+  let requests=0,rateLimited=false;
+  for(const [sku,code] of [...selected].slice(0,2)){
+    if(rateLimited)break;
+    const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+    url.searchParams.set('limit','2');
+    url.searchParams.set('filter','barcode='+code);
+    let category='unverified';
+    try{
+      requests++;
+      const body=await requestJson(fetcher,url.toString(),{
+        method:'GET',headers:{Authorization:'Bearer '+token,
+          Accept:'application/json;charset=utf-8'},
+        signal:AbortSignal.timeout(8000)
+      });
+      if(Array.isArray(body?.rows)&&body.rows.length<=2&&
+        Number.isSafeInteger(body?.meta?.size)&&
+        body.meta.size===1&&body.rows.length===1&&
+        typeof body.rows[0]?.id==='string'&&body.rows[0].id&&
+        barcodeValues(body.rows[0]).includes(code)){
+        bySku.set(sku,'matched_exact_barcode');
+        category='one_exact';
+      }else if(body?.meta?.size===0&&Array.isArray(body?.rows)&&
+        body.rows.length===0)category='absent_exact';
+      else category='unverified';
+    }catch(error){
+      if(error?.status===429){rateLimited=true;category='rate_limited';}
+      else if(error?.status===400)category='filter_rejected';
+      else if(error?.status===403)category='permission_denied';
+      else category='source_unavailable';
+    }
+    diagnostics.push({sku,category});
+  }
+  return {bySku,requests,diagnostics,rateLimited};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
@@ -499,11 +562,21 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
         coverage:{pages:0,checkedRows:0,complete:false,sourceError:false,failureCode:null}};
-      if(orders.length)articleScan=await matchMoyskladArticlesBudgeted(
-        fetcher,env.MS_API_TOKEN,orders);
+      const barcodeCandidates=new Set(orders.flatMap(o=>o.items)
+        .filter(p=>p.ozonCatalog?.status==='seller_product_with_barcode')
+        .map(p=>p.sku));
+      const barcodeScan=barcodeCandidates.size?
+        await matchMoyskladOzonBarcodes(fetcher,env.MS_API_TOKEN,orders):
+        {bySku:new Map(),requests:0,diagnostics:[],rateLimited:false};
+      if(orders.length&&!barcodeScan.rateLimited)
+        articleScan=await matchMoyskladArticlesBudgeted(
+          fetcher,env.MS_API_TOKEN,orders,barcodeCandidates);
       for(const order of orders){
         for(const item of order.items){
-          item.assortmentMatch=articleScan.bySku.get(item.sku)||'unverified';
+          item.assortmentMatch=
+            barcodeScan.bySku.get(item.sku)==='matched_exact_barcode'?
+              'matched_exact_barcode':
+              articleScan.bySku.get(item.sku)||'unverified';
           if(ozonEvidence)item.ozonCatalog=
             ozonEvidence.byOffer.get(item.sku)||{
               status:'not_confirmed',offerId:item.sku,
@@ -531,6 +604,9 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
           status:ozonEvidence.code,
           productsConfirmed:ozonEvidence.count,
           requestCount:orders.length?1:0}:null,
+        barcodeLookup:{requests:barcodeScan.requests,
+          diagnostics:barcodeScan.diagnostics,
+          rateLimited:barcodeScan.rateLimited},
         articleLookupRequests:articleScan.requests,
         assortmentCoverage:articleScan.coverage,
         counts:{received:orders.length,
