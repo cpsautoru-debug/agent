@@ -57,7 +57,11 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs,unverifiedRows=[])
     !Array.isArray(unverifiedRows)||unverifiedRows.length>LIMIT||
     !counts||!int(counts.checked)||!int(counts.incomplete)||
     !int(counts.complete)||!int(counts.unverified)||
-    counts.checked!==counts.incomplete+counts.complete+counts.unverified)
+    counts.checked!==counts.incomplete+counts.complete+counts.unverified||
+    // The committed cursor and persisted rows must advance atomically.
+    // Do not present a partial/corrupted generation as valid monitoring.
+    runtime.scannedOffset!==counts.checked||
+    (runtime.totalAtStart!==null&&runtime.scannedOffset>runtime.totalAtStart))
     throw Error('auto_summary_unverified');
   const verifiedCoverage=runtime.fullHistoricalPass&&
     counts.checked===runtime.totalAtStart;
