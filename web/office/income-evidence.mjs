@@ -15,11 +15,11 @@ export function describeIncomeEvidence(data,month){
    throw Error('income_components_unverified');
  const rub=n=>new Intl.NumberFormat('ru-RU',
     {style:'currency',currency:'RUB'}).format(n/100);
- return 'Ozon XLSX (отдельные статьи, не суммировать как налоговую базу): '+
-  keys.map(k=>k+' '+rub(services[k].amountKopecks)).join('; ')+
-  '. WB: '+data.wb.reports+' отчётов; расчётные суммы к перечислению не являются выручкой до удержаний. '+
-  'Доходы ФНС по каналам ИП, юридические лица и остальные каналы не сверены. '+
-  'Доли налога и расходов не рассчитываются.';
+ return 'Ozon XLSX — отдельные статьи (не налоговая база):\n'+
+  keys.map(k=>k+': '+rub(services[k].amountKopecks)).join('\n')+
+  '\nWildberries: '+data.wb.reports+' финансовых отчётов. Суммы к перечислению не равны выручке до удержаний.'+
+  '\nНе подтверждены: доходы ФНС по каналам ИП; юрлица остальных каналов; выручка Авито, Яндекс и офлайна.'+
+  '\nРаспределение налога и расходов пока невозможно.';
 }
 export function attachIncomeEvidence({documentRef=document,fetcher=fetch}={}){
  const node=documentRef.getElementById('profitIncomeEvidence');
