@@ -13,6 +13,16 @@ export function describeIncomeEvidence(data,month){
    !Number.isSafeInteger(data.wb.reports)||
    !data.wb.operationAmounts||typeof data.wb.operationAmounts!=='object'||
    data.ozon.nonAdditiveTotals!==true||
+   typeof data.ozon.taxDocumentPresent!=='boolean'||
+   typeof data.wb.reportPeriodComplete!=='boolean'||
+   !Array.isArray(data.wb.reportTypeCoverage)||
+   data.wb.reportTypeCoverage.some(x=>
+     !Number.isSafeInteger(x.reportType)||
+     !Number.isSafeInteger(x.coveredDays)||
+     !Number.isSafeInteger(x.expectedDays)||
+     !Array.isArray(x.missingDates)||
+     !Number.isSafeInteger(x.overlappingDays)||
+     typeof x.periodComplete!=='boolean')||
    data.ozon.classification?.discountPoints?.status!==
      'marketplace_bonus_not_separate_sales_revenue')
    throw Error('income_components_unverified');
@@ -23,7 +33,14 @@ export function describeIncomeEvidence(data,month){
   '\nВажно: «Баллы за скидки» не прибавляются второй раз к выручке; суммы по статьям разного экономического смысла не суммируются.'+
   '\nВыручка XLSX — начисление, а не подтверждённый доход АУСН за календарный месяц.'+
   '\nWildberries: '+data.wb.reports+' финансовых отчётов. Суммы к перечислению не равны выручке до удержаний.'+
-  '\nНе подтверждены: доходы ФНС по каналам ИП; юрлица остальных каналов; выручка Авито, Яндекс и офлайна.'+
+  '\nWB: покрытие отчётных периодов — '+(data.wb.reportPeriodComplete?
+    'полный месяц по каждому типу отчёта':
+    'есть пропущенные или пересекающиеся периоды')+
+    '; это не проверка налоговой выручки.'+
+  '\nOzon: налоговый документ за месяц — '+
+    (data.ozon.taxDocumentPresent?'есть, необходима проверка':'отсутствует')+'.'+
+  '\nНе хватает для распределения налога: подтверждённых доходов АУСН по каналам ИП, реестра взаимозачётов и проверки принадлежности каналов этому ИП.'+
+  '\nНе хватает для распределения 54 000 ₽: выручки Авито, Яндекс Маркета и офлайна, а также подтверждённой сопоставимой выручки Ozon/WB.'+
   '\nРаспределение налога и расходов пока невозможно.';
 }
 export function attachIncomeEvidence({documentRef=document,fetcher=fetch}={}){
