@@ -200,22 +200,36 @@
           ' Обход ограниченного реестра завершён.':
           ' Полный реестр не подтверждён — отсутствие дублей не доказано.')+
         (data.barcodeLookup&&Number.isSafeInteger(data.barcodeLookup.requests)?
-          ' Проверка штрихкодов «МойСклад»: запросов '+
-          data.barcodeLookup.requests+', совпадений '+
+          ' Штрихкоды: проверено '+data.barcodeLookup.requests+
+          ' уникальных SKU, подтверждено '+
           (Array.isArray(data.barcodeLookup.diagnostics)?
-            data.barcodeLookup.diagnostics.filter(x=>x.category==='one_exact').length:0)+
-          (data.barcodeLookup.rateLimited?' · лимит API, остановлено.':'.'):'')+
+            data.barcodeLookup.diagnostics.filter(x=>x.category==='one_exact').length:0)+'.'+
+          (Array.isArray(data.barcodeLookup.diagnostics)?
+            ' Диагностика: '+data.barcodeLookup.diagnostics.slice(0,2).map(x=>{
+              const labels={
+                one_exact:'одно точное совпадение',
+                absent_exact:'в «МойСклад» такой штрихкод не найден',
+                filter_rejected:'фильтр штрихкода не поддержан',
+                rate_limited:'достигнут лимит API',
+                permission_denied:'нет прав',
+                source_unavailable:'ответ недоступен',
+                unverified:'совпадение не подтверждено'
+              };
+              return String(x.sku).slice(0,100)+': '+
+                (labels[x.category]||'неизвестный результат');
+            }).join('; ')+'.':'')+
+          (data.barcodeLookup.rateLimited?' Проверка остановлена из-за лимита.':''):
+          '')+
         (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?
-          ' Режим защиты API: не больше 2 SKU за запуск, без массового обхода каталога. Точечных запросов: '+
-            (data.assortmentCoverage.exactQueries||0)+'.':
+          (data.assortmentCoverage.exactQueries>0?
+            ' Дополнительные проверки артикула/кода: '+
+            data.assortmentCoverage.exactQueries+'.':
+            ' Дополнительные проверки артикула/кода не выполнялись: сначала проверяются штрихкоды.'):
           ' Ассортимент «МойСклад»: просмотрено '+
             (data.assortmentCoverage?.checkedRows||0)+' позиций, '+
             (data.assortmentCoverage?.pages||0)+' страниц'+
             (data.assortmentCoverage?.complete===true?
               ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.'))+
-        (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?'':
-        (data.assortmentCoverage?.pages||0)+' страниц'+
-        '')+
         (Number.isSafeInteger(data.assortmentCoverage?.confirmedByFilter)&&
           data.assortmentCoverage.confirmedByFilter>0?
           ' Точно подтверждено по отдельным запросам: '+
