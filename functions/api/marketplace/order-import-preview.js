@@ -346,6 +346,37 @@ export async function matchMoyskladArticles(fetcher,token,orders){
         selected.indexOf(a.sku)-selected.indexOf(b.sku))}};
 }
 
+// Default live preview deliberately uses no bulk assortment scan:
+// avoid 30-page reads and stop immediately on 429. Limit to two unique SKUs.
+// The existing bulk matcher remains for offline tests and future scheduled
+// incremental sync, not for a button-driven production check.
+export async function matchMoyskladArticlesBudgeted(fetcher,token,orders){
+  if(!Array.isArray(orders)||orders.length>LIMIT)
+    throw Error('invalid_article_lookup');
+  const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
+  const bySku=new Map(skus.map(s=>[s,'unverified']));
+  const diagnostics=[];let calls=0,rateLimited=false,confirmed=0;
+  for(const sku of skus.filter(x=>safe(x)&&x.length<=100).slice(0,2)){
+    const counted=(url,options)=>{calls++;return fetcher(url,options);};
+    const evidence=await probeExactAssortmentSku(counted,token,sku);
+    diagnostics.push({sku,article:evidence.fields.article,
+      code:evidence.fields.code,match:evidence.match});
+    if(['matched_exact_article','matched_exact_code'].includes(evidence.match)){
+      bySku.set(sku,evidence.match);confirmed++;
+    }
+    if(evidence.fields.article==='rate_limited'||
+      evidence.fields.code==='rate_limited'){
+      rateLimited=true;break;
+    }
+  }
+  return {bySku,requests:calls,coverage:{
+    pages:0,checkedRows:0,complete:false,sourceError:rateLimited,
+    failureCode:rateLimited?'rate_limited':null,
+    mode:'TARGETED_ONLY_TO_AVOID_RATE_LIMITS',exactQueries:calls,
+    confirmedByFilter:confirmed,exactDiagnostics:diagnostics
+  }};
+}
+
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -419,7 +450,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
         coverage:{pages:0,checkedRows:0,complete:false,sourceError:false,failureCode:null}};
-      if(orders.length)articleScan=await matchMoyskladArticles(
+      if(orders.length)articleScan=await matchMoyskladArticlesBudgeted(
         fetcher,env.MS_API_TOKEN,orders);
       for(const order of orders){
         for(const item of order.items){
