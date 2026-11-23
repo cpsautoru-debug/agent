@@ -1750,9 +1750,20 @@
         <p id="marketplaceOrderCheckStatus" class="ms-production-status" role="status">Выберите источник. Создание заказов в «МойСклад» выключено.</p>
         <a id="marketplaceOrderLogin" class="ms-production-detail-button" href="/api/auth/google/start?next=production" hidden>Войти через Google для проверки заказов</a>
         <div class="ms-production-scroll">
-          <table id="marketplaceOrderCheckTable" class="ms-production-table" hidden>
+          <table id="marketplaceOrderCheckTableOzon" class="ms-production-table" hidden>
+            <caption>Ozon FBS · только новые заказы на сборку</caption>
             <thead><tr><th>Источник и внешний ID</th><th>Статус</th><th>SKU и количество</th><th>Сверка с «МойСклад»</th></tr></thead>
-            <tbody id="marketplaceOrderCheckRows"></tbody>
+            <tbody id="marketplaceOrderCheckRowsOzon"></tbody>
+          </table>
+          <table id="marketplaceOrderCheckTableFbo" class="ms-production-table" hidden>
+            <caption>Ozon FBO · продажи со склада маркетплейса</caption>
+            <thead><tr><th>Источник и внешний ID</th><th>Статус</th><th>SKU и количество</th><th>Сверка с «МойСклад»</th></tr></thead>
+            <tbody id="marketplaceOrderCheckRowsFbo"></tbody>
+          </table>
+          <table id="marketplaceOrderCheckTableWb" class="ms-production-table" hidden>
+            <caption>Wildberries FBS · новые сборочные задания</caption>
+            <thead><tr><th>Источник и внешний ID</th><th>Статус</th><th>SKU и количество</th><th>Сверка с «МойСклад»</th></tr></thead>
+            <tbody id="marketplaceOrderCheckRowsWb"></tbody>
           </table>
         </div>
         <p class="ms-production-note">Перед включением импорта обязательны проверка соответствия SKU, юридического лица, схемы FBS/FBO, цен, отмен, возвратов и дублей. Отсутствие заказа по внешнему ID не означает разрешение создать документ.</p>
@@ -2261,7 +2272,7 @@
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
-<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-fbo-review"></script>
+<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-separated-results"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
