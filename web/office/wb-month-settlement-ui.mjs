@@ -37,6 +37,19 @@ export function validateDashboardWbMonth(data,month){
    c.confirmedSoldUnits===173&&c.resalableReturnedUnits===6&&
    c.snapshotReports===9&&
    c.returnBasis==='OWNER_CONFIRMED_ALL_6_RESALABLE_2026_11_24'&&
+   Array.isArray(c.costLines)&&c.costLines.length===35&&
+   new Set(c.costLines.map(x=>x.vendorCode)).size===35&&
+   c.costLines.every(x=>typeof x.vendorCode==='string'&&x.vendorCode.length>0&&
+     Number.isSafeInteger(x.unitCostKopecks)&&x.unitCostKopecks>0&&
+     Number.isSafeInteger(x.soldUnits)&&x.soldUnits>0&&
+     Number.isSafeInteger(x.resalableReturnedUnits)&&x.resalableReturnedUnits>=0&&
+     x.resalableReturnedUnits<=x.soldUnits&&
+     Number.isSafeInteger(x.netCostKopecks)&&
+     x.netCostKopecks===(x.soldUnits-x.resalableReturnedUnits)*x.unitCostKopecks)&&
+   c.costLines.reduce((n,x)=>n+x.soldUnits,0)===173&&
+   c.costLines.reduce((n,x)=>n+x.resalableReturnedUnits,0)===6&&
+   c.costLines.reduce((n,x)=>n+x.netCostKopecks,0)===
+     c.netManufacturingCostKopecks&&
    c.verifiedNetProfit===false&&
    Number.isSafeInteger(c.grossManufacturingCostKopecks)&&
    Number.isSafeInteger(c.recoveredReturnCostKopecks)&&
@@ -55,6 +68,7 @@ export function validateDashboardWbMonth(data,month){
    confirmedSoldUnits:c.confirmedSoldUnits,
    resalableReturnedUnits:c.resalableReturnedUnits,
    source:c.source,
+   costLines:c.costLines,
    status:'known_cost_result'
   };
  }
