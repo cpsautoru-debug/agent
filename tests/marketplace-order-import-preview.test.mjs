@@ -218,10 +218,34 @@ test('article ambiguity and API failures cannot be treated as matched',async()=>
     const sku=new URL(url).searchParams.get('filter');
     if(sku==='article=A')
       return Response.json({meta:{size:2},rows:[{article:'A'},{article:'A'}]});
-    if(sku==='article=B')return Response.json({meta:{size:0},rows:[]});
+    if(sku==='article=B'||sku==='code=B')
+      return Response.json({meta:{size:0},rows:[]});
     return new Response('{}',{status:400});
   },'test-token',orders);
   assert.equal(res.bySku.get('A'),'unverified');
   assert.equal(res.bySku.get('B'),'not_matched');
   assert.equal(res.bySku.get('C'),'unverified');
+});
+
+test('Ozon numeric offer ID can match product code after absent article',async()=>{
+  const requests=[];
+  const result=await matchMoyskladArticles(async(url)=>{
+    const field=new URL(url).searchParams.get('filter');
+    requests.push(field);
+    if(field==='article=24086')
+      return Response.json({meta:{size:0},rows:[]});
+    if(field==='code=24086')
+      return Response.json({meta:{size:1},rows:[{id:'item-1',code:'24086'}]});
+    throw Error('unexpected field');
+  },'test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.deepEqual(requests,['article=24086','code=24086']);
+  assert.equal(result.bySku.get('24086'),'matched_exact_code');
+});
+test('failed fallback code filter cannot prove a missing SKU',async()=>{
+  const result=await matchMoyskladArticles(async(url)=>{
+    if(new URL(url).searchParams.get('filter')==='article=24086')
+      return Response.json({meta:{size:0},rows:[]});
+    return new Response('{}',{status:400});
+  },'test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.equal(result.bySku.get('24086'),'unverified');
 });
