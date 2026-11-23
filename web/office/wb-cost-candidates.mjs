@@ -9,13 +9,17 @@ const rates=Object.freeze({
  iskra:{label:'Iskra',costKopecks:469700},
  door:{label:'Дверные вставки',costKopecks:35000},
  armrest:{label:'Подлокотник Vesta',costKopecks:10000},
- bumper:{label:'Накладка на бампер',costKopecks:30000}
+ bumper:{label:'Накладка на бампер',costKopecks:30000},
+ spinner:{label:'Брелок-антистресс с шестерёнками · механический спиннер',costKopecks:5000},
+ fragrance:{label:'Ароматизатор для авто Dolce & Gabbana The One',costKopecks:26000}
 });
 export function classifyWbCostCandidate(code){
  if(typeof code!=='string'||code.length>200||!code.trim())throw Error('invalid_wb_code');
  const n=code.toLowerCase().replace(/ё/g,'е').replace(/[_\s№-]+/g,' ');
  let kind=null;
- if(n.includes('подлокот')&&!n.includes('задним подлокотником')&&
+ if(code==='пламя1')kind='spinner';
+ else if(code==='wb4emqym9a')kind='fragrance';
+ else if(n.includes('подлокот')&&!n.includes('задним подлокотником')&&
     (n.includes('веста')||n.includes('vesta')))kind='armrest';
  else if(n.includes('накладка')&&n.includes('бампер'))kind='bumper';
  else if(n.startsWith('карты ')||n.includes('дверные карты'))kind='door';
@@ -32,7 +36,7 @@ export function classifyWbCostCandidate(code){
    status:'needs_owner_confirmation',
    reason:special?'Комплектация может отличаться от базовой себестоимости':
      'Нужно подтвердить применимость базовой себестоимости к этому артикулу',
-   source:kind==='armrest'||kind==='bumper'?
+   source:kind==='armrest'||kind==='bumper'||kind==='spinner'||kind==='fragrance'?
      'OWNER_WB_COST_REFERENCE':'OWNER_OZON_UNIT_COST_REFERENCE'};
 }
 export function proposeWbCostsFromEvidence(data,month='2026-10'){
