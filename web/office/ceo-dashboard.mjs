@@ -30,7 +30,10 @@ function unavailable(prefix,error){
   if(prefix==='ceoOzon'){
     set('ceoOzonAuditValue','Нет данных');
     status('ceoOzonAuditState',msg,'warning');
-    set('ceoOzonAuditNote','Проверка источника Ozon не состоялась; прибыль не подтверждена.');
+    set('ceoOzonAuditNote','Загрузка и сверка сумм Ozon не подтверждены.');
+    set('ceoOzonProfitValue','Не подтверждена');
+    status('ceoOzonProfitState',msg,'warning');
+    set('ceoOzonProfitNote','Без подтверждённой финансовой базы чистую прибыль рассчитать нельзя.');
   }
 }
 const sourceRegistry=createSourceRegistry();
@@ -151,30 +154,51 @@ function showWB(data){
     '. Выплата не равна прибыли.'+explanation);
 }
 function showOzon(data){
-  const p=data.result;
+  const p=data?.result;
   if(!p||typeof p!=='object')throw Error('schema');
   showOzonFinanceAudit(data.readiness);
-  const net=p.profit?.netEstimateKopecks,report=p.report;
+  const report=p.report;
   set('ceoOzonValue',validInt(report?.salesKopecks)?
     money(report.salesKopecks):'Нет подтверждения');
-  const c=p.financeCloseout;
-  const verified=c?.netProfitVerified===true&&c?.bankStatementVerified===true;
-  reportSource('ozon',verified?'verified':'partial',verified?'Период закрыт и сверен':'Оценка прибыли, полный финансовый период не закрыт');
-  status('ceoOzonState',verified?'Период подтверждён':'Прибыль НЕ подтверждена',verified?'success':'warning');
-  const gross=p.profit?.grossKopecks;
-  const grossProvisional=validInt(gross)&&
-    p.dateCostEvidence?.complete===true&&
-    p.report?.periodVerified===true&&
-    p.report?.quantityVerified===true&&
-    Array.isArray(p.duplicateCandidates)&&p.duplicateCandidates.length===0;
-  set('ceoOzonNote',
-    (grossProvisional?'Предварительная валовая прибыль до услуг маркетплейса: '+
-      money(gross)+'. ':'')+
-    'Чистая прибыль Ozon: '+(validInt(net)?money(net):'неизвестна')+
-    '. Нужна сверка деталей начислений, рекламы, налогов и банка.');
-  // Never copy Ozon-only net into the all-channel business-profit card.
-  // A separate multi-channel closeout is required for that figure.
+  status('ceoOzonState',validInt(report?.salesKopecks)?
+    'Продажи по XLSX · прибыль отдельно':'Продажи не подтверждены',
+    validInt(report?.salesKopecks)?'neutral':'warning');
+  set('ceoOzonNote','Выручка из отчёта Ozon за выбранный месяц. '+
+    'Это не выплата, не сумма начислений и не чистая прибыль.');
+  const close=p.financeCloseout,profit=p.profit;
+  if(!close||close.readOnly!==true||close.changedRecords!==0||
+    !Array.isArray(close.missing)||!Array.isArray(profit?.blockers)||
+    close.netProfitVerified!==false)
+    throw Error('invalid_profit_closeout');
+  const hasCost=p.dateCostEvidence?.complete===true&&
+    p.dateCostEvidence.checkedSalesRows>0&&
+    p.dateCostEvidence.checkedSalesRows===
+      p.dateCostEvidence.confirmedSalesRows;
+  const meaning={
+    advertisingSourceReconciled:'сверить рекламные начисления',
+    taxRegisterAudited:'подтвердить налоговый регистр',
+    bankStatementReconciled:'сверить банк',
+    expenseAllocationCalculated:'распределить общие расходы',
+    returnTreatmentReviewed:'проверить возвраты',
+    apiDetailReconciled:'проверить состав начислений',
+    reportSourceVerified:'подтвердить первичный отчёт'
+  };
+  const pending=close.missing.map(x=>meaning[x]||String(x)
+    .replace(/([A-Z])/g,' $1').toLowerCase()).slice(0,7);
+  set('ceoOzonProfitValue','Не подтверждена');
+  status('ceoOzonProfitState','Не закрыто: '+close.missing.length+
+    ' обязательных проверок','warning');
+  set('ceoOzonProfitNote',
+    (hasCost&&validInt(profit?.grossKopecks)?
+      'Предварительный валовой результат, не чистая прибыль: '+
+        money(profit.grossKopecks)+'. ':'')+
+    'Осталось: '+(pending.length?pending.join('; '):
+      'полная независимая сверка')+'. '+
+    'Неподтверждённые суммы не утверждаются автоматически.');
+  reportSource('ozon','partial',
+    'Продажи загружены; чистая прибыль не подтверждена');
 }
+
 function showOzonFinanceAudit(data){
   if(data?.code!=='ozon_finance_readiness'||data.readOnly!==true||
     data.source!=='CANONICAL_OZON_FINANCE_SYNC'||
@@ -255,21 +279,21 @@ function showOzonFinanceAudit(data){
         .map(x=>x.date).join(', ')+'. ':
       'Нет незавершённых дневных проверок. ');
   set('ceoOzonAuditNote',
-    'Основной Finance API: '+count(a.rows)+' начислений за '+
-    a.coveredDays+' из '+a.expectedDays+' дней. '+
-    'Загруженный XLSX: '+(r?count(r.records):'нет')+' строк. '+
-    'Суммы за месяц: '+(data.sourcesMatch.apiVsXlsxKopecks?
-      'совпадают ('+money(a.totalKop)+')':'НЕ подтверждены')+'. '+
-    'Дневные суммы XLSX/API: '+(parityVerified?
-      parity.matchedDays+'/'+parity.expectedDays+' совпали':
-      'не подтверждены')+'. '+
-    granularText+
-    'Себестоимость по датам: '+c.confirmedSalesRows+
-    ' из '+c.checkedSalesRows+' строк продаж. '+
-    reconciliationNote+
-    'Реклама, налоги и банковские операции проверяются отдельно. '+
-    (blockers.length?'Не закрыто: '+blockers.join('; ')+'. ':'')+
-    'Чистая прибыль не подтверждена.');
+    'Finance API: '+count(a.rows)+' начислений за '+
+    a.coveredDays+'/'+a.expectedDays+' дней. XLSX: '+
+    (r?count(r.records):'нет')+' строк. '+
+    (data.sourcesMatch.apiVsXlsxKopecks?
+      'Итог за месяц совпадает: '+money(a.totalKop)+'. ':
+      'Итог месяца не сверен. ')+
+    'Дневные итоги: '+(parityVerified?
+      parity.matchedDays+'/'+parity.expectedDays+' совпали. ':
+      'сверка не подтверждена. ')+
+    'Это проверка сумм, не прибыли. '+
+    'Состав начислений: '+reconciliation.detailVerifiedDays+
+    '/'+reconciliation.checkedDays+' дней; '+
+    'себестоимость: '+c.confirmedSalesRows+'/'+
+    c.checkedSalesRows+' строк продаж.');
+
 }
 
 function showAds(data){
@@ -319,7 +343,7 @@ function showOzonOrdersReadiness(data){
   }
 }
 function reset(){
-  for(const p of ['ceoOzon','ceoOzonAudit','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
+  for(const p of ['ceoOzon','ceoOzonAudit','ceoOzonProfit','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
     {set(p+'Value','Загрузка…');status(p+'State','Читаем источник');set(p+'Note','');}
   set('ceoProfitValue','Не подтверждена');set('ceoProductionWarning','');
 }
