@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseTaskOrderLinks,summarizeLinkedOrder,createProductionOrderEvidenceHandler
+  parseTaskOrderLinks,summarizeLinkedOrder,resolveOrderState,createProductionOrderEvidenceHandler
 } from '../functions/api/ms/production-order-evidence.js';
 const uuid='01234567-89ab-4cde-8fab-0123456789ab';
 const uri='https://api.moysklad.ru/api/remap/1.2/entity/customerorder/'+uuid;
@@ -52,4 +52,21 @@ test('source finality is reported independently of labels',()=>{
   assert.equal(summarizeLinkedOrder({id,state:{name:'В работе',
     stateType:'Regular'}},id).terminal,false);
   assert.equal(summarizeLinkedOrder({id,state:{name:'Отменён'}},id).terminal,null);
+});
+
+test('resolves final state by metadata UUID and not a custom label',()=>{
+  const stateId='11111111-1111-4111-8111-111111111111';
+  const catalog={states:[
+    {id:stateId,name:'Выполнен',stateType:'Successful',terminal:true}
+  ]};
+  const raw={state:{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/customerorder/metadata/states/'+stateId},name:'Выполнен'}};
+  assert.deepEqual(resolveOrderState(raw,catalog),{
+    stateType:'Successful',terminal:true,
+    statusEvidence:'metadata_state_id_matched'
+  });
+  assert.equal(resolveOrderState({...raw,state:{...raw.state,name:'Другой'}},catalog).terminal,null);
+  assert.equal(resolveOrderState({state:{name:'Выполнен'}},catalog).terminal,null);
+  assert.equal(resolveOrderState(raw,null).terminal,null);
+  assert.equal(resolveOrderState({...raw,state:{...raw.state,
+    stateType:'Regular'}},catalog).terminal,null);
 });
