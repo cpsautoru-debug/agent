@@ -220,14 +220,6 @@ function showOzonFinanceAudit(data){
     validInt(parity.checkedDays)&&validInt(parity.expectedDays)&&
     parity.checkedDays===a.expectedDays&&
     parity.matchedDays===parity.expectedDays;
-  const g=parity?.granularity;
-  const granularText=g?.comparability==='XLSX_SERVICE_LINES_VS_API_ACCRUAL_ENVELOPES'&&
-    validInt(g.comparedDays)&&validInt(g.differingDays)&&
-    g.differingDays<=g.comparedDays?
-    'Разбивка по положительным/отрицательным строкам отличается за '+
-      g.differingDays+' из '+g.comparedDays+
-      ' сравнимых дней: услуги XLSX и операции API имеют разную детализацию. ':
-    '';
   const sourceReady=r?.complete===true&&
     a.coveredDays===a.expectedDays&&
     data.sourcesMatch.apiVsXlsxKopecks===true&&
@@ -237,47 +229,12 @@ function showOzonFinanceAudit(data){
     sourceReady?'API и XLSX по месяцу совпадают · прибыль отдельно':
       'Источник не подтверждён: требуется сверка',
     sourceReady?'success':'warning');
-  const descriptions={
-    report_missing:'XLSX-отчёт отсутствует',
-    report_api_mismatch:'сумма XLSX и API не совпадает',
-    report_api_aggregate_unverified:'сумма XLSX и API не подтверждена',
-    api_unverified_or_incomplete:'детальная сверка начислений не завершена',
-    api_net_unverified:'начисления по дням не сверены',
-    api_details_unverified:'детали начислений не сверены',
-    cost_missing:'отсутствует себестоимость части товаров',
-    return_recovery_unverified:'возвраты требуют проверки',
-    advertising_overlap_unverified:'возможен двойной учёт рекламы',
-    allocation_missing:'распределение расходов не утверждено',
-    tax_register_missing:'нет подтверждённого налогового регистра',
-    expenses_missing:'неполный реестр расходов'
-  };
-  const blockers=data.blockers.slice(0,10)
-    .map(x=>descriptions[x]||String(x).replaceAll('_',' '));
   const reconciliation=data.reconciliation;
   if(!reconciliation||!validInt(reconciliation.checkedDays)||
-    !validInt(reconciliation.netVerifiedDays)||
     !validInt(reconciliation.detailVerifiedDays)||
-    !validInt(reconciliation.missingAuditDays)||
-    reconciliation.netVerifiedDays>reconciliation.checkedDays||
     reconciliation.detailVerifiedDays>reconciliation.checkedDays||
-    reconciliation.missingAuditDays>reconciliation.checkedDays||
-    !validInt(reconciliation.unresolvedCount)||
-    reconciliation.unresolvedCount>reconciliation.checkedDays||
-    !Array.isArray(reconciliation.unresolvedDays)||
-    reconciliation.unresolvedDays.length>31||
     reconciliation.aggregateParityIsNotDetailReconciliation!==true)
     throw Error('schema');
-  const reconciliationNote=
-    'Формальная сверка Ozon: подтверждены суммы по '+
-    reconciliation.netVerifiedDays+' из '+reconciliation.checkedDays+
-    ' дней; детализация по '+reconciliation.detailVerifiedDays+
-    ' дням. '+reconciliation.missingAuditDays+
-    ' дней без зарегистрированного независимого акта. '+
-    (reconciliation.unresolvedCount?
-      'Не закрыты '+reconciliation.unresolvedCount+
-      ' дней, включая '+reconciliation.unresolvedDays.slice(0,3)
-        .map(x=>x.date).join(', ')+'. ':
-      'Нет незавершённых дневных проверок. ');
   set('ceoOzonAuditNote',
     'Finance API: '+count(a.rows)+' начислений за '+
     a.coveredDays+'/'+a.expectedDays+' дней. XLSX: '+
