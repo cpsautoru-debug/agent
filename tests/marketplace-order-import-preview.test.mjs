@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -97,4 +97,48 @@ test('MoySklad search rejected twice does not invent absence of duplicates',asyn
     }catch(error){return {status:error.status,queries:count};}
   })();
   assert.deepEqual(result,{status:400,queries:2});
+});
+
+test('bounded customerorder list scan finds exact duplicate without unsupported filters',async()=>{
+  const key='AS63:ozon:123:A-1';
+  const requests=[];
+  const scan=await scanMoyskladOrderKeys(async url=>{
+    requests.push(new URL(url));
+    return Response.json({meta:{size:2},rows:[
+      {externalCode:'unrelated'},{externalCode:key}
+    ]});
+  },'test-token',[key]);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].searchParams.get('limit'),'25');
+  assert.equal(requests[0].searchParams.get('offset'),'0');
+  assert.equal(requests[0].searchParams.has('filter'),false);
+  assert.equal(scan.complete,true);
+  assert.equal(scan.matches.get(key),1);
+});
+test('bounded customerorder scan never asserts missing record if truncated',async()=>{
+  const key='AS63:wb:wb-primary:222';
+  const scan=await scanMoyskladOrderKeys(async url=>{
+    const offset=Number(new URL(url).searchParams.get('offset'));
+    return Response.json({meta:{size:500},rows:Array.from({length:25},(_,i)=>({
+      externalCode:'other-'+(offset+i)
+    }))});
+  },'test-token',[key]);
+  assert.equal(scan.complete,false);
+  assert.equal(scan.checkedRows,200);
+  assert.equal(scan.pages,8);
+  assert.equal(scan.matches.get(key),0);
+});
+test('scan failure after one page retains partial match with incomplete evidence',async()=>{
+  const key='AS63:ozon:123:B-1';
+  let n=0;
+  const scan=await scanMoyskladOrderKeys(async()=>{
+    n++;
+    if(n>1)return new Response('{}',{status:400});
+    return Response.json({meta:{size:100},rows:Array.from({length:25},(_,i)=>({
+      externalCode:i===2?key:'other-'+i
+    }))});
+  },'test-token',[key]);
+  assert.equal(scan.complete,false);
+  assert.equal(scan.sourceError,true);
+  assert.equal(scan.matches.get(key),1);
 });
