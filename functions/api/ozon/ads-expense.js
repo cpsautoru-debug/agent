@@ -120,11 +120,48 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         data.fieldNames.length>30||data.fieldNames.some(x=>typeof x!=='string'||
         !/^[a-zA-Z_][a-zA-Z0-9_]{0,80}$/.test(x)))
         return respond(503,{code:'ozon_ads_evidence_unrecognized'});
-      // Only allowlisted, non-monetary diagnostic fields reach the UI.
+      // Independent finance evidence is a diagnostic, NOT permission to
+      // double-deduct ads. Counts/dates may differ between sources.
+      // Always query live D1, scoped to the closed month and known category.
+      const month=url.searchParams.get('month');
+      const [year,mon]=month.split('-').map(Number);
+      const nextMonth=new Date(Date.UTC(year,mon,1)).toISOString().slice(0,10);
+      let finance;
+      try{
+        finance=await env.OZON_FINANCE_DB.prepare(
+          "SELECT COUNT(*) AS all_rows, MIN(operation_date) AS first_date, "+
+          "MAX(operation_date) AS last_date, "+
+          "SUM(CASE WHEN category='Продвижение и реклама' THEN 1 ELSE 0 END) AS ad_rows, "+
+          "COALESCE(SUM(CASE WHEN category='Продвижение и реклама' THEN amount_kopecks ELSE 0 END),0) AS ad_kopecks "+
+          "FROM ozon_accruals WHERE operation_date>=? AND operation_date<? "+
+          "AND source='ozon_accruals_export'"
+        ).bind(month+'-01',nextMonth).first();
+      }catch{
+        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+      }
+      if(!finance||!Number.isSafeInteger(finance.all_rows)||
+        !Number.isSafeInteger(finance.ad_rows)||
+        !Number.isSafeInteger(finance.ad_kopecks)||
+        finance.all_rows<0||finance.ad_rows<0||
+        finance.ad_rows>finance.all_rows)
+        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+      // Only allowlisted diagnostic fields reach the UI. These are
+      // independent accruals, not matched campaign/payment transactions.
       return respond(200,{
         code:'ozon_ads_office_preview',month:data.month,
         source:data.source,readOnly:true,changedRecords:0,
         recordCount:data.recordCount,fieldNames:data.fieldNames,
+        financeAudit:{
+          source:'ozon_accruals_export',
+          month,
+          accrualRows:finance.all_rows,
+          advertisingRows:finance.ad_rows,
+          advertisingAccrualKopecks:finance.ad_kopecks,
+          firstDate:finance.first_date||null,
+          lastDate:finance.last_date||null,
+          matchedToPerformance:false,
+          reconciled:false
+        },
         totalExpenseKopecks:null,
         monetaryTotalsVerified:false,reconciledToFinance:false,
         note:'Источник рекламы отвечает, но сумма не сверена с начислениями Ozon. Не вычитать из прибыли.'
