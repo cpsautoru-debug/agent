@@ -17,6 +17,14 @@ const ACCRUAL_SQL=`SELECT COUNT(*) AS rows_checked,
   FROM ozon_accruals a WHERE operation_date>=? AND operation_date<?`;
 const COST_SQL="SELECT COUNT(*) AS n FROM ozon_cost_entries WHERE status='confirmed'";
 const HISTORY_SQL="SELECT COUNT(*) AS n FROM ozon_sku_costs";
+const MISSING_COSTS_SQL=`SELECT a.sku AS sku,MAX(a.seller_article) AS article,
+  COUNT(*) AS sale_operations,SUM(a.amount_kopecks) AS sales_kop
+  FROM ozon_accruals a
+  WHERE a.operation_date>=? AND a.operation_date<? 
+  AND a.category='Продажи' AND a.sku IS NOT NULL AND a.sku<>''
+  AND NOT EXISTS (SELECT 1 FROM ozon_cost_entries c
+    WHERE c.sku=a.sku AND c.status='confirmed')
+  GROUP BY a.sku ORDER BY ABS(SUM(a.amount_kopecks)) DESC LIMIT 12`;
 function monthBounds(m){
   if(!/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(m))return null;
   const d=new Date(m+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);
@@ -34,9 +42,10 @@ function validReport(r,days){
     r.posting_kopecks+r.item_kopecks+r.non_item_kopecks===
       r.control_total_kopecks);
 }
-export function summarizeOzonFinanceReadiness(month,report,accrual,costs,history={n:0}){
+export function summarizeOzonFinanceReadiness(month,report,accrual,costs,history={n:0},missingProducts=[]){
   const bounds=monthBounds(month);
   if(!bounds||!validReport(report,bounds.days)||
+    !Array.isArray(missingProducts)||missingProducts.length>12||
     !accrual||!costs||
     !['rows_checked','observed_days','sold_skus','covered_sold_skus']
       .every(x=>safeInt(accrual[x]))||
@@ -63,7 +72,15 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs,history
   // Even with all database checks green, independent primary ad, return,
   // tax and bank documents must be reconciled. This audit does not assert
   // verified profit or equivalence of two different source granularities.
+  const missingCostProducts=missingProducts.filter(x=>
+    typeof x?.sku==='string'&&/^[0-9]{1,30}$/.test(x.sku)&&
+    safeInt(x.sale_operations)&&Number.isSafeInteger(x.sales_kop)
+  ).map(x=>({sku:x.sku,
+    article:typeof x.article==='string'?x.article.slice(0,120):null,
+    salesKop:x.sales_kop,operations:x.sale_operations,
+    costStatus:'missing',autoAssignment:false}));
   return {code:'ozon_finance_readiness',readOnly:true,
+    source:'LOCAL_OZON_FINANCE_D1_NOT_FULL_ACCOUNTING_CLOSEOUT',
     month,report:report?{
       processedDays:report.processed_days,
       records:report.records_count,complete:report.complete===1,
@@ -78,7 +95,7 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs,history
     cogs:{confirmedEntries:costs.n,dateEffectiveCostEntries:history.n,
       soldSkus:accrual.sold_skus,
       confirmedSoldSkus:accrual.covered_sold_skus},
-    blockers,externalVerificationRequired:[
+    missingCostProducts,blockers,externalVerificationRequired:[
       'advertising_reconciliation','refund_and_return_recovery',
       'tax_register','bank_statement','expense_allocation',
       'date_effective_cost_and_quantity'
@@ -103,13 +120,14 @@ export function createOzonFinanceReadiness(){
       const owner=await db.prepare(OWNER_SQL)
         .bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
       if(owner?.allowed!==1)return respond(403,{code:'owner_only'});
-      const [report,accrual,costs,history]=await Promise.all([
+      const [report,accrual,costs,history,missingProducts]=await Promise.all([
         db.prepare(REPORT_SQL).bind(month).first(),
         db.prepare(ACCRUAL_SQL).bind(bounds.start,bounds.end).first(),
         db.prepare(COST_SQL).first(),
-        db.prepare(HISTORY_SQL).first()
+        db.prepare(HISTORY_SQL).first(),
+        db.prepare(MISSING_COSTS_SQL).bind(bounds.start,bounds.end).all()
       ]);
-      return respond(200,summarizeOzonFinanceReadiness(month,report,accrual,costs,history));
+      return respond(200,summarizeOzonFinanceReadiness(month,report,accrual,costs,history,missingProducts.results));
     }catch{return respond(503,{code:'finance_audit_unavailable'});}
   };
 }
