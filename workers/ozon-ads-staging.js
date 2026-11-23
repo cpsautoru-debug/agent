@@ -1,3 +1,5 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
+
 // AutoSklad63 — Ozon Performance Ads, read-only and fail-closed.
 // Bindings: OZON_PERFORMANCE_CLIENT_ID, OZON_PERFORMANCE_CLIENT_SECRET,
 // ADS_READ_TOKEN (separate random secret used only by the office backend).
@@ -92,8 +94,12 @@ export async function readOzonExpense(month,env,fetcher=fetch){
     return {status:503,body:{code:'ozon_performance_network_or_schema_error'}};
   }
 }
-export default {
-  async fetch(request,env){
+// A Pages Service Binding with entrypoint:"default" requires a
+// WorkerEntrypoint class, not a plain object export. Preserve the public
+// HTTP handler and all existing protection checks.
+export default class OzonAdsWorker extends WorkerEntrypoint {
+  async fetch(request){
+    const env=this.env;
     const url=new URL(request.url);
     if(request.method!=='GET')return reply(405,{code:'method_not_allowed'});
     if(url.pathname==='/health'&&!url.search)
@@ -114,4 +120,4 @@ export default {
     const outcome=await readOzonExpense(url.searchParams.get('month'),env);
     return reply(outcome.status,outcome.body);
   }
-};
+}
