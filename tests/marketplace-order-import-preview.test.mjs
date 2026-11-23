@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,barcodeValues,matchMoyskladOzonBarcodes,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -379,4 +379,44 @@ test('Ozon product lookup API unavailable does not block zero-write preview',asy
     '1001','test-token',[{items:[{sku:'24086',quantity:1}]}]);
   assert.equal(x.code,'permission_denied');
   assert.equal(x.byOffer.get('24086').status,'not_confirmed');
+});
+
+test('MoySklad barcode evidence matches exactly one item and verifies raw barcode',async()=>{
+  const requests=[];
+  const r=await matchMoyskladOzonBarcodes(async(url,opts)=>{
+    requests.push({url,accept:opts.headers.Accept});
+    return Response.json({meta:{size:1},rows:[
+      {id:'some-ms-item',barcodes:[{ean13:'OZN3559279106'}]}
+    ]});
+  },'test-token',[{items:[{sku:'24086',ozonCatalog:{
+    status:'seller_product_with_barcode',barcodes:['OZN3559279106']
+  }}]}]);
+  assert.equal(r.requests,1);
+  assert.equal(r.bySku.get('24086'),'matched_exact_barcode');
+  assert.equal(r.diagnostics[0].category,'one_exact');
+  assert.equal(new URL(requests[0].url).searchParams.get('filter'),
+    'barcode=OZN3559279106');
+  assert.equal(requests[0].accept,'application/json;charset=utf-8');
+});
+test('MoySklad barcode query cannot prove match without matching barcode value',async()=>{
+  const item={sku:'24086',ozonCatalog:{status:'seller_product_with_barcode',
+    barcodes:['OZN3559279106']}};
+  const r=await matchMoyskladOzonBarcodes(async()=>Response.json({
+    meta:{size:1},rows:[{id:'different',barcodes:[{ean13:'OTHER-CODE'}]}]
+  }),'test-token',[{items:[item]}]);
+  assert.equal(r.bySku.get('24086'),'unverified');
+});
+test('MoySklad barcode checks stop immediately on 429',async()=>{
+  const reqs=[];
+  const x=await matchMoyskladOzonBarcodes(async(url)=>{
+    reqs.push(url);return new Response('{}',{status:429});
+  },'test-token',[{items:[
+    {sku:'24086',ozonCatalog:{status:'seller_product_with_barcode',
+      barcodes:['OZN3559279106']}},
+    {sku:'24703',ozonCatalog:{status:'seller_product_with_barcode',
+      barcodes:['OZN1715262287']}}
+  ]}]);
+  assert.equal(reqs.length,1);
+  assert.equal(x.rateLimited,true);
+  assert.equal(x.bySku.get('24703'),'unverified');
 });
