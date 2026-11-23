@@ -1837,6 +1837,26 @@
         </div>
         <p class="ms-production-note">Область автоматической проверки: только до 10 последних обновлённых документов из исторического реестра. Это не вся незавершёнка и не подтверждение фактической отгрузки. До 12 последовательных GET с паузой не менее 2 секунд; остановка при ограничении API. Исполнители, заказы покупателей, нормы расхода, реальная очередь и дефицит не определяются без подтверждённых связей.</p>
       </section>
+      <section class="ms-command-board" id="msAutoQueue" aria-labelledby="msAutoQueueTitle">
+        <div class="ms-production-header">
+          <div>
+            <h2 id="msAutoQueueTitle">Автоматическая очередь проверки производства</h2>
+            <p>Система сама находит задания с незавершёнными или неподтверждёнными этапами по полному историческому обходу и более свежим данным. До сверки статуса заказа покупателя это кандидаты, а не поручения сотрудникам.</p>
+          </div>
+          <div class="ms-board-actions">
+            <button type="button" class="ms-production-button" id="msAutoQueueRefresh">Обновить очередь</button>
+          </div>
+        </div>
+        <p id="msAutoQueueStatus" class="ms-production-status" role="status">Загрузка очереди начнётся при открытии раздела «Производство».</p>
+        <p id="msAutoQueueSummary" class="ms-production-note"></p>
+        <div class="ms-production-scroll" id="msAutoQueueTable" hidden>
+          <table class="ms-production-table">
+            <thead><tr><th>Задание</th><th>Контроль этапов</th><th>Первый незавершённый этап</th><th>Плановая дата</th><th>Проверено</th><th>Детали</th></tr></thead>
+            <tbody id="msAutoQueueRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Поиск заданий автоматический; номера вводить не нужно. При открытии офис перепроверяет через API до 6 кандидатов за один раз, с ограничением частоты запросов. Список не подтверждает фактический статус заказа покупателя, отгрузку, исполнителя или полную актуальность всего реестра. Ничего не назначается и не списывается автоматически.</p>
+      </section>
       <section class="ms-auto-history" id="msAutoHistory" aria-labelledby="msAutoHistoryTitle">
         <div class="ms-production-header">
           <div>
@@ -2132,6 +2152,7 @@
 <script type="module" src="ms-inventory-control.mjs"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
+<script type="module" src="ms-production-auto-queue.mjs?v=20261123"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
