@@ -1732,6 +1732,7 @@
           <button type="button" id="marketplaceOrderCheckOzon" class="ms-production-detail-button">Проверить Ozon FBS</button>
           <button type="button" id="marketplaceOrderCheckFbo" class="ms-production-detail-button">Проверить Ozon FBO</button>
           <button type="button" id="marketplaceOrderCheckWb" class="ms-production-detail-button">Проверить WB FBS</button>
+          <button type="button" id="marketplaceMsDiagnose" class="ms-production-detail-button">Диагностика МойСклад</button>
         </div>
         <div class="ms-sites-grid" aria-label="Результаты проверки источников">
           <div class="ms-site-card">
@@ -1748,6 +1749,7 @@
           </div>
         </div>
         <p id="marketplaceOrderCheckStatus" class="ms-production-status" role="status">Выберите источник. Создание заказов в «МойСклад» выключено.</p>
+        <p id="marketplaceMsDiagnosticStatus" class="ms-production-status" role="status">Проверка API заказов покупателей «МойСклад» ещё не запускалась.</p>
         <a id="marketplaceOrderLogin" class="ms-production-detail-button" href="/api/auth/google/start?next=production" hidden>Войти через Google для проверки заказов</a>
         <div class="ms-production-scroll">
           <table id="marketplaceOrderCheckTableOzon" class="ms-production-table" hidden>
@@ -2272,7 +2274,7 @@
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
-<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-separated-results"></script>
+<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-moysklad-diagnostics"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
