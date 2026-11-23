@@ -173,12 +173,13 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       const parserIssue=error instanceof SyntaxError?'upstream_invalid_json':
         error?.message==='source_response_too_large'?'upstream_response_too_large':
         error?.message==='missing_body'?'upstream_body_missing':null;
-      const code=parserIssue||['token_rejected','permission_denied','rate_limited',
+      const code=parserIssue||(
+        ['token_rejected','permission_denied','rate_limited',
         'unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
         'source_error'].includes(error?.message)?
-        error.message:'import_preview_unavailable';
+          error.message:'import_preview_unavailable');
       return json(503,{code,source,stage:failedStage,
         upstreamHttp:Number.isInteger(error?.status)?error.status:null,
         readOnly:true,changedRecords:0,approvedForWrite:false});
