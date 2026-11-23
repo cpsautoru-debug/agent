@@ -302,8 +302,11 @@ export async function matchMoyskladArticles(fetcher,token,orders){
       .slice(0,8);
     for(let i=0;i<candidates.length;i+=2){
       await Promise.all(candidates.slice(i,i+2).map(async sku=>{
-        exactQueries+=2;
-        const verified=await verifyExactAssortmentSku(fetcher,token,sku);
+        const countedFetcher=(url,options)=>{
+          exactQueries++;
+          return fetcher(url,options);
+        };
+        const verified=await verifyExactAssortmentSku(countedFetcher,token,sku);
         if(verified==='matched_exact_article'||
           verified==='matched_exact_code'){
           bySku.set(sku,verified);
