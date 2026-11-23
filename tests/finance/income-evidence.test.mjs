@@ -22,6 +22,9 @@ test('income evidence identifies source figures without calling payouts tax reve
  assert.equal(result.ozon.serviceAmounts['Баллы за скидки'].amountKopecks,1800);
  assert.equal(result.wb.operationAmounts['Продажа'].forPayKopecks,5000);
  assert.equal(result.ozon.taxIncomeConfirmed,false);
+ assert.equal(result.ozon.taxDocumentPresent,false);
+ assert.equal(result.wb.reportPeriodComplete,true);
+ assert.deepEqual(result.wb.reportTypeCoverage[0].missingDates,[]);
  assert.equal(result.ozon.nonAdditiveTotals,true);
  assert.equal(result.ozon.classification.discountPoints.status,
    'marketplace_bonus_not_separate_sales_revenue');
@@ -49,4 +52,22 @@ test('endpoint is restricted to closed months and owner session',async()=>{
  assert.equal((await handler({request:new Request(base,{method:'POST'}),env:{}})).status,405);
  assert.equal((await handler({request:new Request(base.replace('2026-10','2026-11')),env:{}})).status,400);
  assert.equal((await handler({request:new Request(base),env:{}})).status,503);
+});
+
+test('WB report coverage distinguishes missing periods from complete rows',()=>{
+ const partial={...wb,reports:[
+  {...wb.reports[0],date_to:'2026-10-15'}]};
+ const result=summarizeIncomeEvidence(month,finance,partial);
+ assert.equal(result.wb.reportPeriodComplete,false);
+ assert.equal(result.wb.reportTypeCoverage[0].missingDates.length,16);
+ assert.equal(result.distributionReady,false);
+});
+test('overlapping intervals cannot masquerade as full coverage',()=>{
+ const duplicatePeriods={...wb,reports:[
+  {...wb.reports[0],date_from:'2026-10-01',date_to:'2026-10-15',row_count:3},
+  {...wb.reports[0],date_from:'2026-10-15',date_to:'2026-10-31',row_count:2}
+ ]};
+ const result=summarizeIncomeEvidence(month,finance,duplicatePeriods);
+ assert.equal(result.wb.reportTypeCoverage[0].overlappingDays,1);
+ assert.equal(result.wb.reportPeriodComplete,false);
 });
