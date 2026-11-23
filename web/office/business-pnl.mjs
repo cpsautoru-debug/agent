@@ -1,6 +1,7 @@
 import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs';
 import {summarizeOzonProvisionalProfit} from './ozon-provisional-profit.mjs';
 import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
+import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
  avito:'Авито',offline:'Магазин · Пламя'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
@@ -121,10 +122,17 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
       if(ozon.status==='provisional_known_cost_result'){
        base.channels.ozon={status:'known_cost_result',
          profitKopecks:ozon.beforeAllocationKopecks};
-       sourceNotes.ozon=ozon.reviewWarnings?.length?
-         'Совпадающие строки услуг Ozon требуют детальной проверки. '+
-         'Промежуточный результат сверяется по общим суммам; это не окончательная прибыль.':
-         'Начисления и себестоимость сверены. Банковское и налоговое закрытие отдельно.';
+       const gr=data.result?.report?.groups;
+       const sales=Array.isArray(gr)?gr.find(x=>x.name==='Продажи')?.amountKopecks:null;
+       const returns=Array.isArray(gr)?gr.find(x=>x.name==='Возвраты')?.amountKopecks:null;
+       const basis=Number.isSafeInteger(sales)&&Number.isSafeInteger(returns)?
+         sales+returns:null;
+       sourceNotes.ozon='Рентабельность после прямых затрат: '+
+         displayRate(financeRateBps(ozon.beforeAllocationKopecks,basis))+'. '+
+         (ozon.reviewWarnings?.length?
+           'Совпадающие строки услуг требуют детальной проверки. ':
+           'Начисления и себестоимость сверены. ')+
+         'Итоговая прибыль всего бизнеса отдельно.';
       }else sourceNotes.ozon='Недостаточно подтверждений: '+
         (ozon.missingEvidence?.join(', ')||'источники пока не сверены')+'.';
      }catch(e){error=e;}
@@ -137,7 +145,11 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
       if(!response.ok)throw Error('wb_month_settlement_unavailable');
       const wb=validateDashboardWbMonth(await response.json(),month);
       interim.wb=wb;
-      sourceNotes.wb=wb.reports+' отчётов, '+wb.rows+
+      const basis=wb.breakdown[0][1]+wb.breakdown[1][1];
+      sourceNotes.wb='После удержаний WB остаётся '+
+       displayRate(financeRateBps(wb.amountKopecks,basis))+
+       ' от суммы после возвратов (это НЕ прибыль). '+
+       wb.reports+' отчётов, '+wb.rows+
        ' операций. Себестоимость подтверждена для '+
        wb.confirmedCostArticles+' из '+wb.soldArticles+
        ' проданных артикулов ('+wb.preliminaryCostArticles+
