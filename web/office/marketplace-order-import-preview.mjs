@@ -100,21 +100,28 @@
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
           order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
+          order.duplicateLookup==='source_error'||
+            order.duplicateLookup==='skipped_after_source_error'?
+            'МойСклад не ответил · дубль не исключён':
           order.duplicateLookup==='context_search'?
             'Поиск без точного фильтра · дубль не исключён':
             'Не подтверждено');
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
-      setSource(source,'Ответ API принят, заказов в выборке: '+
-        data.counts.received+'; неопределённых сверок: '+
+      setSource(source,'Маркетплейс ответил: '+data.counts.received+
+        ' заказов. Неопределённых сверок с «МойСклад»: '+
         data.counts.uncertain+'. Запись отключена.');
       status.textContent='Проверка выполнена: '+data.counts.received+
         ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
         data.counts.existing+', не найдены: '+data.counts.notFound+
         ', не подтверждены: '+data.counts.uncertain+
         (data.duplicateLookupMode==='CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE'?
-          '. МойСклад отклонил точный фильтр: пустой поиск не исключает дубликат.':'')+
+          '. МойСклад отклонил точный фильтр: пустой поиск не исключает дубликат.':
+          data.duplicateLookupMode==='UNVERIFIED_SOURCE_ERROR'?
+          '. Сверка дублей не выполнена: МойСклад отклонил запрос'+
+            (Number.isInteger(data.duplicateLookupFailure?.http)?
+              ' (HTTP '+data.duplicateLookupFailure.http+')':'')+'.':'')+
         '. Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
       const result='Сервис недоступен или ответ не прошёл проверку. '+
