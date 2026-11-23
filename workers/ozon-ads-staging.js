@@ -100,8 +100,13 @@ export async function readOzonExpense(month,env,fetcher=fetch){
 // JS floating point round-off and silently substituting 0 for missing values.
 function decimalKopecks(value){
   if(typeof value!=='string'&&typeof value!=='number')return null;
-  const text=String(value);
-  if(!/^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(text))return null;
+  // Ozon sometimes serializes display-formatted rubles: decimal comma,
+  // grouping spaces or non-breaking spaces. Never guess currency units.
+  const normalized=String(value).trim().replace(/[\u00a0\u202f ]/g,'')
+    .replace(',', '.');
+  if(!/^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(normalized))
+    return null;
+  const text=normalized;
   const negative=text.startsWith('-');
   const unsigned=negative?text.slice(1):text;
   const [rub,frac='']=unsigned.split('.');
@@ -112,19 +117,30 @@ function decimalKopecks(value){
 }
 function expenseColumnAudit(rows,field){
   let sum=0n,missing=0,invalid=0,valid=0;
+  const invalidFormats={object:0,array:0,boolean:0,decimalPrecision:0,other:0};
   for(const row of rows){
     if(!Object.hasOwn(row,field)||row[field]===null||row[field]===''){
       missing++;continue;
     }
     const n=decimalKopecks(row[field]);
-    if(n===null){invalid++;continue;}
+    if(n===null){
+      invalid++;
+      const value=row[field];
+      const kind=Array.isArray(value)?'array':
+        value&&typeof value==='object'?'object':
+        typeof value==='boolean'?'boolean':
+        typeof value==='string'&&/[.,]\d{3,}$/.test(value.trim())?
+          'decimalPrecision':'other';
+      invalidFormats[kind]++;
+      continue;
+    }
     sum+=BigInt(n);valid++;
   }
   const total=valid===rows.length&&rows.length>0&&
     sum<=BigInt(Number.MAX_SAFE_INTEGER)&&sum>=BigInt(Number.MIN_SAFE_INTEGER)
     ?Number(sum):null;
   return {field,validRows:valid,missingRows:missing,invalidRows:invalid,
-    rawColumnSumKopecks:total,sourceReconciled:false};
+    invalidFormats,rawColumnSumKopecks:total,sourceReconciled:false};
 }
 
 // Use one guarded implementation for both the public default entrypoint

@@ -32,6 +32,10 @@ export function describeOzonAdsEvidence(data,month){
       !Number.isSafeInteger(x.missingRows)||x.missingRows<0||
       !Number.isSafeInteger(x.invalidRows)||x.invalidRows<0||
       x.validRows+x.missingRows+x.invalidRows!==data.recordCount||
+      !x.invalidFormats||typeof x.invalidFormats!=='object'||
+      ['object','array','boolean','decimalPrecision','other'].some(k=>
+        !Number.isSafeInteger(x.invalidFormats[k])||x.invalidFormats[k]<0)||
+      Object.values(x.invalidFormats).reduce((s,n)=>s+n,0)!==x.invalidRows||
       (x.rawColumnSumKopecks!==null&&!Number.isSafeInteger(x.rawColumnSumKopecks))||
       x.sourceReconciled!==false))throw Error('unverified_column_audit');
     const format=n=>(n/100).toLocaleString('ru-RU',{
@@ -39,7 +43,13 @@ export function describeOzonAdsEvidence(data,month){
     columnDetails=' Отдельные суммы полей Performance API (не складывать): '+
       col.map(x=>x.field+' = '+(x.rawColumnSumKopecks===null?'не подтверждено':
       format(x.rawColumnSumKopecks))+
-      ' [заполнено '+x.validRows+'/'+data.recordCount+']').join('; ')+'.';
+      ' [распознано '+x.validRows+'/'+data.recordCount+
+      ', отсутствует '+x.missingRows+', неверный формат '+x.invalidRows+
+      (x.invalidRows?', из них объекты '+x.invalidFormats.object+
+      ', массивы '+x.invalidFormats.array+
+      ', точность >2 знаков '+x.invalidFormats.decimalPrecision+
+      ', прочее '+(x.invalidFormats.other+x.invalidFormats.boolean):'')+
+      ']').join('; ')+'.';
   }
   return 'Ozon Performance API: '+data.recordCount+' строк за '+month+
     '. Отдельный источник D1 (ozon_accruals_export): '+
