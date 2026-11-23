@@ -84,6 +84,7 @@
       const note=document.createElement('small');note.textContent=row.detail;
       card.append(title,amount,note);$('profitCards').append(card);
     }
+    window.OzonFinanceMetrics?.update(result,readiness);
     const ad=result.advertisingAudit;
     if(ad?.source==='OZON_REPORT_SERVICE_VS_MANUAL_EXPENSE_LABELS'&&
       ad.readOnly===true&&ad.changedRecords===0&&
