@@ -67,6 +67,23 @@ async function limitedJson(response){
   return JSON.parse(result);
 }
 
+// Customer-order references are evidence of linkage only. They do not
+// prove the order is still open, fulfilled, paid, or assigned to production.
+export function summarizeCustomerOrderLinks(value){
+  if(value===undefined||value===null)return {status:'unverified',count:null};
+  if(!Array.isArray(value)||value.length>100)return {status:'unverified',count:null};
+  const seen=new Set();
+  for(const entry of value){
+    const href=entry?.meta?.href;
+    const match=typeof href==='string'&&
+      /^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/customerorder\/([a-f0-9-]{36})$/i.exec(href);
+    if(!match||!UUID.test(match[1])||seen.has(match[1].toLowerCase()))
+      return {status:'unverified',count:null};
+    seen.add(match[1].toLowerCase());
+  }
+  return {status:value.length>0?'linked':'none',count:value.length};
+}
+
 export function summarizeProductionFeed(payload,scope={offset:0,number:null}){
   if(!Number.isInteger(payload?.meta?.size)||payload.meta.size<0||
     !Array.isArray(payload?.rows)||payload.rows.length>SIZE)
@@ -84,7 +101,8 @@ export function summarizeProductionFeed(payload,scope={offset:0,number:null}){
       id,number:row.name,date:row.moment,
       updated:typeof row.updated==='string'&&row.updated.length<=40?row.updated:null,
       plannedDate,
-      documentPosted:typeof row.applicable==='boolean'?row.applicable:null
+      documentPosted:typeof row.applicable==='boolean'?row.applicable:null,
+      customerOrderLinks:summarizeCustomerOrderLinks(row.customerOrders)
     };
   });
   return {
