@@ -25,17 +25,35 @@ export function summarizeCanonicalOzonAdvertising(month,profit,api){
     rows.length>100000||rows.some(r=>
       !Number.isSafeInteger(r.amountKopecks)||typeof r.date!=='string'))
     throw Error('invalid_canonical_advertising_rows');
-  let amount=0;
+  let amount=0,performanceComparableKopecks=0,premiumKopecks=0;
+  let comparableRows=0,premiumRows=0,otherRows=0;
   for(const row of rows){
     amount+=row.amountKopecks;
     if(!Number.isSafeInteger(amount))throw Error('invalid_advertising_total');
+    if(typeof row.service!=='string')throw Error('invalid_advertising_service');
+    if(row.service==='Продвижение с оплатой за заказ'||
+       row.service==='Оплата за клик'){
+      performanceComparableKopecks+=row.amountKopecks;
+      comparableRows++;
+    }else if(row.service==='Подписка Premium Plus'){
+      premiumKopecks+=row.amountKopecks;
+      premiumRows++;
+    }else otherRows++;
   }
+  if(!Number.isSafeInteger(performanceComparableKopecks)||
+     !Number.isSafeInteger(premiumKopecks)||
+     !Number.isSafeInteger(amount-performanceComparableKopecks-premiumKopecks))
+    throw Error('invalid_advertising_total');
   const bounds=monthBounds(month);
   const dates=[...new Set(rows.map(r=>r.date))].sort();
   return {
     source:'CANONICAL_OZON_FINANCE_XLSX',month,
     accrualRows:profit.report.rows,
     advertisingRows:rows.length,advertisingAccrualKopecks:amount,
+    performanceComparableKopecks,comparableRows,
+    premiumKopecks,premiumRows,otherRows,
+    // Arithmetic-only evidence. Never infer individual campaign/payment identity.
+    performanceSourceReconciled:false,
     firstDate:dates[0]||null,lastDate:dates.at(-1)||null,
     daysWithAdvertisingRows:dates.length,daysInMonth:bounds.days,
     financeApiCoveredDays:api.coveredDays,
