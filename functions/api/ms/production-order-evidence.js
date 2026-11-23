@@ -41,8 +41,14 @@ export function summarizeLinkedOrder(order,id){
   const posted=typeof order.applicable==='boolean'?order.applicable:null;
   const state=limited(order.state?.name,100);
   const updated=limited(order.updated,40);
+  const type=order.state?.stateType;
+  const knownType=['Regular','Successful','Unsuccessful'].includes(type);
+  // A final state can be evidenced by the source type, never by guessing
+  // from the custom label. Regular is NOT proof that work is still required.
   return {verification:state?'state_read':'state_missing',
-    posted,stateName:state,updated};
+    posted,stateName:state,updated,
+    stateType:knownType?type:null,
+    terminal:knownType?(type!=='Regular'):null};
 }
 async function fetchJson(fetcher,url,token){
   const res=await fetcher(url,{method:'GET',redirect:'manual',
