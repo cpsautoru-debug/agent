@@ -46,7 +46,8 @@ function makeOzonCards(result,readiness,ownerAmounts){
    'Продвижение и реклама','Услуги партнёров','Услуги FBO',
    'Озон Технологии','Другие услуги и штрафы'
  ];
- const grouped=new Map(),groupValid=!!groups;
+ const grouped=new Map();
+ let groupValid=!!groups;
  if(groupValid){
    for(const entry of groups){
      if(!allowedGroups.includes(entry?.name)||!ok(entry.amountKopecks)||
