@@ -169,11 +169,17 @@
         (data.duplicateScan?.complete===true?
           ' Обход ограниченного реестра завершён.':
           ' Полный реестр не подтверждён — отсутствие дублей не доказано.')+
-        ' Ассортимент «МойСклад»: просмотрено '+
-        (data.assortmentCoverage?.checkedRows||0)+' позиций, '+
+        (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?
+          ' Режим защиты API: не больше 2 SKU за запуск, без массового обхода каталога. Точечных запросов: '+
+            (data.assortmentCoverage.exactQueries||0)+'.':
+          ' Ассортимент «МойСклад»: просмотрено '+
+            (data.assortmentCoverage?.checkedRows||0)+' позиций, '+
+            (data.assortmentCoverage?.pages||0)+' страниц'+
+            (data.assortmentCoverage?.complete===true?
+              ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.'))+
+        (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?'':
         (data.assortmentCoverage?.pages||0)+' страниц'+
-        (data.assortmentCoverage?.complete===true?
-          ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.')+
+        '')+
         (Number.isSafeInteger(data.assortmentCoverage?.confirmedByFilter)&&
           data.assortmentCoverage.confirmedByFilter>0?
           ' Точно подтверждено по отдельным запросам: '+
