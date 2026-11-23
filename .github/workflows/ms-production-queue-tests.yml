@@ -7,6 +7,8 @@ on:
       - 'functions/api/marketplace/order-import-preview.js'
       - 'web/office/marketplace-order-import-preview.mjs'
       - 'tests/marketplace-order-import-preview.test.mjs'
+      - 'functions/api/marketplace/moysklad-order-diagnostic.js'
+      - 'tests/moysklad-order-diagnostic.test.mjs'
       - 'functions/api/ms/customer-order-status-catalog.js'
       - 'web/office/ms-customer-order-states.mjs'
       - 'tests/ms-customer-order-status-catalog.test.mjs'
@@ -32,4 +34,4 @@ jobs:
         with:
           node-version: '22'
       - name: Validate owner-only queue and order evidence
-        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs tests/ms-production-queue-selection.test.mjs tests/ms-customer-order-status-catalog.test.mjs tests/marketplace-order-import-preview.test.mjs
+        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs tests/ms-production-queue-selection.test.mjs tests/ms-customer-order-status-catalog.test.mjs tests/marketplace-order-import-preview.test.mjs tests/moysklad-order-diagnostic.test.mjs
