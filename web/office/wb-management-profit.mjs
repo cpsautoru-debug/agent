@@ -13,7 +13,8 @@ export function wbMonthManagementMetrics(source,month){
  if(!Number.isSafeInteger(basis)||basis<=0)throw Error('invalid_wb_basis');
  return {...x,month,basisKopecks:basis,
   afterChargesRateBps:financeRateBps(x.amountKopecks,basis),
-  costComplete:false,profitKopecks:null};
+  costComplete:x.managementCost?.status==='known_cost_result',
+  profitKopecks:x.managementCost?.contributionKopecks??null};
 }
 export function attachWbFinancialPnl({documentRef=document,fetcher=fetch}={}){
  const root=documentRef.getElementById('wbManagementProfit');
@@ -57,15 +58,33 @@ export function attachWbFinancialPnl({documentRef=document,fetcher=fetch}={}){
    }
    cards.append(row(documentRef,'Доля после удержаний к сумме после возвратов',
      displayRate(result.afterChargesRateBps),'separate'));
-   cards.append(row(documentRef,'Себестоимость товаров WB','Не подтверждена','pending'));
-   cards.append(row(documentRef,'Валовая прибыль WB','Пока не рассчитана','pending'));
-   cards.append(row(documentRef,'Операционная прибыль WB','Пока не рассчитана','pending'));
+   const c=result.managementCost;
+   if(c){
+    cards.append(row(documentRef,'Себестоимость проданных товаров WB',
+      money(-c.grossManufacturingCostKopecks)));
+    cards.append(row(documentRef,'Восстановление себестоимости пригодных возвратов',
+      money(c.recoveredReturnCostKopecks)));
+    cards.append(row(documentRef,'Себестоимость WB · нетто',
+      money(-c.netManufacturingCostKopecks)));
+    cards.append(row(documentRef,'Результат товаров WB до удержаний, после себестоимости',
+      money(result.basisKopecks-c.netManufacturingCostKopecks),'interim'));
+    cards.append(row(documentRef,'Операционный результат WB · после известных прямых затрат',
+      money(c.contributionKopecks),'interim'));
+    cards.append(row(documentRef,'Операционная рентабельность WB по расчётной базе',
+      displayRate(financeRateBps(c.contributionKopecks,result.basisKopecks)),'separate'));
+   }else{
+    cards.append(row(documentRef,'Себестоимость товаров WB','Требуется сверка','pending'));
+    cards.append(row(documentRef,'Результат WB после себестоимости',
+      'Пока не рассчитан','pending'));
+   }
    cards.append(row(documentRef,'Чистая прибыль всего бизнеса','Ожидает закрытия','pending'));
    status.textContent='Сверены '+result.reports+' отчётов, '+result.rows+
-    ' операций. Себестоимость подтверждена: '+result.confirmedCostArticles+
-    ' из '+result.soldArticles+' артикулов; предварительная: '+
-    result.preliminaryCostArticles+
-    '. Показатель после удержаний НЕ является прибылью. Внешняя реклама, общие расходы и налог отдельно.';
+    ' операций. '+(c?
+      'Из 9 сохранённых XLSX подтверждены затраты на 173 продажи по 35 артикулам и восстановление себестоимости 6 пригодных возвратов. '+
+      'Результат после известных прямых затрат '+money(c.contributionKopecks)+
+      ' — управленческий, не окончательная чистая прибыль.':
+      'Себестоимость ещё не сверена.')+
+    ' Внешняя реклама, общие расходы и налог отдельно.';
    button.disabled=false;button.textContent='Обновить отчёт WB';
    try{
     const prev=previousMonth(month);
