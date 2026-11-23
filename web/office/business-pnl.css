@@ -14,3 +14,13 @@
 .business-pnl-row:last-child{font-size:1.1rem;font-weight:700;border-top:2px solid #b7cee2;margin-top:7px}
 .business-pnl-disclaimer{font-size:.875rem;color:#856325;line-height:1.5;margin:14px 0 0}
 @media(max-width:600px){.business-pnl{padding:14px}.business-pnl-row{align-items:flex-start}.business-pnl-row strong{white-space:normal}.business-pnl-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.business-pnl-card{padding:12px}.business-pnl-card strong{font-size:1.1rem}}
+
+.business-pnl-subhead{display:block;font-weight:600;color:#46647b;margin-top:7px}
+.business-pnl-interim-value{display:block;font-size:1.45rem!important;color:#0f6c81;line-height:1.25}
+.business-pnl-interim-warning{color:#815d24!important;line-height:1.4}
+.business-pnl-wb-details{border-top:1px solid #dde5ed;padding-top:9px;margin-top:3px}
+.business-pnl-wb-details summary{cursor:pointer;color:#2757a4;font-size:.85rem;font-weight:600}
+.business-pnl-wb-line{display:flex;justify-content:space-between;gap:8px;font-size:.8rem;padding:5px 0;border-bottom:1px solid #f0f3f7}
+.business-pnl-wb-line strong{text-align:right;white-space:nowrap;font-size:.8rem!important}
+.business-pnl-evidence{overflow-wrap:anywhere}
+@media(max-width:600px){.business-pnl-interim-value{font-size:1.1rem!important}.business-pnl-wb-line{flex-wrap:wrap}}
