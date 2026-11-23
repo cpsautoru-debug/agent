@@ -7,6 +7,8 @@ on:
       - 'functions/api/ozon/finance-readiness.test.mjs'
       - 'functions/api/ozon/daily-parity.js'
       - 'functions/api/ozon/daily-parity.test.mjs'
+      - 'functions/api/ozon/ads-expense.js'
+      - 'functions/api/ozon/ads-expense.test.mjs'
       - 'functions/api/ozon/profit.js'
       - 'functions/api/ozon/profit-model.js'
       - '.github/workflows/ozon-finance-readiness-tests.yml'
@@ -16,6 +18,8 @@ on:
       - 'functions/api/ozon/finance-readiness.test.mjs'
       - 'functions/api/ozon/daily-parity.js'
       - 'functions/api/ozon/daily-parity.test.mjs'
+      - 'functions/api/ozon/ads-expense.js'
+      - 'functions/api/ozon/ads-expense.test.mjs'
       - 'functions/api/ozon/profit.js'
       - 'functions/api/ozon/profit-model.js'
       - '.github/workflows/ozon-finance-readiness-tests.yml'
@@ -27,4 +31,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test functions/api/ozon/finance-readiness.test.mjs functions/api/ozon/daily-parity.test.mjs
+      - run: node --test functions/api/ozon/finance-readiness.test.mjs functions/api/ozon/daily-parity.test.mjs functions/api/ozon/ads-expense.test.mjs
