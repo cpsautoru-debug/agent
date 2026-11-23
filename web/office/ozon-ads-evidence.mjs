@@ -8,9 +8,24 @@ export function describeOzonAdsEvidence(data,month){
     data.monetaryTotalsVerified!==false||
     data.reconciledToFinance!==false)
     throw Error('unverified_ads_source');
-  return 'Ozon Performance API отвечает. Строк за '+month+': '+
-    data.recordCount+'. Расходы пока НЕ СВЕРЕНЫ с начислениями Ozon Finance.'+
-    ' Рекламные суммы не прибавляются и не вычитаются из прибыли.';
+  const a=data.financeAudit;
+  if(!a||a.month!==month||a.source!=='ozon_accruals_export'||
+    !Number.isSafeInteger(a.accrualRows)||a.accrualRows<0||
+    !Number.isSafeInteger(a.advertisingRows)||a.advertisingRows<0||
+    !Number.isSafeInteger(a.advertisingAccrualKopecks)||
+    a.advertisingRows>a.accrualRows||a.matchedToPerformance!==false||
+    a.reconciled!==false)
+    throw Error('unverified_finance_audit');
+  const amount=(Math.abs(a.advertisingAccrualKopecks)/100)
+    .toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const last=a.lastDate||'нет дат';
+  return 'Ozon Performance API: '+data.recordCount+' строк за '+month+
+    '. Отдельный источник D1 (ozon_accruals_export): '+
+    a.advertisingRows+' рекламных строк из '+a.accrualRows+
+    ' начислений, сумма '+(a.advertisingAccrualKopecks<0?'-':'')+
+    amount+' ₽, последняя дата '+last+
+    '. Источники имеют разную детализацию и пока НЕ СВЕРЕНЫ. '+
+    'Это не сумма расходов Performance API. Реклама повторно из прибыли не вычитается.';
 }
 export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locationRef=location}={}){
   const status=documentRef.getElementById('profitOzonAdsApiStatus');
@@ -39,6 +54,7 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
           ads_bridge_secret_missing:'Сервер Pages не получил ADS_READ_TOKEN. Проверьте Production и новый деплой.',
           ads_bridge_secret_too_short:'ADS_READ_TOKEN доступен Pages, но его длина меньше 32 символов. Проверьте значение секрета.',
           ads_bridge_token_rejected:'Секреты Pages и Worker не совпадают.',
+          ozon_ads_finance_audit_unavailable:'Не удалось проверить начисления Ozon в D1: суммы не подтверждены.',
           ozon_expense_schema_unverified:'Ответ Ozon получен, но формат расходов требует проверки.',
           ozon_ads_source_unavailable:'Ozon Ads не отвечает. Требуется проверка соединения.',
           ads_service_binding_missing:'Работающий деплой Pages не видит Service Binding OZON_ADS_WORKER. Проверьте Production и повторную публикацию после создания привязки.',
