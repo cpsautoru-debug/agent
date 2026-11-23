@@ -166,7 +166,8 @@ function showOzonFinanceAudit(data){
     throw Error('schema');
   const r=data.report,a=data.accruals,c=data.cogs;
   if(![a.rows,a.observedDays,a.expectedDays,c.soldSkus,
-    c.confirmedSoldSkus,c.confirmedEntries].every(x=>validInt(x)&&x>=0)||
+    c.confirmedSoldSkus,c.confirmedEntries,
+    c.dateEffectiveCostEntries].every(x=>validInt(x)&&x>=0)||
     !validInt(a.totalKop)||c.confirmedSoldSkus>c.soldSkus||
     a.observedDays>a.expectedDays||
     (r&&!validInt(r.controlTotalKop)))throw Error('schema');
@@ -181,13 +182,15 @@ function showOzonFinanceAudit(data){
     report_not_reconciled:'финансовый отчёт не сверен',
     report_not_final:'финансовый отчёт не окончательный',
     accrual_sync_coverage_unverified:'полнота синхронизации начислений не подтверждена',
-    costs_missing_for_sold_skus:'себестоимость подтверждена не для всех проданных SKU'
+    costs_missing_for_sold_skus:'базовая себестоимость известна не для всех проданных SKU',
+    date_effective_costs_missing:'нет себестоимости с датами действия для операций'
   };
   const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
   set('ceoOzonAuditNote',
     'Начисления: '+count(a.rows)+' операций, даты операций '+a.observedDays+
     ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: +c.confirmedSoldSkus+
-    ' из '+c.soldSkus+' продававшихся SKU. Отчёт: '+
+    ' из '+c.soldSkus+' продававшихся SKU имеют базовую себестоимость. '+
+    'Исторических записей себестоимости: '+c.dateEffectiveCostEntries+'. Отчёт: '+
     (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
       'отсутствует')+'. Не завершено: '+blockers.join('; ')+
     '. Чистая прибыль не подтверждена.');
