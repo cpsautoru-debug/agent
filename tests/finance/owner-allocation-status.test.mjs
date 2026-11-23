@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {summarizeOctoberAllocation,describeOctoberAllocation}
+import {summarizeOctoberAllocation,describeOctoberAllocation,
+ consolidatedIpAfterTax}
  from '../../web/office/owner-allocation-status.mjs';
 test('owner tax and expenses remain visible without fabricated channel allocation',()=>{
  const s=summarizeOctoberAllocation();
@@ -12,8 +13,9 @@ test('owner tax and expenses remain visible without fabricated channel allocatio
  assert.equal(s.taxVerifiedByFNS,false);
  assert.equal(s.verifiedNetProfit,false);
  const t=describeOctoberAllocation(s);
- assert.match(t,/доля не рассчитана/);
- assert.match(t,/Чистая прибыль остаётся неподтверждённой/);
+ assert.match(t,/НЕ распределяется/);
+ assert.match(t,/ОДИН РАЗ/);
+ assert.match(t,/Подтверждённая чистая прибыль пока недоступна/);
 });
 test('full declared inputs calculate separate entity tax and business overhead',()=>{
  const s=summarizeOctoberAllocation({
@@ -21,9 +23,10 @@ test('full declared inputs calculate separate entity tax and business overhead',
   taxIncome:{ozon:3,wb:1},
   revenue:{ozon:3,wb:1,yandex:2,avito:2,offline:2}
  });
- assert.equal(s.taxAllocation.allocatedTotalKopecks,20550700);
+ assert.equal(s.taxAllocation,null);
+ assert.equal(s.taxAccountingMode,'entity_only_no_channel_allocation');
  assert.equal(s.overheadAllocation.allocatedTotalKopecks,5400000);
- assert.equal(s.taxAllocation.allocations.yandex,null);
+ assert.equal(s.taxAllocation,null);
  assert.equal(s.verifiedNetProfit,false);
 });
 test('unknown channel prevents ratio even if other income values exist',()=>{
@@ -32,7 +35,7 @@ test('unknown channel prevents ratio even if other income values exist',()=>{
   taxIncome:{ozon:100000,wb:null},
   revenue:{ozon:100000,wb:null}
  });
- assert.equal(s.taxAllocation.status,'incomplete');
+ assert.equal(s.taxAllocation,null);
  assert.equal(s.overheadAllocation.status,'incomplete');
 });
 test('owner status is wired to the office without any persistence',()=>{
@@ -41,4 +44,16 @@ test('owner status is wired to the office without any persistence',()=>{
  assert.match(html,/id="profitOwnerAllocation"/);
  assert.match(html,/owner-allocation-status.mjs/);
  assert.doesNotMatch(js,/localStorage|fetch\(|innerHTML|\.put\(|\.post\(/);
+});
+
+test('AUSN is deducted only once from complete consolidated IP profit',()=>{
+ const x=consolidatedIpAfterTax({profitBeforeTaxKopecks:50000000,
+   allIpChannelsComplete:true});
+ assert.equal(x.status,'management_estimate');
+ assert.equal(x.taxKopecks,20550700);
+ assert.equal(x.profitAfterTaxKopecks,29449300);
+ assert.equal(x.scope,'IP_ONLY');
+ const missing=consolidatedIpAfterTax({profitBeforeTaxKopecks:50000000});
+ assert.equal(missing.status,'incomplete');
+ assert.equal(missing.profitAfterTaxKopecks,null);
 });
