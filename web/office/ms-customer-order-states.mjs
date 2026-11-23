@@ -17,7 +17,11 @@
     Number.isSafeInteger(data.count)&&data.count>=0&&data.count<=100&&
     Array.isArray(data.states)&&data.states.length===data.count&&
     data.states.every(s=>UUID.test(s?.id)&&typeof s.name==='string'&&
-      s.name.length>0&&s.name.length<=100)&&
+      s.name.length>0&&s.name.length<=100&&
+      (s.stateType===null||['Regular','Successful','Unsuccessful'].includes(s.stateType))&&
+      (s.terminal===null||typeof s.terminal==='boolean')&&
+      (s.stateType===null?s.terminal===null:
+        s.terminal===(s.stateType!=='Regular')))&&
     new Set(data.states.map(s=>s.id.toLowerCase())).size===data.count;
   async function load(){
     if(busy||!active())return;
@@ -33,7 +37,10 @@
       if(!valid(data))throw Error('schema');
       for(const state of data.states){
         const span=document.createElement('span');
-        span.textContent=state.name;
+        const type=state.stateType==='Successful'?'финальный положительный':
+          state.stateType==='Unsuccessful'?'финальный отрицательный':
+          state.stateType==='Regular'?'обычный':'тип не подтверждён';
+        span.textContent=state.name+' · '+type;
         list.append(span);
       }
       list.hidden=data.count===0;
