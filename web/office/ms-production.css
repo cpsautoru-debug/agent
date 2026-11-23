@@ -228,3 +228,24 @@
 
 /* Keep old broad merchandise report out of the production dashboard. */
 .ms-stock-section[hidden]{display:none!important}
+
+
+/* Production sites are an organizational directory, not live MoySklad data. */
+.ms-sites{background:#fff;border:1px solid #dfe6de;border-radius:16px;padding:23px;margin:24px 0}
+.ms-sites-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.ms-site-card{min-width:0;background:#f7faf6;border:1px solid #dfe9df;border-radius:13px;padding:18px}
+.ms-site-card.is-planned{background:#faf9f4;border-color:#e9e5d8}
+.ms-site-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px}
+.ms-site-top h3{font-size:15px;line-height:1.5;color:#193b2c;margin:0}
+.ms-site-state{font-size:11px;font-weight:700;border-radius:99px;padding:5px 10px;white-space:nowrap}
+.ms-site-state.is-active{background:#dfeedd;color:#286341}
+.ms-site-state.is-planned{background:#f1ead7;color:#776331}
+.ms-site-card p{font-size:12px;line-height:1.65;color:#3f564a;margin:12px 0 0}
+.ms-site-card p.ms-site-small{font-size:11px;color:#6b7871}
+.ms-sites-route{margin-top:16px;background:#f6f8f2;border-radius:12px;padding:17px}
+.ms-sites-route strong{font-size:13px}
+.ms-sites-steps{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:12px 0}
+.ms-sites-steps span:nth-child(odd){padding:7px 10px;background:white;border:1px solid #dde7d9;border-radius:8px;font-size:11px}
+.ms-sites-steps span:nth-child(even){color:#71936f;font-weight:700}
+.ms-sites-route p{font-size:11px;line-height:1.7;color:#64766a;margin:0}
+@media(max-width:780px){.ms-sites{padding:16px}.ms-sites-grid{grid-template-columns:1fr}.ms-site-top{align-items:center}}
