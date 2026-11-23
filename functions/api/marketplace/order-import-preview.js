@@ -377,6 +377,51 @@ export async function matchMoyskladArticlesBudgeted(fetcher,token,orders){
   }};
 }
 
+// Read Ozon's authoritative seller product identifiers in a single call.
+// The result is evidence for reconciliation, NOT a MoySklad product match.
+export async function fetchOzonProductEvidence(fetcher,account,token,orders){
+  const ids=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))].slice(0,10);
+  const evidence=new Map(ids.map(id=>[id,{
+    status:'not_confirmed',offerId:id,barcodes:[],productId:null
+  }]));
+  if(!ids.length)return {byOffer:evidence,code:'empty',count:0};
+  try{
+    const body=await requestJson(fetcher,
+      'https://api-seller.ozon.ru/v3/product/info/list',{
+        method:'POST',headers:{'Client-Id':account,'Api-Key':token,
+          Accept:'application/json','Content-Type':'application/json'},
+        body:JSON.stringify({offer_id:ids}),signal:AbortSignal.timeout(15000)
+      });
+    const items=body?.items;
+    if(!Array.isArray(items)||items.length>10)
+      return {byOffer:evidence,code:'schema_unverified',count:0};
+    const visited=new Set();
+    for(const x of items){
+      const id=x?.offer_id;
+      if(typeof id!=='string'||!evidence.has(id))continue;
+      if(visited.has(id)){
+        evidence.set(id,{status:'ambiguous',offerId:id,
+          barcodes:[],productId:null});continue;
+      }
+      visited.add(id);
+      const codes=Array.isArray(x.barcodes)?x.barcodes:
+        typeof x.barcode==='string'?[x.barcode]:[];
+      const safeCodes=[...new Set(codes.filter(v=>
+        typeof v==='string'&&/^[0-9A-Za-z-]{6,40}$/.test(v)))].slice(0,4);
+      evidence.set(id,{status:safeCodes.length?
+        'seller_product_with_barcode':'seller_product_without_barcode',
+        offerId:id,barcodes:safeCodes,
+        productId:Number.isSafeInteger(x.id)&&x.id>0?x.id:null});
+    }
+    return {byOffer:evidence,code:'ok',count:visited.size};
+  }catch(error){
+    const code=error?.message==='rate_limited'?'rate_limited':
+      error?.message==='permission_denied'?'permission_denied':
+      error?.status===400?'request_rejected':'source_unavailable';
+    return {byOffer:evidence,code,count:0};
+  }
+}
+
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -446,6 +491,10 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
           upstreamCode:Number.isSafeInteger(error?.upstreamCode)?
             error.upstreamCode:null};
       }
+      // Independent seller catalogue evidence, one Ozon request per preview.
+      // Barcode presence alone never authorizes MoySklad matching/writes.
+      const ozonEvidence=source==='wb'?null:
+        await fetchOzonProductEvidence(fetcher,account,token,orders);
       // Article comparison is informative only. It can never authorize a
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
@@ -455,6 +504,10 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       for(const order of orders){
         for(const item of order.items){
           item.assortmentMatch=articleScan.bySku.get(item.sku)||'unverified';
+          if(ozonEvidence)item.ozonCatalog=
+            ozonEvidence.byOffer.get(item.sku)||{
+              status:'not_confirmed',offerId:item.sku,
+              barcodes:[],productId:null};
         }
         const matches=scan?.matches?.get(order.externalKey)||0;
         order.duplicateStatus=matches===1?'already_exists':
@@ -474,6 +527,10 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         duplicateScan:{checkedRows:scan?.checkedRows||0,
           pages:scan?.pages||0,complete:scan?.complete===true},
         duplicateLookupFailure:lookupFailure,
+        ozonProductLookup:ozonEvidence?{
+          status:ozonEvidence.code,
+          productsConfirmed:ozonEvidence.count,
+          requestCount:orders.length?1:0}:null,
         articleLookupRequests:articleScan.requests,
         assortmentCoverage:articleScan.coverage,
         counts:{received:orders.length,
