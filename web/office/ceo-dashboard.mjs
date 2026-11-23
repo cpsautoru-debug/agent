@@ -196,6 +196,14 @@ function showOzonFinanceAudit(data){
     validInt(parity.checkedDays)&&validInt(parity.expectedDays)&&
     parity.checkedDays===a.expectedDays&&
     parity.matchedDays===parity.expectedDays;
+  const g=parity?.granularity;
+  const granularText=g?.comparability==='XLSX_SERVICE_LINES_VS_API_ACCRUAL_ENVELOPES'&&
+    validInt(g.comparedDays)&&validInt(g.differingDays)&&
+    g.differingDays<=g.comparedDays?
+    'Разбивка по положительным/отрицательным строкам отличается за '+
+      g.differingDays+' из '+g.comparedDays+
+      ' сравнимых дней: услуги XLSX и операции API имеют разную детализацию. ':
+    '';
   const sourceReady=r?.complete===true&&
     a.coveredDays===a.expectedDays&&
     data.sourcesMatch.apiVsXlsxKopecks===true&&
@@ -255,6 +263,7 @@ function showOzonFinanceAudit(data){
     'Дневные суммы XLSX/API: '+(parityVerified?
       parity.matchedDays+'/'+parity.expectedDays+' совпали':
       'не подтверждены')+'. '+
+    granularText+
     'Себестоимость по датам: '+c.confirmedSalesRows+
     ' из '+c.checkedSalesRows+' строк продаж. '+
     reconciliationNote+
