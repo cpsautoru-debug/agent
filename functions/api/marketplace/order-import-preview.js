@@ -622,9 +622,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(orders.length&&!barcodeScan.rateLimited)
         articleScan=await matchMoyskladArticlesBudgeted(
           fetcher,env.MS_API_TOKEN,orders,barcodeCandidates);
-      const nameSuggestion=source==='wb'||!orders.length||
-        barcodeScan.rateLimited?null:
-        await findMoyskladNameSuggestion(fetcher,env.MS_API_TOKEN,orders);
+      // Name-only matches are disabled: unrelated products can rank highly.
+      const nameSuggestion=null;
       for(const order of orders){
         for(const item of order.items){
           item.assortmentMatch=
