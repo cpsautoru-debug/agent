@@ -174,6 +174,10 @@
         (data.assortmentCoverage?.pages||0)+' страниц'+
         (data.assortmentCoverage?.complete===true?
           ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.')+
+        (Number.isSafeInteger(data.assortmentCoverage?.confirmedByFilter)&&
+          data.assortmentCoverage.confirmedByFilter>0?
+          ' Точно подтверждено по отдельным запросам: '+
+            data.assortmentCoverage.confirmedByFilter+' SKU.':'')+
         (data.assortmentCoverage?.sourceError===true?
           ' Причина: '+({
             response_too_large:'слишком большой ответ API',
