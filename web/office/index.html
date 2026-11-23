@@ -577,6 +577,13 @@
             <a href="#production">Производство и остатки →</a>
           </article>
           <article class="ceo-card">
+            <h2>МойСклад · автоматическая очередь проверки</h2>
+            <strong class="ceo-value" id="ceoMsQueueValue">Нет данных</strong>
+            <span class="ceo-state" id="ceoMsQueueState">Не проверено</span>
+            <p id="ceoMsQueueNote">Контур автоматически собирает кандидатов из полного исторического реестра. Это не подтверждённая очередь заказов для пошива.</p>
+            <a href="#production">Открыть очередь проверки →</a>
+          </article>
+          <article class="ceo-card">
             <h2>Производственные площадки</h2>
             <strong class="ceo-value">4 направления</strong>
             <span class="ceo-state" data-state="warning">2 действующих · 2 планируются</span>
@@ -2195,7 +2202,7 @@
 <link rel="stylesheet" href="studio.css">
 
 <script src="app.js" defer></script>
-<script type="module" src="ceo-dashboard.mjs?v=20261123-production-complete"></script>
+<script type="module" src="ceo-dashboard.mjs?v=20261123-candidate-queue"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
