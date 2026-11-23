@@ -1720,6 +1720,27 @@
         <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Автообновление при открытии</strong><small>Ручное чтение, без изменений данных</small></div>
         <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
       </section>
+      <section class="ms-sites" id="marketplaceOrderImport" aria-labelledby="marketplaceOrderImportTitle">
+        <div class="ms-production-header">
+          <div>
+            <div class="eyebrow">MARKETPLACE → МОЙСКЛАД · БЕЗОПАСНАЯ ПРОВЕРКА</div>
+            <h2 id="marketplaceOrderImportTitle">Заказы Ozon и WB · подготовка автоматического импорта</h2>
+            <p>Проверяем FBS-заказы и дубли по внешнему ID. Показываем только первую выборку и артикула без покупателей. Создание документов, резервирование и списание материалов выключены.</p>
+          </div>
+        </div>
+        <div class="ms-sites-steps">
+          <button type="button" id="marketplaceOrderCheckOzon" class="ms-production-detail-button">Проверить Ozon FBS</button>
+          <button type="button" id="marketplaceOrderCheckWb" class="ms-production-detail-button">Проверить WB FBS</button>
+        </div>
+        <p id="marketplaceOrderCheckStatus" class="ms-production-status" role="status">Проверка по запросу владельца. Никаких записей в «МойСклад».</p>
+        <div class="ms-production-scroll">
+          <table id="marketplaceOrderCheckTable" class="ms-production-table" hidden>
+            <thead><tr><th>Источник и внешний ID</th><th>Статус</th><th>SKU и количество</th><th>Сверка с «МойСклад»</th></tr></thead>
+            <tbody id="marketplaceOrderCheckRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Перед включением импорта обязательны проверка соответствия SKU, юридического лица, схемы FBS/FBO, цен, отмен, возвратов и дублей. Отсутствие заказа по внешнему ID не означает разрешение создать документ.</p>
+      </section>
       <section class="ms-sites" id="msProductionSites" aria-labelledby="msProductionSitesTitle">
         <div class="ms-production-header">
           <div>
@@ -2224,6 +2245,7 @@
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
+<script type="module" src="marketplace-order-import-preview.mjs?v=20261123"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
