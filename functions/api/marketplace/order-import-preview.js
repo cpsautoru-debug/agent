@@ -106,6 +106,50 @@ export async function lookupMoyskladDuplicate(fetcher,token,key){
     method,queries};
 }
 
+// Read-only bounded page scan. Unlike unsupported externalCode filters,
+// GET customerorder?limit&offset is documented for all account types.
+// Positive duplicate identification is by exact externalCode equality ONLY.
+// A partial or changing scan cannot prove a key is absent.
+export async function scanMoyskladOrderKeys(fetcher,token,keys){
+  if(!Array.isArray(keys)||keys.length>LIMIT||
+    keys.some(k=>typeof k!=='string'||k.length>180))
+    throw Error('invalid_duplicate_scan_keys');
+  const PAGE=25,MAX_PAGES=8;
+  const counts=new Map(keys.map(k=>[k,0]));
+  let pages=0,seen=0,complete=false,declaredSize=null;
+  const headers={Authorization:'Bearer '+token,Accept:'application/json'};
+  for(let page=0;page<MAX_PAGES;page++){
+    const url=new URL(MS);
+    url.searchParams.set('limit',String(PAGE));
+    url.searchParams.set('offset',String(page*PAGE));
+    let result;
+    try{result=await requestJson(fetcher,url.toString(),{method:'GET',headers});}
+    catch(error){
+      if(pages===0)throw error;
+      return {matches:counts,checkedRows:seen,pages,
+        complete:false,sourceError:true};
+    }
+    if(!Array.isArray(result?.rows)||result.rows.length>PAGE||
+       !Number.isSafeInteger(result?.meta?.size)||result.meta.size<0)
+      throw Error('moysklad_lookup_unverified');
+    if(declaredSize===null)declaredSize=result.meta.size;
+    if(result.meta.size!==declaredSize)
+      return {matches:counts,checkedRows:seen,pages,
+        complete:false,sourceError:true};
+    for(const row of result.rows){
+      if(typeof row?.externalCode==='string'&&counts.has(row.externalCode))
+        counts.set(row.externalCode,counts.get(row.externalCode)+1);
+    }
+    seen+=result.rows.length;pages++;
+    if(seen>=declaredSize){complete=true;break;}
+    if(result.rows.length<PAGE)break;
+    // A positive match on all queried keys is enough to stop looking.
+    if(keys.length>0&&keys.every(k=>counts.get(k)>0))break;
+  }
+  return {matches:counts,checkedRows:seen,pages,complete,
+    sourceError:false};
+}
+
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -146,41 +190,36 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))
         return json(503,{code:'moysklad_credentials_missing'});
-      let msQueries=0,usedFallback=false,lookupFailure=null;
+      let msQueries=0,scan=null,lookupFailure=null;
       failedStage='moysklad';
+      try{
+        scan=await scanMoyskladOrderKeys(fetcher,env.MS_API_TOKEN,
+          orders.map(o=>o.externalKey));
+        msQueries=scan.pages;
+        if(scan.sourceError)
+          lookupFailure={code:'moysklad_partial_scan',http:null};
+      }catch(error){
+        lookupFailure={code:Number.isInteger(error?.status)&&error.status===400?
+          'moysklad_list_rejected':
+          Number.isInteger(error?.status)&&error.status===403?
+            'moysklad_permission_denied':'moysklad_list_unavailable',
+          http:Number.isInteger(error?.status)?error.status:null};
+      }
       for(const order of orders){
-        if(lookupFailure){
-          order.duplicateStatus='unverified';
-          order.duplicateLookup='skipped_after_source_error';
-          continue;
-        }
-        try{
-          const match=await lookupMoyskladDuplicate(fetcher,env.MS_API_TOKEN,
-            order.externalKey);
-          msQueries+=match.queries;
-          usedFallback ||= match.method==='context_search';
-          order.duplicateStatus=match.status;
-          order.duplicateLookup=match.method;
-        }catch(error){
-          // Preserve VERIFIED marketplace results when MoySklad refuses the
-          // lookup. No matching claim can be made, even for later records.
-          // Stop further calls to prevent repeated bad requests/rate limits.
-          lookupFailure={code:Number.isInteger(error?.status)&&error.status===400?
-            'moysklad_query_rejected':
-            Number.isInteger(error?.status)&&error.status===403?
-              'moysklad_permission_denied':'moysklad_lookup_unavailable',
-            http:Number.isInteger(error?.status)?error.status:null};
-          order.duplicateStatus='unverified';
-          order.duplicateLookup='source_error';
-        }
-        // Never return person, address, phone or raw source payload.
+        const matches=scan?.matches?.get(order.externalKey)||0;
+        order.duplicateStatus=matches===1?'already_exists':
+          matches>1?'unverified':
+          scan?.complete===true&&!lookupFailure?'not_found':'unverified';
+        order.duplicateLookup='bounded_list_scan';
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
         coverage:'FBS_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
         sampledAt:new Date(now()).toISOString(),
-        duplicateLookupMode:lookupFailure?'UNVERIFIED_SOURCE_ERROR':
-          usedFallback?'CONTEXT_SEARCH_NOT_PROOF_OF_ABSENCE':'EXACT_FILTER',
+        duplicateLookupMode:scan?.complete?
+          'COMPLETE_BOUNDED_LIST_SCAN':'PARTIAL_BOUNDED_LIST_SCAN',
+        duplicateScan:{checkedRows:scan?.checkedRows||0,
+          pages:scan?.pages||0,complete:scan?.complete===true},
         duplicateLookupFailure:lookupFailure,
         counts:{received:orders.length,msLookups:msQueries,
           existing:orders.filter(x=>x.duplicateStatus==='already_exists').length,
