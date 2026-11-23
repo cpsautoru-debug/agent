@@ -188,48 +188,62 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   if(!Array.isArray(orders)||orders.length>LIMIT)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
-  const maxSkus=12,result=new Map();
-  const allowed=skus.filter(s=>safe(s)&&s.length<=100).slice(0,maxSkus);
-  for(const sku of skus)result.set(sku,'unverified');
-  let requests=0;
-  const getExact=async(sku,field)=>{
+  const bySku=new Map(skus.map(s=>[s,'unverified']));
+  // Scan the collection by pages rather than depending on filter support
+  // across MoySklad entity types. Never equate a partial scan with absence.
+  const MAX_SKUS=25,PAGE=100,MAX_PAGES=8;
+  const selected=skus.filter(s=>safe(s)&&s.length<=100).slice(0,MAX_SKUS);
+  const matches=new Map(selected.map(s=>[s,new Map()]));
+  const headers={Authorization:'Bearer '+token,
+    Accept:'application/json;charset=utf-8'};
+  let pages=0,checkedRows=0,complete=false,sourceError=false;
+  let total=null;
+  if(!selected.length)return {bySku,requests:0,
+    coverage:{pages:0,checkedRows:0,complete:false,sourceError:false}};
+  for(let n=0;n<MAX_PAGES;n++){
     const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
-    url.searchParams.set('limit','2');
-    url.searchParams.set('filter',field+'='+sku);
-    const response=await requestJson(fetcher,url.toString(),{
-      method:'GET',headers:{
-        Authorization:'Bearer '+token,
-        Accept:'application/json;charset=utf-8'
-      },signal:AbortSignal.timeout(8000)
-    });
-    if(!Array.isArray(response?.rows)||response.rows.length>2||
-      !Number.isSafeInteger(response?.meta?.size)||
-      response.meta.size<response.rows.length)
-      return 'unverified';
-    const exact=response.rows.filter(row=>row?.[field]===sku);
-    if(response.meta.size===0)return 'not_matched';
-    if(response.meta.size===1&&exact.length===1)
-      return field==='article'?'matched_exact_article':'matched_exact_code';
-    return 'unverified';
-  };
-  // Keep throughput bounded and fail closed on unsupported filters.
-  for(let i=0;i<allowed.length;i+=2){
-    await Promise.all(allowed.slice(i,i+2).map(async sku=>{
-      let article='unverified';
-      try{requests++;article=await getExact(sku,'article');}catch{}
-      if(article==='matched_exact_article'){
-        result.set(sku,article);return;
+    url.searchParams.set('limit',String(PAGE));
+    url.searchParams.set('offset',String(n*PAGE));
+    let data;
+    try{
+      data=await requestJson(fetcher,url.toString(),{
+        method:'GET',headers,signal:AbortSignal.timeout(12000)
+      });
+    }catch{sourceError=true;break;}
+    if(!Array.isArray(data?.rows)||data.rows.length>PAGE||
+      !Number.isSafeInteger(data?.meta?.size)||data.meta.size<0||
+      data.meta.size<data.rows.length){sourceError=true;break;}
+    if(total===null)total=data.meta.size;
+    if(total!==data.meta.size){sourceError=true;break;}
+    for(let i=0;i<data.rows.length;i++){
+      const row=data.rows[i];
+      if(!row||typeof row!=='object')continue;
+      const itemId=typeof row.id==='string'&&row.id.length>0?
+        row.id:'page:'+n+':row:'+i;
+      for(const sku of selected){
+        const byArticle=row.article===sku,byCode=row.code===sku;
+        if(byArticle||byCode){
+          const existing=matches.get(sku).get(itemId)||'';
+          matches.get(sku).set(itemId,byArticle||existing==='article'?
+            'article':'code');
+        }
       }
-      // Only after a proven empty article result attempt the product code.
-      // A failed code lookup must never imply that the SKU is absent.
-      if(article!=='not_matched')return;
-      try{
-        requests++;
-        result.set(sku,await getExact(sku,'code'));
-      }catch{/* Ambiguous status is safer than a false no-match. */}
-    }));
+    }
+    pages++;checkedRows+=data.rows.length;
+    if(checkedRows>=total){complete=true;break;}
+    if(data.rows.length<PAGE){sourceError=true;break;}
   }
-  return {bySku:result,requests};
+  // A unique match is only proven if the ENTIRE collection was checked.
+  for(const sku of selected){
+    const entries=[...matches.get(sku).values()];
+    if(!complete||sourceError)continue;
+    if(entries.length===0)bySku.set(sku,'not_matched');
+    else if(entries.length===1)
+      bySku.set(sku,entries[0]==='article'?
+        'matched_exact_article':'matched_exact_code');
+  }
+  return {bySku,requests:pages,
+    coverage:{pages,checkedRows,complete,sourceError}};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
@@ -303,7 +317,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       }
       // Article comparison is informative only. It can never authorize a
       // write or production dispatch, even for an exact single match.
-      let articleScan={bySku:new Map(),requests:0};
+      let articleScan={bySku:new Map(),requests:0,
+        coverage:{pages:0,checkedRows:0,complete:false,sourceError:false}};
       if(orders.length)articleScan=await matchMoyskladArticles(
         fetcher,env.MS_API_TOKEN,orders);
       for(const order of orders){
@@ -329,6 +344,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
           pages:scan?.pages||0,complete:scan?.complete===true},
         duplicateLookupFailure:lookupFailure,
         articleLookupRequests:articleScan.requests,
+        assortmentCoverage:articleScan.coverage,
         counts:{received:orders.length,
           candidateNeedsInventory:orders.filter(x=>
             x.productionQueue==='candidate_needs_inventory').length,
