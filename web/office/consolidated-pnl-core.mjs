@@ -37,7 +37,10 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
    if(!valid(next))throw Error('pnl_overflow');
    return next;
  },0);
- const channelsTotal=allPresent?moneySum(entries.map(x=>x.profitKopecks)):null;
+ const knownEntries=entries.filter(x=>x.status!=='unknown');
+ const knownChannelsTotal=knownEntries.length?
+   moneySum(knownEntries.map(x=>x.profitKopecks)):null;
+  const channelsTotal=allPresent?moneySum(entries.map(x=>x.profitKopecks)):null;
  const sharedTotal=sharedExpenses.length?
    moneySum(sharedExpenses.map(x=>x.amountKopecks)):null;
  const taxTotal=taxes.length?
@@ -49,6 +52,8 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
    status:confirmed?'verified':after!==null?'management_estimate':'incomplete',
    sharedExpensesComplete,taxesComplete,
    missingChannels:missing,channelsTotalKopecks:channelsTotal,
+   knownChannelsTotalKopecks:knownChannelsTotal,
+   knownChannelCount:knownEntries.length,
    sharedExpenseTotalKopecks:sharedTotal,taxTotalKopecks:taxTotal,
    finalProfitKopecks:after,verified:confirmed,
    note:'Only direct-cost channel profit enters the total. Shared expenses and taxes are deducted once.'};
