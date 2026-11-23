@@ -48,7 +48,7 @@ test('reconciles exactly nine Ozon report groups with real Oct 2026 amounts',()=
  assert.match(byName['Валовая прибыль · управленческий P&L'].value,/2.*985.*789/);
  assert.match(byName['Комиссия Ozon'].value,/1.*768.*286,07/);
  assert.match(byName['Всего удержаний и услуг Ozon'].value,/2.*437.*419,09/);
- assert.match(byName['Результат Ozon после всех прямых затрат'].value,/548.*369,91/);
+ assert.match(byName['Операционный результат Ozon · до общих расходов'].value,/548.*369,91/);
  assert.match(byName['Общие постоянные расходы бизнеса'].value,/54.*000/);
  assert.match(byName['Налог ИП за октябрь'].value,/205.*507/);
  assert.equal(byName['Чистая прибыль всего бизнеса'].value,'Ожидает закрытия');
