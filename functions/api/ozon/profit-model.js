@@ -174,7 +174,11 @@ export function calculateProfit({month,api,documents,costs,expenses,tax}) {
   }
   if(!allocationKnown)block(allocationReason);
   const taxResult={baseKopecks:null,estimateKopecks:null,ozonKopecks:null,status:'missing',reason:'tax_register_missing'};
-  if(t?.complete && t.entity && t.source){
+  if(t?.complete && t.entity && t.source && !t.events.length){
+    taxResult.status='incomplete';
+    taxResult.reason='tax_events_missing';
+    warnings.push('An empty tax event register cannot certify a zero AUSN tax base.');
+  }else if(t?.complete && t.entity && t.source){
     // An offset is not necessarily taxable income. Until its economic nature
     // is documented, never silently classify it as an incoming payment.
     if(t.events.some(x=>x.kind==='offset')){
