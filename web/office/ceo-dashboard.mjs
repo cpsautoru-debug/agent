@@ -179,9 +179,17 @@ function showOzonFinanceAudit(data){
     c.confirmedSalesRows>c.checkedSalesRows||
     a.coveredDays>a.expectedDays||
     (r&&!validInt(r.controlTotalKop)))throw Error('schema');
+  const parity=data.dailyParity;
+  const parityVerified=parity?.code==='ozon_daily_totals_parity'&&
+    parity.readOnly===true&&parity.officialDetailReconciled===false&&
+    parity.changedRecords===0&&parity.match===true&&
+    validInt(parity.checkedDays)&&validInt(parity.expectedDays)&&
+    parity.checkedDays===a.expectedDays&&
+    parity.matchedDays===parity.expectedDays;
   const sourceReady=r?.complete===true&&
     a.coveredDays===a.expectedDays&&
-    data.sourcesMatch.apiVsXlsxKopecks===true;
+    data.sourcesMatch.apiVsXlsxKopecks===true&&
+    parityVerified;
   set('ceoOzonAuditValue',a.coveredDays+' / '+a.expectedDays+' дней');
   status('ceoOzonAuditState',
     sourceReady?'API и XLSX по месяцу совпадают · прибыль отдельно':
@@ -209,9 +217,12 @@ function showOzonFinanceAudit(data){
     'Загруженный XLSX: '+(r?count(r.records):'нет')+' строк. '+
     'Суммы за месяц: '+(data.sourcesMatch.apiVsXlsxKopecks?
       'совпадают ('+money(a.totalKop)+')':'НЕ подтверждены')+'. '+
+    'Дневные суммы XLSX/API: '+(parityVerified?
+      parity.matchedDays+'/'+parity.expectedDays+' совпали':
+      'не подтверждены')+'. '+
     'Себестоимость по датам: '+c.confirmedSalesRows+
     ' из '+c.checkedSalesRows+' строк продаж. '+
-    'Ежедневная детализация, реклама, налоги, банк: отдельно. '+
+    'Сверка состава начислений, реклама, налоги, банк: отдельно. '+
     (blockers.length?'Не закрыто: '+blockers.join('; ')+'. ':'')+
     'Чистая прибыль не подтверждена.');
 }
