@@ -57,14 +57,46 @@ export function summarizeIncomeEvidence(month,source,wb){
    periods.push({from:row.date_from,to:row.date_to});
    reportTypes.set(row.report_type,periods);
  }
- // Report periods can overlap at boundaries; never claim full October
- // coverage from one report, or tax-income completeness from settlements.
+ // Verify calendar coverage separately for every WB report type:
+ // overlapping days inside a type are not evidence of extra periods.
+ const coverage=[...reportTypes].map(([type,periods])=>{
+   const covered=new Set();
+   let overlappingDays=0;
+   for(const period of periods){
+     const from=Date.parse(period.from+'T00:00:00Z');
+     const to=Date.parse(period.to+'T00:00:00Z');
+     if(!Number.isFinite(from)||!Number.isFinite(to)||to<from)
+       throw Error('invalid_wb_coverage');
+     for(let day=from;day<=to;day+=86400000){
+       const date=new Date(day).toISOString().slice(0,10);
+       if(covered.has(date))overlappingDays++;
+       covered.add(date);
+     }
+   }
+   const missing=[];
+   for(let day=Date.parse(bounds.start+'T00:00:00Z');
+       day<Date.parse(bounds.end+'T00:00:00Z');day+=86400000){
+     const date=new Date(day).toISOString().slice(0,10);
+     if(!covered.has(date))missing.push(date);
+   }
+   return {reportType:type,coveredDays:covered.size,
+     expectedDays:bounds.days,missingDates:missing,
+     overlappingDays,periodComplete:missing.length===0&&overlappingDays===0};
+ });
+ const wbReportPeriodComplete=coverage.length>0&&
+   coverage.every(x=>x.periodComplete);
+ const taxDocumentPresent=source?.configuration?.tax!==null&&
+   source?.configuration?.tax!==undefined;
+ // Complete monthly report coverage does NOT mean WB sale income
+ // or individual AUSN tax events have been verified.
  return {code:'entity_income_evidence',month,readOnly:true,
    source:'OZON_OWNER_XLSX_AND_WB_REPORT_D1',
    ozon:{reportRows:doc.rows.length,sourceVerifiedPeriod:true,
      serviceAmounts:amounts,classification:classifier,
-     nonAdditiveTotals,taxIncomeConfirmed:false},
+     nonAdditiveTotals,taxDocumentPresent,
+     taxIncomeConfirmed:false},
    wb:{reports:wb.reports.length,operationAmounts:wbByOperation,
+     reportTypeCoverage:coverage,reportPeriodComplete:wbReportPeriodComplete,
      periodStart:bounds.start,periodEnd:end,
      payoutIsNotTaxRevenue:true,taxIncomeConfirmed:false},
    unknownChannels:['yandex','avito','offline'],
