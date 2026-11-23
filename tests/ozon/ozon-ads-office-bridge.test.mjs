@@ -174,7 +174,7 @@ test('transport diagnostics identify binding call stage without leaking message'
  const response=await handler({request:await req(),env:local});
  const body=await response.json();
  assert.equal(body.code,'ozon_ads_binding_type_error');
- assert.equal(body.phase,'service_binding_fetch');
+ assert.equal(body.phase,'service_binding_rpc');
  assert.equal(JSON.stringify(body).includes('private authorization value'),false);
 });
 test('UI renders source status without calling profit mutations',()=>{
