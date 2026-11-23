@@ -7,6 +7,8 @@ on:
       - 'docs/office-90-day-roadmap-and-dashboard-contract.md'
       - 'tests/office/office-source-registry.test.mjs'
       - 'web/office/ceo-dashboard.css'
+      - 'web/office/office-vibrant-theme.css'
+      - 'tests/office/vibrant-theme.test.mjs'
       - 'web/office/index.html'
       - 'web/office/app.js'
       - 'web/office/office-auth.js'
@@ -25,4 +27,4 @@ jobs:
           node-version: '22'
       - run: node --check web/office/ceo-dashboard.mjs
       - run: node --check web/office/office-source-registry.mjs
-      - run: node --test tests/office/ceo-dashboard.test.mjs tests/office/office-source-registry.test.mjs
+      - run: node --test tests/office/ceo-dashboard.test.mjs tests/office/office-source-registry.test.mjs tests/office/vibrant-theme.test.mjs
