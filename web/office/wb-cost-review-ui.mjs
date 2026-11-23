@@ -34,11 +34,25 @@ export function attachWbCostReview({documentRef=document,fetcher=fetch}={}){
     td(tr,line.reason);
     table.append(tr);
    }
+   let archive='';
+   try{
+    const m=await fetcher('/api/wb/month-settlement?month=2026-10',{
+      credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(12000)
+    });
+    if(m.ok){
+      const src=(await m.json()).managementCost;
+      if(src?.status==='management_after_wb_charges_and_cogs'&&
+         src.confirmedSkuCount===35&&src.confirmedSoldUnits===173&&
+         src.resalableReturnedUnits===6)
+        archive=' Для всех 35 артикулов октябрьские цены восстановлены из ранее подтверждённых XLSX; 6 возвратов пригодны к повторной продаже. Управленческая себестоимость: '+
+          fmt(src.netManufacturingCostKopecks)+'.';
+    }
+   }catch{archive=' Историческая сверка затрат временно недоступна.';}
+   if(n!==serial)return;
    status.textContent='Октябрь 2026: '+data.articles+' артикулов, '+
-     data.soldUnits+' проданных единиц. Предложений по категории: '+
-     data.candidates+'; без соответствия: '+data.unknown+
-     '. Все предложения требуют подтверждения комплектации и себестоимости на октябрь. '+
-     'Ни одна стоимость не записана в D1 автоматически.';
+     data.soldUnits+' проданных единиц. Категории определены: '+
+     data.candidates+'; без соответствия: '+data.unknown+'.'+archive+
+     ' Запись в основной справочник D1 не выполнялась. Сверка через сохранённые XLSX отдельна от реестра WB.';
   }catch{
    if(n===serial)
     status.textContent='Не удалось получить проверенный перечень артикулов WB. Данные себестоимости не изменялись.';
