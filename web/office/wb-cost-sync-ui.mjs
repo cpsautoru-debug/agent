@@ -27,7 +27,9 @@ export function attachWbCostSync({documentRef=document,fetcher=fetch}={}){
      'wb_sync_source_unverified','wb_sync_cost_conflict',
      'wb_sync_older_history_conflict','wb_sync_existing_invalid',
      'wb_sync_existing_october_invalid','wb_sync_historical_version_conflict',
-     'wb_sync_count_mismatch'
+     'wb_sync_count_mismatch','database_write_forbidden',
+     'database_constraint_rejected','database_batch_limit',
+     'database_timeout','database_schema_mismatch'
     ];
     const stage=knownStages.includes(data.stage)?data.stage:'access';
     const reason=knownReasons.includes(data.reason)?data.reason:
