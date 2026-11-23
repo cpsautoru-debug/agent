@@ -17,6 +17,34 @@ function closedMonth(m,now=Date.now()){
   const [year,mon]=m.split('-').map(Number);
   return Date.UTC(year,mon,0)<now;
 }
+// Finance accruals and Performance spend are different ledgers. The owner-
+// confirmed XLSX is used only as a comparison source; totals are NOT summed.
+export function summarizeCanonicalOzonAdvertising(month,profit,api){
+  const rows=profit?.advertisingAudit?.reportAdvertisingRows;
+  if(!Array.isArray(rows)||!profit?.report||
+    rows.length>100000||rows.some(r=>
+      !Number.isSafeInteger(r.amountKopecks)||typeof r.date!=='string'))
+    throw Error('invalid_canonical_advertising_rows');
+  let amount=0;
+  for(const row of rows){
+    amount+=row.amountKopecks;
+    if(!Number.isSafeInteger(amount))throw Error('invalid_advertising_total');
+  }
+  const bounds=monthBounds(month);
+  const dates=[...new Set(rows.map(r=>r.date))].sort();
+  return {
+    source:'CANONICAL_OZON_FINANCE_XLSX',month,
+    accrualRows:profit.report.rows,
+    advertisingRows:rows.length,advertisingAccrualKopecks:amount,
+    firstDate:dates[0]||null,lastDate:dates.at(-1)||null,
+    daysWithAdvertisingRows:dates.length,daysInMonth:bounds.days,
+    financeApiCoveredDays:api.coveredDays,
+    sourceTotalsMatched:Number.isSafeInteger(profit.report.totalKopecks)&&
+      profit.report.totalKopecks===api.totalKopecks,
+    matchedToPerformance:false,reconciled:false,
+    deductedFromProfit:false
+  };
+}
 export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
   return async function onRequestGet({request,env}){
     if(request.method!=='GET')return respond(405,{code:'method_not_allowed'});
@@ -139,36 +167,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
           costs:financeSource.configuration?.costs,
           expenses:financeSource.configuration?.expenses,
           tax:financeSource.configuration?.tax});
-        const reportRows=profit.advertisingAudit?.reportAdvertisingRows;
-        if(!Array.isArray(reportRows)||
-          reportRows.some(r=>!Number.isSafeInteger(r.amountKopecks)||
-            typeof r.date!=='string'))
-          return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
-        let adKop=0;
-        for(const row of reportRows){
-          adKop+=row.amountKopecks;
-          if(!Number.isSafeInteger(adKop))
-            return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
-        }
-        const bounds=monthBounds(month);
-        const totalMatches=profit.report!==null&&
-          Number.isSafeInteger(profit.report.totalKopecks)&&
-          profit.report.totalKopecks===financeSource.api.totalKopecks;
-        const dates=[...new Set(reportRows.map(r=>r.date))].sort();
-        finance={
-          source:'CANONICAL_OZON_FINANCE_XLSX',
-          month,
-          accrualRows:profit.report?.rows??0,
-          advertisingRows:reportRows.length,
-          advertisingAccrualKopecks:adKop,
-          firstDate:dates[0]||null,lastDate:dates.at(-1)||null,
-          daysWithAdvertisingRows:dates.length,
-          daysInMonth:bounds.days,
-          financeApiCoveredDays:financeSource.api.coveredDays,
-          sourceTotalsMatched:totalMatches,
-          matchedToPerformance:false,
-          reconciled:false
-        };
+        finance=summarizeCanonicalOzonAdvertising(month,profit,financeSource.api);
       }catch{
         return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
       }
