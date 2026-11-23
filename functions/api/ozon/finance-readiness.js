@@ -40,6 +40,17 @@ export function summarizeOzonFinanceReadiness(month,data,result){
     !x||typeof x.date!=='string'||!/^20\d{2}-\d{2}-\d{2}$/.test(x.date)||
     typeof x.netStatus!=='string'||typeof x.detailStatus!=='string'))
     throw Error('invalid_canonical_finance_data');
+  // A full-looking audit with duplicate dates, out-of-month dates or a
+  // conflicting reported coverage cannot certify a financial closeout.
+  const auditDates=new Set();
+  const bounds=monthBounds(month);
+  if(days.some(x=>{
+    if(x.date<bounds.start||x.date>=bounds.end||
+      auditDates.has(x.date))return true;
+    auditDates.add(x.date);
+    return false;
+  }))throw Error('invalid_canonical_finance_data');
+  if(a.days!==bounds.days)throw Error('invalid_canonical_finance_data');
   const unresolvedDays=days.filter(x=>
     x.netStatus!=='verified'||x.detailStatus!=='verified')
     .map(x=>({
