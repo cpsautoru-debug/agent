@@ -155,6 +155,10 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
           !Number.isSafeInteger(x.missingRows)||x.missingRows<0||
           !Number.isSafeInteger(x.invalidRows)||x.invalidRows<0||
           x.validRows+x.missingRows+x.invalidRows!==data.recordCount||
+          !x.invalidFormats||typeof x.invalidFormats!=='object'||
+          ['object','array','boolean','decimalPrecision','other'].some(k=>
+            !Number.isSafeInteger(x.invalidFormats[k])||x.invalidFormats[k]<0)||
+          Object.values(x.invalidFormats).reduce((s,n)=>s+n,0)!==x.invalidRows||
           (x.rawColumnSumKopecks!==null&&!Number.isSafeInteger(x.rawColumnSumKopecks))||
           x.sourceReconciled!==false)))
         return respond(503,{code:'ozon_ads_column_audit_unrecognized'});
@@ -166,7 +170,10 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         recordCount:data.recordCount,fieldNames:data.fieldNames,
         columnAudit:audit===undefined?null:audit.map(x=>({
           field:x.field,validRows:x.validRows,missingRows:x.missingRows,
-          invalidRows:x.invalidRows,
+          invalidRows:x.invalidRows,invalidFormats:{
+            object:x.invalidFormats.object,array:x.invalidFormats.array,
+            boolean:x.invalidFormats.boolean,decimalPrecision:x.invalidFormats.decimalPrecision,
+            other:x.invalidFormats.other},
           rawColumnSumKopecks:x.rawColumnSumKopecks,sourceReconciled:false
         })),
         financeAudit:{
