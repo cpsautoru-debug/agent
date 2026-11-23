@@ -16,7 +16,7 @@ test('production page has one set of working controls and no Google Sheet depend
     'msProductionStageRefresh','msStageRemaining'
   ])assert.equal((section.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
   assert.doesNotMatch(section,/docs\.google\.com\/spreadsheets/i);
-  assert.match(html,/type="module" src="ms-production\.js"/);
+  assert.match(html,/type="module" src="ms-production\.js(?:\?[^"]*)?"/);
   assert.match(html,/Контроль производства/);
 });
 test('visual progress and mobile layout are available',()=>{
