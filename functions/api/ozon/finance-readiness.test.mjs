@@ -13,7 +13,12 @@ const baseData={
 const baseResult={
  month:'2026-10',
  api:{coveredDays:31,days:31,records:968,totalKopecks:135307991,
-   netVerified:false,detailVerified:false},
+   netVerified:false,detailVerified:false,
+   audit:Array.from({length:31},(_,i)=>({
+     date:'2026-10-'+String(i+1).padStart(2,'0'),
+     netStatus:'unverified',detailStatus:'unverified',
+     detailReason:'official_report_not_registered'
+   }))},
  report:{rows:2304,periodVerified:true,quantityVerified:true,
    totalKopecks:135307991},
  dateCostEvidence:{checkedSalesRows:227,confirmedSalesRows:227,
@@ -39,6 +44,10 @@ test('canonical October API and XLSX match to kopeck; net profit stays unverifie
  assert.ok(s.blockers.includes('api_net_unverified'));
  assert.ok(s.blockers.includes('api_details_unverified'));
  assert.equal(s.netProfitVerified,false);
+ assert.equal(s.reconciliation.checkedDays,31);
+ assert.equal(s.reconciliation.unresolvedCount,31);
+ assert.equal(s.reconciliation.unresolvedDays[0].date,'2026-10-01');
+ assert.equal(s.reconciliation.fullyVerified,false);
  assert.equal(s.changedRecords,0);
 });
 test('canonical report mismatch cannot be shown as reconciled',()=>{
