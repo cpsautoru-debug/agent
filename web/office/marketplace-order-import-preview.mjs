@@ -16,6 +16,8 @@
     wb:el('marketplaceOrderCheckRowsWb')
   };
   const login=el('marketplaceOrderLogin');
+  const diagnose=el('marketplaceMsDiagnose');
+  const diagnostic=el('marketplaceMsDiagnosticStatus');
   const perSource={ozon:el('marketplaceOrderStatusOzon'),
     ozon_fbo:el('marketplaceOrderStatusFbo'),
     wb:el('marketplaceOrderStatusWb')};
@@ -170,6 +172,54 @@
       status.textContent=result;setSource(source,result);
     }finally{busy=false;ozon.disabled=false;fbo.disabled=false;wb.disabled=false;}
   }
+  async function checkMoyskladOrders(){
+    if(!diagnose||!diagnostic||busy)return;
+    diagnose.disabled=true;
+    diagnostic.textContent='Проверяем доступность заказов покупателей «МойСклад»…';
+    try{
+      const res=await fetch('/api/marketplace/moysklad-order-diagnostic',{
+        credentials:'same-origin',cache:'no-store',
+        headers:{Accept:'application/json'},
+        signal:AbortSignal.timeout(45000)
+      });
+      const data=await res.json();
+      if(res.status===401||data?.code==='owner_session_required'){
+        diagnostic.textContent='Истекла сессия владельца. Войдите через Google.';
+        if(login)login.hidden=false;
+        return;
+      }
+      if(!res.ok||data?.code!=='moysklad_orders_diagnostic_ok'||
+        data.readOnly!==true||data.changedRecords!==0||
+        data.approvedForWrite!==false||
+        data.meaning!=='HTTP_ONLY_NO_CUSTOMER_ORDER_DATA_NO_DUPLICATE_CLEARANCE'||
+        !Array.isArray(data.results)||data.results.length>3)
+        throw Error('invalid_diagnostic');
+      const labels={
+        customerorder_default:'Заказы покупателей (без offset)',
+        customerorder_offset_zero:'Заказы покупателей (offset=0)',
+        productiontask_control:'Производственные задания (контроль)'
+      };
+      const safe=data.results.every(item=>
+        Object.hasOwn(labels,item?.probe)&&
+        (item.http===null||(Number.isInteger(item.http)&&
+          item.http>=100&&item.http<=599))&&
+        (item.errorCode===null||
+          (Number.isSafeInteger(item.errorCode)&&item.errorCode>=0))&&
+        typeof item.networkError==='boolean');
+      if(!safe)throw Error('unverified_diagnostic');
+      diagnostic.textContent=data.results.map(item=>
+        labels[item.probe]+': '+
+        (item.networkError?'нет ответа':
+          'HTTP '+item.http)+
+        (item.errorCode!==null?' · код «МойСклад» '+item.errorCode:'')
+      ).join(' | ')+
+        '. Только чтение, данные клиентов не загружены в интерфейс.';
+    }catch{
+      diagnostic.textContent='Не удалось получить подтверждённую диагностику API «МойСклад». Запись отключена.';
+    }finally{diagnose.disabled=false;}
+  }
+  if(diagnose&&diagnostic)
+    diagnose.addEventListener('click',()=>void checkMoyskladOrders());
   ozon.addEventListener('click',()=>void load('ozon'));
   fbo.addEventListener('click',()=>void load('ozon_fbo'));
   wb.addEventListener('click',()=>void load('wb'));
