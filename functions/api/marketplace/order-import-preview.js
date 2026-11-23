@@ -558,6 +558,14 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       // Barcode presence alone never authorizes MoySklad matching/writes.
       const ozonEvidence=source==='wb'?null:
         await fetchOzonProductEvidence(fetcher,account,token,orders);
+      if(ozonEvidence){
+        for(const order of orders)for(const item of order.items){
+          item.ozonCatalog=ozonEvidence.byOffer.get(item.sku)||{
+            status:'not_confirmed',offerId:item.sku,
+            barcodes:[],productId:null
+          };
+        }
+      }
       // Article comparison is informative only. It can never authorize a
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
