@@ -2,9 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const src=readFileSync(new URL('../../workers/ozon-ads-staging.js',import.meta.url),'utf8');
-const {readOzonExpense,default:worker}=await import(
-  'data:text/javascript;base64,'+Buffer.from(src).toString('base64')
+// Node does not provide the Cloudflare-specific import. Shim only the
+// WorkerEntrypoint environment property for isolated unit tests.
+const nodeSrc=src.replace(
+  "import { WorkerEntrypoint } from 'cloudflare:workers';",
+  'class WorkerEntrypoint { constructor(env){this.env=env;} }'
 );
+const {readOzonExpense,default:DefaultWorker,OzonAdsInternal}=await import(
+  'data:text/javascript;base64,'+Buffer.from(nodeSrc).toString('base64')
+);
+const worker={fetch(request,env){return new DefaultWorker(env).fetch(request);}};
 const env={OZON_PERFORMANCE_CLIENT_ID:'test-id',
   OZON_PERFORMANCE_CLIENT_SECRET:'test-secret',
   ADS_READ_TOKEN:'x'.repeat(48)};
@@ -84,4 +91,15 @@ test('only GET and explicit routes accepted',async()=>{
   assert.equal((await worker.fetch(new Request('https://test.example/health',
     {method:'POST'}),env)).status,405);
   assert.equal((await worker.fetch(request('/'),env)).status,404);
+});
+
+test('named OzonAdsInternal uses identical bearer guard',async()=>{
+ const named=new OzonAdsInternal(env);
+ const denied=await named.fetch(request('/api/internal/expense?month=2026-10'));
+ assert.equal(denied.status,401);
+ const health=await named.fetch(request('/health'));
+ assert.equal(health.status,200);
+ const body=await health.json();
+ assert.equal(body.authConfigured,true);
+ assert.equal(body.expenseSync,'not_verified');
 });
