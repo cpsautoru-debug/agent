@@ -5,8 +5,14 @@
   const ozon=el('marketplaceOrderCheckOzon'),wb=el('marketplaceOrderCheckWb');
   const status=el('marketplaceOrderCheckStatus'),table=el('marketplaceOrderCheckTable');
   const rows=el('marketplaceOrderCheckRows');
+  const perSource={ozon:el('marketplaceOrderStatusOzon'),
+    wb:el('marketplaceOrderStatusWb')};
   if(!ozon||!wb||!status||!table||!rows)return;
   let busy=false;
+  const setSource=(source,message)=>{
+    const node=perSource[source];
+    if(node)node.textContent=message;
+  };
   const valid=d=>d?.code==='marketplace_order_import_preview_ok'&&
     ['ozon','wb'].includes(d.source)&&d.readOnly===true&&
     d.changedRecords===0&&d.approvedForWrite===false&&
@@ -27,6 +33,7 @@
   async function load(source){
     if(busy)return;
     busy=true;ozon.disabled=true;wb.disabled=true;rows.replaceChildren();
+    setSource(source,'Проверяем заказы и дубли…');
     table.hidden=true;
     status.textContent='Проверяем '+(source==='ozon'?'Ozon':'Wildberries')+
       ' и наличие совпадений в «МойСклад»…';
@@ -47,10 +54,12 @@
           moysklad_lookup_unverified:'Не удалось однозначно проверить дубли'
         }[data?.code]||'Ответ источника не удалось проверить';
         const sourceName=data?.stage==='moysklad'?'МойСклад':'маркетплейс';
-        status.textContent='Источник ошибки: '+sourceName+'. '+label+
+        const result='Источник ошибки: '+sourceName+'. '+label+
           (Number.isInteger(data?.upstreamHttp)?
             ' · HTTP '+data.upstreamHttp:'')+
+          '. Код: '+(typeof data?.code==='string'?data.code:'unknown')+
           '. Документы не создавались.';
+        status.textContent=result;setSource(source,result);
         return;
       }
       if(!valid(data))throw Error('preview_unverified');
@@ -67,6 +76,9 @@
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
+      setSource(source,'Ответ API принят, заказов в выборке: '+
+        data.counts.received+'; неопределённых сверок: '+
+        data.counts.uncertain+'. Запись отключена.');
       status.textContent='Проверка выполнена: '+data.counts.received+
         ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
         data.counts.existing+', не найдены: '+data.counts.notFound+
@@ -75,8 +87,9 @@
           '. МойСклад отклонил точный фильтр: пустой поиск не исключает дубликат.':'')+
         '. Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
-      status.textContent='Не удалось проверить структуру ответа или доступность сервиса. '+
+      const result='Сервис недоступен или ответ не прошёл проверку. '+
         'Операция только на чтение; импорт не выполнялся.';
+      status.textContent=result;setSource(source,result);
     }finally{busy=false;ozon.disabled=false;wb.disabled=false;}
   }
   ozon.addEventListener('click',()=>void load('ozon'));
