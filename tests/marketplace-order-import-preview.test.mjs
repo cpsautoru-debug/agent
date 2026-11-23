@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,barcodeValues,matchMoyskladOzonBarcodes,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,findMoyskladNameSuggestion,barcodeValues,matchMoyskladOzonBarcodes,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -419,4 +419,31 @@ test('MoySklad barcode checks stop immediately on 429',async()=>{
   assert.equal(reqs.length,1);
   assert.equal(x.rateLimited,true);
   assert.equal(x.bySku.get('24703'),'unverified');
+});
+
+test('candidate catalog search uses Ozon title only and never asserts a mapping',async()=>{
+  const requests=[];
+  const out=await findMoyskladNameSuggestion(async(url,opt)=>{
+    requests.push({url,method:opt.method});
+    return Response.json({meta:{size:1},rows:[
+      {id:'some-moysklad-id',name:'Авточехлы Vesta оригинал'}
+    ]});
+  },'test-token',[{items:[{sku:'24086',ozonCatalog:{
+    title:'Авточехлы Vesta оригинал',status:'seller_product_with_barcode'
+  }}]}]);
+  assert.equal(requests.length,1);
+  assert.equal(new URL(requests[0].url).searchParams.has('filter'),false);
+  assert.equal(new URL(requests[0].url).searchParams.get('search'),
+    'Авточехлы Vesta оригинал');
+  assert.equal(out.status,'possible_candidates');
+  assert.equal(out.candidates.length,1);
+  assert.equal('matched' in out,false);
+});
+test('missing Ozon product title triggers no MoySklad search',async()=>{
+  let calls=0;
+  const out=await findMoyskladNameSuggestion(async()=>{calls++;},
+    'test-token',[{items:[{sku:'24086',ozonCatalog:{
+      status:'seller_product_without_barcode'}}]}]);
+  assert.equal(calls,0);
+  assert.equal(out.status,'no_product_name');
 });
