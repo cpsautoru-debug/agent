@@ -552,15 +552,22 @@
           <article class="ceo-card">
             <h2>Продажи · Ozon</h2><strong class="ceo-value" id="ceoOzonValue">Нет данных</strong>
             <span class="ceo-state" id="ceoOzonState">Не загружено</span>
-            <p id="ceoOzonNote">Продажи и оценка прибыли — по выбранному месяцу.</p>
+            <p id="ceoOzonNote">Продажи по выбранному месяцу. Не равны начислениям и чистой прибыли.</p>
             <a href="#ozonProfit">Подробная прибыль Ozon →</a>
           </article>
           <article class="ceo-card">
-            <h2>Финансы Ozon · полнота данных</h2>
+            <h2>Ozon · загрузка и сверка сумм</h2>
             <strong class="ceo-value" id="ceoOzonAuditValue">Не проверено</strong>
             <span class="ceo-state" id="ceoOzonAuditState" data-state="neutral">Ожидает сверки</span>
-            <p id="ceoOzonAuditNote">Проверяем период, финальный статус отчёта, начисления и подтверждённую себестоимость товаров. Не выдаём начисления за прибыль.</p>
+            <p id="ceoOzonAuditNote">Проверяем 31 день начислений и совпадение сумм Finance API с исходным XLSX. Детализация и прибыль — отдельные этапы.</p>
             <a href="#ozonProfit">Детали и закрытие периода →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Ozon · чистая прибыль</h2>
+            <strong class="ceo-value" id="ceoOzonProfitValue">Не подтверждена</strong>
+            <span class="ceo-state" id="ceoOzonProfitState" data-state="warning">Период не закрыт</span>
+            <p id="ceoOzonProfitNote">Отдельный контроль рекламы, возвратов, налогов, общих расходов и банка.</p>
+            <a href="#ozonProfit">Закрытие прибыли Ozon →</a>
           </article>
           <article class="ceo-card">
             <h2>Заказы Ozon · доступ API</h2>
@@ -2279,7 +2286,7 @@
 <link rel="stylesheet" href="studio.css">
 
 <script src="app.js" defer></script>
-<script type="module" src="ceo-dashboard.mjs?v=20261123-granularity-audit"></script>
+<script type="module" src="ceo-dashboard.mjs?v=20261123-ozon-split-milestones"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
