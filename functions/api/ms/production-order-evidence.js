@@ -166,7 +166,8 @@ export function createProductionOrderEvidenceHandler({fetcher=fetch,pause=
         changedRecords:0,number,taskId:task.id.toLowerCase(),
         linkage:links.status,linkedOrderCount:links.ids.length,
         orders,orderStatusVerified:orders.length>0&&
-          orders.every(x=>x.verification==='state_read'),
+          orders.every(x=>x.verification==='state_read'&&
+            x.statusEvidence==='metadata_state_id_matched'),
         approvedForDispatch:false,requests,
         allLinkedOrdersFinal:orders.length>0&&
           orders.every(x=>x.statusEvidence==='metadata_state_id_matched'&&
