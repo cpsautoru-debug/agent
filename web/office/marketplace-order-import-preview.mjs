@@ -4,13 +4,24 @@
   const el=id=>document.getElementById(id);
   const ozon=el('marketplaceOrderCheckOzon'),fbo=el('marketplaceOrderCheckFbo'),
     wb=el('marketplaceOrderCheckWb');
-  const status=el('marketplaceOrderCheckStatus'),table=el('marketplaceOrderCheckTable');
-  const rows=el('marketplaceOrderCheckRows');
+  const status=el('marketplaceOrderCheckStatus');
+  const tables={
+    ozon:el('marketplaceOrderCheckTableOzon'),
+    ozon_fbo:el('marketplaceOrderCheckTableFbo'),
+    wb:el('marketplaceOrderCheckTableWb')
+  };
+  const rowSets={
+    ozon:el('marketplaceOrderCheckRowsOzon'),
+    ozon_fbo:el('marketplaceOrderCheckRowsFbo'),
+    wb:el('marketplaceOrderCheckRowsWb')
+  };
   const login=el('marketplaceOrderLogin');
   const perSource={ozon:el('marketplaceOrderStatusOzon'),
     ozon_fbo:el('marketplaceOrderStatusFbo'),
     wb:el('marketplaceOrderStatusWb')};
-  if(!ozon||!fbo||!wb||!status||!table||!rows)return;
+  if(!ozon||!fbo||!wb||!status||
+    Object.values(tables).some(x=>!x)||
+    Object.values(rowSets).some(x=>!x))return;
   let busy=false;
   const setSource=(source,message)=>{
     const node=perSource[source];
@@ -46,10 +57,11 @@
     td.textContent=value;tr.append(td);};
   async function load(source){
     if(busy)return;
-    busy=true;ozon.disabled=true;fbo.disabled=true;wb.disabled=true;rows.replaceChildren();
+    busy=true;ozon.disabled=true;fbo.disabled=true;wb.disabled=true;
+    const rows=rowSets[source],table=tables[source];
+    rows.replaceChildren();table.hidden=true;
     if(login)login.hidden=true;
     setSource(source,'Проверяем заказы и дубли…');
-    table.hidden=true;
     status.textContent='Проверяем '+(source==='ozon'?'Ozon FBS':
       source==='ozon_fbo'?'Ozon FBO':'Wildberries')+
       ' и наличие совпадений в «МойСклад»…';
