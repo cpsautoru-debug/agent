@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'web/office/ceo-dashboard.mjs'
+      - 'web/office/office-source-registry.mjs'
+      - 'docs/office-90-day-roadmap-and-dashboard-contract.md'
+      - 'tests/office/office-source-registry.test.mjs'
       - 'web/office/ceo-dashboard.css'
       - 'web/office/index.html'
       - 'web/office/app.js'
@@ -21,4 +24,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --check web/office/ceo-dashboard.mjs
-      - run: node --test tests/office/ceo-dashboard.test.mjs
+      - run: node --check web/office/office-source-registry.mjs
+      - run: node --test tests/office/ceo-dashboard.test.mjs tests/office/office-source-registry.test.mjs
