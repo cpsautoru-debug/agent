@@ -86,7 +86,7 @@ async function discover(db,env,offset,day){
   return complete?'list_complete':'list_paging';
 }
 async function finishReport(db,report){
-  const sums=await db.prepare("SELECT COUNT(*) AS n,COALESCE(SUM(CASE WHEN seller_oper_name='Продажа' THEN 1 ELSE 0 END),0) AS sales,COALESCE(SUM(CASE WHEN seller_oper_name='Возврат' THEN 1 ELSE 0 END),0) AS returns,COALESCE(SUM(CASE WHEN seller_oper_name='Продажа' THEN for_pay_kop WHEN seller_oper_name='Возврат' THEN -for_pay_kop ELSE 0 END),0)-COALESCE(SUM(delivery_service_kop+paid_storage_kop+deduction_kop+penalty_kop),0) AS payout FROM wb_finance_api_rows WHERE account_id=? AND report_id=?")
+  const sums=await db.prepare("SELECT COUNT(*) AS n,COALESCE(SUM(CASE WHEN seller_oper_name='Продажа' THEN 1 ELSE 0 END),0) AS sales,COALESCE(SUM(CASE WHEN seller_oper_name='Возврат' THEN 1 ELSE 0 END),0) AS returns,COALESCE(SUM(CASE WHEN seller_oper_name='Продажа' THEN for_pay_kop WHEN seller_oper_name='Возврат' THEN -for_pay_kop ELSE 0 END),0)-COALESCE(SUM(delivery_service_kop+paid_storage_kop+deduction_kop+penalty_kop+paid_acceptance_kop),0) AS payout FROM wb_finance_api_rows WHERE account_id=? AND report_id=?")
     .bind(ACCOUNT,report.report_id).first();
   const status=sums.payout===report.bank_payment_kop?'complete':'mismatch';
   await db.prepare("UPDATE wb_finance_api_reports SET status=?,row_count=?,sales_count=?,returns_count=?,api_calculated_payment_kop=?,error_code=?,updated_at=CURRENT_TIMESTAMP WHERE account_id=? AND report_id=?")
