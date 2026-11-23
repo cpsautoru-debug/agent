@@ -30,7 +30,7 @@ test('Ozon displays exact known-cost result while tax stays entity-only',()=>{
  assert.equal(view.sourceConfirmed,true);
  assert.equal(view.costConfirmed,true);
  assert.equal(view.finalNetProfitVerified,false);
- assert.equal(view.cards[4].value,'548 369,91 ₽'.replaceAll(' ',' ').length>0?view.cards[4].value:'');
+ assert.match(view.cards[4].value,/548.*369,91/);
  assert.match(view.cards[7].detail,/общем P&L ИП/);
  assert.match(view.cards[8].detail,/без повторного вычета/);
  assert.equal(view.cards[9].value,'Не подтверждена');
