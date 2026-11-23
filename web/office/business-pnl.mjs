@@ -35,6 +35,8 @@ function render(root,pnl,sourceNotes={}){
   ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
+  ['Всего известных общих расходов',pnl.sharedExpenseTotalKopecks===null?null:-pnl.sharedExpenseTotalKopecks],
+  ['Всего известных налогов',pnl.taxTotalKopecks===null?null:-pnl.taxTotalKopecks],
   ['ИТОГОВАЯ ПРИБЫЛЬ БИЗНЕСА',pnl.finalProfitKopecks]
  ];
  for(const [label,value] of rows){
@@ -45,7 +47,7 @@ function render(root,pnl,sourceNotes={}){
  root.append(sheet);
  root.append(el('p','business-pnl-disclaimer',
   pnl.finalProfitKopecks===null?
-   'Итог пока не рассчитывается: отсутствуют подтверждённые данные всех каналов. Неизвестные суммы не заменяются нулями.':
+   'Итог пока не рассчитывается: не закрыта прибыль всех каналов и/или не подтверждён полный перечень общих расходов и налогов. Показаны только известные расходы; неизвестные суммы не заменяются нулями.':
    pnl.verified?'Все источники подтверждены.':'Управленческая оценка: имеются неподтверждённые источники.'));
 }
 export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
@@ -59,12 +61,14 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const base={month,channels:{},sharedExpenses:[],taxes:[],
     completeSources:false};
   const sourceNotes={
+    ozon:'Ожидает расчёт по сверенным данным.',
     wb:'Данные прибыли пока не подтверждены.',
     yandex:'Нет подключённого подтверждённого P&L за этот месяц.',
     avito:'Нет подключённого подтверждённого P&L за этот месяц.',
     offline:'Нет подключённого подтверждённого P&L за этот месяц.'
   };
   if(month==='2026-10'){
+   // Known owner-confirmed expenses, but not an audited exhaustive business ledger.
    base.sharedExpenses=[
     {id:'shared-waste',label:'Мусор',amountKopecks:900000},
     {id:'shared-leather-delivery',label:'Доставка кожи',amountKopecks:2000000},
@@ -85,6 +89,8 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     if(ozon.status==='provisional_known_cost_result')
      base.channels.ozon={status:'known_cost_result',
        profitKopecks:ozon.beforeAllocationKopecks};
+    else sourceNotes.ozon='Дневная сверка или себестоимость Ozon не подтверждены.';
+
    }
   }catch(e){error=e;}
   if(month==='2026-10'){
