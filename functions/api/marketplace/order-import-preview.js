@@ -182,6 +182,40 @@ export async function scanMoyskladOrderKeys(fetcher,token,keys){
     sourceError:false};
 }
 
+// A read-only, bounded exact article lookup. Marketplace offer_id may not
+// equal MoySklad article: only equality from the returned entity counts.
+export async function matchMoyskladArticles(fetcher,token,orders){
+  if(!Array.isArray(orders)||orders.length>LIMIT)
+    throw Error('invalid_article_lookup');
+  const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
+  const limit=12,result=new Map();let requests=0;
+  for(const sku of skus){
+    if(!safe(sku)||sku.length>100){result.set(sku,'unverified');continue;}
+    if(requests>=limit){result.set(sku,'unverified');continue;}
+    requests++;
+    try{
+      const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+      url.searchParams.set('limit','2');
+      url.searchParams.set('filter','article='+sku);
+      const response=await requestJson(fetcher,url.toString(),{
+        method:'GET',headers:{
+          Authorization:'Bearer '+token,
+          Accept:'application/json;charset=utf-8'
+        }
+      });
+      if(!Array.isArray(response?.rows)||
+        !Number.isSafeInteger(response?.meta?.size)){
+        result.set(sku,'unverified');continue;
+      }
+      const exact=response.rows.filter(row=>row?.article===sku);
+      result.set(sku,response.meta.size===1&&exact.length===1?
+        'matched_exact_article':response.meta.size===0?
+          'not_matched':'unverified');
+    }catch{result.set(sku,'unverified');}
+  }
+  return {bySku:result,requests};
+}
+
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -251,7 +285,15 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
           upstreamCode:Number.isSafeInteger(error?.upstreamCode)?
             error.upstreamCode:null};
       }
+      // Article comparison is informative only. It can never authorize a
+      // write or production dispatch, even for an exact single match.
+      let articleScan={bySku:new Map(),requests:0};
+      if(orders.length)articleScan=await matchMoyskladArticles(
+        fetcher,env.MS_API_TOKEN,orders);
       for(const order of orders){
+        for(const item of order.items){
+          item.assortmentMatch=articleScan.bySku.get(item.sku)||'unverified';
+        }
         const matches=scan?.matches?.get(order.externalKey)||0;
         order.duplicateStatus=matches===1?'already_exists':
           matches>1?'unverified':
@@ -270,6 +312,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         duplicateScan:{checkedRows:scan?.checkedRows||0,
           pages:scan?.pages||0,complete:scan?.complete===true},
         duplicateLookupFailure:lookupFailure,
+        articleLookupRequests:articleScan.requests,
         counts:{received:orders.length,
           candidateNeedsInventory:orders.filter(x=>
             x.productionQueue==='candidate_needs_inventory').length,
