@@ -577,6 +577,13 @@
             <a href="#production">Производство и остатки →</a>
           </article>
           <article class="ceo-card">
+            <h2>Производственные площадки</h2>
+            <strong class="ceo-value">4 направления</strong>
+            <span class="ceo-state" data-state="warning">2 действующих · 2 планируются</span>
+            <p>Основной цех и домашний пошив (3 швеи). Внешние цеха №2 и №3 — проекты запуска, не действующие мощности.</p>
+            <a href="#production" data-production-sites-link>Площадки и передача кроя →</a>
+          </article>
+          <article class="ceo-card">
             <h2>Реклама Ozon · денежные расходы</h2>
             <strong class="ceo-value" id="ceoAdsValue">По запросу</strong>
             <span class="ceo-state" id="ceoAdsState">Не загружено</span>
@@ -1705,6 +1712,49 @@
         <div class="ms-executive-card"><span>Проверка видимых заданий</span><strong id="msExecutiveAudit">Ещё не выполнена</strong><small>Статусы только проверенной страницы</small></div>
         <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Автообновление при открытии</strong><small>Ручное чтение, без изменений данных</small></div>
         <div class="ms-executive-card"><span>Готовая продукция</span><strong>Отдельный учёт ещё не подключён</strong><small>Не путать завершённый этап с остатком готовых комплектов</small></div>
+      </section>
+      <section class="ms-sites" id="msProductionSites" aria-labelledby="msProductionSitesTitle">
+        <div class="ms-production-header">
+          <div>
+            <div class="eyebrow">СТРУКТУРА ПРОИЗВОДСТВА · СПРАВОЧНАЯ ИНФОРМАЦИЯ</div>
+            <h2 id="msProductionSitesTitle">Производственные площадки АвтоСклад63</h2>
+            <p>Площадки показаны отдельно от складов «МойСклад». Указанные люди и процессы — организационные сведения; заказы, производительность и остатки по площадкам пока не синхронизируются.</p>
+          </div>
+        </div>
+        <div class="ms-sites-grid">
+          <article class="ms-site-card">
+            <div class="ms-site-top"><h3>Основной цех · ателье</h3><span class="ms-site-state is-active">Действует</span></div>
+            <p>Основное производство авточехлов. Текущие задания и складской учёт контролируются в других разделах онлайн-офиса.</p>
+            <p class="ms-site-small">Состав команды и мощность здесь не привязаны к данным API по площадкам.</p>
+          </article>
+          <article class="ms-site-card">
+            <div class="ms-site-top"><h3>Домашний пошив · домушницы</h3><span class="ms-site-state is-active">Действует</span></div>
+            <p><strong>Швеи:</strong> Аня Малагина, Маша Малыгина, Ольга Стемафеевки.</p>
+            <p><strong>Процесс:</strong> передаём готовый крой для пошива на дому. Затем забираем сшитые чехлы либо швеи самостоятельно привозят их в ателье.</p>
+            <p class="ms-site-small">3 человека · учёт выдачи и возврата кроя по исполнительницам пока не подключён автоматически.</p>
+          </article>
+          <article class="ms-site-card is-planned">
+            <div class="ms-site-top"><h3>Цех №2 · внешний</h3><span class="ms-site-state is-planned">Планируется</span></div>
+            <p>Дополнительная внешняя площадка. Первоначально планируется пошив авточехлов.</p>
+            <p class="ms-site-small">Модельный ряд и сегмент — текущий, бюджетный или премиальный — ещё не определены. Запуск, сотрудники и объёмы не подтверждены.</p>
+          </article>
+          <article class="ms-site-card is-planned">
+            <div class="ms-site-top"><h3>Цех №3 · внешний</h3><span class="ms-site-state is-planned">Планируется</span></div>
+            <p>Дополнительная внешняя площадка. Первоначально планируется пошив авточехлов; в будущем возможна другая продукция.</p>
+            <p class="ms-site-small">Ассортимент, ценовой сегмент, запуск, сотрудники и объёмы пока не утверждены.</p>
+          </article>
+        </div>
+        <div class="ms-sites-route">
+          <strong>Логистика домашнего пошива</strong>
+          <div class="ms-sites-steps" aria-label="Последовательность движения кроя и чехлов">
+            <span>Крой в ателье</span><span aria-hidden="true">→</span>
+            <span>Выдача швее</span><span aria-hidden="true">→</span>
+            <span>Пошив дома</span><span aria-hidden="true">→</span>
+            <span>Забор или доставка в ателье</span><span aria-hidden="true">→</span>
+            <span>Приёмка</span>
+          </div>
+          <p>Для полноценного контроля нужны журнал передачи кроя, ответственный исполнитель, дата выдачи, срок возврата, фактическая приёмка и ОТК. Пока это схема процесса, а не автоматически подтверждённые движения.</p>
+        </div>
       </section>
       <section class="ms-inventory-control" id="msInventoryControl" aria-labelledby="msInventoryTitle">
         <div class="ms-production-header">
