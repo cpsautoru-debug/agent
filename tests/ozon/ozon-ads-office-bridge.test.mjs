@@ -199,7 +199,9 @@ test('ads Worker exposes default class entrypoint compatible with Pages binding'
  const source=readFileSync(new URL('../../workers/ozon-ads-staging.js',import.meta.url),'utf8');
  assert.ok(source.includes("import { WorkerEntrypoint } from 'cloudflare:workers'"));
  assert.ok(source.includes('export default class OzonAdsWorker extends WorkerEntrypoint'));
- assert.ok(source.includes('const env=this.env;'));
+ assert.ok(source.includes('export class OzonAdsInternal extends WorkerEntrypoint'));
+ assert.ok(source.includes('fetch(request){return handleAdsRequest(request,this.env);}'));
+ assert.ok(source.includes('async function handleAdsRequest(request,env)'));
  assert.ok(source.includes("if(auth!=='Bearer '+env.ADS_READ_TOKEN)"));
  assert.equal(source.includes('export default {'),false);
 });
