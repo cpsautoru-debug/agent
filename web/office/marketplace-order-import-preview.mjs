@@ -178,6 +178,25 @@
           data.assortmentCoverage.confirmedByFilter>0?
           ' Точно подтверждено по отдельным запросам: '+
             data.assortmentCoverage.confirmedByFilter+' SKU.':'')+
+        (Array.isArray(data.assortmentCoverage?.exactDiagnostics)?
+          ' Точечная диагностика: '+
+          data.assortmentCoverage.exactDiagnostics.slice(0,8).map(e=>{
+            const label={
+              not_checked:'не проверено',
+              absent_exact:'нет точного совпадения',
+              one_exact:'одно точное совпадение',
+              ambiguous:'несколько совпадений',
+              filter_rejected:'фильтр отклонён API',
+              permission_denied:'доступ запрещён',
+              rate_limited:'лимит API',
+              response_too_large:'слишком большой ответ',
+              schema_unverified:'ответ не подтверждён',
+              source_unavailable:'источник недоступен'
+            };
+            return String(e.sku).slice(0,100)+' (артикул: '+
+              (label[e.article]||'неизвестно')+', код: '+
+              (label[e.code]||'неизвестно')+')';
+          }).join('; ')+'.':'')+
         (data.assortmentCoverage?.sourceError===true?
           ' Причина: '+({
             response_too_large:'слишком большой ответ API',
