@@ -1,0 +1,27 @@
+name: MoySklad production queue safety tests
+on:
+  push:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/ms/production-order-evidence.js'
+      - 'functions/api/ms/production-queue.js'
+      - 'web/office/ms-production-auto-queue.mjs'
+      - 'web/office/ms-production-audit.mjs'
+      - 'web/office/ms-production-plan-date.mjs'
+      - 'tests/ms-production-queue.test.mjs'
+      - 'tests/ms-production-order-evidence.test.mjs'
+      - '.github/workflows/ms-production-queue-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate owner-only queue and order evidence
+        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs
