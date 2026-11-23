@@ -44,9 +44,20 @@ function showProduction(data){
   reportSource('inventory','partial','Остатки двух складов требуют отдельной сверки');
   set('ceoProductionValue',count(data.totals.incomplete));
   status('ceoProductionState','Исторический монитор · не живая очередь','warning');
+  const drift=data.generationDrift;
+  const driftNote=drift&&drift.comparisonScope===
+    'OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE'&&
+    ['baselineRows','comparedRows','matchedRows','newSinceBaseline',
+      'sourceUpdatedRows','stageChangedRows'].every(k=>validInt(drift[k])&&drift[k]>=0)&&
+    drift.comparedRows===data.totals.checked&&
+    drift.matchedRows+drift.newSinceBaseline===drift.comparedRows?
+    ' С прошлого исторического прохода: изменение даты обновления у '+
+      count(drift.sourceUpdatedRows)+', смена статуса этапов у '+
+      count(drift.stageChangedRows)+' документов (только пересечение поколений).':
+    ' Изменения между поколениями не подтверждены.';
   set('ceoProductionNote','Проверено '+count(data.totals.checked)+
-    '; неизвестный этап у '+count(data.totals.unverified)+
-    '. Монитор: '+(data.monitorHealth||'неизвестно')+
+    '; неизвестный этап у '+count(data.totals.unverified)+'.'+driftNote+
+    ' Монитор: '+(data.monitorHealth||'неизвестно')+
     '. Последний пакет: '+(validInt(data.lastSuccessMs)&&data.lastSuccessMs>0?
     new Intl.DateTimeFormat('ru-RU',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Samara'})
       .format(new Date(data.lastSuccessMs)):'нет подтверждения')+'.');

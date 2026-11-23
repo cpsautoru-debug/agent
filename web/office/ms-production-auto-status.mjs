@@ -93,6 +93,28 @@
       data.freshness==='stale'?'устарело':'нет данных')+
       (data.lastErrorCode?'. Код остановки: '+data.lastErrorCode:'')+
       '. Без подтверждения активного статуса эти данные нельзя использовать для планирования загрузки цеха.';
+    const drift=data.generationDrift;
+    if(drift!==null&&drift!==undefined){
+      if(drift.comparisonScope!=='OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE'||
+        !Number.isSafeInteger(drift.baselineGeneration)||
+        drift.baselineGeneration!==data.generation-1||
+        !['baselineRows','comparedRows','matchedRows','newSinceBaseline',
+          'sourceUpdatedRows','stageChangedRows']
+          .every(k=>Number.isSafeInteger(drift[k])&&drift[k]>=0)||
+        drift.comparedRows!==data.totals.checked||
+        drift.matchedRows+drift.newSinceBaseline!==drift.comparedRows||
+        drift.matchedRows>drift.baselineRows||
+        drift.sourceUpdatedRows>drift.matchedRows||
+        drift.stageChangedRows>drift.matchedRows)
+        throw Error('invalid_ms_generation_drift');
+      details.textContent+=' Сравнение с предыдущим историческим проходом №'+
+        drift.baselineGeneration+': совпадающих документов '+
+        fmt(drift.matchedRows)+', новых относительно прошлого прохода '+
+        fmt(drift.newSinceBaseline)+', изменена дата обновления у '+
+        fmt(drift.sourceUpdatedRows)+', изменён статус этапов у '+
+        fmt(drift.stageChangedRows)+
+        '. Это только пересечение исторических проходов, не полная живая очередь.';
+    }
     const dates=data.visibleDateChecks;
     attention.textContent='Среди '+fmt(data.shown)+' показанных подтверждённо незавершённых: '+
       'плановая дата прошла — '+fmt(dates.past)+

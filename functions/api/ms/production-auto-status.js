@@ -154,6 +154,30 @@ export function summarizeAutoStatus(runtime,counts,rows,nowMs,unverifiedRows=[])
     dataRecent:recent
   };
 }
+// Cross-generation drift is a diagnostic on overlapping documents, not
+// evidence that a production task is currently active or that a scan is atomic.
+export function normalizeGenerationDrift(raw,generation,checked){
+  if(generation<2)return null;
+  const keys=['previous_rows','matched_rows','new_rows',
+    'modified_rows','stage_changed_rows'];
+  if(!raw||keys.some(k=>!int(raw[k])))throw Error('auto_generation_drift_invalid');
+  if(raw.matched_rows+raw.new_rows!==checked||
+     raw.matched_rows>raw.previous_rows||
+     raw.modified_rows>raw.matched_rows||
+     raw.stage_changed_rows>raw.matched_rows)
+    throw Error('auto_generation_drift_invalid');
+  return {
+    baselineGeneration:generation-1,
+    baselineRows:raw.previous_rows,
+    comparedRows:checked,
+    matchedRows:raw.matched_rows,
+    newSinceBaseline:raw.new_rows,
+    sourceUpdatedRows:raw.modified_rows,
+    stageChangedRows:raw.stage_changed_rows,
+    comparisonScope:'OVERLAPPING_HISTORICAL_ROWS_NOT_LIVE_QUEUE'
+  };
+}
+
 export function createProductionAutoStatusHandler({now=Date.now}={}){
   return async function({request,env}){
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -198,8 +222,23 @@ export function createProductionAutoStatusHandler({now=Date.now}={}){
         "SELECT task_id,number,task_stage_status,document_updated,plan_date,checked_ms FROM ms_production_auto_tasks WHERE generation=? AND task_stage_status='unverified' ORDER BY checked_ms DESC,document_updated DESC,number DESC LIMIT 20"
       ).bind(runtime.generation).all();
       if(!Array.isArray(unknown?.results))throw Error('invalid_results');
-      return json(200,summarizeAutoStatus(
-        runtime,counts,active.results,timestamp,unknown.results));
+      const result=summarizeAutoStatus(
+        runtime,counts,active.results,timestamp,unknown.results);
+      if(runtime.generation>=2){
+        const drift=await db.prepare(
+          "SELECT "+
+          "(SELECT COUNT(*) FROM ms_production_auto_tasks p WHERE p.generation=?) AS previous_rows, "+
+          "COALESCE(SUM(CASE WHEN p.task_id IS NOT NULL THEN 1 ELSE 0 END),0) AS matched_rows, "+
+          "COALESCE(SUM(CASE WHEN p.task_id IS NULL THEN 1 ELSE 0 END),0) AS new_rows, "+
+          "COALESCE(SUM(CASE WHEN p.task_id IS NOT NULL AND c.document_updated IS NOT p.document_updated THEN 1 ELSE 0 END),0) AS modified_rows, "+
+          "COALESCE(SUM(CASE WHEN p.task_id IS NOT NULL AND c.task_stage_status<>p.task_stage_status THEN 1 ELSE 0 END),0) AS stage_changed_rows "+
+          "FROM ms_production_auto_tasks c LEFT JOIN ms_production_auto_tasks p "+
+          "ON p.generation=? AND p.task_id=c.task_id WHERE c.generation=?"
+        ).bind(runtime.generation-1,runtime.generation-1,runtime.generation).first();
+        result.generationDrift=normalizeGenerationDrift(drift,
+          runtime.generation,counts.checked);
+      }else result.generationDrift=null;
+      return json(200,result);
     }catch{
       return json(503,{code:'ms_auto_status_unavailable',readOnly:true});
     }
