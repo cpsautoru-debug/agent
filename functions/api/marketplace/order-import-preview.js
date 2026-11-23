@@ -31,6 +31,22 @@ export function buildOzonFbsPreviewBody(nowMs){
   return {filter:{since:start.toISOString(),to:end.toISOString()},
     limit:LIMIT,sort_dir:'DESC',cursor:''};
 }
+// Dispatch eligibility is intentionally stricter than successful API read.
+// These labels describe FBS shipment lifecycle, NOT confirmed demand to sew.
+// Only awaiting_packaging can be considered for later inventory-driven planning.
+export function classifyMarketplaceOrder(source,status){
+  if(source==='wb'&&status==='new_fbs_assembly_order')
+    return {queue:'candidate_needs_inventory',reason:'WB_NEW_FBS_REQUIRES_STOCK_CHECK'};
+  if(source!=='ozon')return {queue:'not_for_sewing',reason:'UNKNOWN_SOURCE'};
+  if(status==='awaiting_packaging')
+    return {queue:'candidate_needs_inventory',reason:'OZON_AWAITING_PACKAGING'};
+  if(['cancelled','cancelled_from_split_pending','delivered',
+    'delivering','awaiting_deliver','driver_pickup','not_accepted',
+    'acceptance_in_progress'].includes(status))
+    return {queue:'not_for_sewing',reason:'OZON_FULFILLMENT_OR_TERMINAL'};
+  return {queue:'unverified',reason:'OZON_STATUS_UNVERIFIED'};
+}
+
 export function normalizeMarketplaceOrders(source,body,account){
   const raw=source==='wb'?body?.orders:body?.postings;
   if(!Array.isArray(raw)||raw.length>100)throw Error('unexpected_order_feed');
@@ -51,9 +67,11 @@ export function normalizeMarketplaceOrders(source,body,account){
     });
     const status=source==='wb'?'new_fbs_assembly_order':
       safe(x.status)?x.status:'unknown';
+    const queue=classifyMarketplaceOrder(source,status);
     return {externalKey:code,source,status,items,
-      supplyScheme:'FBS',assortmentVerified:false,
-      legalEntityVerified:false,readyToWrite:false};
+      supplyScheme:'FBS',productionQueue:queue.queue,
+      productionQueueReason:queue.reason,
+      assortmentVerified:false,legalEntityVerified:false,readyToWrite:false};
   });
   return records;
 }
@@ -71,8 +89,17 @@ async function requestJson(fetcher,url,options){
   const response=await fetcher(url,{redirect:'manual',
     signal:AbortSignal.timeout(20000),...options});
   if(response.status!==200){
-    await response.body?.cancel().catch(()=>{});
-    const e=Error(sourceError(response.status));e.status=response.status;throw e;
+    // Read a bounded structured error only for an upstream numeric code.
+    // Never return human-readable upstream messages or user/order details.
+    let upstreamCode=null;
+    try{
+      const body=await readJson(response);
+      const first=body?.errors?.[0]?.code;
+      if(Number.isSafeInteger(first)&&first>=0&&first<=999999)
+        upstreamCode=first;
+    }catch{await response.body?.cancel().catch(()=>{});}
+    const e=Error(sourceError(response.status));
+    e.status=response.status;e.upstreamCode=upstreamCode;throw e;
   }
   return readJson(response);
 }
@@ -206,7 +233,9 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
           'moysklad_list_rejected':
           Number.isInteger(error?.status)&&error.status===403?
             'moysklad_permission_denied':'moysklad_list_unavailable',
-          http:Number.isInteger(error?.status)?error.status:null};
+          http:Number.isInteger(error?.status)?error.status:null,
+          upstreamCode:Number.isSafeInteger(error?.upstreamCode)?
+            error.upstreamCode:null};
       }
       for(const order of orders){
         const matches=scan?.matches?.get(order.externalKey)||0;
@@ -224,7 +253,12 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         duplicateScan:{checkedRows:scan?.checkedRows||0,
           pages:scan?.pages||0,complete:scan?.complete===true},
         duplicateLookupFailure:lookupFailure,
-        counts:{received:orders.length,msLookups:msQueries,
+        counts:{received:orders.length,
+          candidateNeedsInventory:orders.filter(x=>
+            x.productionQueue==='candidate_needs_inventory').length,
+          notForSewing:orders.filter(x=>x.productionQueue==='not_for_sewing').length,
+          statusUnverified:orders.filter(x=>x.productionQueue==='unverified').length,
+          msLookups:msQueries,
           existing:orders.filter(x=>x.duplicateStatus==='already_exists').length,
           notFound:orders.filter(x=>x.duplicateStatus==='not_found').length,
           uncertain:orders.filter(x=>x.duplicateStatus==='unverified').length},
