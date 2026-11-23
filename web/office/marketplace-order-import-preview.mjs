@@ -54,7 +54,7 @@
       Array.isArray(x.items)&&x.items.every(p=>
         typeof p.sku==='string'&&Number.isSafeInteger(p.quantity)&&
         p.quantity>0&&
-        ['matched_exact_article','matched_exact_code','not_matched','unverified']
+        ['matched_exact_article','matched_exact_code','matched_exact_barcode','not_matched','unverified']
           .includes(p.assortmentMatch)&&
         (d.source==='wb'||(p.ozonCatalog&&
           ['not_confirmed','ambiguous','seller_product_with_barcode',
@@ -152,6 +152,8 @@
             p.sku+' — точный артикул найден':
           p.assortmentMatch==='matched_exact_code'?
             p.sku+' — точный код товара найден':
+          p.assortmentMatch==='matched_exact_barcode'?
+            p.sku+' — точно найден по штрихкоду':
           p.assortmentMatch==='not_matched'?
             p.sku+' — нет точного совпадения ни по артикулу, ни по коду':
             p.sku+' — сопоставление не подтверждено').join('; '));
@@ -197,6 +199,12 @@
         (data.duplicateScan?.complete===true?
           ' Обход ограниченного реестра завершён.':
           ' Полный реестр не подтверждён — отсутствие дублей не доказано.')+
+        (data.barcodeLookup&&Number.isSafeInteger(data.barcodeLookup.requests)?
+          ' Проверка штрихкодов «МойСклад»: запросов '+
+          data.barcodeLookup.requests+', совпадений '+
+          (Array.isArray(data.barcodeLookup.diagnostics)?
+            data.barcodeLookup.diagnostics.filter(x=>x.category==='one_exact').length:0)+
+          (data.barcodeLookup.rateLimited?' · лимит API, остановлено.':'.'):'')+
         (data.assortmentCoverage?.mode==='TARGETED_ONLY_TO_AVOID_RATE_LIMITS'?
           ' Режим защиты API: не больше 2 SKU за запуск, без массового обхода каталога. Точечных запросов: '+
             (data.assortmentCoverage.exactQueries||0)+'.':
