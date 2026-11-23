@@ -121,9 +121,22 @@ function showWB(data){
   set('ceoWbValue',count(data.completedCount)+' / '+count(data.reportCount));
   const issues=data.mismatchCount+data.conflictCount+data.failedCount;
   status('ceoWbState',issues?'Есть расхождения: '+count(issues):'Монитор отчётов · только сохранённые',issues?'danger':'neutral');
+  const evidence=Array.isArray(data.payoutDifferenceEvidence)?
+    data.payoutDifferenceEvidence.filter(e=>
+      e?.status==='PAYOUT_DIFFERENCE_EXACTLY_PAID_ACCEPTANCE'&&
+      e.correctionApplied===false&&
+      typeof e.reportId==='string'&&/^\\d{1,20}$/.test(e.reportId)&&
+      validInt(e.differenceKop)&&e.differenceKop>0&&
+      e.differenceKop===e.paidAcceptanceKop&&
+      validInt(e.rowCount)&&e.rowCount>0).slice(0,3):[];
+  const explanation=evidence.length?
+    ' Найдена причина расхождения: отчёт №'+evidence[0].reportId+
+      ', '+money(evidence[0].differenceKop)+
+      ' платной приёмки не учтено в прежнем расчёте. '+
+      'Причина подтверждена строками, исправление отчёта ещё не выполнено.':'';
   set('ceoWbNote','Выплаты по завершённым отчётам: '+money(data.totalBankPaymentKop)+
     '. Ожидают обработки: '+count(data.queuedCount)+
-    '. Выплата не равна прибыли.');
+    '. Выплата не равна прибыли.'+explanation);
 }
 function showOzon(data){
   const p=data.result;
