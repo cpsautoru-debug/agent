@@ -1894,6 +1894,19 @@
         </div>
         <p class="ms-production-note">Область автоматической проверки: только до 10 последних обновлённых документов из исторического реестра. Это не вся незавершёнка и не подтверждение фактической отгрузки. До 12 последовательных GET с паузой не менее 2 секунд; остановка при ограничении API. Исполнители, заказы покупателей, нормы расхода, реальная очередь и дефицит не определяются без подтверждённых связей.</p>
       </section>
+      <section class="ms-command-board" id="msOrderStates" aria-labelledby="msOrderStatesTitle">
+        <div class="ms-production-header">
+          <div>
+            <div class="eyebrow">ЗАКАЗЫ ПОКУПАТЕЛЕЙ · СПРАВОЧНИК ИЗ МОЙСКЛАД</div>
+            <h2 id="msOrderStatesTitle">Реальные статусы заказов покупателей</h2>
+            <p>Офис читает названия статусов из вашей учётной записи. Это справочник состояний, а не доказательство того, что конкретный заказ сейчас в работе.</p>
+          </div>
+          <button type="button" id="msOrderStatesRefresh" class="ms-production-detail-button">Обновить статусы</button>
+        </div>
+        <p id="msOrderStatesMessage" class="ms-production-status" role="status">Проверка начнётся автоматически при открытии раздела.</p>
+        <div id="msOrderStatesResults" class="ms-sites-steps" hidden></div>
+        <p class="ms-production-note">Текущая интерпретация: не назначена. Система не определяет «активен», «закрыт» или «отменён» по одному только названию. Данные покупателей не загружаются.</p>
+      </section>
       <section class="ms-command-board" id="msAutoQueue" aria-labelledby="msAutoQueueTitle">
         <div class="ms-production-header">
           <div>
@@ -2210,6 +2223,7 @@
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
+<script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
