@@ -12,7 +12,12 @@ export function describeIncomeEvidence(data,month){
    !Number.isSafeInteger(services[k]?.rows))||
    !Number.isSafeInteger(data.wb.reports)||
    !data.wb.operationAmounts||typeof data.wb.operationAmounts!=='object'||
-   data.ozon.nonAdditiveTotals!==true||
+   (data.wb.costCoverage!==null&&data.wb.costCoverage!==undefined&&
+    (!Number.isSafeInteger(data.wb.costCoverage.soldArticles)||
+     !Number.isSafeInteger(data.wb.costCoverage.confirmedArticles)||
+     !Number.isSafeInteger(data.wb.costCoverage.preliminaryArticles)||
+     data.wb.costCoverage.complete!==false))||
+      data.ozon.nonAdditiveTotals!==true||
    typeof data.ozon.taxDocumentPresent!=='boolean'||
    typeof data.wb.reportPeriodComplete!=='boolean'||
    !Array.isArray(data.wb.reportTypeCoverage)||
@@ -33,6 +38,14 @@ export function describeIncomeEvidence(data,month){
   '\nВажно: «Баллы за скидки» не прибавляются второй раз к выручке; суммы по статьям разного экономического смысла не суммируются.'+
   '\nВыручка XLSX — начисление, а не подтверждённый доход АУСН за календарный месяц.'+
   '\nWildberries: '+data.wb.reports+' финансовых отчётов. Суммы к перечислению не равны выручке до удержаний.'+
+  '\nWB — себестоимость: '+
+    (data.wb.costCoverage?
+      data.wb.costCoverage.confirmedArticles+' из '+
+      data.wb.costCoverage.soldArticles+
+      ' проданных артикулов имеют подтверждённую запись себестоимости; '+
+      data.wb.costCoverage.preliminaryArticles+' — предварительную. '+
+      'Это проверка на интервал отчёта, а не на точную дату продажи.':
+      'проверка источника недоступна.')+
   '\nWB: покрытие отчётных периодов — '+(data.wb.reportPeriodComplete?
     'полный месяц по каждому типу отчёта':
     'есть пропущенные или пересекающиеся периоды')+
