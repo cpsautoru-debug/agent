@@ -87,3 +87,25 @@ test('WB cost coverage rejects more confirmed than sold articles',()=>{
   ...wb,costCoverage:{sold_articles:35,confirmed_articles:36,preliminary_articles:1}
  }),/invalid_wb_cost_coverage/);
 });
+
+test('WB review queue is read-only, prioritized, never claims product identity',()=>{
+ const x=summarizeIncomeEvidence(month,finance,{
+  ...wb,costReview:[
+   {vendor_code:'WB-2',sold_units:9,sale_rows:5,cost_status:'missing'},
+   {vendor_code:'WB-1',sold_units:3,sale_rows:2,cost_status:'preliminary'}
+  ]
+ });
+ assert.equal(x.wb.costReview.length,2);
+ assert.equal(x.wb.costReview[0].soldUnits,9);
+ assert.equal(x.wb.costReview[0].candidateOzonSku,null);
+ assert.equal(x.wb.costReview[1].requiresPhysicalConfirmation,true);
+ assert.equal(x.distributionReady,false);
+});
+test('WB review queue refuses duplicate articles and ungrounded price',()=>{
+ assert.throws(()=>summarizeIncomeEvidence(month,finance,{
+  ...wb,costReview:[
+   {vendor_code:'WB-1',sold_units:2,sale_rows:1,cost_status:'missing'},
+   {vendor_code:'WB-1',sold_units:1,sale_rows:1,cost_status:'missing'}
+  ]
+ }),/duplicate_wb_review_article/);
+});
