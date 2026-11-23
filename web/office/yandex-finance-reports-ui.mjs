@@ -96,20 +96,27 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   finally{loading=false;buttonState();}
  }
  async function checkStatus(){
-  if(loading||!getJob())return;
+  const key=getKey(),job=jobs.get(key);
+  if(loading||!job)return;
   loading=true;buttonState();say('Проверяем готовность отчёта…');
+  let auditReady=false;
   try{
    const data=await request('/api/yandex/finance-reports?action=status&reportId='+
-    encodeURIComponent(getJob().reportId));
+    encodeURIComponent(job.reportId));
    if(data.code!=='yandex_report_status')throw Error('unexpected_status');
-   getJob().status=data.status;
-    say(data.status==='DONE'?
-     'Отчёт сформирован. Можно проверить строки и агрегаты исходных данных.':
+   job.status=data.status;
+   auditReady=data.status==='DONE'&&key===getKey();
+   say(data.status==='DONE'?
+     'Отчёт сформирован. Проверяем его исходные строки…':
      data.status==='FAILED'?
        'Яндекс отклонил генерацию: '+(data.subStatus||'FAILED')+'.':
        'Яндекс ещё формирует отчёт ('+data.status+').');
   }catch(e){say('Ошибка проверки отчёта: '+safeReason(e));}
-  finally{loading=false;buttonState();}
+  finally{
+   loading=false;buttonState();
+   if(auditReady)void analyzeReport();
+   else if(key===getKey())schedulePolling();
+  }
  }
  const rub=kopecks=>Number.isSafeInteger(kopecks)?
    new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'})
