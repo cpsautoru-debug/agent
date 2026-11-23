@@ -1,0 +1,162 @@
+import {assessProductionTask} from './ms-production-audit.mjs';
+
+// Automatic, owner-only TRIAGE. Historical candidates are never sent to shop
+// floor as work orders. Fresh source checks are bounded to avoid API overload.
+(()=>{
+  'use strict';
+  const el=id=>document.getElementById(id);
+  const root=el('msAutoQueue'),status=el('msAutoQueueStatus');
+  const summary=el('msAutoQueueSummary'),table=el('msAutoQueueTable');
+  const tbody=el('msAutoQueueRows'),refresh=el('msAutoQueueRefresh');
+  if([root,status,summary,table,tbody,refresh].some(x=>!x))return;
+  const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+  const MAX_LIVE_CHECKS=6,DELAY_MS=2000,EVERY_MS=5*60*1000;
+  const fmt=n=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3}).format(n);
+  const clock=n=>new Intl.DateTimeFormat('ru-RU',{
+    dateStyle:'short',timeStyle:'short',timeZone:'Europe/Samara'
+  }).format(new Date(n));
+  const td=(tr,value)=>{
+    const cell=document.createElement('td');
+    cell.textContent=String(value);tr.append(cell);return cell;
+  };
+  const inView=()=>document.visibilityState==='visible'&&
+    location.hash.split('/')[0]==='#production';
+  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const safeItem=item=>item&&UUID.test(item.taskId)&&
+    typeof item.number==='string'&&/^\d{1,10}$/.test(item.number)&&
+    ['incomplete','unverified'].includes(item.status)&&
+    Number.isSafeInteger(item.checkedMs)&&item.checkedMs<=Date.now()&&
+    ['past','today','future','not_set','unverified'].includes(item.plannedDateControl);
+  const valid=data=>data?.code==='ms_production_queue_candidates_ok'&&
+    data.readOnly===true&&data.changedRecords===0&&
+    data.approvedForDispatch===false&&
+    data.scope==='HISTORICAL_CANDIDATES_NEED_LIVE_STAGE_AND_ORDER_VERIFICATION'&&
+    data.completeHistoricalCoverage===true&&
+    Array.isArray(data.items)&&data.items.length<=40&&
+    Number.isSafeInteger(data.shown)&&data.shown===data.items.length&&
+    Number.isSafeInteger(data.counts?.incomplete)&&
+    Number.isSafeInteger(data.counts?.unverified)&&
+    data.items.every(safeItem)&&
+    new Set(data.items.map(x=>x.taskId)).size===data.items.length;
+  const openTask=number=>{
+    const input=el('msProductionNumber');
+    const form=el('msProductionSearchForm');
+    if(!input||!form)return;
+    input.value=number;
+    form.requestSubmit();
+    el('msProductionMonitor')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  const dateText={
+    past:'Плановая дата прошла',today:'Сегодня',future:'Впереди',
+    not_set:'Не задана',unverified:'Не подтверждена'
+  };
+  const statuses={
+    incomplete:'Незавершённые этапы в истории',
+    unverified:'Исторические этапы не подтверждены',
+    live_incomplete:'Незавершённые этапы подтверждены сейчас',
+    live_complete:'Этапы выполнены при повторной проверке',
+    live_unverified:'Повторная проверка не удалась'
+  };
+  let running=false,lastAttempt=0;
+  const request=async path=>{
+    const result=await fetch(path,{method:'GET',credentials:'same-origin',
+      cache:'no-store',headers:{Accept:'application/json'},
+      signal:AbortSignal.timeout(20000)});
+    if(!result.ok)throw Error('source_unavailable');
+    return result.json();
+  };
+  const render=(data,items)=>{
+    tbody.replaceChildren();
+    for(const item of items){
+      const tr=document.createElement('tr');
+      const numberCell=document.createElement('td');
+      const button=document.createElement('button');
+      button.type='button';button.className='ms-production-detail-button';
+      button.textContent=item.number;
+      button.addEventListener('click',()=>openTask(item.number));
+      numberCell.append(button);tr.append(numberCell);
+      td(tr,statuses[item.liveStatus||item.status]||'Не подтверждено');
+      td(tr,item.liveStage||item.firstUnfinishedStage||'Не подтверждено');
+      td(tr,item.plannedDate||'Не задана');
+      const check=td(tr,(item.liveCheckedMs?clock(item.liveCheckedMs):clock(item.checkedMs))+
+        ' · '+(item.liveCheckedMs?'API':'фоновый сканер'));
+      if(item.plannedDateControl==='past')check.className='ms-auto-overdue';
+      const action=document.createElement('td');
+      const open=document.createElement('button');open.type='button';
+      open.className='ms-production-detail-button';open.textContent='Проверить';
+      open.addEventListener('click',()=>openTask(item.number));
+      action.append(open);tr.append(action);tbody.append(tr);
+    }
+    table.hidden=items.length===0;
+    const ready=items.filter(x=>x.liveStatus==='live_incomplete').length;
+    const verifiedComplete=items.filter(x=>x.liveStatus==='live_complete').length;
+    const unknown=items.filter(x=>x.liveStatus==='live_unverified').length;
+    const remaining=items.length-ready-verifiedComplete-unknown;
+    const health=data.monitorHealthy?'Сканер работает по расписанию.':
+      'Внимание: свежесть фонового сканера не подтверждена.';
+    status.textContent=health+' Найдено кандидатов: '+fmt(data.counts.incomplete+
+      data.counts.unverified)+'. Подтверждённо незавершённых при повторной проверке: '+
+      fmt(ready)+'. Это не подтверждённая живая очередь заказов покупателей.';
+    summary.textContent='Последний полный исторический проход №'+
+      fmt(data.baselineGeneration)+'. '+(data.inProgress?'Следующий обход продолжается. ':'')+
+      'Перепроверено через API: '+fmt(ready+verifiedComplete+unknown)+
+      ', требуют отдельной проверки: '+fmt(remaining+unknown)+
+      ', этапы уже выполнены: '+fmt(verifiedComplete)+
+      '. Скрыто по лимиту списка: '+fmt(data.additionalCandidatesNotShown)+
+      '. Сотрудникам задания автоматически не назначаются.';
+  };
+  const liveCheck=async item=>{
+    // Compare the live task ID to the saved scan ID: never transfer a
+    // similarly numbered document's stages onto a different task.
+    const feed=await request('/api/ms/production-feed?number='+encodeURIComponent(item.number));
+    if(feed?.code!=='ms_production_feed_ok'||
+      feed.selection!=='EXACT_DOCUMENT_NUMBER_NOT_ACTIVE_TASKS'||
+      feed.totalMatching!==1||feed.records?.length!==1||
+      feed.records[0].id?.toLowerCase()!==item.taskId)
+      throw Error('live_task_identity_unverified');
+    const stages=await request('/api/ms/production-stages?taskId='+encodeURIComponent(item.taskId));
+    const result=assessProductionTask({number:item.number},stages);
+    if(!['incomplete','complete'].includes(result.status))
+      throw Error('live_stages_unverified');
+    return {
+      ...item,liveStatus:result.status==='incomplete'?'live_incomplete':'live_complete',
+      liveStage:result.status==='incomplete'?result.firstUnfinishedStage:null,
+      liveCheckedMs:Date.now()
+    };
+  };
+  const load=async()=>{
+    if(!inView()||running)return;
+    running=true;lastAttempt=Date.now();refresh.disabled=true;
+    table.hidden=true;tbody.replaceChildren();
+    status.textContent='Получаем кандидатов из автоматического сканера…';
+    summary.textContent='';
+    try{
+      const data=await request('/api/ms/production-queue');
+      if(!valid(data))throw Error('queue_unverified');
+      const items=data.items.map(item=>({...item}));
+      render(data,items);
+      let checked=0;
+      for(let i=0;i<items.length&&checked<MAX_LIVE_CHECKS;i++){
+        if(!inView())break;
+        if(checked>0)await pause(DELAY_MS);
+        // Check the possible work first. Unknown stage chains remain visible
+        // for follow-up, not silently treated as finished or active.
+        if(items[i].status!=='incomplete')continue;
+        checked++;
+        try{items[i]=await liveCheck(items[i]);}
+        catch{items[i]={...items[i],liveStatus:'live_unverified',liveCheckedMs:Date.now()};}
+        render(data,items);
+      }
+    }catch{
+      tbody.replaceChildren();table.hidden=true;
+      status.textContent='Автоматическая очередь не подтверждена. Не выдаём архивные задания за текущие.';
+      summary.textContent='Проверьте состояние фонового сканера ниже. Номера вручную вводить не требуется.';
+    }finally{running=false;refresh.disabled=false;}
+  };
+  refresh.addEventListener('click',()=>{if(!running)void load();});
+  const maybe=()=>{if(inView()&&!running&&Date.now()-lastAttempt>=EVERY_MS)void load();};
+  window.addEventListener('hashchange',maybe);
+  document.addEventListener('visibilitychange',maybe);
+  window.setInterval(maybe,60000);
+  maybe();
+})();
