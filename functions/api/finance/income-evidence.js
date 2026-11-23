@@ -44,7 +44,19 @@ export function summarizeIncomeEvidence(month,source,wb){
  const bounds=monthBounds(month);
  const end=new Date(Date.parse(bounds.end+'T00:00:00Z')-86400000)
    .toISOString().slice(0,10);
- const cost=wb.costCoverage;
+ const review=wb.costReview;
+ if(review!==undefined){
+   if(!Array.isArray(review)||review.length>500||
+      review.some(r=>typeof r.vendor_code!=='string'||
+        !r.vendor_code.trim()||r.vendor_code.length>200||
+        !int(r.sold_units)||r.sold_units<1||
+        !int(r.sale_rows)||r.sale_rows<1||
+        !['confirmed','preliminary','missing'].includes(r.cost_status)))
+      throw Error('invalid_wb_cost_review');
+   if(new Set(review.map(r=>r.vendor_code)).size!==review.length)
+      throw Error('duplicate_wb_review_article');
+ }
+  const cost=wb.costCoverage;
  if(cost!==undefined&&(!cost||!int(cost.sold_articles)||
    !int(cost.confirmed_articles)||!int(cost.preliminary_articles)||
    cost.sold_articles<0||cost.confirmed_articles<0||
@@ -105,6 +117,12 @@ export function summarizeIncomeEvidence(month,source,wb){
      taxIncomeConfirmed:false},
    wb:{reports:wb.reports.length,operationAmounts:wbByOperation,
      reportTypeCoverage:coverage,reportPeriodComplete:wbReportPeriodComplete,
+     costReview:review?review.slice(0,40).map(r=>({
+       vendorCode:r.vendor_code,soldUnits:r.sold_units,
+       saleRows:r.sale_rows,costStatus:r.cost_status,
+       requiresPhysicalConfirmation:r.cost_status!=='confirmed',
+       candidateOzonSku:null
+     })):null,
      costCoverage:cost?{soldArticles:cost.sold_articles,
        confirmedArticles:cost.confirmed_articles,
        preliminaryArticles:cost.preliminary_articles,
@@ -167,10 +185,26 @@ export function createEntityIncomeEvidence({now=Date.now}={}){
       "WHERE p.account_id=? AND p.date_from>=? AND p.date_to<? "+
       "AND p.status='complete' AND r.seller_oper_name='Продажа'"
     ).bind(WB_ACCOUNT,bounds.start,bounds.end).first();
+    const review=await env.WB_REPORT_SNAPSHOT_DB.prepare(
+      "SELECT r.vendor_code,COUNT(*) AS sale_rows,SUM(r.quantity) AS sold_units, "+
+      "CASE WHEN MAX(CASE WHEN c.status='confirmed' THEN 1 ELSE 0 END)=1 THEN 'confirmed' "+
+      "WHEN MAX(CASE WHEN c.status='preliminary' THEN 1 ELSE 0 END)=1 THEN 'preliminary' "+
+      "ELSE 'missing' END AS cost_status "+
+      "FROM wb_finance_api_rows r JOIN wb_finance_api_reports p "+
+      "ON p.report_id=r.report_id AND p.account_id=r.account_id "+
+      "LEFT JOIN wb_profit_unit_costs c ON c.account_id=r.account_id "+
+      "AND c.vendor_code=r.vendor_code AND c.valid_from<=p.date_to "+
+      "AND (c.valid_to IS NULL OR c.valid_to>=p.date_from) "+
+      "WHERE p.account_id=? AND p.date_from>=? AND p.date_to<? "+
+      "AND p.status='complete' AND r.seller_oper_name='Продажа' "+
+      "AND r.vendor_code IS NOT NULL AND TRIM(r.vendor_code)<>'' "+
+      "GROUP BY r.vendor_code ORDER BY sold_units DESC,r.vendor_code LIMIT 501"
+    ).bind(WB_ACCOUNT,bounds.start,bounds.end).all();
     if(!Array.isArray(operations?.results)||!Array.isArray(reports?.results)||
-      !costs)throw Error('missing_wb_rows');
+      !Array.isArray(review?.results)||!costs)throw Error('missing_wb_rows');
     return json(200,summarizeIncomeEvidence(month,finance,{
-      operations:operations.results,reports:reports.results,costCoverage:costs
+      operations:operations.results,reports:reports.results,
+      costCoverage:costs,costReview:review.results
     }));
   }catch{return json(503,{code:'income_evidence_unavailable'});}
  };
