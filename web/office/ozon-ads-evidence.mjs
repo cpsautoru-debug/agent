@@ -22,6 +22,25 @@ export function describeOzonAdsEvidence(data,month){
   const fields=Array.isArray(data.fieldNames)&&data.fieldNames.every(x=>
     typeof x==='string'&&/^[a-zA-Z_][a-zA-Z0-9_]{0,80}$/.test(x))
     ? data.fieldNames.slice(0,12).join(', '):'не определены';
+  const col=data.columnAudit;
+  let columnDetails='';
+  if(col!==null&&col!==undefined){
+    const expected=['moneySpent','bonusSpent','prepaymentSpent'];
+    if(!Array.isArray(col)||col.length!==3||col.some((x,i)=>
+      !x||x.field!==expected[i]||
+      !Number.isSafeInteger(x.validRows)||x.validRows<0||
+      !Number.isSafeInteger(x.missingRows)||x.missingRows<0||
+      !Number.isSafeInteger(x.invalidRows)||x.invalidRows<0||
+      x.validRows+x.missingRows+x.invalidRows!==data.recordCount||
+      (x.rawColumnSumKopecks!==null&&!Number.isSafeInteger(x.rawColumnSumKopecks))||
+      x.sourceReconciled!==false))throw Error('unverified_column_audit');
+    const format=n=>(n/100).toLocaleString('ru-RU',{
+      minimumFractionDigits:2,maximumFractionDigits:2})+' ₽';
+    columnDetails=' Отдельные суммы полей Performance API (не складывать): '+
+      col.map(x=>x.field+' = '+(x.rawColumnSumKopecks===null?'не подтверждено':
+      format(x.rawColumnSumKopecks))+
+      ' [заполнено '+x.validRows+'/'+data.recordCount+']').join('; ')+'.';
+  }
   return 'Ozon Performance API: '+data.recordCount+' строк за '+month+
     '. Отдельный источник D1 (ozon_accruals_export): '+
     a.advertisingRows+' рекламных строк из '+a.accrualRows+
@@ -29,7 +48,7 @@ export function describeOzonAdsEvidence(data,month){
     amount+' ₽, последняя дата '+last+
     '. Источники имеют разную детализацию и пока НЕ СВЕРЕНЫ. '+
     'Это не сумма расходов Performance API. Реклама повторно из прибыли не вычитается.'+
-    ' Поля ответа Performance API: '+fields+'.';
+    ' Поля ответа Performance API: '+fields+'.'+columnDetails;
 }
 export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locationRef=location}={}){
   const status=documentRef.getElementById('profitOzonAdsApiStatus');
@@ -59,6 +78,7 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
           ads_bridge_secret_too_short:'ADS_READ_TOKEN доступен Pages, но его длина меньше 32 символов. Проверьте значение секрета.',
           ads_bridge_token_rejected:'Секреты Pages и Worker не совпадают.',
           ozon_ads_finance_audit_unavailable:'Не удалось проверить начисления Ozon в D1: суммы не подтверждены.',
+          ozon_ads_column_audit_unrecognized:'Данные денежных колонок Ozon не прошли строгую проверку формата.',
           ozon_expense_schema_unverified:'Ответ Ozon получен, но формат расходов требует проверки.',
           ozon_ads_source_unavailable:'Ozon Ads не отвечает. Требуется проверка соединения.',
           ads_service_binding_missing:'Работающий деплой Pages не видит Service Binding OZON_ADS_WORKER. Проверьте Production и повторную публикацию после создания привязки.',
