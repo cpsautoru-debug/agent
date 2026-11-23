@@ -21,7 +21,14 @@
     Array.isArray(d.orders)&&d.orders.length<=10&&
     Number.isSafeInteger(d.counts?.received)&&
     d.counts.received===d.orders.length&&
+    Number.isSafeInteger(d.counts.candidateNeedsInventory)&&
+    Number.isSafeInteger(d.counts.notForSewing)&&
+    Number.isSafeInteger(d.counts.statusUnverified)&&
+    d.counts.candidateNeedsInventory+d.counts.notForSewing+
+      d.counts.statusUnverified===d.counts.received&&
     d.orders.every(x=>x.source===d.source&&
+      ['candidate_needs_inventory','not_for_sewing','unverified']
+        .includes(x.productionQueue)&&
       x.readyToWrite===false&&x.assortmentVerified===false&&
       x.legalEntityVerified===false&&
       typeof x.externalKey==='string'&&x.externalKey.startsWith('AS63:')&&
@@ -96,7 +103,10 @@
       for(const order of data.orders){
         const tr=document.createElement('tr');
         cell(tr,order.externalKey);
-        cell(tr,order.status);
+        cell(tr,order.status+
+          (order.productionQueue==='not_for_sewing'?' · не запускать пошив':
+            order.productionQueue==='candidate_needs_inventory'?
+              ' · нужен контроль остатков':' · назначение не определено'));
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
           order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
@@ -107,8 +117,12 @@
       }
       table.hidden=!data.orders.length;
       setSource(source,'Маркетплейс ответил: '+data.counts.received+
-        ' заказов. Неопределённых сверок с «МойСклад»: '+
-        data.counts.uncertain+'. Запись отключена.');
+        ' заказов. Потенциально требуют проверки остатков: '+
+        data.counts.candidateNeedsInventory+
+        '; не направлять в пошив: '+data.counts.notForSewing+
+        '; неясный статус: '+data.counts.statusUnverified+
+        '. Неопределённых дублей: '+data.counts.uncertain+
+        '. Запись отключена.');
       status.textContent='Проверка выполнена: '+data.counts.received+
         ' заказов в ограниченной выборке. В «МойСклад» уже есть: '+
         data.counts.existing+', не найдены: '+data.counts.notFound+
@@ -121,7 +135,10 @@
         (data.duplicateLookupFailure?
           ' Ошибка доступа к списку заказов'+
           (Number.isInteger(data.duplicateLookupFailure.http)?
-            ' (HTTP '+data.duplicateLookupFailure.http+')':'')+'.':'')+
+            ' (HTTP '+data.duplicateLookupFailure.http+')':'')+
+          (Number.isSafeInteger(data.duplicateLookupFailure.upstreamCode)?
+            ', код «МойСклад» '+data.duplicateLookupFailure.upstreamCode:'')+
+          '.':'')+
         ' Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
       const result='Сервис недоступен или ответ не прошёл проверку. '+
