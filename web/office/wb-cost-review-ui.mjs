@@ -41,7 +41,8 @@ export function attachWbCostReview({documentRef=document,fetcher=fetch}={}){
     });
     if(m.ok){
       const src=(await m.json()).managementCost;
-      if(src?.status==='management_after_wb_charges_and_cogs'&&
+      if(src?.status==='management_cost_reconciled'&&
+         src.profitStatus==='management_after_wb_charges_and_cogs'&&
          src.confirmedSkuCount===35&&src.confirmedSoldUnits===173&&
          src.resalableReturnedUnits===6)
         archive=' Для всех 35 артикулов октябрьские цены восстановлены из ранее подтверждённых XLSX; 6 возвратов пригодны к повторной продаже. Управленческая себестоимость: '+
