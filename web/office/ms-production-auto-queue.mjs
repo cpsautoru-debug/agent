@@ -77,7 +77,12 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
       button.addEventListener('click',()=>openTask(item.number));
       numberCell.append(button);tr.append(numberCell);
       td(tr,statuses[item.liveStatus||item.status]||'Не подтверждено');
-      td(tr,item.liveStage||item.firstUnfinishedStage||'Не подтверждено');
+      td(tr,item.liveStatus==='live_complete'?'Все этапы выполнены':
+        item.liveStatus==='live_incomplete'?
+          (item.liveStage||'Не подтверждено'):
+          item.firstUnfinishedStage?
+            item.firstUnfinishedStage+' (историческая проверка)':
+            'Не подтверждено');
       const ev=item.orderEvidence;
       const label=ev?.code==='ms_order_evidence_ok'?
         (ev.linkage==='none'?'Связи нет':
@@ -90,9 +95,9 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
       td(tr,label);
       td(tr,item.plannedDate||'Не задана');
       const check=td(tr,item.liveCheckedMs?
-        clock(item.liveCheckedMs)+' · API подтверждено':
+        clock(item.liveCheckedMs)+' · этапы проверены через API':
         item.liveAttemptMs?
-          clock(item.liveAttemptMs)+' · API не подтвердил':
+          clock(item.liveAttemptMs)+' · повторная проверка не удалась':
           clock(item.checkedMs)+' · фоновый сканер');
       if(item.plannedDateControl==='past')check.className='ms-auto-overdue';
       const action=document.createElement('td');
