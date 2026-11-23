@@ -35,7 +35,25 @@
         method:'GET',credentials:'same-origin',cache:'no-store',
         headers:{Accept:'application/json'},signal:AbortSignal.timeout(150000)});
       const data=await res.json();
-      if(!res.ok||!valid(data))throw Error(data?.code||'preview_unverified');
+      if(!res.ok){
+        const label={
+          token_rejected:'Ключ API отклонён',
+          permission_denied:'Недостаточно прав у ключа API',
+          rate_limited:'Достигнут лимит запросов API',
+          unexpected_order_feed:'Формат ответа заказов изменился',
+          unexpected_order_lines:'Неполные товарные позиции',
+          unmapped_order_line:'Не определён артикул или количество',
+          duplicate_source_order:'Повтор идентификатора в ответе',
+          moysklad_lookup_unverified:'Не удалось однозначно проверить дубли'
+        }[data?.code]||'Ответ источника не удалось проверить';
+        const sourceName=data?.stage==='moysklad'?'МойСклад':'маркетплейс';
+        status.textContent='Источник ошибки: '+sourceName+'. '+label+
+          (Number.isInteger(data?.upstreamHttp)?
+            ' · HTTP '+data.upstreamHttp:'')+
+          '. Документы не создавались.';
+        return;
+      }
+      if(!valid(data))throw Error('preview_unverified');
       for(const order of data.orders){
         const tr=document.createElement('tr');
         cell(tr,order.externalKey);
@@ -53,8 +71,8 @@
         ', не подтверждены: '+data.counts.uncertain+
         '. Документы не созданы, ассортимент и юридические лица не сверены.';
     }catch{
-      status.textContent='Данные заказа или проверка дублей сейчас недоступны. '+
-        'Импорт не выполнялся; проверьте права API и формат ответа.';
+      status.textContent='Не удалось проверить структуру ответа или доступность сервиса. '+
+        'Операция только на чтение; импорт не выполнялся.';
     }finally{busy=false;ozon.disabled=false;wb.disabled=false;}
   }
   ozon.addEventListener('click',()=>void load('ozon'));
