@@ -36,7 +36,8 @@ export async function onRequestGet({request,env}){
  try{
   const access=await owner(request,env);if(access.error)return json({error:access.error},access.status);
   const month=new URL(request.url).searchParams.get('month')||new Date().toISOString().slice(0,7);monthBounds(month);
-  const data=target(await service(env).getProfitData(month));
+  const rpc=service(env);
+  const data=target(await rpc.getProfitData(month));
   const configuration=data.configuration;
   const result=calculateProfit({month,api:data.api,documents:configuration.month,costs:configuration.costs,expenses:configuration.expenses,tax:configuration.tax});
   const readiness=summarizeOzonFinanceReadiness(month,data,result);
