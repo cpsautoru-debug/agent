@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,verifyExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -295,4 +295,26 @@ test('partial assortment scan may verify exact positive SKU but not absence',asy
   assert.equal(result.bySku.get('24086'),'matched_exact_code');
   assert.equal(result.bySku.get('not-present'),'unverified');
   assert.equal(result.coverage.confirmedByFilter,1);
+});
+
+test('exact SKU probe gives safe categorical evidence when filters are blocked',async()=>{
+  const calls=[];
+  const out=await probeExactAssortmentSku(async(url)=>{
+    calls.push(new URL(url).searchParams.get('filter'));
+    return new Response('{"errors":[{"error":"sensitive message"}]}',{status:400});
+  },'mock-token','24086');
+  assert.deepEqual(calls,['article=24086']);
+  assert.deepEqual(out,{match:'unverified',
+    fields:{article:'filter_rejected',code:'not_checked'}});
+  assert.equal(JSON.stringify(out).includes('sensitive'),false);
+});
+test('exact SKU probe shows absent article and single matching code',async()=>{
+  const out=await probeExactAssortmentSku(async url=>
+    new URL(url).searchParams.get('filter')==='article=24086'?
+      Response.json({meta:{size:0},rows:[]}):
+      Response.json({meta:{size:1},rows:[{id:'one',code:'24086'}]})
+  ,'mock-token','24086');
+  assert.equal(out.match,'matched_exact_code');
+  assert.equal(out.fields.article,'absent_exact');
+  assert.equal(out.fields.code,'one_exact');
 });
