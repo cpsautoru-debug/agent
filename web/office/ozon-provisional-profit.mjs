@@ -4,25 +4,44 @@ export function summarizeOzonProvisionalProfit(month,data){
  const result=data?.result,ready=data?.readiness;
  if(!result||!ready||result.month!==month||ready.month!==month||
     ready.netProfitVerified!==false)throw Error('invalid_profit_source');
+ // This is a *known-cost contribution*, not the accountant's closeout.
+ // Closing checks (bank, tax, advertising detail, overhead allocation) must
+ // not hide a source-reconciled intermediate contribution margin.
  const d=ready.dailyParity,c=result.costs,dated=result.dateCostEvidence;
- const ok=ready.report?.complete===true&&
-   ready.sourcesMatch?.apiVsXlsxKopecks===true&&
-   d?.match===true&&d?.checkedDays===d?.expectedDays&&
-   c?.complete===true&&dated?.complete===true&&
-   dated.checkedSalesRows>0&&
+ const blockers=[];
+ const require=(check,reason)=>{if(!check)blockers.push(reason);};
+ require(ready.report?.complete===true,'xlsx_report_not_complete');
+ require(ready.sourcesMatch?.apiVsXlsxKopecks===true,
+   'finance_api_and_xlsx_totals_not_matched');
+ require(d?.code==='ozon_daily_totals_parity'&&d?.match===true&&
+   d?.readOnly===true&&d?.changedRecords===0&&
+   Number.isSafeInteger(d?.expectedDays)&&d.expectedDays>0&&
+   d?.checkedDays===d?.expectedDays,'daily_totals_not_reconciled');
+ require(c?.complete===true&&ready.cogs?.complete===true,
+   'manufacturing_costs_not_complete');
+ require(dated?.complete===true&&dated?.checkedSalesRows>0&&
    dated.checkedSalesRows===dated.confirmedSalesRows&&
-   result.financeCloseout?.netProfitVerified===false&&
-   result.financeCloseout?.status==='not_verified'&&
-   Array.isArray(result.profit?.blockers)&&
-   !result.profit.blockers.includes('return_recovery_unverified')&&
-   !result.profit.blockers.includes('unknown_services')&&
-   !result.profit.blockers.includes('duplicate_candidates');
+   ready.cogs?.checkedSalesRows===dated?.checkedSalesRows&&
+   ready.cogs?.confirmedSalesRows===dated?.confirmedSalesRows,
+   'dated_sales_costs_not_confirmed');
+ const profitBlockers=result.profit?.blockers;
+ require(Array.isArray(profitBlockers)&&
+   !['return_recovery_unverified','unknown_services','duplicate_candidates',
+     'sku_missing','cost_missing','cost_preliminary','quantity_missing',
+     'report_api_mismatch','quantity_unverified','period_unverified']
+     .some(code=>profitBlockers.includes(code)),
+   'unresolved_source_or_cost_blockers');
  const net=result.api?.totalKopecks,cogs=c?.knownKopecks;
- const valid=ok&&Number.isSafeInteger(net)&&Number.isSafeInteger(cogs)&&
-   cogs>=0&&Number.isSafeInteger(net-cogs);
+ require(Number.isSafeInteger(net)&&net===ready.accruals?.totalKop&&
+   net===ready.report?.controlTotalKop,
+   'source_net_amount_not_confirmed');
+ require(Number.isSafeInteger(cogs)&&cogs>=0&&
+   Number.isSafeInteger(net-cogs),'cogs_amount_not_confirmed');
+ const valid=blockers.length===0;
  return {
   month,source:'OZON_XLSX_API_DAY_PARITY_AND_DATE_COGS',
   status:valid?'provisional_known_cost_result':'insufficient_evidence',
+  missingEvidence:blockers,
   financeNetKopecks:valid?net:null,
   netManufacturingCostKopecks:valid?cogs:null,
   beforeAllocationKopecks:valid?net-cogs:null,
@@ -39,7 +58,10 @@ export function describeOzonProvisionalProfit(s){
  const rub=n=>new Intl.NumberFormat('ru-RU',
    {style:'currency',currency:'RUB'}).format(n/100);
  if(s.status!=='provisional_known_cost_result')
-   return 'Расчёт по известным затратам недоступен: необходимы полный отчёт, совпадение ежедневных сумм API/XLSX и себестоимость всех продаж. Чистая прибыль не подтверждена.';
+   return 'Промежуточный результат недоступен: '+
+     (Array.isArray(s.missingEvidence)?s.missingEvidence.join(', '):
+       'недостаточно подтверждённых источников')+
+     '. Чистая прибыль не подтверждена.';
  return 'Октябрь Ozon — расчёт по известным затратам (НЕ чистая прибыль):\\n'+
   'Сальдо Ozon после удержаний: '+rub(s.financeNetKopecks)+'\\n'+
   'Себестоимость с возвратами: −'+rub(s.netManufacturingCostKopecks)+'\\n'+
