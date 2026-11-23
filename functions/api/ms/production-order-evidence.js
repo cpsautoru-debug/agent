@@ -33,13 +33,16 @@ export function parseTaskOrderLinks(value){
   return {status:ids.length?'linked':'none',reason:null,ids};
 }
 export function summarizeLinkedOrder(order,id){
-  if(!order||order.id?.toLowerCase()!==id.toLowerCase()||
-    !UUID.test(order.id)||typeof order.applicable!=='boolean')
+  if(!order||typeof order.id!=='string'||
+    order.id.toLowerCase()!==id.toLowerCase()||!UUID.test(order.id))
     return {verification:'unverified',posted:null,stateName:null,updated:null};
+  // "applicable" is an optional document posting flag. Missing it must not
+  // conceal a valid, source-verified customer-order state.
+  const posted=typeof order.applicable==='boolean'?order.applicable:null;
   const state=limited(order.state?.name,100);
   const updated=limited(order.updated,40);
   return {verification:state?'state_read':'state_missing',
-    posted:order.applicable,stateName:state,updated};
+    posted,stateName:state,updated};
 }
 async function fetchJson(fetcher,url,token){
   const res=await fetcher(url,{method:'GET',redirect:'manual',
