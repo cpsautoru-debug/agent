@@ -121,8 +121,9 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
       fmt(ready)+'. Это не подтверждённая живая очередь заказов покупателей.';
     summary.textContent='Последний полный исторический проход №'+
       fmt(data.baselineGeneration)+'. '+(data.inProgress?'Следующий обход продолжается. ':'')+
-      'Перепроверено через API: '+fmt(ready+verifiedComplete+unknown)+
-      ', требуют отдельной проверки: '+fmt(remaining+unknown)+
+      'Этапы подтверждены через API: '+fmt(ready+verifiedComplete)+
+      ', неудачных повторных проверок: '+fmt(unknown)+
+      ', ещё не перепроверено: '+fmt(remaining)+
       ', этапы уже выполнены: '+fmt(verifiedComplete)+
       '. Скрыто по лимиту списка: '+fmt(data.additionalCandidatesNotShown)+
       '. Проверены связи с заказами: '+fmt(checkedLinks)+
