@@ -8,6 +8,52 @@ export function describeOzonAdsEvidence(data,month){
     data.monetaryTotalsVerified!==false||
     data.reconciledToFinance!==false)
     throw Error('unverified_ads_source');
+  // Current Pages finance endpoint reads the canonical Ozon Profit XLSX.
+  // Do not reject it because the previous diagnostic used a legacy D1 shape.
+  const canonical=data.financeAudit;
+  if(canonical?.source==='CANONICAL_OZON_FINANCE_XLSX'){
+    const valid=canonical.month===month&&
+      Number.isSafeInteger(canonical.accrualRows)&&canonical.accrualRows>=0&&
+      Number.isSafeInteger(canonical.advertisingRows)&&
+      canonical.advertisingRows>=0&&
+      canonical.advertisingRows<=canonical.accrualRows&&
+      Number.isSafeInteger(canonical.advertisingAccrualKopecks)&&
+      Number.isSafeInteger(canonical.daysInMonth)&&
+      canonical.daysInMonth>=28&&canonical.daysInMonth<=31&&
+      Number.isSafeInteger(canonical.daysWithAdvertisingRows)&&
+      canonical.daysWithAdvertisingRows>=0&&
+      canonical.daysWithAdvertisingRows<=canonical.daysInMonth&&
+      Number.isSafeInteger(canonical.financeApiCoveredDays)&&
+      canonical.financeApiCoveredDays>=0&&
+      canonical.financeApiCoveredDays<=canonical.daysInMonth&&
+      typeof canonical.sourceTotalsMatched==='boolean'&&
+      canonical.matchedToPerformance===false&&
+      canonical.reconciled===false&&
+      canonical.deductedFromProfit===false;
+    if(!valid)throw Error('unverified_finance_audit');
+    const amount=(Math.abs(canonical.advertisingAccrualKopecks)/100)
+      .toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const columns=Array.isArray(data.columnAudit)?data.columnAudit:[];
+    const money=columns.find(c=>c?.field==='moneySpent');
+    const moneyValid=money&&Number.isSafeInteger(money.rawColumnSumKopecks)&&
+      money.validRows===data.recordCount&&money.invalidRows===0&&
+      money.missingRows===0;
+    const comparison=moneyValid?
+      ' Необработанная сумма moneySpent: '+
+      (money.rawColumnSumKopecks/100).toLocaleString('ru-RU',
+        {minimumFractionDigits:2,maximumFractionDigits:2})+
+      ' ₽. Это не сверка одинаковых операций.':'';
+    return 'Ozon Performance API ответил: '+data.recordCount+
+      ' строк за '+month+'. В официальном XLSX: '+
+      canonical.advertisingRows+' рекламных строк, сумма '+
+      (canonical.advertisingAccrualKopecks<0?'-':'')+amount+
+      ' ₽ (уже включена в сальдо). Покрытие API Finance: '+
+      canonical.financeApiCoveredDays+'/'+canonical.daysInMonth+
+      ' дней. Совпадение итогов XLSX и API Finance: '+
+      (canonical.sourceTotalsMatched?'да':'нет')+'.'+comparison+
+      ' Расходы Performance ещё не сопоставлены по операциям. '+
+      'Повторно вычитать рекламу из прибыли нельзя.';
+  }
   const a=data.financeAudit;
   if(!a||a.month!==month||a.source!=='ozon_accruals_export'||
     !Number.isSafeInteger(a.accrualRows)||a.accrualRows<0||
