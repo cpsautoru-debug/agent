@@ -136,7 +136,7 @@
       <div class="profit-layout">
         <div class="profit-toolbar"><label>Месяц расчёта<input id="profitMonth" type="month" required></label><button id="profitReload" data-profit-action class="button light" type="button">Обновить данные</button><a href="#ozonFinance">Вход владельца и начисления API →</a></div>
         <p id="profitMessage" role="status" aria-live="polite"></p>
-        <div id="profitCards" class="profit-cards"></div>
+        <div id="profitCards" class="profit-cards"></div><article id="profitOzonRates" class="profit-panel" aria-label="Рентабельность и сравнение Ozon">Рентабельность Ozon появится после сверки отчёта.</article>
         <article class="profit-panel"><h2>Готовность расчёта</h2><p id="profitStatus" class="profit-status">Данные ещё не загружены.</p><p id="profitReasons" class="profit-status"></p><h3>Проверка закрытия финансового периода</h3><p id="profitCloseoutChecklist" class="profit-status" role="status">Период ещё не проверен. Чистая прибыль не подтверждена.</p><h3>Налог ИП · отдельный учёт в общей прибыли бизнеса</h3><p id="profitOwnerAllocation" style="white-space:pre-line;overflow-wrap:anywhere;max-width:100%" class="profit-status" role="status">Проверка источников распределения ещё не выполнена.</p><h3>Промежуточный результат Ozon · проверка по известным затратам</h3><button id="profitProvisionalRefresh" class="button light" type="button">Рассчитать по сверенным источникам</button><p id="profitProvisionalStatus" style="white-space:pre-line;overflow-wrap:anywhere;max-width:100%" role="status">Промежуточный результат ещё не проверен. Это не подтверждённая чистая прибыль.</p><h3>Источники доходов для распределения</h3><button id="profitIncomeEvidenceRefresh" class="button light" type="button">Проверить доходы Ozon и WB</button><p id="profitIncomeEvidence" style="white-space:pre-line;overflow-wrap:anywhere;max-width:100%" role="status">Источники ещё не проверены. Суммы к выплате не являются налоговой базой.</p><p id="profitReportStatus"></p><p>Продажи и возвраты показаны до удержаний. Сальдо API уже включает комиссии и услуги Ozon: повторно они не вычитаются. Ниже — расшифровка по группам исходного отчёта.</p><details><summary>Продажи, возвраты и удержания Ozon · расшифровка сальдо API</summary><div class="profit-scroll"><table><thead><tr><th>Группа</th><th>Сумма</th></tr></thead><tbody id="profitGroupRows"></tbody></table></div></details><details><summary>Кандидаты в дубли · номера строк</summary><pre id="profitDuplicates"></pre></details></article>
         <article class="profit-panel" aria-label="Ozon Performance API — проверка подключения">
           <h2>Реклама Ozon · источник Performance API</h2>
@@ -169,6 +169,17 @@
     </section>
     
 <section class="page" data-section="wbFinance" hidden><h1>Финансы · WB</h1>
+      <article id="wbManagementProfit" class="profit-panel" aria-label="Управленческий отчёт WB за месяц">
+        <h2>Прибыль Wildberries · управленческий P&amp;L</h2>
+        <p>Продажи, возвраты и удержания показываются по сверенным отчётам WB. До подтверждения себестоимости и внешних расходов расчётная сумма после удержаний НЕ является прибылью.</p>
+        <div class="profit-toolbar"><label>Месяц расчёта <input id="wbProfitMonth" type="month" value="2026-10"></label>
+          <button id="wbProfitReload" type="button" class="button light">Обновить отчёт WB</button>
+          <a href="#dashboard">Сводная прибыль бизнеса →</a>
+        </div>
+        <p id="wbProfitStatus" role="status">Откройте раздел для проверки финансовых сумм WB.</p>
+        <div class="profit-cards" id="wbProfitCards"></div>
+        <p id="wbProfitComparison" role="status">Сравнение месяцев доступно после загрузки.</p>
+      </article>
       <article class="profit-panel wb-monitor" id="wbAutoSyncPanel" aria-labelledby="wbAutoSyncTitle">
         <div class="wb-monitor-head">
           <div>
@@ -2293,6 +2304,7 @@
 <script type="module" src="ceo-dashboard.mjs?v=20261123-ozon-split-milestones"></script>
 <link rel="stylesheet" href="business-pnl.css?v=20261124-wb-month-finance">
 <script type="module" src="business-pnl.mjs?v=20261124-wb-month-finance"></script>
+<script type="module" src="wb-management-profit.mjs?v=20261124-full-wb-pnl"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
@@ -2313,6 +2325,7 @@
 <script type="module" src="ozon-sku-cost-evidence.mjs?v=20261122"></script>
 <script src="profit-cards-core.js?v=20261124-oct-management-pnl" defer></script>
 <script src="profit.js?v=20261124-oct-management-pnl" defer></script>
+<script type="module" src="ozon-management-metrics.mjs?v=20261124-pnl-ratios"></script>
 <script type="module" src="ozon-ads-evidence.mjs?v=20261123-ad-composition"></script>
 <script type="module" src="owner-allocation-status.mjs?v=20261123-entity-tax-once"></script>
 <script type="module" src="income-evidence.mjs?v=20261123-wb-review-queue"></script>
