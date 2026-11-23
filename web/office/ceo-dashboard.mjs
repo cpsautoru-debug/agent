@@ -170,7 +170,7 @@ function showOzonFinanceAudit(data){
     !validInt(a.totalKop)||c.confirmedSoldSkus>c.soldSkus||
     a.observedDays>a.expectedDays||
     (r&&!validInt(r.controlTotalKop)))throw Error('schema');
-  set('ceoOzonAuditValue',a.observedDays+' / '+a.expectedDays+' дней');
+  set('ceoOzonAuditValue',count(a.rows)+' операций');
   status('ceoOzonAuditState',
     data.blockers.length?'Не закрыт: '+data.blockers.length+' проверок':
       'Внутренние данные проверены; внешняя сверка отдельно',
@@ -180,13 +180,13 @@ function showOzonFinanceAudit(data){
     report_days_incomplete:'финансовый отчёт неполный',
     report_not_reconciled:'финансовый отчёт не сверен',
     report_not_final:'финансовый отчёт не окончательный',
-    accruals_incomplete:'неполный период начислений',
+    accrual_sync_coverage_unverified:'полнота синхронизации начислений не подтверждена',
     costs_missing_for_sold_skus:'себестоимость подтверждена не для всех проданных SKU'
   };
   const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
   set('ceoOzonAuditNote',
-    'Начисления: '+count(a.rows)+' операций, '+a.observedDays+
-    ' из '+a.expectedDays+' дней. Себестоимость: '+c.confirmedSoldSkus+
+    'Начисления: '+count(a.rows)+' операций, даты операций '+a.observedDays+
+    ' из '+a.expectedDays+' календарных дней (не показатель полноты загрузки). Себестоимость: +c.confirmedSoldSkus+
     ' из '+c.soldSkus+' продававшихся SKU. Отчёт: '+
     (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
       'отсутствует')+'. Не завершено: '+blockers.join('; ')+
