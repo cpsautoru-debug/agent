@@ -94,12 +94,10 @@ export async function readOzonExpense(month,env,fetcher=fetch){
     return {status:503,body:{code:'ozon_performance_network_or_schema_error'}};
   }
 }
-// A Pages Service Binding with entrypoint:"default" requires a
-// WorkerEntrypoint class, not a plain object export. Preserve the public
-// HTTP handler and all existing protection checks.
-export default class OzonAdsWorker extends WorkerEntrypoint {
-  async fetch(request){
-    const env=this.env;
+// Use one guarded implementation for both the public default entrypoint
+// and the named Pages Service Binding entrypoint. No anonymous/public
+// access to advertising evidence is added.
+async function handleAdsRequest(request,env){
     const url=new URL(request.url);
     if(request.method!=='GET')return reply(405,{code:'method_not_allowed'});
     if(url.pathname==='/health'&&!url.search)
@@ -119,5 +117,15 @@ export default class OzonAdsWorker extends WorkerEntrypoint {
       return reply(401,{code:'unauthorized'});
     const outcome=await readOzonExpense(url.searchParams.get('month'),env);
     return reply(outcome.status,outcome.body);
-  }
+}
+
+export default class OzonAdsWorker extends WorkerEntrypoint {
+  fetch(request){return handleAdsRequest(request,this.env);}
+}
+
+// Select this named entrypoint in Cloudflare Pages Settings → Bindings.
+// Unlike the old non-RPC readOzonExpense function, this is an actual
+// WorkerEntrypoint with fetch(request) and the same bearer protection.
+export class OzonAdsInternal extends WorkerEntrypoint {
+  fetch(request){return handleAdsRequest(request,this.env);}
 }
