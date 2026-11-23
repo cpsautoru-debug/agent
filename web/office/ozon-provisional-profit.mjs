@@ -25,12 +25,27 @@ export function summarizeOzonProvisionalProfit(month,data){
    ready.cogs?.confirmedSalesRows===dated?.confirmedSalesRows,
    'dated_sales_costs_not_confirmed');
  const profitBlockers=result.profit?.blockers;
- require(Array.isArray(profitBlockers)&&
-   !['return_recovery_unverified','unknown_services','duplicate_candidates',
-     'sku_missing','cost_missing','cost_preliminary','quantity_missing',
-     'report_api_mismatch','quantity_unverified','period_unverified']
-     .some(code=>profitBlockers.includes(code)),
-   'unresolved_source_or_cost_blockers');
+ // Identical charge rows in the official XLSX can be legitimate separate
+ // fees. They are *candidates*, not proven duplicates. Daily API parity
+ // covers their aggregate, but the detailed transactions remain unverified.
+ // A duplicate candidate involving SALE or RETURN still blocks COGS.
+ const candidateGroups=result.duplicateCandidates;
+ const saleRowIds=new Set((dated?.rows||[]).map(x=>x.sourceRow));
+ const duplicateGroupsSafe=Array.isArray(candidateGroups)&&
+   candidateGroups.every(group=>Array.isArray(group)&&group.length>1&&
+     group.every(row=>Number.isSafeInteger(row)&&!saleRowIds.has(row)));
+ const blockingCodes=[
+   'return_recovery_unverified','unknown_services',
+   'sku_missing','cost_missing','cost_preliminary','quantity_missing',
+   'report_api_mismatch','quantity_unverified','period_unverified'
+ ];
+ const unsafeBlockers=Array.isArray(profitBlockers)?
+   profitBlockers.filter(x=>blockingCodes.includes(x)||
+     (x==='duplicate_candidates'&&!duplicateGroupsSafe)):[];
+ require(Array.isArray(profitBlockers)&&unsafeBlockers.length===0,
+   'unresolved_source_or_cost_blockers'+
+   (unsafeBlockers.length?': '+unsafeBlockers.join(', '):''));
+
  const net=result.api?.totalKopecks,cogs=c?.knownKopecks;
  require(Number.isSafeInteger(net)&&net===ready.accruals?.totalKop&&
    net===ready.report?.controlTotalKop,
@@ -42,6 +57,8 @@ export function summarizeOzonProvisionalProfit(month,data){
   month,source:'OZON_XLSX_API_DAY_PARITY_AND_DATE_COGS',
   status:valid?'provisional_known_cost_result':'insufficient_evidence',
   missingEvidence:blockers,
+  reviewWarnings:valid&&profitBlockers?.includes('duplicate_candidates')?
+    ['identical_non_sale_fee_rows_require_detail_review']:[],
   financeNetKopecks:valid?net:null,
   netManufacturingCostKopecks:valid?cogs:null,
   beforeAllocationKopecks:valid?net-cogs:null,
