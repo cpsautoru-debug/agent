@@ -548,7 +548,11 @@
           <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
           <p>Общий подтверждённый чистый доход всех каналов пока неизвестен: Ozon, WB, Яндекс, Авито и офлайн не сведены в единый проверенный отчёт. Это управленческий монитор, а не закрытая бухгалтерская отчётность.</p>
         </div>
-        <div class="ceo-grid">
+        <section class="business-pnl" aria-label="Сводный управленческий P&L">
+  <div class="business-pnl-actions"><h2>Прибыль бизнеса · все каналы</h2><button id="businessPnlRefresh" class="button light" type="button">Пересчитать сводку</button></div>
+  <div id="businessPnl" role="status">Данные каналов загружаются. Налог и постоянные расходы будут вычитаться после результатов каналов.</div>
+</section>
+<div class="ceo-grid">
           <article class="ceo-card">
             <h2>Продажи · Ozon</h2><strong class="ceo-value" id="ceoOzonValue">Нет данных</strong>
             <span class="ceo-state" id="ceoOzonState">Не загружено</span>
@@ -2287,6 +2291,8 @@
 
 <script src="app.js" defer></script>
 <script type="module" src="ceo-dashboard.mjs?v=20261123-ozon-split-milestones"></script>
+<link rel="stylesheet" href="business-pnl.css?v=20261123">
+<script type="module" src="business-pnl.mjs?v=20261123"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
