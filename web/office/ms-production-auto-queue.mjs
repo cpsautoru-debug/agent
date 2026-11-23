@@ -1,4 +1,5 @@
 import {assessProductionTask} from './ms-production-audit.mjs';
+import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
 
 // Automatic, owner-only TRIAGE. Historical candidates are never sent to shop
 // floor as work orders. Fresh source checks are bounded to avoid API overload.
@@ -170,12 +171,8 @@ import {assessProductionTask} from './ms-production-audit.mjs';
       render(data,items);
       // Prioritize previously incomplete stages, then rotate the uncertain
       // historical candidates every refresh. A candidate is not a work order.
-      const known=items.map((item,i)=>i).filter(i=>items[i].status==='incomplete');
-      const uncertain=items.map((item,i)=>i).filter(i=>items[i].status==='unverified');
-      const rotation=uncertain.length?Math.floor(Date.now()/EVERY_MS)%uncertain.length:0;
-      const checkOrder=[...known,
-        ...uncertain.slice(rotation),...uncertain.slice(0,rotation)]
-        .slice(0,MAX_LIVE_CHECKS);
+      const checkOrder=selectProductionRechecks(
+        items,Date.now(),MAX_LIVE_CHECKS,EVERY_MS);
       let checked=0;
       for(const i of checkOrder){
         if(!inView())break;
