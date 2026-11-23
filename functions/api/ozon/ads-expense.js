@@ -50,24 +50,19 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
       const headers={authorization:'Bearer '+env.ADS_READ_TOKEN,accept:'application/json'};
-      // Service binding methods must be invoked on the binding object.
-      // Pass a Request, not a detached/bound function with a URL string.
-      // Keep the injected fetcher shape for isolated tests.
-      // Separate Request construction from Service Binding invocation.
-      // This diagnostic never exposes authorization headers or error text.
-      let requestForWorker;
-      if(!fetcher){
-        requestForWorker=new Request(upstream.toString(),{
-          method:'GET',redirect:'error',headers
-        });
-      }
+      // Avoid Request constructor failures in the Pages runtime. Service
+      // bindings support fetch(url, init) directly; no external fetch is used.
+      // The URL is hardcoded above and cannot be controlled by the caller.
+      const upstreamUrl=upstream.toString();
       phase='service_binding_fetch';
       const result=fetcher
-        ? await fetcher(upstream.toString(),{
+        ? await fetcher(upstreamUrl,{
             method:'GET',redirect:'error',headers,
             signal:AbortSignal.timeout(17000)
           })
-        : await env.OZON_ADS_WORKER.fetch(requestForWorker);
+        : await env.OZON_ADS_WORKER.fetch(upstreamUrl,{
+            method:'GET',redirect:'error',headers
+          });
       phase='upstream_response';
       // Upstream status is mapped to fixed codes; raw body never forwarded
       // when source errors (could contain external provider details).

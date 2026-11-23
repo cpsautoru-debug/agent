@@ -135,11 +135,12 @@ test('binding is required and token is not leaked',async()=>{
  assert.equal(res.status,503);
  assert.deepEqual(await res.json(),{code:'ads_service_binding_missing'});
 });
-test('default handler invokes service binding directly with Request',async()=>{
+test('default handler uses binding fetch(url, init) without constructing Request',async()=>{
  const local=env();const calls=[];
- local.OZON_ADS_WORKER={async fetch(request){
-   assert.ok(request instanceof Request);
-   calls.push({url:request.url,authorization:request.headers.get('authorization')});
+ local.OZON_ADS_WORKER={async fetch(url,init){
+   assert.equal(typeof url,'string');
+   assert.equal(init.method,'GET');
+   calls.push({url,authorization:init.headers.authorization});
    return new Response(JSON.stringify(envelope),
      {status:200,headers:{'content-type':'application/json'}});
  }};
