@@ -201,6 +201,7 @@ test('UI renders source status without calling profit mutations',()=>{
  const description=describeOzonAdsEvidence(safe,MONTH);
  assert.match(description,/НЕ СВЕРЕНЫ/);
  assert.match(description,/71 рекламных строк/);
+ assert.match(description,/Поля ответа Performance API: date, campaignId/);
  assert.throws(()=>describeOzonAdsEvidence({...safe,monetaryTotalsVerified:true},MONTH));
  assert.throws(()=>describeOzonAdsEvidence({...safe,financeAudit:{...safe.financeAudit,reconciled:true}},MONTH));
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
