@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -141,4 +141,23 @@ test('scan failure after one page retains partial match with incomplete evidence
   assert.equal(scan.complete,false);
   assert.equal(scan.sourceError,true);
   assert.equal(scan.matches.get(key),1);
+});
+
+test('Ozon lifecycle never dispatches delivered, delivering, shipping or cancelled postings',()=>{
+  for(const state of ['cancelled','delivered','delivering','awaiting_deliver',
+    'driver_pickup','not_accepted']){
+    assert.equal(classifyMarketplaceOrder('ozon',state).queue,'not_for_sewing');
+  }
+  assert.equal(classifyMarketplaceOrder('ozon','awaiting_packaging').queue,
+    'candidate_needs_inventory');
+  assert.equal(classifyMarketplaceOrder('ozon','unrecognized_state').queue,
+    'unverified');
+});
+test('Ozon read-only preview flags cancelled shipment as not for sewing',()=>{
+  const order=normalizeMarketplaceOrders('ozon',{postings:[{
+    posting_number:'123-1',status:'cancelled',
+    products:[{offer_id:'VESTA',quantity:1}]
+  }]},'1001')[0];
+  assert.equal(order.productionQueue,'not_for_sewing');
+  assert.equal(order.readyToWrite,false);
 });
