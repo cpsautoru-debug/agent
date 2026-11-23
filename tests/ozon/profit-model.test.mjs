@@ -43,3 +43,18 @@ test('verified writeoff resolves return treatment without restoring cost',()=>{c
 test('absent or unverified recovery keeps COGS and final profit incomplete',()=>{for(const returnRecoveries of [undefined,[],[recovery({verified:false})]]){const d=returnDoc();if(returnRecoveries!==undefined)d.returnRecoveries=returnRecoveries;const r=m.calculateProfit(input({documents:d}));assert.equal(r.costs.recoveredKopecks,0);assert.equal(r.costs.complete,false);assert.equal(r.profit.operatingKopecks,null);}});
 test('return recoveries reject wrong rows, SKU, date, evidence, duplicate and quantity',()=>{for(const patch of [{sourceRow:2},{sourceRow:99},{sku:'OTHER'},{originalSaleDate:'2026-10-02'},{originalSaleDate:'2026-02-30'},{source:''},{quantity:2},{quantity:0},{costKopecks:0},{costKopecks:1.5},{condition:'unknown'}]){const d=returnDoc();d.returnRecoveries=[recovery(patch)];assert.throws(()=>m.validateProfitDocument('month:'+month,d));}const d=returnDoc();d.returnRecoveries=[recovery(),recovery()];assert.throws(()=>m.validateProfitDocument('month:'+month,d));});
 test('partial return recovery cannot silently clear return completeness',()=>{const d=returnDoc();d.rows[1].quantity=2;d.returnRecoveries=[recovery()];assert.throws(()=>m.validateProfitDocument('month:'+month,d));});
+
+test('unclassified tax offsets never silently inflate AUSN income or appear as verified net profit',()=>{
+ const tax={month,entity:'synthetic',complete:true,source:'register',events:[
+   {id:'income',date:'2026-10-02',kind:'income',amountKopecks:100000,source:'bank'},
+   {id:'offset',date:'2026-10-03',kind:'offset',amountKopecks:20000,source:'bank'}
+ ],ozonShareBps:5000,allocationSource:'register'};
+ const result=m.calculateProfit(input({tax}));
+ assert.equal(result.tax.status,'incomplete');
+ assert.equal(result.tax.reason,'tax_offset_classification_required');
+ assert.equal(result.tax.baseKopecks,null);
+ assert.equal(result.tax.estimateKopecks,null);
+ assert.equal(result.tax.ozonKopecks,null);
+ assert.equal(result.profit.netEstimateKopecks,null);
+ assert.ok(result.warnings.some(x=>x.includes('offset')));
+});
