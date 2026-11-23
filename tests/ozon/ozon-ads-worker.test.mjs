@@ -103,3 +103,14 @@ test('named OzonAdsInternal uses identical bearer guard',async()=>{
  assert.equal(body.authConfigured,true);
  assert.equal(body.expenseSync,'not_verified');
 });
+
+test('named RPC expensePreview rejects invalid shared secret without Ozon API calls',async()=>{
+ const rpc=new OzonAdsInternal(env);
+ const unauthorized=await rpc.expensePreview('2026-10','wrong');
+ assert.deepEqual(unauthorized,{status:401,body:{code:'unauthorized'}});
+ const noToken=new OzonAdsInternal({...env,ADS_READ_TOKEN:undefined});
+ const blocked=await noToken.expensePreview('2026-10','wrong');
+ assert.deepEqual(blocked,{status:503,body:{code:'private_access_not_configured'}});
+ const malformed=await rpc.expensePreview('2026-13',env.ADS_READ_TOKEN);
+ assert.deepEqual(malformed,{status:400,body:{code:'invalid_closed_month'}});
+});
