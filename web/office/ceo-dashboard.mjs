@@ -46,10 +46,12 @@ function showProduction(data){
     'Просроченные плановые даты не подтверждены');
 }
 function showWB(data){
-  if(data.code!=='wb_finance_monitor_ok'&&data.source!=='WB_FINANCE_API_D1'&&
-     data.readOnly!==true) {
-    // The shape is validated below; do not infer success from HTTP alone.
-  }
+  if(data.code!=='wb_api_sync_status'||
+    data.source!=='WB_FINANCE_API_D1'||
+    data.readOnly!==true||data.changedRecords!==0||
+    data.netProfitStatus!=='NOT_CALCULATED'||
+    data.sumScope!=='API_COMPLETED_REPORTS_ONLY_DO_NOT_ADD_XLSX')
+    throw Error('schema');
   if(!validInt(data.reportCount)||data.reportCount<0||
     !validInt(data.completedCount)||data.completedCount<0||
     data.completedCount>data.reportCount||
