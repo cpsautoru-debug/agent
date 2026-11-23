@@ -556,6 +556,13 @@
             <a href="#ozonProfit">Подробная прибыль Ozon →</a>
           </article>
           <article class="ceo-card">
+            <h2>Заказы Ozon · доступ API</h2>
+            <strong class="ceo-value" id="ceoOzonOrdersValue">Не проверено</strong>
+            <span class="ceo-state" id="ceoOzonOrdersState" data-state="neutral">Ожидает проверки</span>
+            <p id="ceoOzonOrdersNote">Отдельная проверка чтения Ozon FBO. Не означает, что документы импортированы в «МойСклад».</p>
+            <a href="#production">Сверка Ozon → МойСклад →</a>
+          </article>
+          <article class="ceo-card">
             <h2>Общая чистая прибыль</h2><strong class="ceo-value" id="ceoProfitValue">Не подтверждена</strong>
             <span class="ceo-state" data-state="warning">Ожидает сверки всех каналов</span>
             <p>Нет доказанного суммарного результата по Ozon, WB, Яндекс Маркету, Авито и Пламени. Предварительные остатки и выплаты не складываются в прибыль.</p>
@@ -2274,7 +2281,7 @@
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
-<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-name-candidates"></script>
+<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
