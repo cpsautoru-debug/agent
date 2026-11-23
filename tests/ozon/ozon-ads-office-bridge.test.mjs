@@ -247,12 +247,17 @@ test('UI accepts canonical Ozon XLSX advertising audit and does not claim Perfor
    firstDate:'2026-10-01',lastDate:'2026-10-31',
    daysWithAdvertisingRows:31,daysInMonth:31,financeApiCoveredDays:31,
    sourceTotalsMatched:true,matchedToPerformance:false,
-   reconciled:false,deductedFromProfit:false
+   reconciled:false,deductedFromProfit:false,
+   performanceComparableKopecks:-32330488,comparableRows:76,
+   premiumKopecks:-1398000,premiumRows:2,otherRows:0,
+   performanceSourceReconciled:false
   }
  };
  const description=describeOzonAdsEvidence(evidence,MONTH);
  assert.match(description,/Performance API ответил/);
  assert.match(description,/78 рекламных строк/);
+ assert.match(description,/Продвижение в XLSX без Premium/);
+ assert.match(description,/Premium Plus/);
  assert.match(description,/Повторно вычитать рекламу/);
  assert.throws(()=>describeOzonAdsEvidence({...evidence,financeAudit:{
   ...evidence.financeAudit,reconciled:true
