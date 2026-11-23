@@ -21,6 +21,25 @@
     const cell=document.createElement('td');
     cell.textContent=String(value);row.append(cell);
   };
+  // Reuse the existing owner-only production search. No document numbers
+  // need to be copied, and a click does not update anything in MoySklad.
+  const taskLink=(row,number)=>{
+    const cell=document.createElement('td');
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='ms-production-detail-button';
+    button.textContent=number;
+    button.setAttribute('aria-label','Проверить производственное задание №'+number);
+    button.addEventListener('click',()=>{
+      const field=el('msProductionNumber');
+      const form=el('msProductionSearchForm');
+      if(!field||!form)return;
+      field.value=number;
+      form.requestSubmit();
+      el('msProductionMonitor')?.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+    cell.append(button);row.append(cell);
+  };
   let running=false,lastAttempt=0;
   const inView=()=>document.visibilityState==='visible'&&
     location.hash.split('/')[0]==='#production';
@@ -137,7 +156,7 @@
         item.status!=='incomplete')throw Error('invalid_ms_auto_row');
       const row=document.createElement('tr');
       if(item.plannedDateControl==='past')row.className='ms-auto-overdue';
-      td(row,item.number);
+      taskLink(row,item.number);
       td(row,typeof item.remaining==='number'?fmt(item.remaining):'Не подтверждено');
       td(row,typeof item.firstUnfinishedStage==='string'?
         item.firstUnfinishedStage:'Не подтверждено');
@@ -156,7 +175,7 @@
       'Номера получены автоматически, данные «МойСклад» не изменялись.';
     for(const item of data.unverifiedItems){
       const row=document.createElement('tr');
-      td(row,item.number);
+      taskLink(row,item.number);
       td(row,typeof item.documentUpdated==='string'?
         item.documentUpdated:'Дата изменения неизвестна');
       td(row,typeof item.plannedDate==='string'?
