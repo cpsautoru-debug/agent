@@ -170,3 +170,15 @@ test('mixed shipped status cannot enter Ozon new-order preview',()=>{
   assert.equal(orders[0].productionQueue,'not_for_sewing');
   assert.equal(orders[0].readyToWrite,false);
 });
+
+test('Ozon FBO shipments are read-only and never counted as sewing jobs',()=>{
+  const result=normalizeMarketplaceOrders('ozon_fbo',{result:{postings:[{
+    posting_number:'FBO-2026-1',status:'delivered',
+    products:[{offer_id:'VESTA-READY',quantity:1}]
+  }]}},'123');
+  assert.equal(result.length,1);
+  assert.equal(result[0].supplyScheme,'FBO');
+  assert.equal(result[0].productionQueue,'not_for_sewing');
+  assert.equal(result[0].readyToWrite,false);
+  assert.equal(result[0].externalKey,'AS63:ozon_fbo:123:FBO-2026-1');
+});
