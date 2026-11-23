@@ -169,6 +169,16 @@ test('binding exception categories are sanitized without raw messages',async()=>
    assert.equal(JSON.stringify(body).includes(message),false);
  }
 });
+test('transport diagnostics identify binding call stage without leaking message',async()=>{
+ const local=env();
+ local.OZON_ADS_WORKER={fetch:async()=>{throw new TypeError('private authorization value')}};
+ const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
+ const response=await handler({request:await req(),env:local});
+ const body=await response.json();
+ assert.equal(body.code,'ozon_ads_binding_type_error');
+ assert.equal(body.phase,'service_binding_fetch');
+ assert.equal(JSON.stringify(body).includes('private authorization value'),false);
+});
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({
  ...envelope,code:'ozon_ads_office_preview'},MONTH),/НЕ СВЕРЕНЫ/);
