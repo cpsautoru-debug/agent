@@ -28,9 +28,9 @@ export function attachWbCostReview({documentRef=document,fetcher=fetch}={}){
     td(tr,line.soldUnits+' шт.');
     td(tr,line.product||'Нужно определить товар');
     td(tr,line.costKopecks===null?'—':fmt(line.costKopecks));
-    td(tr,line.registryStatus==='confirmed'?'Уже подтверждена в WB':
-      line.registryStatus==='preliminary'?'Предварительная запись WB':
-      line.status==='unknown'?'Нет кандидата':'Кандидат · требует проверки');
+    td(tr,line.registryStatus==='confirmed'?'Запись в реестре WB подтверждена':
+      line.registryStatus==='preliminary'?'Запись в реестре WB предварительная':
+      'Сверено через сохранённые XLSX; реестр WB не обновлён');
     td(tr,line.reason);
     table.append(tr);
    }
@@ -51,8 +51,9 @@ export function attachWbCostReview({documentRef=document,fetcher=fetch}={}){
    if(n!==serial)return;
    status.textContent='Октябрь 2026: '+data.articles+' артикулов, '+
      data.soldUnits+' проданных единиц. Категории определены: '+
-     data.candidates+'; без соответствия: '+data.unknown+'.'+archive+
-     ' Запись в основной справочник D1 не выполнялась. Сверка через сохранённые XLSX отдельна от реестра WB.';
+     data.candidates+'; без классификации: '+data.unknown+'.'+archive+
+     ' Таблица категорий — справочная; подтверждённая октябрьская себестоимость рассчитывается из исторических XLSX. '+
+     'Основной справочник D1 ещё не синхронизирован.';
   }catch{
    if(n===serial)
     status.textContent='Не удалось получить проверенный перечень артикулов WB. Данные себестоимости не изменялись.';
