@@ -231,7 +231,10 @@ function showAds(data){
   const audit=data.columnAudit,fin=data.financeAudit;
   if(data.code!=='ozon_ads_office_preview'||data.readOnly!==true||
      data.monetaryTotalsVerified!==false||data.reconciledToFinance!==false||
-     !Array.isArray(audit)||!fin||fin.reconciled!==false)throw Error('schema');
+     !Array.isArray(audit)||!fin||fin.reconciled!==false||
+     fin.source!=='CANONICAL_OZON_FINANCE_XLSX'||
+     fin.matchedToPerformance!==false||
+     fin.deductedFromProfit!==false)throw Error('schema');
   const m=audit.find(x=>x?.field==='moneySpent');
   if(!m||!validInt(m.validRows)||!validInt(data.recordCount)||
     m.validRows!==data.recordCount||!validInt(m.rawColumnSumKopecks)||
@@ -239,9 +242,13 @@ function showAds(data){
   reportSource('ozonads','partial','Performance API ответил; рекламные суммы с Finance не сверены');
   set('ceoAdsValue',money(m.rawColumnSumKopecks));
   status('ceoAdsState','Не сверено с Finance','warning');
-  set('ceoAdsNote','Performance: '+count(data.recordCount)+' строк. Отдельные начисления D1: '+
-    money(fin.advertisingAccrualKopecks)+'. Разница не означает задолженность. '+ 
-    'Бонусы не прибавляются к денежным расходам автоматически.');
+  set('ceoAdsNote','Performance: '+count(data.recordCount)+
+    ' строк; сумма предварительная. Рекламные начисления из основного XLSX Ozon: '+
+    money(fin.advertisingAccrualKopecks)+' ('+count(fin.advertisingRows)+' строк). '+
+    (fin.sourceTotalsMatched?
+      'Общий итог XLSX сверен с Finance API. ':
+      'Общий итог XLSX с Finance API не подтверждён. ')+
+    'Эти два источника нельзя складывать или повторно вычитать из прибыли.');
 }
 function showOzonOrdersReadiness(data){
   if(data?.code!=='ozon_orders_readiness'||data.readOnly!==true||
