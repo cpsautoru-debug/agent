@@ -59,11 +59,20 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
     live_unverified:'Повторная проверка не удалась'
   };
   let running=false,lastAttempt=0;
-  const request=async path=>{
+  const request=async (path,timeoutMs=20000)=>{
     const result=await fetch(path,{method:'GET',credentials:'same-origin',
       cache:'no-store',headers:{Accept:'application/json'},
-      signal:AbortSignal.timeout(20000)});
-    if(!result.ok)throw Error('source_unavailable');
+      signal:AbortSignal.timeout(timeoutMs)});
+    if(!result.ok){
+      let detail=null;
+      try{detail=(await result.json())?.code;}catch{}
+      // Do not disclose response bodies or upstream credentials to the UI.
+      const error=Error('source_unavailable');
+      error.code=typeof detail==='string'&&
+        /^(ms_[a-z_]{3,55}|production_task_identity_unverified)$/.test(detail)?
+        detail:'source_unavailable';
+      throw error;
+    }
     return result.json();
   };
   const render=(data,items)=>{
@@ -91,7 +100,9 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
             'Связь есть, статусы не подтверждены'):
         ev?.code==='ms_order_evidence_unverified'?
           'Связь не подтверждена':
-          item.orderEvidenceError?'Ошибка проверки':'Ещё не проверен';
+          item.orderEvidenceError==='ms_rate_limited'?'Лимит API · повторим позже':
+          item.orderEvidenceError?'Не удалось прочитать статус заказа':
+          'Ещё не проверен';
       td(tr,label);
       td(tr,item.plannedDate||'Не задана');
       const check=td(tr,item.liveCheckedMs?
@@ -150,13 +161,17 @@ import {selectProductionRechecks} from './ms-production-queue-selection.mjs';
     // been verified. This endpoint is owner-only and never returns PII.
     try{
       const evidence=await request(
-        '/api/ms/production-order-evidence?number='+encodeURIComponent(item.number));
+        '/api/ms/production-order-evidence?number='+encodeURIComponent(item.number),
+        70000);
       if(evidence?.taskId!==item.taskId||
         !['ms_order_evidence_ok','ms_order_evidence_unverified']
           .includes(evidence?.code)||evidence.approvedForDispatch!==false)
         throw Error('unverified_order_evidence');
       orderEvidence=evidence;
-    }catch{orderEvidenceError=true;}
+    }catch(error){
+      orderEvidenceError=typeof error?.code==='string'?
+        error.code:'source_unavailable';
+    }
     return {
       ...item,orderEvidence,orderEvidenceError,
       liveStatus:result.status==='incomplete'?'live_incomplete':'live_complete',
