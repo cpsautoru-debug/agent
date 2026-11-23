@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -344,4 +344,39 @@ test('live preview stops following first rate-limited SKU',async()=>{
   assert.deepEqual(calls,['article=A']);
   assert.equal(r.coverage.failureCode,'rate_limited');
   assert.equal(r.bySku.get('B'),'unverified');
+});
+
+test('Ozon catalog evidence retrieves offer ID and barcode without assuming MoySklad match',async()=>{
+  const calls=[];
+  const result=await fetchOzonProductEvidence(async(url,opt)=>{
+    calls.push({url,method:opt.method,payload:JSON.parse(opt.body)});
+    return Response.json({items:[
+      {offer_id:'24086',id:13579,barcodes:['4601234567890','4601234567890']},
+      {offer_id:'24703',id:24680,barcodes:[]}
+    ]});
+  },'1001','test-token',[
+    {items:[{sku:'24086',quantity:1},{sku:'24703',quantity:1}]},
+    {items:[{sku:'24086',quantity:1}]}
+  ]);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,'https://api-seller.ozon.ru/v3/product/info/list');
+  assert.deepEqual(calls[0].payload,{offer_id:['24086','24703']});
+  assert.equal(result.code,'ok');
+  assert.equal(result.byOffer.get('24086').status,'seller_product_with_barcode');
+  assert.deepEqual(result.byOffer.get('24086').barcodes,['4601234567890']);
+  assert.equal(result.byOffer.get('24703').status,'seller_product_without_barcode');
+});
+test('Ozon catalog ambiguous product IDs are never accepted as evidence',async()=>{
+  const x=await fetchOzonProductEvidence(async()=>Response.json({items:[
+    {offer_id:'24086',id:11,barcodes:['4601234567890']},
+    {offer_id:'24086',id:12,barcodes:['4601234567891']}
+  ]}),'1001','test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.equal(x.byOffer.get('24086').status,'ambiguous');
+  assert.deepEqual(x.byOffer.get('24086').barcodes,[]);
+});
+test('Ozon product lookup API unavailable does not block zero-write preview',async()=>{
+  const x=await fetchOzonProductEvidence(async()=>new Response('{}',{status:403}),
+    '1001','test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.equal(x.code,'permission_denied');
+  assert.equal(x.byOffer.get('24086').status,'not_confirmed');
 });
