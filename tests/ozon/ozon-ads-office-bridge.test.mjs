@@ -18,9 +18,17 @@ const env=(allowed=1)=>({
  OFFICE_SESSION_SECRET:SECRET,OFFICE_ALLOWED_EMAIL:'owner@example.com',
  ADS_READ_TOKEN:'X'.repeat(48),
  OZON_ADS_WORKER:{expensePreview:async()=>{throw new Error('unexpected binding call in injected tests')}},
- OZON_FINANCE_DB:{prepare(sql){assert.match(sql,/office_authorized_users/);
+ OZON_FINANCE_DB:{prepare(sql){
+ if(/FROM ozon_accruals/.test(sql))return {bind(start,end){
+   assert.equal(start,'2026-10-01');assert.equal(end,'2026-11-01');
+   return {first:async()=>({all_rows:2144,ad_rows:71,
+     ad_kopecks:-30479185,first_date:'2026-10-01',
+     last_date:'2026-10-29'})};
+ }};
+ assert.match(sql,/office_authorized_users/);
  return {bind(sub,email){assert.equal(sub,'test-owner');
- assert.equal(email,'owner@example.com');return {first:async()=>({allowed})}}}}}
+ assert.equal(email,'owner@example.com');return {first:async()=>({allowed})};}};
+ }}
 });
 async function req(path=url){
  const cookie=(await createSession('test-owner',SECRET)).split(';')[0];
@@ -44,6 +52,12 @@ test('owner receives only allowlisted source evidence; not an advertising amount
  assert.equal(body.totalExpenseKopecks,null);
  assert.equal(body.monetaryTotalsVerified,false);
  assert.equal(body.reconciledToFinance,false);
+ assert.deepEqual(body.financeAudit,{
+   source:'ozon_accruals_export',month:MONTH,accrualRows:2144,
+   advertisingRows:71,advertisingAccrualKopecks:-30479185,
+   firstDate:'2026-10-01',lastDate:'2026-10-29',
+   matchedToPerformance:false,reconciled:false
+ });
  assert.equal(calls.length,1);
  const addr=new URL(calls[0].address);
  assert.equal(addr.origin,'https://autosklad63-ozon-ads-staging.cpsautoru.workers.dev');
@@ -178,10 +192,17 @@ test('transport diagnostics identify binding call stage without leaking message'
  assert.equal(JSON.stringify(body).includes('private authorization value'),false);
 });
 test('UI renders source status without calling profit mutations',()=>{
- assert.match(describeOzonAdsEvidence({
- ...envelope,code:'ozon_ads_office_preview'},MONTH),/НЕ СВЕРЕНЫ/);
- assert.throws(()=>describeOzonAdsEvidence({
- ...envelope,code:'ozon_ads_office_preview',monetaryTotalsVerified:true},MONTH));
+ const safe={...envelope,code:'ozon_ads_office_preview',financeAudit:{
+   source:'ozon_accruals_export',month:MONTH,accrualRows:2144,
+   advertisingRows:71,advertisingAccrualKopecks:-30479185,
+   firstDate:'2026-10-01',lastDate:'2026-10-29',
+   matchedToPerformance:false,reconciled:false
+ }};
+ const description=describeOzonAdsEvidence(safe,MONTH);
+ assert.match(description,/НЕ СВЕРЕНЫ/);
+ assert.match(description,/71 рекламных строк/);
+ assert.throws(()=>describeOzonAdsEvidence({...safe,monetaryTotalsVerified:true},MONTH));
+ assert.throws(()=>describeOzonAdsEvidence({...safe,financeAudit:{...safe.financeAudit,reconciled:true}},MONTH));
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const js=readFileSync(new URL('../../web/office/ozon-ads-evidence.mjs',import.meta.url),'utf8');
  assert.match(html,/id="profitOzonAdsApiRefresh"/);
