@@ -33,6 +33,22 @@ export function summarizeOzonFinanceReadiness(month,data,result){
     .slice(0,12).map(x=>({sku:x.sku.slice(0,40),
       article:typeof x.article==='string'?x.article.slice(0,120):null,
       costStatus:'missing',autoAssignment:false}));
+  // A verified aggregate monthly amount does not verify each operation.
+  // Return only bounded day-level statuses, without customer information.
+  const days=Array.isArray(a.audit)?a.audit:[];
+  if(days.length>a.days||days.some(x=>
+    !x||typeof x.date!=='string'||!/^20\d{2}-\d{2}-\d{2}$/.test(x.date)||
+    typeof x.netStatus!=='string'||typeof x.detailStatus!=='string'))
+    throw Error('invalid_canonical_finance_data');
+  const unresolvedDays=days.filter(x=>
+    x.netStatus!=='verified'||x.detailStatus!=='verified')
+    .map(x=>({
+      date:x.date,netVerified:x.netStatus==='verified',
+      detailVerified:x.detailStatus==='verified',
+      reason:typeof x.detailReason==='string'&&
+        /^[a-z0-9_]{1,80}$/.test(x.detailReason)?
+        x.detailReason:'unverified'
+    }));
   const blockers=[...result.profit.blockers];
   if(!aggregateMatched&&!blockers.includes('report_api_mismatch'))
     blockers.push('report_api_aggregate_unverified');
@@ -61,6 +77,13 @@ export function summarizeOzonFinanceReadiness(month,data,result){
     sourcesMatch:{apiVsXlsxKopecks:aggregateMatched,
       differenceKop:safe(reportTotal)&&safe(apiTotal)?
         reportTotal-apiTotal:null},
+    reconciliation:{
+      checkedDays:days.length,
+      unresolvedCount:unresolvedDays.length,
+      unresolvedDays:unresolvedDays.slice(0,31),
+      fullyVerified:days.length===a.days&&unresolvedDays.length===0,
+      aggregateParityIsNotDetailReconciliation:true
+    },
     missingCostProducts,blockers,
     externalVerificationRequired:result.financeCloseout.missing||[],
     netProfitVerified:false,changedRecords:0};
