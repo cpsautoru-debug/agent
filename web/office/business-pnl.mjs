@@ -145,15 +145,25 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
       if(!response.ok)throw Error('wb_month_settlement_unavailable');
       const wb=validateDashboardWbMonth(await response.json(),month);
       interim.wb=wb;
+      if(wb.managementCost?.status==='known_cost_result'){
+       base.channels.wb={
+        status:'known_cost_result',
+        profitKopecks:wb.managementCost.contributionKopecks
+       };
+      }
       const basis=wb.breakdown[0][1]+wb.breakdown[1][1];
       sourceNotes.wb='После удержаний WB остаётся '+
        displayRate(financeRateBps(wb.amountKopecks,basis))+
        ' от суммы после возвратов (это НЕ прибыль). '+
        wb.reports+' отчётов, '+wb.rows+
-       ' операций. Себестоимость подтверждена для '+
-       wb.confirmedCostArticles+' из '+wb.soldArticles+
-       ' проданных артикулов ('+wb.preliminaryCostArticles+
-       ' предварительно). Прибыль WB пока не рассчитана.';
+       ' операций. '+(wb.managementCost?
+       'Исторические XLSX подтверждают себестоимость '+wb.managementCost.confirmedSkuCount+
+         ' артикулов и 6 пригодных возвратов. Результат после себестоимости: '+
+         money(wb.managementCost.contributionKopecks)+
+         '. До внешней рекламы, общих расходов и налога ИП.':
+       'Себестоимость в текущем реестре подтверждена для '+
+         wb.confirmedCostArticles+' из '+wb.soldArticles+
+         ' артикулов; управленческая прибыль пока не рассчитана.');
      }catch(e){wbError=e;sourceNotes.wb='Нет полной сверенной расчётной суммы WB за выбранный период.';}
     })()
    ]);
