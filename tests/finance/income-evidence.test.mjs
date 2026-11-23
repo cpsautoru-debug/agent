@@ -71,3 +71,19 @@ test('overlapping intervals cannot masquerade as full coverage',()=>{
  assert.equal(result.wb.reportTypeCoverage[0].overlappingDays,1);
  assert.equal(result.wb.reportPeriodComplete,false);
 });
+
+test('WB cost readiness identifies missing confirmed costs without claiming sale-date match',()=>{
+ const x=summarizeIncomeEvidence(month,finance,{
+  ...wb,costCoverage:{sold_articles:35,confirmed_articles:0,preliminary_articles:1}
+ });
+ assert.deepEqual(x.wb.costCoverage,{
+  soldArticles:35,confirmedArticles:0,preliminaryArticles:1,
+  matchingGranularity:'REPORT_PERIOD_NOT_SALE_DATE',complete:false
+ });
+ assert.equal(x.distributionReady,false);
+});
+test('WB cost coverage rejects more confirmed than sold articles',()=>{
+ assert.throws(()=>summarizeIncomeEvidence(month,finance,{
+  ...wb,costCoverage:{sold_articles:35,confirmed_articles:36,preliminary_articles:1}
+ }),/invalid_wb_cost_coverage/);
+});
