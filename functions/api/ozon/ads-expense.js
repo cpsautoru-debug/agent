@@ -41,6 +41,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
       return respond(503,{code:'ads_bridge_secret_missing'});
     if(env.ADS_READ_TOKEN.length<32)
       return respond(503,{code:'ads_bridge_secret_too_short'});
+    // Secret rotation requires a fresh Pages deployment to activate bindings.
     // Production binding targets the named OzonAdsInternal WorkerEntrypoint.
     // Internal Cloudflare Service Binding avoids unreliable same-account
     // workers.dev HTTP subrequests. Fail closed until Pages Production binds it.
