@@ -212,18 +212,18 @@ test('complete assortment scan matches unique article and code',async()=>{
   assert.equal(scan.coverage.complete,true);
   assert.equal(scan.requests,1);
   assert.equal(seen[0].accept,'application/json;charset=utf-8');
-  assert.equal(new URL(seen[0].url).searchParams.get('limit'),'100');
+  assert.equal(new URL(seen[0].url).searchParams.get('limit'),'20');
   assert.equal(new URL(seen[0].url).searchParams.has('filter'),false);
 });
 test('partial assortment scan does not claim a unique match or no-match',async()=>{
   const scan=await matchMoyskladArticles(async url=>{
     const offset=Number(new URL(url).searchParams.get('offset'));
-    return Response.json({meta:{size:1200},rows:Array.from({length:100},
+    return Response.json({meta:{size:1200},rows:Array.from({length:20},
       (_,i)=>({id:String(offset+i),code:offset+i===2?'24086':'OTHER-'+(offset+i)}))});
   },'test-token',[{items:[{sku:'24086',quantity:1},
     {sku:'UNKNOWN',quantity:1}]}]);
   assert.equal(scan.coverage.complete,false);
-  assert.equal(scan.coverage.checkedRows,800);
+  assert.equal(scan.coverage.checkedRows,600);
   assert.equal(scan.bySku.get('24086'),'unverified');
   assert.equal(scan.bySku.get('UNKNOWN'),'unverified');
 });
@@ -240,4 +240,13 @@ test('assortment API failure leaves SKU mapping unverified',async()=>{
   assert.equal(result.bySku.get('24086'),'unverified');
   assert.equal(result.coverage.complete,false);
   assert.equal(result.coverage.sourceError,true);
+  assert.equal(result.coverage.failureCode,'upstream_http_error');
+});
+test('oversized first assortment response reports failure rather than absence',async()=>{
+  const result=await matchMoyskladArticles(async()=>Response.json({
+    meta:{size:1},rows:[{id:'a',name:'x'.repeat(300000)}]
+  }), 'test-token',[{items:[{sku:'24086',quantity:1}]}]);
+  assert.equal(result.coverage.pages,0);
+  assert.equal(result.coverage.failureCode,'response_too_large');
+  assert.equal(result.bySku.get('24086'),'unverified');
 });
