@@ -1730,12 +1730,17 @@
         </div>
         <div class="ms-sites-steps">
           <button type="button" id="marketplaceOrderCheckOzon" class="ms-production-detail-button">Проверить Ozon FBS</button>
+          <button type="button" id="marketplaceOrderCheckFbo" class="ms-production-detail-button">Проверить Ozon FBO</button>
           <button type="button" id="marketplaceOrderCheckWb" class="ms-production-detail-button">Проверить WB FBS</button>
         </div>
         <div class="ms-sites-grid" aria-label="Результаты проверки источников">
           <div class="ms-site-card">
             <strong>Ozon FBS</strong>
             <p id="marketplaceOrderStatusOzon" role="status">Ещё не проверялся</p>
+          </div>
+          <div class="ms-site-card">
+            <strong>Ozon FBO</strong>
+            <p id="marketplaceOrderStatusFbo" role="status">Ещё не проверялся · продажи со склада Ozon, не очередь пошива</p>
           </div>
           <div class="ms-site-card">
             <strong>Wildberries FBS</strong>
@@ -2256,7 +2261,7 @@
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
-<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-source-diagnostics"></script>
+<script type="module" src="marketplace-order-import-preview.mjs?v=20261123-fbo-review"></script>
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
