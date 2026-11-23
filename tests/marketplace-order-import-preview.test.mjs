@@ -85,3 +85,16 @@ test('empty exact MoySklad filter is distinct from uncertain fallback',async()=>
   const result=await lookupMoyskladDuplicate(fetcher,'test-token','AS63:wb:primary:123');
   assert.equal(result.status,'not_found');
 });
+
+test('MoySklad search rejected twice does not invent absence of duplicates',async()=>{
+  const key='AS63:ozon:123:A-1';
+  let count=0;
+  const result=await (async()=>{
+    try{
+      await lookupMoyskladDuplicate(async()=>{count++;
+        return new Response('{}',{status:400});
+      },'test-token',key);
+    }catch(error){return {status:error.status,queries:count};}
+  })();
+  assert.deepEqual(result,{status:400,queries:2});
+});
