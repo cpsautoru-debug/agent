@@ -95,10 +95,14 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
       if(!response.ok)throw Error('source_unavailable');
       const data=await response.json();
       const ozon=summarizeOzonProvisionalProfit(month,data);
-      if(ozon.status==='provisional_known_cost_result')
+      if(ozon.status==='provisional_known_cost_result'){
        base.channels.ozon={status:'known_cost_result',
          profitKopecks:ozon.beforeAllocationKopecks};
-      else sourceNotes.ozon='Недостаточно подтверждений: '+
+       sourceNotes.ozon=ozon.reviewWarnings?.length?
+         'Совпадающие строки услуг Ozon требуют детальной проверки. '+
+         'Промежуточный результат сверяется по общим суммам; это не окончательная прибыль.':
+         'Начисления и себестоимость сверены. Банковское и налоговое закрытие отдельно.';
+      }else sourceNotes.ozon='Недостаточно подтверждений: '+
         (ozon.missingEvidence?.join(', ')||'источники пока не сверены')+'.';
      }catch(e){error=e;}
     })(),
