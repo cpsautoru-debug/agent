@@ -2,6 +2,7 @@
 // No API keys, no financial amounts, and no unverified metric aggregation here.
 export const OFFICE_SOURCES=Object.freeze([
   {id:'moysklad',phase:1,title:'МойСклад · производство и 2 склада',section:'production',status:'partial',next:'Подтвердить живую очередь, этапы и фактические остатки'},
+  {id:'msqueue',phase:1,title:'МойСклад · автоматическая очередь проверки',section:'production',status:'partial',next:'Проверить последний полный исторический снимок и очередь кандидатов; рабочие заказы отдельно'},
   {id:'ozon',phase:2,title:'Ozon · финансы и продажи',section:'ozonProfit',status:'partial',next:'Сверить начисления, возвраты, рекламу, налоги и банк'},
   {id:'wb',phase:2,title:'Wildberries · финансы и продажи',section:'wbFinance',status:'partial',next:'Устранить расхождения отчётов и подтвердить прибыль'},
   {id:'yandex',phase:2,title:'Яндекс Маркет',section:'connections',status:'planned',next:'Подключить финансовые операции, себестоимость и налоги отдельного юрлица'},
