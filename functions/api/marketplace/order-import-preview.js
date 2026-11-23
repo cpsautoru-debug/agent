@@ -188,32 +188,33 @@ export async function matchMoyskladArticles(fetcher,token,orders){
   if(!Array.isArray(orders)||orders.length>LIMIT)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
-  const limit=12,result=new Map();let requests=0;
-  for(const sku of skus){
-    if(!safe(sku)||sku.length>100){result.set(sku,'unverified');continue;}
-    if(requests>=limit){result.set(sku,'unverified');continue;}
-    requests++;
-    try{
-      const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
-      url.searchParams.set('limit','2');
-      url.searchParams.set('filter','article='+sku);
-      const response=await requestJson(fetcher,url.toString(),{
-        method:'GET',headers:{
-          Authorization:'Bearer '+token,
-          Accept:'application/json;charset=utf-8'
-        }
-      });
-      if(!Array.isArray(response?.rows)||
-        !Number.isSafeInteger(response?.meta?.size)){
-        result.set(sku,'unverified');continue;
-      }
-      const exact=response.rows.filter(row=>row?.article===sku);
-      result.set(sku,response.meta.size===1&&exact.length===1?
-        'matched_exact_article':response.meta.size===0?
-          'not_matched':'unverified');
-    }catch{result.set(sku,'unverified');}
+  const limit=12,result=new Map();
+  const allowed=skus.filter(s=>safe(s)&&s.length<=100).slice(0,limit);
+  for(const sku of skus)result.set(sku,'unverified');
+  // Two independent read-only requests at a time; each has a short deadline.
+  // Keep the preview responsive even if one SKU lookup stalls.
+  for(let i=0;i<allowed.length;i+=2){
+    await Promise.all(allowed.slice(i,i+2).map(async sku=>{
+      try{
+        const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+        url.searchParams.set('limit','2');
+        url.searchParams.set('filter','article='+sku);
+        const response=await requestJson(fetcher,url.toString(),{
+          method:'GET',headers:{
+            Authorization:'Bearer '+token,
+            Accept:'application/json;charset=utf-8'
+          },signal:AbortSignal.timeout(8000)
+        });
+        if(!Array.isArray(response?.rows)||
+          !Number.isSafeInteger(response?.meta?.size))return;
+        const exact=response.rows.filter(row=>row?.article===sku);
+        result.set(sku,response.meta.size===1&&exact.length===1?
+          'matched_exact_article':response.meta.size===0?
+            'not_matched':'unverified');
+      }catch{/* Keep ambiguous article lookup unverified. */}
+    }));
   }
-  return {bySku:result,requests};
+  return {bySku:result,requests:allowed.length};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
