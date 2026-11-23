@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -196,4 +196,32 @@ test('MoySklad duplicate requests send exact JSON UTF-8 Accept header',async()=>
     'application/json;charset=utf-8',
     'application/json;charset=utf-8'
   ]);
+});
+
+test('exact SKU article match requires one exact source record',async()=>{
+  const sku='VESTA-01';
+  const orders=[{items:[{sku,quantity:1}]}];
+  const calls=[];
+  const res=await matchMoyskladArticles(async(url,options)=>{
+    calls.push({url,headers:options.headers});
+    return Response.json({meta:{size:1},rows:[{article:sku}]});
+  },'test-token',orders);
+  assert.equal(res.bySku.get(sku),'matched_exact_article');
+  assert.equal(res.requests,1);
+  assert.equal(calls[0].headers.Accept,'application/json;charset=utf-8');
+  assert.equal(new URL(calls[0].url).searchParams.get('filter'),'article='+sku);
+});
+test('article ambiguity and API failures cannot be treated as matched',async()=>{
+  const orders=[{items:[{sku:'A',quantity:1},{sku:'B',quantity:1},
+    {sku:'C',quantity:1}]}];
+  const res=await matchMoyskladArticles(async(url)=>{
+    const sku=new URL(url).searchParams.get('filter');
+    if(sku==='article=A')
+      return Response.json({meta:{size:2},rows:[{article:'A'},{article:'A'}]});
+    if(sku==='article=B')return Response.json({meta:{size:0},rows:[]});
+    return new Response('{}',{status:400});
+  },'test-token',orders);
+  assert.equal(res.bySku.get('A'),'unverified');
+  assert.equal(res.bySku.get('B'),'not_matched');
+  assert.equal(res.bySku.get('C'),'unverified');
 });
