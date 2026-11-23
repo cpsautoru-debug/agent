@@ -132,7 +132,7 @@
   <div class="content">
 
     <section class="page" data-section="ozonProfit" hidden>
-      <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ПРОВЕРЯЕМЫЙ РАСЧЁТ</div><h1>Прибыль Ozon</h1><p>Неизвестные данные сохраняют статус «Неизвестно». Предварительные суммы не подтверждают прибыль.</p></div></div>
+      <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ПРОВЕРЯЕМЫЙ РАСЧЁТ</div><h1>Прибыль Ozon</h1><p>Подтверждённые источниками суммы показываются отдельно от управленческого результата. Общий налог ИП и постоянные расходы учитываются в сводном P&amp;L бизнеса.</p></div></div>
       <div class="profit-layout">
         <div class="profit-toolbar"><label>Месяц расчёта<input id="profitMonth" type="month" required></label><button id="profitReload" data-profit-action class="button light" type="button">Обновить данные</button><a href="#ozonFinance">Вход владельца и начисления API →</a></div>
         <p id="profitMessage" role="status" aria-live="polite"></p>
@@ -2311,7 +2311,8 @@
 <script src="studio.js" defer></script>
 <script src="ozon-finance.js" defer></script>
 <script type="module" src="ozon-sku-cost-evidence.mjs?v=20261122"></script>
-<script src="profit.js?v=20261122-closeout-gates" defer></script>
+<script src="profit-cards-core.js?v=20261124-profit-metrics" defer></script>
+<script src="profit.js?v=20261124-profit-metrics" defer></script>
 <script type="module" src="ozon-ads-evidence.mjs?v=20261123-ad-composition"></script>
 <script type="module" src="owner-allocation-status.mjs?v=20261123-entity-tax-once"></script>
 <script type="module" src="income-evidence.mjs?v=20261123-wb-review-queue"></script>
