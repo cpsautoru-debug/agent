@@ -221,6 +221,21 @@ function showOzonFinanceAudit(data){
   };
   const blockers=data.blockers.slice(0,10)
     .map(x=>descriptions[x]||String(x).replaceAll('_',' '));
+  const reconciliation=data.reconciliation;
+  if(!reconciliation||!validInt(reconciliation.checkedDays)||
+    !validInt(reconciliation.unresolvedCount)||
+    reconciliation.unresolvedCount>reconciliation.checkedDays||
+    !Array.isArray(reconciliation.unresolvedDays)||
+    reconciliation.unresolvedDays.length>31||
+    reconciliation.aggregateParityIsNotDetailReconciliation!==true)
+    throw Error('schema');
+  const reconciliationNote=reconciliation.unresolvedCount===0?
+    (reconciliation.fullyVerified?'Детальные статусы по всем дням подтверждены. ':
+    'Детальная сверка по всем дням ещё не подтверждена. '):
+    'Не закрыта детальная сверка: '+reconciliation.unresolvedCount+
+    ' из '+reconciliation.checkedDays+' проверенных дат; например '+
+    reconciliation.unresolvedDays.slice(0,5)
+      .map(x=>x.date).join(', ')+'. ';
   set('ceoOzonAuditNote',
     'Основной Finance API: '+count(a.rows)+' начислений за '+
     a.coveredDays+' из '+a.expectedDays+' дней. '+
@@ -232,7 +247,8 @@ function showOzonFinanceAudit(data){
       'не подтверждены')+'. '+
     'Себестоимость по датам: '+c.confirmedSalesRows+
     ' из '+c.checkedSalesRows+' строк продаж. '+
-    'Сверка состава начислений, реклама, налоги, банк: отдельно. '+
+    reconciliationNote+
+    'Реклама, налоги и банковские операции проверяются отдельно. '+
     (blockers.length?'Не закрыто: '+blockers.join('; ')+'. ':'')+
     'Чистая прибыль не подтверждена.');
 }
