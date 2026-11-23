@@ -29,6 +29,16 @@ export function attachYandexMarketConnection({documentRef=document,fetcher=fetch
   finally{working=false;button.disabled=false;}
  }
  button.addEventListener('click',check);
+ // Recheck only when the management dashboard is visible. This is a
+ // read-only owner-gated request; token never enters browser JavaScript.
+ let seen=false;
+ const onVisible=()=>{
+  if(location.hash.split('/')[0]==='#dashboard'&&!seen){
+   seen=true;void check();
+  }
+ };
+ window.addEventListener('hashchange',onVisible);
+ onVisible();
  return true;
 }
 if(typeof document!=='undefined')attachYandexMarketConnection();
