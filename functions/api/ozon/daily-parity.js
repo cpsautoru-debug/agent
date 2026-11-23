@@ -11,7 +11,8 @@ export function compareOzonDailyTotals(month,xlsxRows,apiDays){
   if(!Number.isFinite(from.getTime()))throw Error('invalid_daily_parity_input');
   const next=new Date(from);next.setUTCMonth(next.getUTCMonth()+1);
   const expected=(next-from)/86400000;
-  const days=new Map(),reportSums=new Map(),reportSigns=new Map();
+  const days=new Map(),apiDayDetails=new Map(),
+    reportSums=new Map(),reportSigns=new Map();
   for(let i=0;i<expected;i++){
     const d=new Date(from.getTime()+i*86400000).toISOString().slice(0,10);
     reportSums.set(d,0);
@@ -35,13 +36,14 @@ export function compareOzonDailyTotals(month,xlsxRows,apiDays){
       days.has(row.date)||!validKop(row.totalKopecks)||
       row.complete!==true)throw Error('invalid_daily_api_row');
     days.set(row.date,row.totalKopecks);
+    apiDayDetails.set(row.date,row);
   }
   // Comparing positive/negative splits is a diagnostic only: XLSX service
   // lines and API accrual envelopes have different granularity, so a
   // difference is not proof of missing money or an erroneous report.
   const granularity=[];
   for(const [date,sign] of reportSigns){
-    const api=days.get(date);
+    const api=apiDayDetails.get(date);
     if(!api||!validKop(api.positiveKopecks)||
       !validKop(api.negativeKopecks)||!Number.isSafeInteger(api.recordCount))
       continue;
