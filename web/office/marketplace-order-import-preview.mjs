@@ -138,7 +138,7 @@
           p.assortmentMatch==='matched_exact_code'?
             p.sku+' — точный код товара найден':
           p.assortmentMatch==='not_matched'?
-            p.sku+' — артикул не найден':
+            p.sku+' — нет точного совпадения ни по артикулу, ни по коду':
             p.sku+' — сопоставление не подтверждено').join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
           order.duplicateStatus==='not_found'?
@@ -203,12 +203,13 @@
         data.readOnly!==true||data.changedRecords!==0||
         data.approvedForWrite!==false||
         data.meaning!=='HTTP_ONLY_NO_CUSTOMER_ORDER_DATA_NO_DUPLICATE_CLEARANCE'||
-        !Array.isArray(data.results)||data.results.length>3)
+        !Array.isArray(data.results)||data.results.length>4)
         throw Error('invalid_diagnostic');
       const labels={
         customerorder_default:'Заказы покупателей (без offset)',
         customerorder_offset_zero:'Заказы покупателей (offset=0)',
-        productiontask_control:'Производственные задания (контроль)'
+        productiontask_control:'Производственные задания (контроль)',
+        assortment_catalog:'Ассортимент (контроль API)'
       };
       const safe=data.results.every(item=>
         Object.hasOwn(labels,item?.probe)&&
