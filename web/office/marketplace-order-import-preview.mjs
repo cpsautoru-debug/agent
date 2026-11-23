@@ -53,7 +53,9 @@
       typeof x.externalKey==='string'&&x.externalKey.startsWith('AS63:')&&
       Array.isArray(x.items)&&x.items.every(p=>
         typeof p.sku==='string'&&Number.isSafeInteger(p.quantity)&&
-        p.quantity>0)&&
+        p.quantity>0&&
+        ['matched_exact_article','not_matched','unverified']
+          .includes(p.assortmentMatch))&&
       ['already_exists','not_found','unverified'].includes(x.duplicateStatus));
   const cell=(tr,value)=>{const td=document.createElement('td');
     td.textContent=value;tr.append(td);};
@@ -130,6 +132,12 @@
             order.productionQueue==='candidate_needs_inventory'?
               ' · нужен контроль остатков':' · назначение не определено'));
         cell(tr,order.items.map(p=>p.sku+' × '+p.quantity).join('; '));
+        cell(tr,order.items.map(p=>
+          p.assortmentMatch==='matched_exact_article'?
+            p.sku+' — точный артикул найден':
+          p.assortmentMatch==='not_matched'?
+            p.sku+' — артикул не найден':
+            p.sku+' — сопоставление не подтверждено').join('; '));
         cell(tr,order.duplicateStatus==='already_exists'?'Точное совпадение найдено':
           order.duplicateStatus==='not_found'?'Не найден точным фильтром · запись выключена':
           order.duplicateLookup==='bounded_list_scan'?
