@@ -64,3 +64,17 @@ test('unknown months do not silently display zero expenses or taxes',()=>{
  assert.equal(r.taxTotalKopecks,null);
  assert.equal(r.finalProfitKopecks,null);
 });
+
+test('October Ozon and WB contributions appear as a partial sum, not business net',()=>{
+ const r=consolidateBusinessPnl({month,channels:{
+  ozon:{status:'known_cost_result',profitKopecks:54836991},
+  wb:{status:'known_cost_result',profitKopecks:29149264}
+ },sharedExpenses,taxes});
+ assert.equal(r.knownChannelCount,2);
+ assert.equal(r.knownChannelsTotalKopecks,83986255);
+ assert.equal(r.channelsTotalKopecks,null);
+ assert.equal(r.finalProfitKopecks,null);
+ assert.deepEqual(r.missingChannels,['yandex','avito','offline']);
+ assert.equal(r.sharedExpenseTotalKopecks,5400000);
+ assert.equal(r.taxTotalKopecks,20550700);
+});
