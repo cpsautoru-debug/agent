@@ -22,7 +22,14 @@ export function normalizeOrderStates(metadata){
       throw Error('ms_order_state_invalid');
     const id=row.id.toLowerCase();ids.add(id);
     names.add(row.name.toLocaleLowerCase('ru-RU'));
-    return {id,name:row.name};
+    const type=row.stateType;
+    // MoySklad exposes Regular/Successful/Unsuccessful. Only the latter
+    // two establish a source-level terminal classification; Regular does
+    // not prove the production job is active.
+    if(!['Regular','Successful','Unsuccessful'].includes(type))
+      throw Error('ms_order_state_type_unverified');
+    return {id,name:row.name,stateType:type,
+      terminal:type==='Successful'||type==='Unsuccessful'};
   });
   return {states,count:states.length,interpretation:'UNMAPPED_SOURCE_STATES_NOT_ACTIVE_ORDER_CLASSIFICATION'};
 }
