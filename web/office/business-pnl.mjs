@@ -58,6 +58,11 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
  let serial=0;
  async function load(){
   const id=++serial,month=monthInput.value;
+  refresh.disabled=true;
+  refresh.textContent='Пересчитываем…';
+  root.setAttribute('aria-busy','true');
+  let notice=documentRef.getElementById('businessPnlLoadStatus');
+  if(notice)notice.textContent='Обновляем Ozon и Wildberries за '+month+'…';
   const base={month,channels:{},sharedExpenses:[],taxes:[],
     completeSources:false};
   const sourceNotes={
@@ -78,32 +83,41 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
      entity:'ip',amountKopecks:20550700}];
   }
   let error=null,wbError=null;
-  try{
-   if(month==='2026-10'){
-    const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
-     credentials:'same-origin',cache:'no-store',
-     signal:AbortSignal.timeout(16000)});
-    if(!response.ok)throw Error('source_unavailable');
-    const data=await response.json();
-    const ozon=summarizeOzonProvisionalProfit(month,data);
-    if(ozon.status==='provisional_known_cost_result')
-     base.channels.ozon={status:'known_cost_result',
-       profitKopecks:ozon.beforeAllocationKopecks};
-    else sourceNotes.ozon='Недостаточно подтверждений: '+
-      (ozon.missingEvidence?.join(', ')||'источники пока не сверены')+'.';
-
-   }
-  }catch(e){error=e;}
   if(month==='2026-10'){
-   try{
-    const response=await fetcher('/api/finance/income-evidence?month='+encodeURIComponent(month),{
-     method:'GET',credentials:'same-origin',cache:'no-store',
-     signal:AbortSignal.timeout(16000)});
-    if(!response.ok)throw Error('wb_income_source_unavailable');
-    sourceNotes.wb=describeDashboardWbEvidence(await response.json(),month);
-   }catch(e){wbError=e;sourceNotes.wb='Нет проверенной сводки WB за выбранный период.';}
+   // Both APIs are independent. Parallel reads eliminate an unnecessary
+   // extra wait and keep the refresh visibly responsive.
+   await Promise.all([
+    (async()=>{
+     try{
+      const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
+       method:'GET',credentials:'same-origin',cache:'no-store',
+       signal:AbortSignal.timeout(16000)});
+      if(!response.ok)throw Error('source_unavailable');
+      const data=await response.json();
+      const ozon=summarizeOzonProvisionalProfit(month,data);
+      if(ozon.status==='provisional_known_cost_result')
+       base.channels.ozon={status:'known_cost_result',
+         profitKopecks:ozon.beforeAllocationKopecks};
+      else sourceNotes.ozon='Недостаточно подтверждений: '+
+        (ozon.missingEvidence?.join(', ')||'источники пока не сверены')+'.';
+     }catch(e){error=e;}
+    })(),
+    (async()=>{
+     try{
+      const response=await fetcher('/api/finance/income-evidence?month='+encodeURIComponent(month),{
+       method:'GET',credentials:'same-origin',cache:'no-store',
+       signal:AbortSignal.timeout(16000)});
+      if(!response.ok)throw Error('wb_income_source_unavailable');
+      sourceNotes.wb=describeDashboardWbEvidence(await response.json(),month);
+     }catch(e){wbError=e;sourceNotes.wb='Нет проверенной сводки WB за выбранный период.';}
+    })()
+   ]);
   }
-    if(serial!==id||monthInput.value!==month)return;
+  if(serial!==id||monthInput.value!==month)return;
+  refresh.disabled=false;
+  refresh.textContent='Пересчитать сводку';
+  root.removeAttribute('aria-busy');
+  if(notice)notice.textContent='Пересчёт завершён · '+month;
   let pnl;
   try{pnl=consolidateBusinessPnl(base);}
   catch{root.textContent='Невозможно сформировать сводный отчёт: неверный период или данные.';return;}
