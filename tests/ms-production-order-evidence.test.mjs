@@ -25,6 +25,14 @@ test('state is shown as raw name, not interpreted as live or closed',()=>{
   assert.equal(summarizeLinkedOrder({id:uuid,applicable:false},uuid).verification,'state_missing');
   assert.equal(summarizeLinkedOrder({id:'other',applicable:true},uuid).verification,'unverified');
 });
+test('known order state remains verifiable without optional applicable field',()=>{
+  const e=summarizeLinkedOrder({id:uuid,state:{name:'В работе'},
+    updated:'2026-11-23 10:00:00'},uuid);
+  assert.equal(e.verification,'state_read');
+  assert.equal(e.posted,null);
+  assert.equal(e.stateName,'В работе');
+  assert.equal('active' in e,false);
+});
 test('public endpoint never reads a task without authentication',async()=>{
   const handler=createProductionOrderEvidenceHandler({fetcher:()=>{
     throw Error('must not fetch');}});
