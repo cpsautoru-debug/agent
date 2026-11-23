@@ -159,6 +159,39 @@ function showOzon(data){
     '. Полная сверка операций, возвратов, рекламы и банка обязательна.');
   set('ceoProfitValue',verified&&validInt(net)?money(net):'Не подтверждена');
 }
+function showOzonFinanceAudit(data){
+  if(data?.code!=='ozon_finance_readiness'||data.readOnly!==true||
+    data.netProfitVerified!==false||data.changedRecords!==0||
+    !Array.isArray(data.blockers)||!data.accruals||!data.cogs)
+    throw Error('schema');
+  const r=data.report,a=data.accruals,c=data.cogs;
+  if(![a.rows,a.observedDays,a.expectedDays,c.soldSkus,
+    c.confirmedSoldSkus,c.confirmedEntries].every(x=>validInt(x)&&x>=0)||
+    !validInt(a.totalKop)||c.confirmedSoldSkus>c.soldSkus||
+    a.observedDays>a.expectedDays||
+    (r&&!validInt(r.controlTotalKop)))throw Error('schema');
+  set('ceoOzonAuditValue',a.observedDays+' / '+a.expectedDays+' дней');
+  status('ceoOzonAuditState',
+    data.blockers.length?'Не закрыт: '+data.blockers.length+' проверок':
+      'Внутренние данные проверены; внешняя сверка отдельно',
+    data.blockers.length?'warning':'neutral');
+  const descriptions={
+    report_missing:'финансовый отчёт отсутствует',
+    report_days_incomplete:'финансовый отчёт неполный',
+    report_not_reconciled:'финансовый отчёт не сверен',
+    report_not_final:'финансовый отчёт не окончательный',
+    accruals_incomplete:'неполный период начислений',
+    costs_missing_for_sold_skus:'себестоимость подтверждена не для всех проданных SKU'
+  };
+  const blockers=data.blockers.slice(0,8).map(x=>descriptions[x]||'проверка не подтверждена');
+  set('ceoOzonAuditNote',
+    'Начисления: '+count(a.rows)+' операций, '+a.observedDays+
+    ' из '+a.expectedDays+' дней. Себестоимость: '+c.confirmedSoldSkus+
+    ' из '+c.soldSkus+' продававшихся SKU. Отчёт: '+
+    (r?(r.reconciled&&r.final?'сверен':'не сверен/не финальный'):
+      'отсутствует')+'. Не завершено: '+blockers.join('; ')+
+    '. Чистая прибыль не подтверждена.');
+}
 function showAds(data){
   const audit=data.columnAudit,fin=data.financeAudit;
   if(data.code!=='ozon_ads_office_preview'||data.readOnly!==true||
@@ -199,7 +232,7 @@ function showOzonOrdersReadiness(data){
   }
 }
 function reset(){
-  for(const p of ['ceoOzon','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
+  for(const p of ['ceoOzon','ceoOzonAudit','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
     {set(p+'Value','Загрузка…');status(p+'State','Читаем источник');set(p+'Note','');}
   set('ceoProfitValue','Не подтверждена');set('ceoProductionWarning','');
 }
@@ -213,6 +246,7 @@ async function refresh(){
   status('ceoOverallState','Проверяем источники','neutral');
   const sources=[
     ['ceoOzon','/api/ozon/profit?month='+encodeURIComponent(month),showOzon],
+    ['ceoOzonAudit','/api/ozon/finance-readiness?month='+encodeURIComponent(month),showOzonFinanceAudit],
     ['ceoOzonOrders','/api/ozon/orders-readiness',showOzonOrdersReadiness],
     ['ceoWb','/api/wb/auto-sync-status',showWB],
     ['ceoProduction','/api/ms/production-auto-status',showProduction],
