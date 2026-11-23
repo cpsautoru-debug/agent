@@ -35,8 +35,8 @@ function render(root,pnl,sourceNotes={}){
   ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
-  ['Всего известных общих расходов',pnl.sharedExpenseTotalKopecks===null?null:-pnl.sharedExpenseTotalKopecks],
-  ['Всего известных налогов',pnl.taxTotalKopecks===null?null:-pnl.taxTotalKopecks],
+  // Do not print subtotals as additional deductions: the rows above
+  // already display each one-time common expense and entity tax.
   ['ИТОГОВАЯ ПРИБЫЛЬ БИЗНЕСА',pnl.finalProfitKopecks]
  ];
  for(const [label,value] of rows){
@@ -89,7 +89,8 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     if(ozon.status==='provisional_known_cost_result')
      base.channels.ozon={status:'known_cost_result',
        profitKopecks:ozon.beforeAllocationKopecks};
-    else sourceNotes.ozon='Дневная сверка или себестоимость Ozon не подтверждены.';
+    else sourceNotes.ozon='Недостаточно подтверждений: '+
+      (ozon.missingEvidence?.join(', ')||'источники пока не сверены')+'.';
 
    }
   }catch(e){error=e;}
