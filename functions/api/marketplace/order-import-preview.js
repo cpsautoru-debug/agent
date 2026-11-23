@@ -25,6 +25,12 @@ export function externalKey(source,account,id){
   if(key.length>180)throw Error('external_order_key_too_long');
   return key;
 }
+export function buildOzonFbsPreviewBody(nowMs){
+  if(!Number.isFinite(nowMs)||nowMs<0)throw Error('invalid_preview_clock');
+  const end=new Date(nowMs),start=new Date(nowMs-7*86400000);
+  return {filter:{since:start.toISOString(),to:end.toISOString()},
+    limit:LIMIT,sort_dir:'DESC',cursor:''};
+}
 export function normalizeMarketplaceOrders(source,body,account){
   const raw=source==='wb'?body?.orders:body?.postings;
   if(!Array.isArray(raw)||raw.length>100)throw Error('unexpected_order_feed');
@@ -101,11 +107,9 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         options={method:'GET',headers:{Authorization:token,Accept:'application/json'}};
       }else{
         upstream='https://api-seller.ozon.ru/v4/posting/fbs/list';
-        const end=new Date(now()),start=new Date(end.getTime()-7*86400000);
         options={method:'POST',headers:{'Client-Id':account,
           'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
-          body:JSON.stringify({filter:{since:start.toISOString(),to:end.toISOString()},
-            limit:LIMIT,sort_dir:'DESC',cursor:''})};
+          body:JSON.stringify(buildOzonFbsPreviewBody(now()))};
       }
       const body=await requestJson(fetcher,upstream,options);
       const orders=normalizeMarketplaceOrders(source,body,account);
