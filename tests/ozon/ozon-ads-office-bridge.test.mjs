@@ -117,7 +117,7 @@ test('network failures are distinct from an Ozon API HTTP error',async()=>{
  });
  const res=await handler({request:await req(),env:env()});
  assert.equal(res.status,503);
- assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure'});
+ assert.deepEqual(await res.json(),{code:'ozon_ads_transport_failure',phase:'service_binding_fetch'});
 });
 test('missing ads Worker route is identified without leaking upstream response',async()=>{
  const handler=createOzonAdsExpenseHandler({
@@ -168,6 +168,16 @@ test('binding exception categories are sanitized without raw messages',async()=>
    assert.equal(body.code,code);
    assert.equal(JSON.stringify(body).includes(message),false);
  }
+});
+test('transport diagnostics identify binding call stage without leaking message',async()=>{
+ const local=env();
+ local.OZON_ADS_WORKER={fetch:async()=>{throw new TypeError('private authorization value')}};
+ const handler=createOzonAdsExpenseHandler({now:()=>Date.UTC(2026,10,22)});
+ const response=await handler({request:await req(),env:local});
+ const body=await response.json();
+ assert.equal(body.code,'ozon_ads_binding_type_error');
+ assert.equal(body.phase,'service_binding_fetch');
+ assert.equal(JSON.stringify(body).includes('private authorization value'),false);
 });
 test('UI renders source status without calling profit mutations',()=>{
  assert.match(describeOzonAdsEvidence({

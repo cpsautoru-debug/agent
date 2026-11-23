@@ -62,8 +62,11 @@ export function attachOzonAdsEvidence({documentRef=document,fetcher=fetch,locati
           ozon_expense_rows_unrecognized:'Ozon вернул строки расходов неизвестного формата.',
           invalid_closed_month:'Выберите полностью завершённый месяц.'
         };
-        status.textContent=reasons[data?.code]||
+        const reason=reasons[data?.code]||
           'Сверка Ozon Ads не выполнена. Источник данных недоступен.';
+        const safePhase=['request_setup','service_binding_fetch','upstream_response','upstream_json']
+          .includes(data?.phase)?data.phase:null;
+        status.textContent=reason+(safePhase?' Этап: '+safePhase+'.':'');
         return;
       }
       // Data may have changed month during the request.

@@ -45,6 +45,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
     // workers.dev HTTP subrequests. Fail closed until Pages Production binds it.
     if(!env?.OZON_ADS_WORKER||typeof env.OZON_ADS_WORKER.fetch!=='function')
       return respond(503,{code:'ads_service_binding_missing'});
+    let phase='request_setup';
     try{
       const upstream=new URL('/api/internal/expense',WORKER_ORIGIN);
       upstream.searchParams.set('month',url.searchParams.get('month'));
@@ -52,14 +53,22 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
       // Service binding methods must be invoked on the binding object.
       // Pass a Request, not a detached/bound function with a URL string.
       // Keep the injected fetcher shape for isolated tests.
+      // Separate Request construction from Service Binding invocation.
+      // This diagnostic never exposes authorization headers or error text.
+      let requestForWorker;
+      if(!fetcher){
+        requestForWorker=new Request(upstream.toString(),{
+          method:'GET',redirect:'error',headers
+        });
+      }
+      phase='service_binding_fetch';
       const result=fetcher
         ? await fetcher(upstream.toString(),{
             method:'GET',redirect:'error',headers,
             signal:AbortSignal.timeout(17000)
           })
-        : await env.OZON_ADS_WORKER.fetch(new Request(upstream.toString(),{
-            method:'GET',redirect:'error',headers
-          }));
+        : await env.OZON_ADS_WORKER.fetch(requestForWorker);
+      phase='upstream_response';
       // Upstream status is mapped to fixed codes; raw body never forwarded
       // when source errors (could contain external provider details).
       if(!result.ok){
@@ -97,6 +106,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
       }
       if(!(result.headers.get('content-type')||'').includes('application/json'))
         return respond(503,{code:'ozon_ads_response_unrecognized'});
+      phase='upstream_json';
       const data=await result.json();
       if(data?.code!=='ozon_expense_source_preview'||
         data.source!=='OZON_PERFORMANCE_API'||data.month!==url.searchParams.get('month')||
@@ -127,7 +137,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         : error?.name==='TypeError'
         ? 'ozon_ads_binding_type_error'
         : 'ozon_ads_transport_failure';
-      return respond(503,{code});
+      return respond(503,{code,phase});
     }
   };
 }
