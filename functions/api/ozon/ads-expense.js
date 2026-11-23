@@ -1,4 +1,5 @@
 import {verifySession} from '../auth/session.js';
+import {calculateProfit,monthBounds} from './profit-model.js';
 
 const HEADERS={
   'content-type':'application/json; charset=utf-8',
@@ -120,45 +121,57 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         data.fieldNames.length>30||data.fieldNames.some(x=>typeof x!=='string'||
         !/^[a-zA-Z_][a-zA-Z0-9_]{0,80}$/.test(x)))
         return respond(503,{code:'ozon_ads_evidence_unrecognized'});
-      // Independent finance evidence is a diagnostic, NOT permission to
-      // double-deduct ads. Counts/dates may differ between sources.
-      // Always query live D1, scoped to the closed month and known category.
+      // Do NOT use the obsolete office ozon_accruals_export table here.
+      // The canonical Finance service is bound to an independent D1 database.
+      // Compare raw Performance columns with the owner-confirmed XLSX
+      // advertising rows, never subtract either sum a second time.
       const month=url.searchParams.get('month');
-      const [year,mon]=month.split('-').map(Number);
-      const nextMonth=new Date(Date.UTC(year,mon,1)).toISOString().slice(0,10);
-      let finance;
+      let finance,financeSource,profit;
       try{
-        finance=await env.OZON_FINANCE_DB.prepare(
-          "SELECT COUNT(*) AS all_rows, MIN(operation_date) AS first_date, "+
-          "MAX(operation_date) AS last_date, "+
-          "GROUP_CONCAT(DISTINCT operation_date) AS present_dates, "+
-          "SUM(CASE WHEN category='Продвижение и реклама' THEN 1 ELSE 0 END) AS ad_rows, "+
-          "COALESCE(SUM(CASE WHEN category='Продвижение и реклама' THEN amount_kopecks ELSE 0 END),0) AS ad_kopecks "+
-          "FROM ozon_accruals WHERE operation_date>=? AND operation_date<? "+
-          "AND source='ozon_accruals_export'"
-        ).bind(month+'-01',nextMonth).first();
+        const rpc=env.OZON_FINANCE_SYNC;
+        if(!rpc||typeof rpc.getProfitData!=='function')
+          return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
+        financeSource=await rpc.getProfitData(month);
+        if(financeSource?.target!=='ce9dd331-929d-4c3e-9073-368de3346bc9')
+          return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
+        profit=calculateProfit({month,api:financeSource.api,
+          documents:financeSource.configuration?.month,
+          costs:financeSource.configuration?.costs,
+          expenses:financeSource.configuration?.expenses,
+          tax:financeSource.configuration?.tax});
+        const reportRows=profit.advertisingAudit?.reportAdvertisingRows;
+        if(!Array.isArray(reportRows)||
+          reportRows.some(r=>!Number.isSafeInteger(r.amountKopecks)||
+            typeof r.date!=='string'))
+          return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
+        let adKop=0;
+        for(const row of reportRows){
+          adKop+=row.amountKopecks;
+          if(!Number.isSafeInteger(adKop))
+            return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
+        }
+        const bounds=monthBounds(month);
+        const totalMatches=profit.report!==null&&
+          Number.isSafeInteger(profit.report.totalKopecks)&&
+          profit.report.totalKopecks===financeSource.api.totalKopecks;
+        const dates=[...new Set(reportRows.map(r=>r.date))].sort();
+        finance={
+          source:'CANONICAL_OZON_FINANCE_XLSX',
+          month,
+          accrualRows:profit.report?.rows??0,
+          advertisingRows:reportRows.length,
+          advertisingAccrualKopecks:adKop,
+          firstDate:dates[0]||null,lastDate:dates.at(-1)||null,
+          daysWithAdvertisingRows:dates.length,
+          daysInMonth:bounds.days,
+          financeApiCoveredDays:financeSource.api.coveredDays,
+          sourceTotalsMatched:totalMatches,
+          matchedToPerformance:false,
+          reconciled:false
+        };
       }catch{
-        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+        return respond(503,{code:'ozon_ads_canonical_finance_unavailable'});
       }
-      if(!finance||!Number.isSafeInteger(finance.all_rows)||
-        !Number.isSafeInteger(finance.ad_rows)||
-        !Number.isSafeInteger(finance.ad_kopecks)||
-        finance.all_rows<0||finance.ad_rows<0||
-        finance.ad_rows>finance.all_rows)
-        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
-      // Presence of D1 rows is not evidence that *all* ad operations
-      // were imported. Report missing calendar dates, never infer zero.
-      const daysInMonth=new Date(Date.UTC(year,mon,0)).getUTCDate();
-      const calendarDates=Array.from({length:daysInMonth},(_,i)=>
-        month+'-'+String(i+1).padStart(2,'0'));
-      const present=finance.present_dates===null?[]:
-        typeof finance.present_dates==='string'?finance.present_dates.split(','):[];
-      const presentSet=new Set(present);
-      if(presentSet.size!==present.length||present.some(d=>
-        !calendarDates.includes(d))||(!present.length&&finance.all_rows>0)||
-        (present.length>0&&finance.all_rows===0))
-        return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
-      const missingDates=calendarDates.filter(d=>!presentSet.has(d));
       // Require exact, non-derived column diagnostics when the Worker
       // provides them. Older Worker deployments may omit them.
       const fields=['moneySpent','bonusSpent','prepaymentSpent'];
@@ -190,19 +203,7 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
             other:x.invalidFormats.other},
           rawColumnSumKopecks:x.rawColumnSumKopecks,sourceReconciled:false
         })),
-        financeAudit:{
-          source:'ozon_accruals_export',
-          month,
-          accrualRows:finance.all_rows,
-          advertisingRows:finance.ad_rows,
-          advertisingAccrualKopecks:finance.ad_kopecks,
-          firstDate:finance.first_date||null,
-          lastDate:finance.last_date||null,
-          daysWithAccrualRows:present.length,
-          daysInMonth,missingAccrualDates:missingDates,
-          matchedToPerformance:false,
-          reconciled:false
-        },
+        financeAudit:finance,
         totalExpenseKopecks:null,
         monetaryTotalsVerified:false,reconciledToFinance:false,
         note:'Источник рекламы отвечает, но сумма не сверена с начислениями Ozon. Не вычитать из прибыли.'
