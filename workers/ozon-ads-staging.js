@@ -101,7 +101,7 @@ export async function readOzonExpense(month,env,fetcher=fetch){
 function decimalKopecks(value){
   if(typeof value!=='string'&&typeof value!=='number')return null;
   const text=String(value);
-  if(!/^-?(?:0|[1-9]\\d{0,11})(?:\\.\\d{1,2})?$/.test(text))return null;
+  if(!/^-?(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/.test(text))return null;
   const negative=text.startsWith('-');
   const unsigned=negative?text.slice(1):text;
   const [rub,frac='']=unsigned.split('.');
