@@ -174,6 +174,18 @@
         (data.assortmentCoverage?.pages||0)+' страниц'+
         (data.assortmentCoverage?.complete===true?
           ' · полный обход.':' · обход неполный, SKU нельзя считать отсутствующим.')+
+        (data.assortmentCoverage?.sourceError===true?
+          ' Причина: '+({
+            response_too_large:'слишком большой ответ API',
+            rate_limited:'лимит запросов API',
+            token_rejected:'токен отклонён',
+            permission_denied:'нет доступа к ассортименту',
+            upstream_http_error:'ошибка HTTP от API',
+            response_unavailable:'ответ API недоступен',
+            schema_unverified:'структура ответа не подтверждена',
+            size_changed:'размер каталога изменился при обходе',
+            short_page:'неполная промежуточная страница'
+          }[data.assortmentCoverage.failureCode]||'неизвестная')+'.':'')+
         (data.duplicateLookupFailure?
           ' Ошибка доступа к списку заказов'+
           (Number.isInteger(data.duplicateLookupFailure.http)?
