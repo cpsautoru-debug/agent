@@ -16,6 +16,7 @@ const ACCRUAL_SQL=`SELECT COUNT(*) AS rows_checked,
   ) THEN sku END) AS covered_sold_skus
   FROM ozon_accruals a WHERE operation_date>=? AND operation_date<?`;
 const COST_SQL="SELECT COUNT(*) AS n FROM ozon_cost_entries WHERE status='confirmed'";
+const HISTORY_SQL="SELECT COUNT(*) AS n FROM ozon_sku_costs";
 function monthBounds(m){
   if(!/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(m))return null;
   const d=new Date(m+'-01T00:00:00Z');d.setUTCMonth(d.getUTCMonth()+1);
@@ -33,14 +34,15 @@ function validReport(r,days){
     r.posting_kopecks+r.item_kopecks+r.non_item_kopecks===
       r.control_total_kopecks);
 }
-export function summarizeOzonFinanceReadiness(month,report,accrual,costs){
+export function summarizeOzonFinanceReadiness(month,report,accrual,costs,history={n:0}){
   const bounds=monthBounds(month);
   if(!bounds||!validReport(report,bounds.days)||
     !accrual||!costs||
     !['rows_checked','observed_days','sold_skus','covered_sold_skus']
       .every(x=>safeInt(accrual[x]))||
     !Number.isSafeInteger(accrual.accrual_total_kopecks)||
-    !safeInt(costs.n)||accrual.observed_days>bounds.days||
+    !safeInt(costs.n)||!history||!safeInt(history.n)||
+    accrual.observed_days>bounds.days||
     accrual.covered_sold_skus>accrual.sold_skus)
     throw Error('invalid_finance_audit_source');
   const blockers=[];
@@ -57,6 +59,7 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs){
   add('costs_missing_for_sold_skus',
     accrual.covered_sold_skus!==accrual.sold_skus||
     accrual.sold_skus===0);
+  add('date_effective_costs_missing',history.n===0);
   // Even with all database checks green, independent primary ad, return,
   // tax and bank documents must be reconciled. This audit does not assert
   // verified profit or equivalence of two different source granularities.
@@ -72,7 +75,7 @@ export function summarizeOzonFinanceReadiness(month,report,accrual,costs){
       observedDaysAreCoverage:false,
       firstDay:accrual.first_day||null,lastDay:accrual.last_day||null,
       totalKop:accrual.accrual_total_kopecks},
-    cogs:{confirmedEntries:costs.n,
+    cogs:{confirmedEntries:costs.n,dateEffectiveCostEntries:history.n,
       soldSkus:accrual.sold_skus,
       confirmedSoldSkus:accrual.covered_sold_skus},
     blockers,externalVerificationRequired:[
@@ -100,12 +103,13 @@ export function createOzonFinanceReadiness(){
       const owner=await db.prepare(OWNER_SQL)
         .bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
       if(owner?.allowed!==1)return respond(403,{code:'owner_only'});
-      const [report,accrual,costs]=await Promise.all([
+      const [report,accrual,costs,history]=await Promise.all([
         db.prepare(REPORT_SQL).bind(month).first(),
         db.prepare(ACCRUAL_SQL).bind(bounds.start,bounds.end).first(),
-        db.prepare(COST_SQL).first()
+        db.prepare(COST_SQL).first(),
+        db.prepare(HISTORY_SQL).first()
       ]);
-      return respond(200,summarizeOzonFinanceReadiness(month,report,accrual,costs));
+      return respond(200,summarizeOzonFinanceReadiness(month,report,accrual,costs,history));
     }catch{return respond(503,{code:'finance_audit_unavailable'});}
   };
 }
