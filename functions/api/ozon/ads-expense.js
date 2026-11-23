@@ -145,12 +145,30 @@ export function createOzonAdsExpenseHandler({fetcher=null,now=Date.now}={}){
         finance.all_rows<0||finance.ad_rows<0||
         finance.ad_rows>finance.all_rows)
         return respond(503,{code:'ozon_ads_finance_audit_unavailable'});
+      // Require exact, non-derived column diagnostics when the Worker
+      // provides them. Older Worker deployments may omit them.
+      const fields=['moneySpent','bonusSpent','prepaymentSpent'];
+      const audit=data.columnAudit;
+      if(audit!==undefined&&(!Array.isArray(audit)||audit.length!==3||
+        audit.some((x,i)=>!x||x.field!==fields[i]||
+          !Number.isSafeInteger(x.validRows)||x.validRows<0||
+          !Number.isSafeInteger(x.missingRows)||x.missingRows<0||
+          !Number.isSafeInteger(x.invalidRows)||x.invalidRows<0||
+          x.validRows+x.missingRows+x.invalidRows!==data.recordCount||
+          (x.rawColumnSumKopecks!==null&&!Number.isSafeInteger(x.rawColumnSumKopecks))||
+          x.sourceReconciled!==false)))
+        return respond(503,{code:'ozon_ads_column_audit_unrecognized'});
       // Only allowlisted diagnostic fields reach the UI. These are
       // independent accruals, not matched campaign/payment transactions.
       return respond(200,{
         code:'ozon_ads_office_preview',month:data.month,
         source:data.source,readOnly:true,changedRecords:0,
         recordCount:data.recordCount,fieldNames:data.fieldNames,
+        columnAudit:audit===undefined?null:audit.map(x=>({
+          field:x.field,validRows:x.validRows,missingRows:x.missingRows,
+          invalidRows:x.invalidRows,
+          rawColumnSumKopecks:x.rawColumnSumKopecks,sourceReconciled:false
+        })),
         financeAudit:{
           source:'ozon_accruals_export',
           month,
