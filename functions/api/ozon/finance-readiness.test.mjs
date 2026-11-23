@@ -92,3 +92,18 @@ test('owner authentication is required',async()=>{
    'https://example.com/api/ozon/finance-readiness?month=2026-10'),env:{}});
  assert.equal(r.status,503);
 });
+
+test('repeated or outside-period audit dates cannot certify financial completeness',()=>{
+ const audit=baseResult.api.audit;
+ for(const entries of [
+   [audit[0],audit[0],...audit.slice(2)],
+   [...audit.slice(0,30),{...audit[30],date:'2026-11-01'}]
+ ]){
+   assert.throws(()=>summarizeOzonFinanceReadiness('2026-10',baseData,{
+     ...baseResult,api:{...baseResult.api,audit:entries}
+   }),/invalid_canonical_finance_data/);
+ }
+ assert.throws(()=>summarizeOzonFinanceReadiness('2026-10',baseData,{
+   ...baseResult,api:{...baseResult.api,days:30}
+ }),/invalid_canonical_finance_data/);
+});
