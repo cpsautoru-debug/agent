@@ -2,22 +2,26 @@
 (()=>{
   'use strict';
   const el=id=>document.getElementById(id);
-  const ozon=el('marketplaceOrderCheckOzon'),wb=el('marketplaceOrderCheckWb');
+  const ozon=el('marketplaceOrderCheckOzon'),fbo=el('marketplaceOrderCheckFbo'),
+    wb=el('marketplaceOrderCheckWb');
   const status=el('marketplaceOrderCheckStatus'),table=el('marketplaceOrderCheckTable');
   const rows=el('marketplaceOrderCheckRows');
   const login=el('marketplaceOrderLogin');
   const perSource={ozon:el('marketplaceOrderStatusOzon'),
+    ozon_fbo:el('marketplaceOrderStatusFbo'),
     wb:el('marketplaceOrderStatusWb')};
-  if(!ozon||!wb||!status||!table||!rows)return;
+  if(!ozon||!fbo||!wb||!status||!table||!rows)return;
   let busy=false;
   const setSource=(source,message)=>{
     const node=perSource[source];
     if(node)node.textContent=message;
   };
   const valid=d=>d?.code==='marketplace_order_import_preview_ok'&&
-    ['ozon','wb'].includes(d.source)&&d.readOnly===true&&
+    ['ozon','ozon_fbo','wb'].includes(d.source)&&d.readOnly===true&&
     d.changedRecords===0&&d.approvedForWrite===false&&
-    d.coverage===(d.source==='ozon'?
+    d.coverage===(d.source==='ozon_fbo'?
+      'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE':
+      d.source==='ozon'?
       'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
       'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS')&&
     Array.isArray(d.orders)&&d.orders.length<=10&&
@@ -42,11 +46,12 @@
     td.textContent=value;tr.append(td);};
   async function load(source){
     if(busy)return;
-    busy=true;ozon.disabled=true;wb.disabled=true;rows.replaceChildren();
+    busy=true;ozon.disabled=true;fbo.disabled=true;wb.disabled=true;rows.replaceChildren();
     if(login)login.hidden=true;
     setSource(source,'Проверяем заказы и дубли…');
     table.hidden=true;
-    status.textContent='Проверяем '+(source==='ozon'?'Ozon':'Wildberries')+
+    status.textContent='Проверяем '+(source==='ozon'?'Ozon FBS':
+      source==='ozon_fbo'?'Ozon FBO':'Wildberries')+
       ' и наличие совпадений в «МойСклад»…';
     try{
       const res=await fetch('/api/marketplace/order-import-preview?source='+source,{
@@ -119,7 +124,9 @@
         rows.append(tr);
       }
       table.hidden=!data.orders.length;
-      setSource(source,(source==='ozon'?
+      setSource(source,(source==='ozon_fbo'?
+        'Заказы со склада Ozon FBO (за 7 дней): ':
+        source==='ozon'?
         'Новые FBS-заказы на сборку (за 7 дней): ':
         'Новые сборочные задания WB: ')+data.counts.received+
         '. Потенциально требуют проверки остатков: '+
@@ -149,8 +156,9 @@
       const result='Сервис недоступен или ответ не прошёл проверку. '+
         'Операция только на чтение; импорт не выполнялся.';
       status.textContent=result;setSource(source,result);
-    }finally{busy=false;ozon.disabled=false;wb.disabled=false;}
+    }finally{busy=false;ozon.disabled=false;fbo.disabled=false;wb.disabled=false;}
   }
   ozon.addEventListener('click',()=>void load('ozon'));
+  fbo.addEventListener('click',()=>void load('ozon_fbo'));
   wb.addEventListener('click',()=>void load('wb'));
 })();
