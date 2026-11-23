@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="office-map.css">
 <link rel="stylesheet" href="ozon-finance.css">
 <link rel="stylesheet" href="profit.css">
+<link rel="stylesheet" href="ceo-dashboard.css">
 <link rel="stylesheet" href="/orchestrator.css?v=20261121">
 <link rel="stylesheet" href="/wb-import-preview.css">
 <link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
@@ -19,7 +20,7 @@
 <body>
 
 <aside class="sidebar" id="sidebar">
-  <a class="brand" href="#overview">
+  <a class="brand" href="#dashboard">
     <span class="brandmark">А<span>63</span></span>
     <span>АвтоСклад63<small>ОНЛАЙН-ОФИС</small></span>
   </a>
@@ -33,6 +34,7 @@
   <div class="navlabel">РАБОЧИЙ СТОЛ</div>
 
   <nav aria-label="Основная навигация">
+    <a href="#dashboard" data-page="dashboard"><span>▣</span>Пульт руководителя</a>
     <a href="#overview" data-page="overview">
       <span>◫</span>Обзор офиса
     </a>
@@ -116,7 +118,7 @@
         <span class="office-auth-state" id="officeAuthState"
               role="status" aria-live="polite">Проверяем вход…</span>
         <a id="officeAuthLogin" class="office-auth-action"
-           href="/api/auth/google/start?next=overview" hidden>Войти через Google</a>
+           href="/api/auth/google/start?next=dashboard" hidden>Войти через Google</a>
         <button id="officeAuthLogout" class="office-auth-action"
                 type="button" hidden>Выйти</button>
         <button id="officeAuthRetry" class="office-auth-action"
@@ -528,6 +530,79 @@
       </article>
 
 </section>
+<!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
+    <section class="page" data-section="dashboard" hidden>
+      <div class="ceo-board" id="ceoBoard">
+        <div class="ceo-heading">
+          <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
+            <h1>Весь бизнес на одном экране</h1>
+            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Период для Ozon выбирается отдельно, WB и производство показывают состояние сохранённых мониторов.</p>
+          </div>
+          <div class="ceo-actions">
+            <label>Завершённый месяц Ozon <input id="ceoMonth" type="month" aria-label="Месяц Ozon"></label>
+            <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
+          </div>
+        </div>
+        <div class="ceo-alert">
+          <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
+          <p>Общий подтверждённый чистый доход всех каналов пока неизвестен: Ozon, WB, Яндекс, Авито и офлайн не сведены в единый проверенный отчёт. Это управленческий монитор, а не закрытая бухгалтерская отчётность.</p>
+        </div>
+        <div class="ceo-grid">
+          <article class="ceo-card">
+            <h2>Продажи · Ozon</h2><strong class="ceo-value" id="ceoOzonValue">Нет данных</strong>
+            <span class="ceo-state" id="ceoOzonState">Не загружено</span>
+            <p id="ceoOzonNote">Продажи и оценка прибыли — по выбранному месяцу.</p>
+            <a href="#ozonProfit">Подробная прибыль Ozon →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Общая чистая прибыль</h2><strong class="ceo-value" id="ceoProfitValue">Не подтверждена</strong>
+            <span class="ceo-state" data-state="warning">Ожидает сверки всех каналов</span>
+            <p>Нет доказанного суммарного результата по Ozon, WB, Яндекс Маркету, Авито и Пламени. Предварительные остатки и выплаты не складываются в прибыль.</p>
+            <a href="#ozonProfit">Контроль финансов →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Wildberries · финансовые отчёты</h2>
+            <strong class="ceo-value" id="ceoWbValue">Нет данных</strong>
+            <span class="ceo-state" id="ceoWbState">Не загружено</span>
+            <p id="ceoWbNote">Завершённые отчёты, очередь и расхождения из D1.</p>
+            <a href="#wbFinance">Финансы WB →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Производство · незавершённые этапы</h2>
+            <strong class="ceo-value" id="ceoProductionValue">Нет данных</strong>
+            <span class="ceo-state" id="ceoProductionState">Не загружено</span>
+            <p id="ceoProductionNote">Историческая выборка «МойСклад», не живая очередь цеха.</p>
+            <p id="ceoProductionWarning"></p>
+            <a href="#production">Производство и остатки →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Реклама Ozon · денежные расходы</h2>
+            <strong class="ceo-value" id="ceoAdsValue">По запросу</strong>
+            <span class="ceo-state" id="ceoAdsState">Не загружено</span>
+            <p id="ceoAdsNote">Performance API запрашивается только кнопкой. Без повторного списания из прибыли.</p>
+            <button type="button" class="button light" id="ceoAdsRefresh">Проверить рекламу</button>
+            <a href="#ozonProfit">Сверка расходов →</a>
+          </article>
+          <article class="ceo-card">
+            <h2>Заказы и задачи команды</h2>
+            <strong class="ceo-value">Нет единого API</strong>
+            <span class="ceo-state" data-state="warning">Общий итог не подтверждён</span>
+            <p>Заказы и поручения пока находятся в Google Таблице и отдельных источниках. Живые значения здесь не выдумываются.</p>
+            <a data-sheet="710003" target="_blank" rel="noopener">Заказы →</a>
+            <a data-sheet="710004" target="_blank" rel="noopener">Задачи команды →</a>
+          </article>
+        </div>
+        <div class="ceo-strip">
+          <p id="ceoUpdated">Данные ещё не проверялись.</p>
+          <p>Только чтение · Доступ владельца через Google · Без изменения финансов и остатков</p>
+        </div>
+        <div class="ceo-backlog">
+          <a href="#ozonFinance"><strong>Ozon Finance</strong><span>Начисления, покрытия и статус синхронизации</span></a>
+          <a href="#production"><strong>Склад · МойСклад</strong><span>Остатки, отрицательные позиции, контроль этапов</span></a>
+          <a href="#orchestrator"><strong>ИИ-Оркестратор</strong><span>Задачи, источники и журнал поручений</span></a>
+        </div>
+      </div>
+    </section>
 <!-- ОБЗОР ОФИСА -->
 
     <section class="page" data-section="overview">
@@ -2040,6 +2115,7 @@
 <link rel="stylesheet" href="studio.css">
 
 <script src="app.js" defer></script>
+<script type="module" src="ceo-dashboard.mjs?v=20261123"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>

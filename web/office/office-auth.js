@@ -10,12 +10,12 @@
   if (![root, label, login, logout, retry].every(Boolean)) return;
 
   const allowed = new Set([
-    'overview', 'departments', 'agents', 'orchestrator', 'workflow', 'studio',
+    'dashboard', 'overview', 'departments', 'agents', 'orchestrator', 'workflow', 'studio',
     'production', 'connections', 'wbFinance', 'ozonFinance', 'ozonProfit'
   ]);
   const nextSection = () => {
     const section = location.hash.slice(1).split('/')[0];
-    return allowed.has(section) ? section : 'overview';
+    return allowed.has(section) ? section : 'dashboard';
   };
   const updateLoginLink = () => {
     login.href = '/api/auth/google/start?next=' + encodeURIComponent(nextSection());

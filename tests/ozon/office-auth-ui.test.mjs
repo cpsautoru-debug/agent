@@ -76,7 +76,7 @@ test('anonymous visitor sees login on production without any finance navigation'
   app.location.hash='#//evil.invalid';
   app.windowEvents.hashchange();
   assert.equal(app.elements.get('officeAuthLogin').href,
-    '/api/auth/google/start?next=overview');
+    '/api/auth/google/start?next=dashboard');
 });
 
 test('owner sees verified session and a single logout clears loaded office data',async()=>{

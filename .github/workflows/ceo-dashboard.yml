@@ -1,0 +1,24 @@
+name: CEO Unified Dashboard
+on:
+  pull_request:
+    paths:
+      - 'web/office/ceo-dashboard.mjs'
+      - 'web/office/ceo-dashboard.css'
+      - 'web/office/index.html'
+      - 'web/office/app.js'
+      - 'web/office/office-auth.js'
+      - 'functions/api/auth/google/return.js'
+      - 'tests/office/ceo-dashboard.test.mjs'
+      - '.github/workflows/ceo-dashboard.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check web/office/ceo-dashboard.mjs
+      - run: node --test tests/office/ceo-dashboard.test.mjs

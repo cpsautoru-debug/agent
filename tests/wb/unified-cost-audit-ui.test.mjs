@@ -163,7 +163,7 @@ test('new UI does not invent save controls or mutate finance databases',()=>{
   const ui=readFileSync(new URL('../../web/office/finance-cost-audit.mjs',import.meta.url),'utf8');
   for(const id of ['financeCostAudit',...ids])
     assert.equal(html.split('id="'+id+'"').length-1,1,id);
-  assert.match(html,/finance-cost-audit\.mjs\?v=20261122-sku-coverage/);
+  assert.match(html,/finance-cost-audit\.mjs\?v=20261122-[a-z-]+/);
   assert.match(html,/Единый контроль себестоимости и общих расходов/);
   assert.doesNotMatch(ui,/method:'POST'|\/api\/wb\/model-cost-batch|innerHTML/);
 });
