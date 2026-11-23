@@ -124,8 +124,24 @@
             'Требуется подтверждение')).join('; ')+
         '. '+closing.note:
       'Недостаточно данных для закрытия периода Ozon. Чистая прибыль не подтверждена.';
-    $('profitStatus').textContent = 'Статус: ' + explain(result.profit?.status || 'unknown') + '\n' + [...(result.profit?.blockers || []),...(result.warnings || [])].map(v=>explain(v)).join('\n');
-    $('profitReasons').textContent = ['API: покрытие '+(result.api?.coveredDays ?? 'неизвестно')+' / '+(result.api?.days ?? 'неизвестно')+' дней; нетто '+(result.api?.netVerified?'сверено':'не подтверждено')+'; детализация '+(result.api?.detailVerified?'сверена':'не подтверждена'), 'Себестоимость: '+(result.costs?.complete?'полная':'неполная'), 'Неизвестные SKU: '+(result.costs?.missingSkus || []).join(', '),'Нераспределённые расходы: '+money(result.allocation?.unallocatedKopecks),explain(result.allocation?.reason),'Налоговая база организации: '+money(result.tax?.baseKopecks)+'; АУСН «Доходы» 8%, оценка по организации: '+money(result.tax?.estimateKopecks)+'; статус: '+explain(result.tax?.status || 'unknown'),explain(result.tax?.reason)].filter(Boolean).join('\n');
+    $('profitStatus').textContent = view.interimKopecks!==null?
+      'УПРАВЛЕНЧЕСКИЙ РАСЧЁТ: группы начислений Ozon, себестоимость и промежуточная прибыль рассчитаны.\\n'+
+      'Валовая прибыль: '+money(view.grossKopecks)+
+      '; после комиссий, логистики, рекламы и прочих удержаний Ozon: '+
+      money(view.operatingChannelKopecks)+'.\\n'+
+      'ИТОГОВАЯ ЧИСТАЯ ПРИБЫЛЬ БИЗНЕСА: не закрыта; общие расходы и налог ИП учитываются отдельно.':
+      'УПРАВЛЕНЧЕСКИЙ РАСЧЁТ: требуется сверка групп начислений, дневных итогов API/XLSX и себестоимости.\\n'+
+      'Чистая прибыль бизнеса не подтверждена.';
+    $('profitReasons').textContent=[
+      'Источник: XLSX начислений Ozon и финансовый API, выбранный месяц '+result.month+'.',
+      'Сверка сумм и групп: '+(view.sourceConfirmed?'пройдена':'требуется проверка')+'.',
+      'Себестоимость по датам: '+(view.costConfirmed?'проверена':'требуется проверка')+
+        '; строк продаж: '+(result.dateCostEvidence?.confirmedSalesRows??'—')+
+        '/'+(result.dateCostEvidence?.checkedSalesRows??'—')+'.',
+      'Строки услуг с совпадающими признаками остаются кандидатами на детальную сверку, не вычитаются дважды.',
+      'Полная сверка отдельных операций, банковской выписки и внешней рекламы — самостоятельные этапы бухгалтерского закрытия.',
+      'Налог АУСН и постоянные расходы: однократно в общем P&L, не распределяются на карточку Ozon.'
+    ].join('\\n');
     let skuReview=null;
     try{const review=window.OzonSkuCostReview?.reviewOzonSkuCostEvidence;
       if(typeof review==='function')skuReview=review(result.skuRows || []);}
