@@ -75,6 +75,7 @@ export async function onRequestPost({request,env}){
    .bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
   if(owner?.allowed!==1)return reply(403,{code:'forbidden'});
  }catch{return reply(503,{code:'owner_auth_unavailable'});}
+ let stage='sources';
  try{
   const db=env.WB_REPORT_SNAPSHOT_DB;
   const [snapshots,sales,old]=await Promise.all([
@@ -84,9 +85,12 @@ export async function onRequestPost({request,env}){
   ]);
   if(!Array.isArray(snapshots?.results)||!Array.isArray(sales?.results)||
     !Array.isArray(old?.results))throw Error('source_missing');
+  stage='reconcile';
   const e=reconcileWbOwnerCostSnapshots('2026-10',snapshots.results,sales.results);
+  stage='plan';
   const plan=buildOctoberWbSyncPlan(e,old.results);
   if(plan.inserts.length){
+   stage='write';
    const ops=[
     ...plan.closeOlder.map(code=>db.prepare(
       "UPDATE wb_profit_unit_costs SET valid_to='2026-09-30' WHERE account_id=? AND vendor_code=? AND valid_from<'2026-10-01' AND valid_to IS NULL AND status='preliminary'").bind(WB_ACCOUNT,code)),
@@ -95,6 +99,7 @@ export async function onRequestPost({request,env}){
    ];
    await db.batch(ops);
   }
+  stage='verify';
   const checked=await db.prepare(
    "SELECT vendor_code,cost_kopecks,status FROM wb_profit_unit_costs WHERE account_id=? AND valid_from='2026-10-01' AND valid_to='2026-10-31' AND status='confirmed'"
   ).bind(WB_ACCOUNT).all();
@@ -106,5 +111,18 @@ export async function onRequestPost({request,env}){
    alreadyConfirmed:plan.alreadyConfirmed.length,
    manufacturingCostKopecks:e.netManufacturingCostKopecks,
    note:'October only, owner-confirmed historical XLSX; no future price assumption.'});
- }catch{return reply(503,{code:'wb_sync_blocked_or_unavailable'});}
+ }catch(error){
+  const approved=new Set([
+   'wb_cost_evidence_missing','wb_xlsx_source_invalid','wb_xlsx_json_invalid',
+   'wb_xlsx_period_invalid','wb_xlsx_cost_not_confirmed',
+   'wb_xlsx_cost_conflict','wb_sales_rows_invalid','wb_sku_cost_missing',
+   'wb_october_coverage_incomplete','wb_sync_source_unverified',
+   'wb_sync_existing_invalid','wb_sync_cost_invalid','wb_sync_cost_conflict',
+   'wb_sync_historical_version_conflict','wb_sync_existing_october_invalid',
+   'wb_sync_older_history_conflict','wb_sync_count_mismatch'
+  ]);
+  // No raw database or auth errors are returned to a client.
+  return reply(503,{code:'wb_sync_blocked_or_unavailable',stage,
+   reason:approved.has(error?.message)?error.message:'database_operation_failed'});
+ }
 }
