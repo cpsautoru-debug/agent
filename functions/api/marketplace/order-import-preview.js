@@ -184,6 +184,41 @@ export async function scanMoyskladOrderKeys(fetcher,token,keys){
 
 // A read-only, bounded exact article lookup. Marketplace offer_id may not
 // equal MoySklad article: only equality from the returned entity counts.
+// Two strict filtered queries can establish a positive SKU mapping without
+// scanning an entire large assortment. A negative or unavailable filter never
+// establishes absence. Both fields must respond successfully to rule out a
+// different item sharing the same numeric marketplace SKU.
+export async function verifyExactAssortmentSku(fetcher,token,sku){
+  if(!safe(sku)||sku.length>100)return 'unverified';
+  const ids=new Map();
+  for(const field of ['article','code']){
+    const url=new URL('https://api.moysklad.ru/api/remap/1.2/entity/assortment');
+    url.searchParams.set('limit','2');
+    url.searchParams.set('filter',field+'='+sku);
+    let data;
+    try{
+      data=await requestJson(fetcher,url.toString(),{
+        method:'GET',headers:{Authorization:'Bearer '+token,
+          Accept:'application/json;charset=utf-8'},
+        signal:AbortSignal.timeout(8000)
+      });
+    }catch{return 'unverified';}
+    if(!Array.isArray(data?.rows)||data.rows.length>2||
+      !Number.isSafeInteger(data?.meta?.size)||
+      data.meta.size<0||data.meta.size>2||
+      data.meta.size!==data.rows.length)return 'unverified';
+    for(const item of data.rows){
+      if(item?.[field]!==sku||typeof item?.id!=='string'||!item.id)
+        return 'unverified';
+      const matched=ids.get(item.id)||'';
+      ids.set(item.id,matched==='article'||field==='article'?'article':'code');
+    }
+  }
+  if(ids.size!==1)return 'unverified';
+  return [...ids.values()][0]==='article'?
+    'matched_exact_article':'matched_exact_code';
+}
+
 export async function matchMoyskladArticles(fetcher,token,orders){
   if(!Array.isArray(orders)||orders.length>LIMIT)
     throw Error('invalid_article_lookup');
@@ -249,7 +284,7 @@ export async function matchMoyskladArticles(fetcher,token,orders){
       sourceError=true;failureCode='short_page';break;
     }
   }
-  // A unique match is only proven if the ENTIRE collection was checked.
+  // A unique scan match is only established after full coverage.
   for(const sku of selected){
     const entries=[...matches.get(sku).values()];
     if(!complete||sourceError)continue;
@@ -258,8 +293,28 @@ export async function matchMoyskladArticles(fetcher,token,orders){
       bySku.set(sku,entries[0]==='article'?
         'matched_exact_article':'matched_exact_code');
   }
-  return {bySku,requests:pages,
-    coverage:{pages,checkedRows,complete,sourceError,failureCode}};
+  // When the catalogue is larger than the page budget, try strict positive
+  // checks on the first eight SKUs. The two filtered requests must BOTH agree.
+  // No filtered zero or failed query ever becomes a 'not_matched' result.
+  let exactQueries=0,confirmedByFilter=0;
+  if(!complete){
+    const candidates=selected.filter(s=>bySku.get(s)==='unverified')
+      .slice(0,8);
+    for(let i=0;i<candidates.length;i+=2){
+      await Promise.all(candidates.slice(i,i+2).map(async sku=>{
+        exactQueries+=2;
+        const verified=await verifyExactAssortmentSku(fetcher,token,sku);
+        if(verified==='matched_exact_article'||
+          verified==='matched_exact_code'){
+          bySku.set(sku,verified);
+          confirmedByFilter++;
+        }
+      }));
+    }
+  }
+  return {bySku,requests:pages+exactQueries,
+    coverage:{pages,checkedRows,complete,sourceError,failureCode,
+      exactQueries,confirmedByFilter}};
 }
 
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
