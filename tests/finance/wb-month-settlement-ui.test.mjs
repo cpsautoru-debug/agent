@@ -38,3 +38,34 @@ test('CEO P&L module reads dedicated month endpoint and labels it as interim',()
  assert.match(js,/Расчёты после удержаний WB · до себестоимости/);
  assert.match(js,/Прибыль WB пока не рассчитана/);
 });
+
+test('validated historical WB cost lines unlock exact 291492.64 contribution but not final net profit',()=>{
+ const costLines=Array.from({length:35},(_,i)=>({
+  vendorCode:'sku_'+i,unitCostKopecks:10000,
+  soldUnits:i===34?3:5,resalableReturnedUnits:i===0?5:i===1?1:0,
+  netCostKopecks:(i===34?3:i===0?0:i===1?4:5)*10000
+ }));
+ const net=costLines.reduce((n,r)=>n+r.netCostKopecks,0);
+ const c={...x,managementCost:{
+  status:'management_cost_reconciled',
+  profitStatus:'management_after_wb_charges_and_cogs',
+  source:'WB_SAVED_XLSX_OWNER_CONFIRMED_UNIT_COSTS',scope:'2026-10',
+  readOnly:true,changedRecords:0,
+  confirmedSkuCount:35,confirmedSoldUnits:173,
+  resalableReturnedUnits:6,snapshotReports:9,
+  returnBasis:'OWNER_CONFIRMED_ALL_6_RESALABLE_2026_11_24',
+  verifiedNetProfit:false,costLines,
+  grossManufacturingCostKopecks:1730000,
+  recoveredReturnCostKopecks:60000,
+  netManufacturingCostKopecks:net,
+  contributionKopecks:68571564-net
+ }};
+ const valid=validateDashboardWbMonth(c,'2026-10');
+ assert.equal(valid.managementCost.netManufacturingCostKopecks,1670000);
+ assert.equal(valid.managementCost.contributionKopecks,66901564);
+ assert.equal(valid.managementCost.status,'known_cost_result');
+ assert.equal(valid.netProfitKopecks,undefined);
+ const broken=structuredClone(c);
+ broken.managementCost.costLines[0].unitCostKopecks++;
+ assert.equal(validateDashboardWbMonth(broken,'2026-10').managementCost,null);
+});
