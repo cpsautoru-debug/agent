@@ -8,3 +8,10 @@
 .profit-card-separate{border-color:#d8deec;background:#f9faff}
 .profit-card-separate strong{color:#4c6286}
 .profit-card-pending strong{font-size:20px;color:#81632c}
+
+/* Predictable four-column financial grid: no offscreen fifth card. */
+.profit-cards{grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+.profit-card{min-width:0}
+@media(max-width:1320px){.profit-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:970px){.profit-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:550px){.profit-cards{grid-template-columns:minmax(0,1fr)}}
