@@ -85,6 +85,8 @@ export async function readOzonExpense(month,env,fetcher=fetch){
       month,dateFrom:first,dateTo:last,
       readOnly:true,changedRecords:0,
       recordCount:rows.length,fieldNames:keys,
+      columnAudit:['moneySpent','bonusSpent','prepaymentSpent']
+        .map(key=>expenseColumnAudit(rows,key)),
       currency:'RUB',totalExpenseKopecks:null,
       monetaryTotalsVerified:false,
       reconciledToFinance:false,
@@ -94,6 +96,37 @@ export async function readOzonExpense(month,env,fetcher=fetch){
     return {status:503,body:{code:'ozon_performance_network_or_schema_error'}};
   }
 }
+// Read-only independent column diagnostics. Strict cents conversion avoids
+// JS floating point round-off and silently substituting 0 for missing values.
+function decimalKopecks(value){
+  if(typeof value!=='string'&&typeof value!=='number')return null;
+  const text=String(value);
+  if(!/^-?(?:0|[1-9]\\d{0,11})(?:\\.\\d{1,2})?$/.test(text))return null;
+  const negative=text.startsWith('-');
+  const unsigned=negative?text.slice(1):text;
+  const [rub,frac='']=unsigned.split('.');
+  const abs=BigInt(rub)*100n+BigInt(frac.padEnd(2,'0'));
+  const kopecks=negative?-abs:abs;
+  return kopecks<=BigInt(Number.MAX_SAFE_INTEGER)&&kopecks>=BigInt(Number.MIN_SAFE_INTEGER)
+    ?Number(kopecks):null;
+}
+function expenseColumnAudit(rows,field){
+  let sum=0n,missing=0,invalid=0,valid=0;
+  for(const row of rows){
+    if(!Object.hasOwn(row,field)||row[field]===null||row[field]===''){
+      missing++;continue;
+    }
+    const n=decimalKopecks(row[field]);
+    if(n===null){invalid++;continue;}
+    sum+=BigInt(n);valid++;
+  }
+  const total=valid===rows.length&&rows.length>0&&
+    sum<=BigInt(Number.MAX_SAFE_INTEGER)&&sum>=BigInt(Number.MIN_SAFE_INTEGER)
+    ?Number(sum):null;
+  return {field,validRows:valid,missingRows:missing,invalidRows:invalid,
+    rawColumnSumKopecks:total,sourceReconciled:false};
+}
+
 // Use one guarded implementation for both the public default entrypoint
 // and the named Pages Service Binding entrypoint. No anonymous/public
 // access to advertising evidence is added.
