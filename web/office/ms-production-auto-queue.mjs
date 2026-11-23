@@ -88,8 +88,11 @@ import {assessProductionTask} from './ms-production-audit.mjs';
           item.orderEvidenceError?'Ошибка проверки':'Ещё не проверен';
       td(tr,label);
       td(tr,item.plannedDate||'Не задана');
-      const check=td(tr,(item.liveCheckedMs?clock(item.liveCheckedMs):clock(item.checkedMs))+
-        ' · '+(item.liveCheckedMs?'API':'фоновый сканер'));
+      const check=td(tr,item.liveCheckedMs?
+        clock(item.liveCheckedMs)+' · API подтверждено':
+        item.liveAttemptMs?
+          clock(item.liveAttemptMs)+' · API не подтвердил':
+          clock(item.checkedMs)+' · фоновый сканер');
       if(item.plannedDateControl==='past')check.className='ms-auto-overdue';
       const action=document.createElement('td');
       const open=document.createElement('button');open.type='button';
@@ -165,16 +168,22 @@ import {assessProductionTask} from './ms-production-audit.mjs';
       if(!valid(data))throw Error('queue_unverified');
       const items=data.items.map(item=>({...item}));
       render(data,items);
+      // Prioritize previously incomplete stages, then rotate the uncertain
+      // historical candidates every refresh. A candidate is not a work order.
+      const known=items.map((item,i)=>i).filter(i=>items[i].status==='incomplete');
+      const uncertain=items.map((item,i)=>i).filter(i=>items[i].status==='unverified');
+      const rotation=uncertain.length?Math.floor(Date.now()/EVERY_MS)%uncertain.length:0;
+      const checkOrder=[...known,
+        ...uncertain.slice(rotation),...uncertain.slice(0,rotation)]
+        .slice(0,MAX_LIVE_CHECKS);
       let checked=0;
-      for(let i=0;i<items.length&&checked<MAX_LIVE_CHECKS;i++){
+      for(const i of checkOrder){
         if(!inView())break;
         if(checked>0)await pause(DELAY_MS);
-        // Check the possible work first. Unknown stage chains remain visible
-        // for follow-up, not silently treated as finished or active.
-        if(items[i].status!=='incomplete')continue;
         checked++;
         try{items[i]=await liveCheck(items[i]);}
-        catch{items[i]={...items[i],liveStatus:'live_unverified',liveCheckedMs:Date.now()};}
+        catch{items[i]={...items[i],liveStatus:'live_unverified',
+          liveAttemptMs:Date.now()};}
         render(data,items);
       }
     }catch{
