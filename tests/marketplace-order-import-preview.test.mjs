@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -49,4 +49,14 @@ test('cannot invoke live fetch without owner authentication',async()=>{
   assert.equal(response.status,503);
   const wrong=await handler({request:new Request(url+'&write=true'),env:{}});
   assert.equal(wrong.status,400);
+});
+
+test('Ozon FBS v4 request uses documented cursor and sort_dir',()=>{
+  const payload=buildOzonFbsPreviewBody(Date.parse('2026-11-23T10:00:00.000Z'));
+  assert.equal(payload.sort_dir,'DESC');
+  assert.equal(payload.cursor,'');
+  assert.equal(payload.limit,10);
+  assert.equal('dir' in payload,false);
+  assert.equal(payload.filter.since,'2026-11-16T10:00:00.000Z');
+  assert.equal(payload.filter.to,'2026-11-23T10:00:00.000Z');
 });
