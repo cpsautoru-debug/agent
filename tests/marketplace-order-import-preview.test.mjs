@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -317,4 +317,31 @@ test('exact SKU probe shows absent article and single matching code',async()=>{
   assert.equal(out.match,'matched_exact_code');
   assert.equal(out.fields.article,'absent_exact');
   assert.equal(out.fields.code,'one_exact');
+});
+
+test('live preview probes at most two SKUs and never does bulk scan',async()=>{
+  const calls=[];
+  const orders=[{items:[{sku:'A',quantity:1},{sku:'B',quantity:1},
+    {sku:'C',quantity:1}]}];
+  const r=await matchMoyskladArticlesBudgeted(async(url)=>{
+    calls.push(new URL(url));
+    return Response.json({meta:{size:0},rows:[]});
+  },'test-token',orders);
+  assert.equal(calls.length,4);
+  assert.ok(calls.every(u=>u.searchParams.has('filter')));
+  assert.ok(calls.every(u=>!u.searchParams.has('offset')));
+  assert.equal(r.bySku.get('C'),'unverified');
+  assert.equal(r.coverage.pages,0);
+  assert.equal(r.coverage.mode,'TARGETED_ONLY_TO_AVOID_RATE_LIMITS');
+});
+test('live preview stops following first rate-limited SKU',async()=>{
+  const calls=[];
+  const r=await matchMoyskladArticlesBudgeted(async(url)=>{
+    calls.push(new URL(url).searchParams.get('filter'));
+    return new Response('{}',{status:429});
+  },'test-token',[{items:[{sku:'A',quantity:1},
+    {sku:'B',quantity:1}]}]);
+  assert.deepEqual(calls,['article=A']);
+  assert.equal(r.coverage.failureCode,'rate_limited');
+  assert.equal(r.bySku.get('B'),'unverified');
 });
