@@ -7,6 +7,10 @@ const OWNED_SHOPS=new Map([
 ]);
 const NAME_TO_SHOP=new Map([...OWNED_SHOPS].map(([id,name])=>[
  normalizeName(name),id]));
+// Verified against October 2026 source: 82 order rows carry partnerId
+// 216779061 and shopName "Студия Авто Дизайна (САД)". Yandex's report
+// partnerId is the shop ID, not the same identifier as API campaignId.
+const VERIFIED_REPORT_PARTNERS=new Map([[216779061,149082506]]);
 function normalizeName(value){
  return typeof value==='string'?
   value.normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('ru-RU'):'';
@@ -27,39 +31,27 @@ function sameIdentity(a,b){
 }
 export function resolveYandexShop(row){
  if(!row||typeof row!=='object'||Array.isArray(row))return null;
- const name=row.shopName===undefined||row.shopName===null?
-  null:NAME_TO_SHOP.get(normalizeName(row.shopName))||null;
+ const names=[row.shopName,row.partnerName].filter(v=>v!=null&&v!=='');
+ const matchedNames=names.map(v=>NAME_TO_SHOP.get(normalizeName(v))||null);
+ if(matchedNames.length&&matchedNames.some(v=>v===null||
+    v!==matchedNames[0]))return null;
+ const name=matchedNames[0]||null;
  const campaign=verifiedId(row.campaignId);
- const partner=verifiedId(row.partnerId);
-
- // Strong campaign ID or a recognized partner ID takes precedence.
- // Any conflict with a known shopName means no attribution.
- if(campaign!==null&&partner!==null&&campaign!==partner)return null;
- if(campaign!==null&&name!==null&&campaign!==name)return null;
- if(partner!==null&&name!==null&&partner!==name)return null;
- if(campaign!==null)return campaign;
- if(partner!==null)return partner;
-
- // Yandex finance reports may have a merchant-specific partnerId distinct
- // from businessId and campaignId. Proven October 2026 source:
- // partnerId 216779061, businessId 216779062, shopName
- // "Студия Авто Дизайна (САД)". These DIFFERENT identifiers are valid.
- // The exact owner-confirmed shopName is sufficient for the current row,
- // provided that any present ID is well-formed; merchant ID itself is
- // never treated as a campaign ID or applied to other rows.
- if(name!==null){
-  for(const value of [row.partnerId,row.businessId,row.campaignId]){
-   if(value===undefined||value===null||value==='')continue;
-   const candidate=typeof value==='number'&&Number.isSafeInteger(value)?
-    String(value):typeof value==='string'?value.trim():'';
-   if(!/^\d{1,15}$/.test(candidate))return null;
-  }
-  return name;
- }
- return null;
+ const directPartner=verifiedId(row.partnerId);
+ const sourcePartner=typeof row.partnerId==='number'?
+  row.partnerId:typeof row.partnerId==='string'&&
+   /^\d{1,15}$/.test(row.partnerId.trim())?
+    Number(row.partnerId.trim()):null;
+ const mappedPartner=sourcePartner===null?null:
+  VERIFIED_REPORT_PARTNERS.get(sourcePartner)||null;
+ const sources=[campaign,directPartner,mappedPartner,name].filter(Boolean);
+ if(!sources.length||sources.some(id=>id!==sources[0]))return null;
+ // A recognized ID or exact owner-confirmed name is required;
+ // businessId is shared by both stores and never used to pick a shop.
+ return sources[0];
 }
 export function yandexShopIdentityEvidence(rows){
- const keys=['partnerId','campaignId','shopName','businessId'];
+ const keys=['partnerId','campaignId','shopName','partnerName','businessId'];
  const present=Object.fromEntries(keys.map(k=>[k,0]));
  const unmatched={};
  let verified=0,conflictingOrUnknown=0,partnerIsBusiness=0,
@@ -69,11 +61,12 @@ export function yandexShopIdentityEvidence(rows){
   for(const key of keys)if(row[key]!==undefined&&row[key]!==null)
    present[key]++;
   if(sameIdentity(row.partnerId,row.businessId))partnerIsBusiness++;
-  if(NAME_TO_SHOP.has(normalizeName(row.shopName)))recognizedShopNames++;
+  if(NAME_TO_SHOP.has(normalizeName(row.shopName))||
+     NAME_TO_SHOP.has(normalizeName(row.partnerName)))recognizedShopNames++;
   if(resolveYandexShop(row)!==null)verified++;
   else{
    conflictingOrUnknown++;
-   for(const field of ['partnerId','campaignId','shopName','businessId']){
+   for(const field of ['partnerId','campaignId','shopName','partnerName','businessId']){
     const raw=row[field];
     if(raw===undefined||raw===null)continue;
     const safe=typeof raw==='number'&&Number.isSafeInteger(raw)?
