@@ -173,12 +173,37 @@ export function describeYandexReportSheets(files){
    }
    shops.set(shop,agg);
   }
+  // SKU inventory enables exact owner-approved cost matching later.
+  // Order report transaction rows are not necessarily sold units: NEVER
+  // equate count of rows or deliveredOrReturned with finalized sales.
+  const skuMap=new Map();
+  for(const row of rows){
+   const code=row?.shopSku;
+   const shop=row?.partnerId;
+   if(typeof code!=='string'||!code||code.length>120||
+     ![149082506,149106500].includes(shop))continue;
+   const key=shop+':'+code;
+   if(!skuMap.has(key)&&skuMap.size>=250)continue;
+   const existing=skuMap.get(key)||{partnerId:shop,shopSku:code,
+    offerName:typeof row.offerName==='string'?
+      row.offerName.slice(0,160):'',
+    reportRows:0,statuses:[]};
+   existing.reportRows++;
+   const status=row.offerStatus||row.orderStatus;
+   if(typeof status==='string'&&status.length<=60&&
+      !existing.statuses.includes(status)&&existing.statuses.length<8)
+     existing.statuses.push(status);
+   skuMap.set(key,existing);
+  }
   sheets.push({sheet:name,rows:rows.length,fields:names,
    sumFields,transactionTypes:types,dimensions,
    shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
    recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
    groupingStatus:shops.size?'grouped_by_partner_id':
-     'shop_attribution_unavailable'});
+     'shop_attribution_unavailable',
+   skuCandidates:[...skuMap.values()],
+   skuSourceCoverage:skuMap.size,
+   skuCompleteness:'SKU identification only; unit sales and COGS not verified'});
  }
  return {sheets,
   note:'Amounts are raw source-field totals, NOT accounting revenue or net profit. Cross-sheet totals must not be added.'};
