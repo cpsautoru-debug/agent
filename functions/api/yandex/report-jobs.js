@@ -94,11 +94,16 @@ export async function onRequestPost({request,env}){
       status=excluded.status,
       created_at=excluded.created_at,
       updated_at=CURRENT_TIMESTAMP
-    WHERE excluded.created_at>=yandex_finance_report_jobs.created_at`)
+    WHERE excluded.created_at>yandex_finance_report_jobs.created_at
+      OR (excluded.created_at=yandex_finance_report_jobs.created_at
+        AND (CASE excluded.status WHEN 'PENDING' THEN 1
+          WHEN 'PROCESSING' THEN 2 ELSE 3 END)>
+        (CASE yandex_finance_report_jobs.status WHEN 'PENDING' THEN 1
+          WHEN 'PROCESSING' THEN 2 ELSE 3 END))`)
    .bind(job.month,job.scope,job.reportType,job.reportId,job.status,
     job.createdAt).run();
   return json(200,{code:'yandex_report_job_persisted',
-   changedRecords:1,storedContent:'report_id_only'});
+   storedContent:'report_id_only'});
  }catch{
   return json(503,unavailable());
  }
