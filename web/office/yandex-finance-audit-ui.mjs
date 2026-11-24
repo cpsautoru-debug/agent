@@ -24,136 +24,119 @@ export function collectYandexConfirmedJobs(storage,month=MONTH,shop='all'){
  return result;
 }
 export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unknown'){
- if(!root||!EXPECTED.includes(type)||payload?.code!=='yandex_report_archive_audited'||
+ if(!root||!EXPECTED.includes(type)||
+    payload?.code!=='yandex_report_archive_audited'||
     payload.readOnly!==true||payload.changedRecords!==0||
     payload.financeProfitVerified!==false||!Array.isArray(payload.sheets))
   throw Error('yandex_audit_not_confirmed');
  const title={orders:'Заказы и товары',
   services:'Стоимость услуг Маркета',payments:'Платежи и взаимозачёты'}[type];
- const section=doc.createElement('section');section.className='profit-panel';
- textNode(doc,section,title+' · проверенный исходный архив','h4');
+ const section=doc.createElement('section');
+ section.className='profit-panel';
+ textNode(doc,section,title+' · октябрь 2026','h4');
+ let totalRows=0,assignedRows=0,unassignedRows=0;
+ const money=(amount)=>fmt(amount);
+ const approvedFields=type==='orders'?
+  ['buyerPaymentAmount']:type==='services'?
+   ['servicePrice']:['transactionSum'];
+ const descriptions={
+  buyerPaymentAmount:'Платёж покупателя (только заполненные строки)',
+  servicePrice:'Начисленные услуги (по соответствующим листам)',
+  transactionSum:'Сумма транзакций (не чистая прибыль)'
+ };
  for(const sheet of payload.sheets){
-  const details=doc.createElement('details');
-  const summary=doc.createElement('summary');
-  summary.textContent=sheet.sheet+' · '+sheet.rows+' строк';
+  const count=Number.isSafeInteger(sheet.rows)?sheet.rows:0;
+  const assigned=Number.isSafeInteger(sheet.recognizedShopRows)?
+   sheet.recognizedShopRows:0;
+  totalRows+=count;assignedRows+=assigned;unassignedRows+=count-assigned;
+  const summary=doc.createElement('div');
+  summary.className='yandex-brief-sheet';
+  textNode(doc,summary,sheet.sheet+' · '+count+' строк','h5');
+  if(count>0)textNode(doc,summary,
+   assigned===count?'Распределение по магазинам: '+assigned+' из '+count:
+    'Известен результат всего ООО. По магазинам распознано '+
+    assigned+' из '+count+' строк.');
+  for(const field of approvedFields){
+   const value=sheet.sumFields?.[field];
+   if(!value?.present||value.invalid||
+     !Number.isSafeInteger(value.totalKopecks))continue;
+   textNode(doc,summary,descriptions[field]+': '+money(value.totalKopecks)+
+    ' · '+value.present+' строк');
+  }
+  if(type==='orders'&&sheet.sumFields?.billingPrice?.present)
+   textNode(doc,summary,'Цена продажи за штуку (billingPrice) — '+
+    'не является суммарной выручкой. Для суммы нужны подтверждённые количества.');
   const shops=Array.isArray(sheet.shops)?sheet.shops:[];
-  const verified=Number.isSafeInteger(sheet.recognizedShopRows)?
-    sheet.recognizedShopRows:0;
-  const total=Number.isSafeInteger(sheet.rows)?sheet.rows:0;
-  const overview=doc.createElement('p');
-  overview.textContent=sheet.sheet+' · '+total+' строк · '+
-    (selectedShop==='all'?'совместный отчёт двух магазинов ООО: ': 'отчёт выбранного магазина: ')+
-    total+' строк; '+
-    'отдельные магазины определены для '+verified+' из '+total+
-    ' строк'+(verified!==total?' (разбивка неполная)':' (разбивка полная)');
-  // A joint ООО report remains valid as one source even when it is not
-  // possible to attribute individual rows to either shop.
-  if(total>0&&verified===0)
-   textNode(doc,section,
-    selectedShop==='all'?
-     'Источник заказан сразу для двух магазинов ООО. Отсутствие разбивки '+
-     'по магазинам не делает общую сумму нулевой, но не позволяет распределить её.':
-     'Источник заказан для одного магазина; привязка строк внутри '+
-     'архива к нему пока не доказана.');
-  section.append(overview);
-  for(const [field,part] of Object.entries(sheet.sumFields||{})){
-   if(!SELECT_FIELDS.includes(field)||!part?.present||
-      !Number.isSafeInteger(part.totalKopecks))continue;
-   textNode(doc,section,field+': '+fmt(part.totalKopecks)+
-      ' · '+part.present+' строк (отдельное поле, не чистая прибыль)');
-  }
-  if(verified!==total){
-   const fields=sheet.shopIdentityEvidence?.present||{};
-   textNode(doc,section,'Для диагностики привязки: '+
-     ['partnerId','campaignId','shopName','businessId'].map(
-      k=>k+' '+(Number.isSafeInteger(fields[k])?fields[k]:0)
-     ).join('; '));
-   const evidence=sheet.shopIdentityEvidence||{};
-   textNode(doc,section,'Проверка идентичности: partnerId равен businessId в '+
-     (evidence.partnerIsBusiness||0)+' строк; знакомых названий магазинов: '+
-     (evidence.recognizedShopNames||0)+'.');
-   for(const field of ['partnerId','shopName','businessId']){
-    const samples=evidence.examples?.[field];
-    if(Array.isArray(samples)&&samples.length)
-     textNode(doc,section,'Примеры '+field+': '+samples.slice(0,3).join(', '));
-   }
-  }
-  details.append(summary);
   if(shops.length){
-   textNode(doc,details,'Разбивка по магазинам одного ООО:');
+   const known=doc.createElement('details');
+   const label=doc.createElement('summary');
+   label.textContent='Суммы по подтверждённым магазинам';known.append(label);
    for(const shop of shops){
-    const name=SHOPS[shop.partnerId];
-    if(!name)continue;
-    textNode(doc,details,name+' · '+shop.rows+' строк');
-    for(const field of SELECT_FIELDS){
+    if(!SHOPS[shop.partnerId])continue;
+    textNode(doc,known,SHOPS[shop.partnerId]+' · '+shop.rows+' строк');
+    for(const field of approvedFields){
      const amount=shop.amounts?.[field];
      if(Number.isSafeInteger(amount))
-      textNode(doc,details,field+': '+fmt(amount));
+      textNode(doc,known,descriptions[field]+': '+money(amount));
     }
    }
-  }else textNode(doc,details,
-   'Это строки общего отчёта ООО. Распределение по конкретным магазинам '+
-   'не подтверждено — суммы не будут ошибочно отнесены к одному магазину.');
-  const evidence=sheet.shopIdentityEvidence;
-  if(evidence&&typeof evidence==='object'&&sheet.rows>0){
-   const used=evidence.present||{};
-   textNode(doc,details,'Поля идентификации в исходном отчёте: '+
-    ['partnerId','campaignId','shopName','businessId'].map(
-      k=>k+' — '+(Number.isSafeInteger(used[k])?used[k]:0)
-    ).join('; ')+'.');
-   if(evidence.unmatchedRows>0){
-    const sample=Object.entries(evidence.examples||{}).filter(
-      ([k])=>['partnerId','campaignId','shopName'].includes(k));
-    for(const [field,values]of sample)
-     textNode(doc,details,'Неопознанные значения '+field+': '+
-       (Array.isArray(values)?values.slice(0,3).join(', '):'нет'));
-   }
+   summary.append(known);
   }
-  if(typeof sheet.rows==='number'&&
-     sheet.recognizedShopRows!==sheet.rows)
-   textNode(doc,details,'Строк без подтверждённого магазина: '+
-     (sheet.rows-(sheet.recognizedShopRows||0)));
+  const technical=doc.createElement('details');
+  const technicalTitle=doc.createElement('summary');
+  technicalTitle.textContent='Расшифровка, товары и технические сведения';
+  technical.append(technicalTitle);
+  const evidence=sheet.shopIdentityEvidence||{};
+  textNode(doc,technical,'Привязка: '+assigned+' из '+count+
+   '. ID полей: '+['partnerId','campaignId','shopName','partnerName','businessId']
+    .map(k=>k+': '+(evidence.present?.[k]||0)).join('; '));
+  for(const field of ['partnerId','shopName','partnerName','businessId']){
+   const samples=evidence.examples?.[field];
+   if(Array.isArray(samples)&&samples.length)
+    textNode(doc,technical,field+': '+samples.slice(0,3).join(', '));
+  }
   if(Array.isArray(sheet.skuCandidates)&&sheet.skuCandidates.length){
-   const products=doc.createElement('details');
-   const headline=doc.createElement('summary');
-   headline.textContent='Товары и SKU для последующей сверки себестоимости · '+
-     sheet.skuCandidates.length;
-   products.append(headline);
-   textNode(doc,products,'Количество строк не равно числу проданных единиц. '+
-     'Финансовая себестоимость не назначена до подтверждения продажи и товара.');
+   const productBlock=doc.createElement('details');
+   const heading=doc.createElement('summary');
+   heading.textContent='Товары и SKU · '+sheet.skuCandidates.length;
+   productBlock.append(heading);
+   textNode(doc,productBlock,'Строки операций не равны продажам; '+
+    'себестоимость отдельно подтверждается по количеству и SKU.');
    for(const item of sheet.skuCandidates){
     if(!SHOPS[item.partnerId]||typeof item.shopSku!=='string')continue;
-    textNode(doc,products,SHOPS[item.partnerId]+' · '+item.shopSku+
-      (item.offerName?' · '+item.offerName:'')+
-      ' · строк: '+item.reportRows+
-      ' · статусы: '+(item.statuses||[]).join(', '));
+    textNode(doc,productBlock,SHOPS[item.partnerId]+' · '+item.shopSku+
+     (item.offerName?' · '+item.offerName:'')+
+     ' · строк '+item.reportRows);
    }
-   details.append(products);
+   technical.append(productBlock);
   }
-    for(const [dimension,part] of Object.entries(sheet.dimensions||{})){
+  for(const [dimension,part]of Object.entries(sheet.dimensions||{})){
    if(!['serviceName','service','recordType','transactionType',
     'model','placementModel','orderStatus'].includes(dimension))continue;
    const group=doc.createElement('details');
    const header=doc.createElement('summary');
-   header.textContent='Группировка по '+dimension+' · '+
-    (part.groups?.length||0)+' категорий';
+   header.textContent='Операции по '+dimension+
+    ' · '+(part.groups?.length||0)+' групп';
    group.append(header);
    for(const entry of part.groups||[]){
     if(typeof entry.value!=='string')continue;
     textNode(doc,group,entry.value+' · '+entry.rows+' строк');
-    for(const field of SELECT_FIELDS){
-     const v=entry.amounts?.[field];
-     if(Number.isSafeInteger(v))
-      textNode(doc,group,'  '+field+': '+fmt(v));
+    for(const field of approvedFields){
+     const amount=entry.amounts?.[field];
+     if(Number.isSafeInteger(amount))
+      textNode(doc,group,descriptions[field]+': '+money(amount));
     }
    }
-   details.append(group);
+   technical.append(group);
   }
-  section.append(details);
+  summary.append(technical);section.append(summary);
  }
- textNode(doc,section,'Это исходные суммы в разных экономических разрезах. '+
-  'Суммы из разных листов, полей и отчётов НЕ складывать. '+
-  'Чистая прибыль ООО не подтверждена.');
+ textNode(doc,section,'Проверено строк: '+totalRows+
+  '. Отнесено к магазинам: '+assignedRows+
+  '. Без магазинной детализации: '+unassignedRows+'.');
+ textNode(doc,section,'Показатели разных отчётов и листов нельзя '+
+  'суммировать друг с другом. До сверки продаж, возвратов, '+
+  'себестоимости и прямых расходов чистая прибыль ООО не подтверждена.');
  root.append(section);
 }
 export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
