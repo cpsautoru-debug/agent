@@ -107,6 +107,7 @@ test('dashboard and overall P&L have exactly one sourced Yandex interim metric',
  assert.match(business,/yandexInterim/);
  assert.match(business,/yandexPnlCardMetric\(ch,interim,pnl\.month\)/);
  assert.match(business,/money\(metric\.primaryKopecks\)/);
- assert.match(business,/Нет закрытого расчёта/);
+ const presentation=readFileSync(new URL('../../web/office/yandex-pnl-card.mjs',import.meta.url),'utf8');
+ assert.match(presentation,/Нет закрытого расчёта/);
  assert.doesNotMatch(board,/617[\s\u00a0]?792/);
 });
