@@ -1,10 +1,13 @@
-import {json,verifyYandexOwner} from './finance-source.js';
+import {json,verifyYandexOwner,yandexRequest,
+ listYandexCampaigns,selectedBusiness} from './finance-source.js';
 import {onRequestGet as readOfficialReport}
  from './report-audit.js';
 import {onRequestGet as readCostSources}
  from '../finance/cost-audit.js';
-import {reconcileDirectYandexMonth}
+import {reconcileDirectYandexMonth,collectYandexVerifiedOfferNames}
  from '../../../web/office/yandex-direct-reconciliation-core.mjs';
+import {collectYandexRealizationCandidates}
+ from '../../../web/office/yandex-realization-cost-evidence.mjs';
 
 const expected=[
  ['all','orders','orders'],
@@ -78,9 +81,35 @@ export async function onRequestGet({request,env}){
    return json(200,{code:'yandex_direct_cost_incomplete',month,
     status:'cost_sources_unavailable',readOnly:true,
     netProfitKopecks:null,missing:[]});
+  const realizations={149082506:first,149106500:second};
+  // A small number of official realization records may have seller SKU
+  // but an empty offerName. First try the already audited order archive,
+  // then a read-only owner-authorized Yandex catalog lookup. Purchase
+  // price from that catalog is NOT treated as confirmed manufacturing cost.
+  const titleMap=collectYandexVerifiedOfferNames(orders);
+  const unresolved=collectYandexRealizationCandidates(realizations)
+   .filter(x=>!x.offerName&&!titleMap.get(
+    x.partnerId+':'+x.shopSku));
+  const catalogOfferNames={};
+  const unique=[...new Set(unresolved.map(x=>x.shopSku))];
+  if(unique.length>0&&unique.length<=100){
+   try{
+    const scope=selectedBusiness(await listYandexCampaigns(env));
+    const reply=await yandexRequest(env,
+     '/v2/businesses/'+scope.businessId+'/offer-mappings',
+     {method:'POST',body:{offerIds:unique}});
+    const safe=new Set(unique);
+    for(const row of reply?.result?.offerMappings||[]){
+     const offer=row?.offer;
+     if(safe.has(offer?.offerId)&&typeof offer?.name==='string'&&
+      offer.name.length>0&&offer.name.length<=200)
+      catalogOfferNames[offer.offerId]=offer.name;
+    }
+   }catch{/* Keep exact sources; no guessed product identity. */}
+  }
   const result=reconcileDirectYandexMonth(month,
    {orders,services,payments},
-   {149082506:first,149106500:second},costAudit);
+   realizations,costAudit,{catalogOfferNames});
   return json(200,result);
  }catch{
   return json(503,{code:'yandex_direct_cost_source_unavailable',
