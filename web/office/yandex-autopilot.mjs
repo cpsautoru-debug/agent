@@ -43,7 +43,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  h.textContent='Автоматическое обновление Яндекс Маркета';
  const state=documentRef.createElement('p');
  const details=documentRef.createElement('p');
- panel.append(h,state,details);container.append(panel);
+ panel.append(h,state,details);container.prepend(panel);
  const summaries=new Map();
  let timer=null,busy=false,checkedCampaigns=false,lastMonth='',announcedMonth='',authBlocked=false;
  const jobs=()=>restoreYandexReportJobs(storage);
