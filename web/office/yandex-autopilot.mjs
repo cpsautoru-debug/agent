@@ -45,7 +45,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  const details=documentRef.createElement('p');
  panel.append(h,state,details);container.append(panel);
  const summaries=new Map();
- let timer=null,busy=false,checkedCampaigns=false,lastMonth='',announcedMonth='';
+ let timer=null,busy=false,checkedCampaigns=false,lastMonth='',announcedMonth='',authBlocked=false;
  const jobs=()=>restoreYandexReportJobs(storage);
  const save=(map)=>{saveYandexReportJobs(storage,map);
   windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));};
@@ -59,7 +59,9 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  const last=()=>{try{return Number(storage?.getItem(LAST)||0)||0;}
   catch{return 0;}};
  const stamp=()=>{try{storage?.setItem(LAST,String(Date.now()));}catch{}};
- const active=()=>windowRef.location.hash.split('/')[0]==='#yandexFinance';
+ // Start while the office is open, not only after a finance-menu click.
+ // Protected API endpoints still require an authenticated owner session.
+ const active=()=>!authBlocked;
  const paint=(month,list,error='')=>{
   const ready=list.filter(x=>x.audited).length;
   state.textContent='Отчёты '+month+': проверено '+ready+
@@ -155,6 +157,8 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
    nextError='';
    paint(month,targets.map(x=>map.get(key(month,x.scope,x.type))||{}));
   }catch(e){
+   if(['unauthorized','forbidden','not_configured'].includes(e?.message))
+    authBlocked=true;
    nextError=/^[a-z_]{3,80}$/.test(e?.message||'')?
     e.message:'source_temporarily_unavailable';
    const map=jobs();
@@ -168,7 +172,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
   timer=setInterval(()=>{void tick();},INTERVAL);
   void tick();
  };
- windowRef.addEventListener('hashchange',()=>{void tick();});
+ windowRef.addEventListener('hashchange',()=>{authBlocked=false;void tick();});
  monthInput.addEventListener('change',()=>{void tick();});
  schedule();
  return true;
