@@ -20,7 +20,7 @@ export async function verifyYandexOwner(request,env){
  return null;
 }
 export async function yandexRequest(env,path,{method='GET',body}={}){
- if(!/^\/v2\/(?:campaigns(?:\?.*)?|reports\/(?:united-orders|united-marketplace-services|united-netting|goods-realization)\/generate\?format=JSON|reports\/info\/[a-zA-Z0-9_-]{1,255})$/.test(path))
+ if(!/^\/v2\/(?:campaigns(?:\?.*)?|reports\/(?:united-orders|united-marketplace-services|united-netting|goods-realization)\/generate\?format=JSON|reports\/info\/[a-zA-Z0-9_-]{1,255}|businesses\/[1-9][0-9]{0,14}\/offer-mappings)$/.test(path))
   throw Error('yandex_path_not_allowed');
  const response=await fetch('https://api.partner.market.yandex.ru'+path,{
   method,headers:{'Api-Key':env.YANDEX_MARKET_API_KEY,'Accept':'application/json',
