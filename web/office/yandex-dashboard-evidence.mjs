@@ -110,6 +110,11 @@ export async function loadYandexDashboardEvidence({
    const data=await Promise.all(responses.map(r=>r.json()));
    const source=Object.fromEntries(TYPES.map((type,i)=>[type,data[i]]));
    const evidence=deriveYandexDashboardEvidence(month,source);
+   if(evidence.status==='order_income_verified'&&
+      typeof window!=='undefined'&&
+      typeof window.dispatchEvent==='function')
+    window.dispatchEvent(new CustomEvent('yandex-financial-sources-audited',{
+     detail:{month,sources:source}}));
    if(evidence.status==='order_income_verified'){
     rememberYandexDashboardEvidence(evidence);
     cache.set(k,{time:Date.now(),value:evidence});
