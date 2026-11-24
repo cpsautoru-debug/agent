@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {describeYandexReportSheets} from '../../web/office/yandex-report-archive.mjs';
+import {collectYandexConfirmedJobs} from '../../web/office/yandex-finance-audit-ui.mjs';
+import {saveYandexReportJobs} from '../../web/office/yandex-finance-job-cache.mjs';
+test('Yandex services are grouped per service and partner, not added to orders/payments',()=>{
+ const source={
+  'marketplace_services.json':[
+   {partnerId:149082506,serviceName:'Доставка',recordType:'CHARGE',servicePrice:100.12},
+   {partnerId:149106500,serviceName:'Доставка',recordType:'CHARGE',servicePrice:50.35},
+   {partnerId:149106500,serviceName:'Продвижение',recordType:'CHARGE',servicePrice:75.25}
+  ]
+ };
+ const r=describeYandexReportSheets(source).sheets[0];
+ assert.equal(r.rows,3);
+ assert.equal(r.recognizedShopRows,3);
+ assert.deepEqual(r.shops.map(x=>[x.partnerId,x.amounts.servicePrice]),
+  [[149082506,10012],[149106500,12560]]);
+ assert.equal(r.dimensions.serviceName.groups.length,2);
+ assert.equal(r.dimensions.serviceName.groups[0].amounts.servicePrice,15047);
+ assert.equal(r.dimensions.serviceName.groups[1].amounts.servicePrice,7525);
+ assert.equal(r.sumFields.servicePrice.totalKopecks,22572);
+});
+test('unrecognized partner is not attributed to either ООО shop',()=>{
+ const r=describeYandexReportSheets({a.json:[
+  {partnerId:149082506,servicePrice:10},
+  {partnerId:999999,servicePrice:20}
+ ]}).sheets[0];
+ assert.equal(r.recognizedShopRows,1);
+ assert.equal(r.rows,2);
+ assert.equal(r.groupingStatus,'grouped_by_partner_id');
+});
+test('full archive review requires all three audited DONE jobs from same period and scope',()=>{
+ const map=new Map();
+ const stamp=Date.now();
+ for(const type of ['orders','services','payments']){
+  map.set('2026-10:all:'+type,{reportId:'good_'+type,
+   status:'DONE',createdAt:stamp,audited:true});
+ }
+ const storage={value:null,getItem(){return this.value;},
+  setItem(key,v){this.value=v;}};
+ saveYandexReportJobs(storage,map,stamp);
+ assert.equal(Object.keys(collectYandexConfirmedJobs(storage,'2026-10','all')).length,3);
+ assert.equal(Object.keys(collectYandexConfirmedJobs(storage,'2026-10','149082506')).length,0);
+});
