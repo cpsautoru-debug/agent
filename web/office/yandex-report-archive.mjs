@@ -272,7 +272,7 @@ export function describeYandexReportSheets(files){
      'shop_attribution_unavailable',
    skuCandidates:[...skuMap.values()],
    skuSourceCoverage:skuMap.size,
-   skuCompleteness:'Mixed delivery/return quantities are source evidence, NOT verified sales or COGS'});
+   skuCompleteness:'Mixed delivery/return quantities are source evidence; sold units and COGS not verified'});
  }
  return {sheets,
   note:'Amounts are raw source-field totals, NOT accounting revenue or net profit. Cross-sheet totals must not be added.'};
