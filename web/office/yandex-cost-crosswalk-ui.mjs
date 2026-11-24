@@ -170,8 +170,10 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
  };
  async function run(force=false){
   if(running)return;
-  if(windowRef.location.hash.split('/')[0]!=='#yandexFinance')return;
-  const month=monthNode.value,shop=shopNode.value;
+  const currentPage=windowRef.location.hash.split('/')[0];
+  if(currentPage!=='#yandexFinance'&&currentPage!=='#dashboard')return;
+  const month=monthNode.value,shop=currentPage==='#dashboard'?
+   'all':shopNode.value;
   if(shop!=='all')return;
   const ids=collectYandexConfirmedJobs(storage,month,'all');
   if(!ids.orders)return;
