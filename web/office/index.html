@@ -566,8 +566,9 @@
  <button id="yandexConnectionCheck" class="button light" type="button">Проверить API Яндекс Маркета</button></div>
  <p id="yandexConnectionStatus" role="status">Проверяем подключение к Яндекс Маркету при открытии дашборда. Секрет остаётся в Cloudflare.</p>
  <div id="yandexFinanceReports" class="yandex-finance-report-panel">
-   <h3>Октябрь 2026 · проверка финансовых источников</h3>
+   <h3>Финансовые отчёты · выбранный завершённый месяц</h3>
    <p>Формирование отчётов Яндекса асинхронное. Отчёты по заказам, услугам и платежам проверяются отдельно: перечисления не равны прибыли.</p>
+   <details class="yandex-manual-controls"><summary>Техническая диагностика и ручной запуск отчётов</summary>
    <button id="yandexFinanceDiscover" type="button" class="button light">Обновить список магазинов</button>
    <div id="yandexFinanceCampaigns" aria-label="Магазины из API"></div>
    <div class="profit-toolbar">
@@ -586,8 +587,11 @@
    </div>
    <p id="yandexFinanceReportsStatus" role="status">Сначала определяем кабинеты, доступные по серверному токену.</p>
    <div id="yandexFinanceJobSummary" aria-label="Состояние финансовых отчётов Яндекса"></div>
+   </details>
    <div class="yandex-finance-audit">
+    <details class="yandex-manual-controls"><summary>Повторная диагностика исходных архивов</summary>
     <button id="yandexFinanceAnalyzeAll" type="button" class="button light">Показать финансы из 3 проверенных отчётов</button>
+    </details>
     <p id="yandexFinanceDetailedStatus" role="status">Расшифровка проверенных отчётов: магазины, услуги и операции без двойного сложения.</p>
     <div id="yandexFinanceDetailedResults"></div>
    </div>
