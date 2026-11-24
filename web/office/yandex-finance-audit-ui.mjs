@@ -107,7 +107,11 @@ export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unkn
     if(!SHOPS[item.partnerId]||typeof item.shopSku!=='string')continue;
     textNode(doc,productBlock,SHOPS[item.partnerId]+' · '+item.shopSku+
      (item.offerName?' · '+item.offerName:'')+
-     ' · строк '+item.reportRows);
+     ' · строк '+item.reportRows+
+     (item.quantityRows?' · количество по строкам '+item.reportedQuantity+
+      ' ('+item.quantityRows+' строк)':'')+
+     (item.quantityInvalidRows?' · ошибок количества '+item.quantityInvalidRows:'')+
+     (item.statuses?.length?' · статусы '+item.statuses.join(', '):''));
    }
    technical.append(productBlock);
   }
