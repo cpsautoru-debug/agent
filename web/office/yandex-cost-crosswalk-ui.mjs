@@ -148,10 +148,25 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   if(serialized.length>80000)return;
   lastSnapshotKey=serialized;lastSnapshotAttempt=now;
   try{
-   await api('/api/yandex/evidence-snapshot',{
+   const saved=await api('/api/yandex/evidence-snapshot',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:serialized});
-  }catch{/* Keep the source on screen; persist again on the next change. */}
+   if(saved?.code!=='yandex_month_evidence_saved')
+    throw Error('snapshot_not_saved');
+   windowRef.dispatchEvent(new CustomEvent('yandex-month-evidence-saved',{
+    detail:{month}}));
+  }catch(e){
+   // Do not claim that the server has evidence when its D1 write failed.
+   // Reattempt after the retry window, without requiring owner interaction.
+   lastSnapshotKey='';
+   const note=el(documentRef,'p',
+    'Сверка в браузере доступна, но сохранение в D1 не подтверждено: '+
+    safeError(e)+'. Чистая прибыль остаётся неподтверждённой.');
+   const previous=view.querySelector?.('#yandexSnapshotSaveStatus');
+   previous?.remove();
+   note.id='yandexSnapshotSaveStatus';
+   view.append(note);
+  }
  }
  const safeError=e=>/^[a-z_]{3,80}$/.test(e?.message||'')?
   e.message:'source_unavailable';
