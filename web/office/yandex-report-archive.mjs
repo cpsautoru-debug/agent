@@ -120,8 +120,65 @@ export function describeYandexReportSheets(files){
     types[type]=next;
    }
   }
+  const amountFields=['buyerPaid','servicePrice','fullPrice',
+   'paymentAmount','transactionSum','buyerPaymentAmount',
+   'merchantPrice','sellPrice','billingPrice'];
+  const toKopecks=v=>{
+   if(typeof v!=='number'||!Number.isFinite(v))return null;
+   const k=Math.round(v*100);
+   return Number.isSafeInteger(k)?k:null;
+  };
+  // Only fixed, low-cardinality business dimensions. Never publish raw
+  // order/customer details, arbitrary user-provided fields, or raw SKU lists.
+  const allowedServiceTypes=['serviceName','service','recordType',
+    'transactionType','model','placementModel','orderStatus'];
+  const dimensions={};
+  for(const dimension of allowedServiceTypes){
+   const grouped=new Map(),fieldStats={};
+   let observed=0,excluded=0;
+   for(const row of rows){
+    const v=row?.[dimension];
+    if(typeof v!=='string'||!v||v.length>120)continue;
+    observed++;
+    if(!grouped.has(v)&&grouped.size>=40){excluded++;continue;}
+    const agg=grouped.get(v)||{rows:0,amounts:{}};
+    agg.rows++;
+    for(const field of amountFields){
+     const k=toKopecks(row?.[field]);
+     if(k===null)continue;
+     const next=(agg.amounts[field]||0)+k;
+     if(!Number.isSafeInteger(next))fail('yandex_amount_overflow');
+     agg.amounts[field]=next;
+    }
+    grouped.set(v,agg);
+   }
+   if(observed)
+    dimensions[dimension]={groups:[...grouped.entries()].map(
+      ([value,v])=>({value,rows:v.rows,amounts:v.amounts})),
+      observed,excluded,
+      note:'A column is summed only within its source report. Cross-field totals are NOT profit.'};
+  }
+  const shops=new Map();
+  for(const row of rows){
+   const shop=row?.partnerId;
+   if(![149082506,149106500].includes(shop))continue;
+   const agg=shops.get(shop)||{rows:0,amounts:{}};
+   agg.rows++;
+   for(const field of amountFields){
+    const k=toKopecks(row?.[field]);
+    if(k===null)continue;
+    const next=(agg.amounts[field]||0)+k;
+    if(!Number.isSafeInteger(next))fail('yandex_amount_overflow');
+    agg.amounts[field]=next;
+   }
+   shops.set(shop,agg);
+  }
   sheets.push({sheet:name,rows:rows.length,fields:names,
-   sumFields,transactionTypes:types});
+   sumFields,transactionTypes:types,dimensions,
+   shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
+   recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
+   groupingStatus:shops.size?'grouped_by_partner_id':
+     'shop_attribution_unavailable'});
  }
  return {sheets,
   note:'Amounts are raw source-field totals, NOT accounting revenue or net profit. Cross-sheet totals must not be added.'};
