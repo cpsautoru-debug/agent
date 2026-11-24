@@ -284,6 +284,11 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  monthInput.addEventListener('change',()=>{
   stopPolling();pollAttempts=0;buttonState();renderJobs();schedulePolling();
  });
+ window.addEventListener('yandex-auto-jobs-updated',()=>{
+  const saved=restoreYandexReportJobs(storage);
+  jobs.clear();for(const [k,v] of saved)jobs.set(k,v);
+  buttonState();renderJobs();
+ });
  buttonState();renderJobs();
  const onVisit=()=>{
   if(location.hash.split('/')[0]==='#yandexFinance'&&!campaigns&&!loading)
