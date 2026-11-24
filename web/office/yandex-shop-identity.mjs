@@ -23,7 +23,7 @@ function verifiedId(value){
 function sameIdentity(a,b){
  const x=typeof a==='number'?String(a):typeof a==='string'?a.trim():'';
  const y=typeof b==='number'?String(b):typeof b==='string'?b.trim():'';
- return !!x&&x===y&&/^\\d{1,15}$/.test(x);
+ return !!x&&x===y&&/^\d{1,15}$/.test(x);
 }
 export function resolveYandexShop(row){
  if(!row||typeof row!=='object'||Array.isArray(row))return null;
