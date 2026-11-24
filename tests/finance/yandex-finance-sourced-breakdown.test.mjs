@@ -47,9 +47,9 @@ test('full archive review requires all three audited DONE jobs from same period 
 test('Yandex SKU evidence keeps shop names but never fabricates sales quantity',()=>{
  const r=describeYandexReportSheets({'orders_and_offers_transactions.json':[
   {partnerId:149082506,shopSku:'EVA-101',offerName:'Коврики EVA',
-   offerStatus:'DELIVERED',billingPrice:2400},
+   offerStatus:'DELIVERED',count:2,billingPrice:2400},
   {partnerId:149082506,shopSku:'EVA-101',offerName:'Коврики EVA',
-   offerStatus:'RETURNED',billingPrice:2400},
+   offerStatus:'RETURNED',count:1,billingPrice:2400},
   {partnerId:149106500,shopSku:'COVER-202',offerName:'Авточехлы Vesta',
    offerStatus:'DELIVERED',billingPrice:7000}
  ]}).sheets[0];
@@ -57,6 +57,8 @@ test('Yandex SKU evidence keeps shop names but never fabricates sales quantity',
  assert.equal(r.skuCandidates[0].reportRows,2);
  assert.deepEqual(r.skuCandidates[0].statuses,['DELIVERED','RETURNED']);
  assert.equal(r.skuCandidates[1].partnerId,149106500);
+ assert.equal(r.skuCandidates[0].reportedQuantity,3);
+ assert.equal(r.skuCandidates[0].quantityRows,2);
  assert.equal(r.skuCandidates[0].soldUnits,undefined);
  assert.match(r.skuCompleteness,/not verified/);
 });
@@ -73,4 +75,16 @@ test('joint ООО Yandex source amounts remain available when store attribution
  assert.equal(source.sumFields.billingPrice.totalKopecks,2000000);
  assert.equal(source.skuSourceCoverage,0);
  assert.equal(source.shopIdentityEvidence.partnerIsBusiness,2);
+});
+
+test('Yandex invalid quantities stay unverified and never create sales',()=>{
+ const r=describeYandexReportSheets({'orders_and_offers_transactions.json':[
+  {partnerId:149082506,shopSku:'EVA',count:2,offerStatus:'DELIVERED'},
+  {partnerId:149082506,shopSku:'EVA',count:-1,offerStatus:'RETURNED'},
+  {partnerId:149082506,shopSku:'EVA',count:1.4,offerStatus:'PENDING'}
+ ]}).sheets[0].skuCandidates[0];
+ assert.equal(r.reportedQuantity,2);
+ assert.equal(r.quantityRows,1);
+ assert.equal(r.quantityInvalidRows,2);
+ assert.equal(r.soldUnits,undefined);
 });
