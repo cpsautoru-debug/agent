@@ -5,12 +5,13 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  const status=documentRef.getElementById('yandexFinanceReportsStatus');
  const scope=documentRef.getElementById('yandexFinanceCampaigns');
  const reportSelect=documentRef.getElementById('yandexFinanceReportType');
+ const shopSelect=documentRef.getElementById('yandexFinanceShop');
  const generate=documentRef.getElementById('yandexFinanceGenerate');
  const check=documentRef.getElementById('yandexFinanceCheckStatus');
  const analyze=documentRef.getElementById('yandexFinanceAnalyze');
  const output=documentRef.getElementById('yandexFinanceReportLines');
  const monthInput=documentRef.getElementById('ceoMonth');
- if(!root||!status||!scope||!reportSelect||!generate||!check||
+ if(!root||!status||!scope||!reportSelect||!shopSelect||!generate||!check||
    !analyze||!output||!monthInput)return false;
  const jobs=new Map();
  let campaigns=null,loading=false,pollTimer=null,pollAttempts=0;
@@ -34,7 +35,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   if(!response.ok)throw Error(data.code||'request_failed');
   return data;
  };
- const getKey=()=>monthInput.value+':'+reportSelect.value;
+ const getKey=()=>monthInput.value+':'+shopSelect.value+':'+reportSelect.value;
  function getJob(){return jobs.get(getKey());}
  function buttonState(){
   generate.disabled=loading||campaigns?.automaticScope!=='single_business';
@@ -49,6 +50,17 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    if(result.code!=='yandex_campaigns_discovered'||
      !Array.isArray(result.businesses))throw Error('invalid_campaigns');
    campaigns=result;
+   shopSelect.replaceChildren();
+   const joint=documentRef.createElement('option');
+   joint.value='all';joint.textContent='Оба магазина · одно ООО';
+   shopSelect.append(joint);
+   for(const shop of result.campaigns){
+    const opt=documentRef.createElement('option');
+    opt.value=String(shop.campaignId);
+    opt.textContent=shop.shopName+' · '+shop.campaignId;
+    shopSelect.append(opt);
+   }
+   shopSelect.disabled=result.automaticScope!=='single_business';
    scope.replaceChildren();
    const title=documentRef.createElement('p');
    title.textContent=result.businesses.length===1?
@@ -77,17 +89,20 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  async function startReport(){
   if(loading||campaigns?.automaticScope!=='single_business')return;
   loading=true;buttonState();
-  const type=reportSelect.value,month=monthInput.value;
+  const type=reportSelect.value,month=monthInput.value,
+    shop=shopSelect.value;
+  const campaignId=shop==='all'?undefined:Number(shop);
   say('Запрашиваем '+names[type]+' у Яндекса за '+month+'…');
   try{
    const data=await request('/api/yandex/finance-reports',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({month,reportType:type})
+    body:JSON.stringify({month,reportType:type,
+     ...(campaignId===undefined?{}:{campaignId})})
    });
    if(data.code!=='yandex_report_requested'||data.month!==month||
      data.reportType!==type||typeof data.reportId!=='string')
     throw Error('report_response_invalid');
-   jobs.set(month+':'+type,{reportId:data.reportId,status:'PENDING'});
+   jobs.set(month+':'+shop+':'+type,{reportId:data.reportId,status:'PENDING'});
    pollAttempts=0;schedulePolling();
    say('Отчёт «'+names[type]+'» принят Яндексом. Статус: формируется. '+
     'Проверяйте готовность без повторного запуска генерации.');
@@ -133,6 +148,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
     throw Error('audit_result_invalid');
    const header=documentRef.createElement('p');
    header.textContent='Источник: '+names[reportSelect.value]+
+    '; охват: '+shopSelect.options[shopSelect.selectedIndex]?.textContent+
     '. Листов: '+data.sheets.length+
     '. Это суммы отдельных полей, НЕ прибыль и не итоговая выручка.';
    output.append(header);
@@ -166,6 +182,11 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  generate.addEventListener('click',startReport);
  check.addEventListener('click',checkStatus);
  analyze.addEventListener('click',analyzeReport);
+ shopSelect.addEventListener('change',()=>{
+  stopPolling();pollAttempts=0;buttonState();
+  if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
+   schedulePolling();
+ });
  reportSelect.addEventListener('change',()=>{
   stopPolling();pollAttempts=0;buttonState();
   if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
