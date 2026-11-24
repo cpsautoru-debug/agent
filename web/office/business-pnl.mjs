@@ -6,8 +6,8 @@ import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
  from './yandex-dashboard-evidence.mjs';
 import {yandexPnlCardMetric} from './yandex-pnl-card.mjs';
 import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs';
-const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
- avito:'Авито',offline:'Магазин · Пламя'};
+import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs';
+const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
  {style:'currency',currency:'RUB'}).format(x/100):'Нет данных';
 const el=(tag,cls,value)=>{
@@ -19,8 +19,8 @@ const el=(tag,cls,value)=>{
 function render(root,pnl,sourceNotes={},interim={}){
  root.replaceChildren();
  const summary=el('div','business-pnl-heading');
- summary.append(el('h2','','Финансовые показатели по каналам'),
-  el('p','','Ozon и WB: результат после известных затрат. Яндекс: подтверждённый доход после услуг (пока без себестоимости). Общие расходы и налоги не распределяются до сверки.'));
+ summary.append(el('h2','','Финансовые показатели трёх маркетплейсов'),
+  el('p','','В расчёте только Ozon, Wildberries и Яндекс Маркет. Сначала результат после комиссий и себестоимости каждого канала, затем дополнительные расходы и налог ИП — по одному разу. Авито и «Пламя» исключены.'));
  root.append(summary);
  const cards=el('div','business-pnl-cards');
  for(const ch of pnl.channels){
@@ -86,15 +86,19 @@ function render(root,pnl,sourceNotes={},interim={}){
    pnl.channels.length+' каналов: '+pnl.channels.filter(c=>c.status!=='unknown')
     .map(c=>labels[c.id]).join(' + ')+') — до общих расходов и налога',
    pnl.knownChannelsTotalKopecks],
-  ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
+  ['Сумма результатов трёх маркетплейсов после прямых затрат',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
   // This number is an arithmetic difference over only visible known
   // contributions minus the shown shared costs and the WHOLE-IP tax. It
   // cannot be interpreted as the profit of those specific channels.
-  ['Арифметический остаток известных строк — НЕ чистая прибыль',
-   pnl.visibleRowsRemainderKopecks],
-  ['ИТОГОВАЯ ПРИБЫЛЬ БИЗНЕСА',pnl.finalProfitKopecks]
+  ...(pnl.channelsTotalKopecks===null?
+   [['Остаток известных строк (без неподтверждённых каналов) — НЕ прибыль',
+     pnl.visibleRowsRemainderKopecks]]:
+   [['Предварительный итог после дополнительных расходов и налога ИП — НЕ чистая прибыль',
+     pnl.provisionalAfterExpensesKopecks]]),
+  ['ЧИСТАЯ ПРИБЫЛЬ ТРЁХ МАРКЕТПЛЕЙСОВ · ПОСЛЕ СВЕРКИ',
+    pnl.finalProfitKopecks]
  ];
  for(const [label,value] of rows){
   const row=el('div','business-pnl-row');
@@ -104,8 +108,12 @@ function render(root,pnl,sourceNotes={},interim={}){
  root.append(sheet);
  root.append(el('p','business-pnl-disclaimer',
   pnl.finalProfitKopecks===null?
-   'Чистая прибыль ИП пока не подтверждена: отсутствует результат '+pnl.missingChannels.map(x=>labels[x]).join(', ')+
-   '. Арифметический остаток известных строк не включает эти каналы; перечисленный налог относится ко всему ИП и здесь вычтен один раз. Неизвестные расходы не заменены нулями.':
+   'Чистая прибыль трёх маркетплейсов пока не подтверждена. '+
+   (pnl.missingChannels.length?
+    'Не завершена себестоимость и/или прямые расходы: '+
+     pnl.missingChannels.map(x=>labels[x]).join(', ')+'. ':
+    'Результаты после прямых затрат предварительные. ')+
+   'Общие расходы и налог АУСН вычитаются однократно; налог относится ко всему ИП и может включать деятельность вне этих трёх каналов. Неизвестные расходы не заменяются нулями.':
    pnl.verified?'Все источники подтверждены.':'Управленческая оценка: имеются неподтверждённые источники.'));
 }
 export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
@@ -143,9 +151,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const sourceNotes={
     ozon:'Ожидает расчёт по сверенным данным.',
     wb:'Данные прибыли пока не подтверждены.',
-    yandex:'Нет подключённого подтверждённого P&L за этот месяц.',
-    avito:'Нет подключённого подтверждённого P&L за этот месяц.',
-    offline:'Нет подключённого подтверждённого P&L за этот месяц.'
+    yandex:'Доход после услуг подтверждён отдельно; себестоимость и расходы проверяются.'
   };
   if(month==='2026-10'){
    // Known owner-confirmed expenses, but not an audited exhaustive business ledger.
@@ -162,6 +168,9 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
   const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
    if(x.status!=='unavailable')interim.yandexCost=x;
+   applyYandexCostToChannels(base.channels,month,x);
+   if(x.status==='preliminary_cost_reconciled')
+    sourceNotes.yandex='Себестоимость доставленных SKU подтверждена в сохранённой сверке. Остаток предварительный: отдельно проверить период возвратов, услуги, рекламу и АУСН.';
    return x;
   });
   if(month==='2026-10'){
@@ -231,7 +240,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   try{pnl=consolidateBusinessPnl(base);}
   catch{root.textContent='Невозможно сформировать сводный отчёт: неверный период или данные.';return;}
   render(root,pnl,sourceNotes,interim);
-  lastRender={month,pnl,sourceNotes,interim};
+  lastRender={month,pnl,sourceNotes,interim,base};
   if(error)root.append(el('p','business-pnl-disclaimer',
    'Источник Ozon недоступен. Показатели не подставляются из предыдущих периодов.'));
   if(wbError)root.append(el('p','business-pnl-disclaimer',
@@ -248,6 +257,8 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   void loadYandexCostSnapshot(month,fetcher).then(x=>{
    if(lastRender?.month!==month||x.status==='unavailable')return;
    lastRender.interim.yandexCost=x;
+   applyYandexCostToChannels(lastRender.base.channels,month,x);
+   lastRender.pnl=consolidateBusinessPnl(lastRender.base);
    render(root,lastRender.pnl,lastRender.sourceNotes,lastRender.interim);
   });
  });
