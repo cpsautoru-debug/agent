@@ -1,11 +1,11 @@
-import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs';
+import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs?v=20261124-three-marketplaces';
 import {summarizeOzonProvisionalProfit} from './ozon-provisional-profit.mjs';
 import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
 import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
 import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
  from './yandex-dashboard-evidence.mjs';
-import {yandexPnlCardMetric} from './yandex-pnl-card.mjs';
-import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs';
+import {yandexPnlCardMetric} from './yandex-pnl-card.mjs?v=20261124-margin-first';
+import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs?v=20261124-direct-cost-review';
 import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
