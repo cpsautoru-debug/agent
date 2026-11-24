@@ -125,31 +125,60 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
     ...CAMPAIGNS.map(campaignId=>({scope:String(campaignId),
       campaignId,type:'realization'}))];
    const map=jobs();
-   // Two independent status checks per tick keep upstream pressure bounded.
-   let examined=0,changed=false;
+   // Inspect at most two jobs per tick. Official NO_DATA is a
+   // distinguished outcome, not a zero-income or zero-units report.
+   let examined=0,changed=false,cycleError='';
    for(const target of targets){
     const k=key(month,target.scope,target.type),job=map.get(k);
-    if(!job||job.status==='FAILED')continue;
+    if(!job||job.noData)continue;
+    if(job.status==='FAILED'&&job.subStatus&&job.subStatus!=='NO_DATA')
+     continue;
     if(job.status==='DONE'&&job.audited&&target.type!=='realization')
      continue;
     if(job.status==='DONE'&&job.audited&&
       summaries.has(month+':'+target.scope))continue;
     if(examined++>=2)break;
-    if(job.status!=='DONE'){
-     const status=await api('/api/yandex/finance-reports?action=status&reportId='+
-      encodeURIComponent(job.reportId));
-     if(status.code!=='yandex_report_status')throw Error('status_invalid');
-     if(job.status!==status.status){job.status=status.status;changed=true;}
+    const status=await api('/api/yandex/finance-reports?action=status&reportId='+
+     encodeURIComponent(job.reportId));
+    const decision=classifyYandexReportStatus(status);
+    if(decision.kind==='invalid')throw Error('report_status_invalid');
+    const subStatus=status.subStatus||
+     (status.status==='FAILED'?'UNKNOWN':null);
+    if(job.status!==status.status||job.subStatus!==subStatus){
+     job.status=status.status;job.subStatus=subStatus;changed=true;
     }
-    if(job.status==='DONE'){
-     const audit=await api('/api/yandex/report-audit?reportId='+
-      encodeURIComponent(job.reportId));
-     if(audit.code!=='yandex_report_archive_audited')
-      throw Error('audit_incomplete');
+    if(decision.kind==='no_data'){
+     job.audited=true;job.noData=true;job.subStatus='NO_DATA';
      if(target.type==='realization')
-      summaries.set(month+':'+target.scope,summarizedRealization(audit));
-     if(!job.audited){job.audited=true;changed=true;}
+      summaries.set(month+':'+target.scope,
+       {noData:true,delivered:null,returned:null});
+     changed=true;continue;
     }
+    if(decision.kind==='failed'){
+     cycleError='report_failed_'+decision.reason.toLowerCase();
+     continue;
+    }
+    if(decision.kind==='awaiting_file'){
+     cycleError='report_file_unavailable';continue;
+    }
+    if(decision.kind!=='audit')continue;
+    const audit=await api('/api/yandex/report-audit?reportId='+
+     encodeURIComponent(job.reportId));
+    if(audit.code==='yandex_report_no_data'){
+     job.audited=true;job.noData=true;job.subStatus='NO_DATA';
+     if(target.type==='realization')
+      summaries.set(month+':'+target.scope,
+       {noData:true,delivered:null,returned:null});
+     changed=true;continue;
+    }
+    if(audit.code==='report_not_ready'){
+     cycleError='report_not_ready';continue;
+    }
+    if(audit.code!=='yandex_report_archive_audited')
+     throw Error('report_archive_invalid');
+    if(target.type==='realization')
+     summaries.set(month+':'+target.scope,summarizedRealization(audit));
+    if(!job.audited){job.audited=true;changed=true;}
    }
    if(changed)save(map);
    // The three archives can already be audited while the two realization
@@ -175,8 +204,9 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
      audited:false});
     save(map);
    }
-   nextError='';
-   paint(month,targets.map(x=>map.get(key(month,x.scope,x.type))||{}));
+   nextError=cycleError;
+   paint(month,targets.map(x=>map.get(key(month,x.scope,x.type))||{}),
+    nextError);
   }catch(e){
    if(['unauthorized','forbidden','not_configured'].includes(e?.message))
     authBlocked=true;
