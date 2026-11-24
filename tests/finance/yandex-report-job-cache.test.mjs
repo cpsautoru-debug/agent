@@ -35,3 +35,32 @@ test('old, invalid and out-of-scope jobs are discarded',()=>{
  assert.equal(recovered.size,1);
  assert.equal(recovered.has('2026-10:all:services'),true);
 });
+
+test('audited completed monthly sources survive 72 hours without re-generation',()=>{
+ const s=cache(),now=1795510000000;
+ const saved=new Map([
+  ['2026-10:all:orders',{reportId:'old-but-audited',status:'DONE',
+   createdAt:now-10*24*60*60*1000,audited:true}],
+  ['2026-10:149106500:realization',{
+   reportId:'no-data-source',status:'FAILED',
+   createdAt:now-5*24*60*60*1000,audited:true,
+   noData:true,subStatus:'NO_DATA'}]
+ ]);
+ assert.equal(saveYandexReportJobs(s,saved,now),true);
+ const restored=restoreYandexReportJobs(s,now);
+ assert.equal(restored.size,2);
+ assert.equal(restored.get('2026-10:all:orders').audited,true);
+ assert.equal(restored.get('2026-10:149106500:realization').noData,true);
+});
+test('stale empty-report results and expired completed archives are revisited',()=>{
+ const s=cache(),now=1795510000000;
+ const jobs=new Map([
+  ['2026-10:all:orders',{reportId:'expired',status:'DONE',
+   createdAt:now-46*24*60*60*1000,audited:true}],
+  ['2026-10:149106500:realization',{reportId:'older-no-data',
+   status:'FAILED',createdAt:now-8*24*60*60*1000,
+   audited:true,noData:true,subStatus:'NO_DATA'}]
+ ]);
+ saveYandexReportJobs(s,jobs,now);
+ assert.equal(restoreYandexReportJobs(s,now).size,0);
+});
