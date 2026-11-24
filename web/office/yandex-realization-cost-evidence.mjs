@@ -144,3 +144,60 @@ export function collectYandexRealizationCandidates(reportByCampaign){
  }
  return result;
 }
+
+/**
+ * Owner-readable, privacy-bounded SKU ledger for persistent finance review.
+ * Contains only seller-offer SKU, title, delivered/returned unit counts and
+ * already verified unit-cost status. NO buyer/order/payment identifiers.
+ */
+export function buildYandexSafeSkuEvidence(costAudit,reportByCampaign){
+ if(!costAudit||!Array.isArray(costAudit.rows)||!reportByCampaign)
+  throw Error('yandex_sku_evidence_invalid');
+ const result=[],issues=[];
+ const prices=new Map(costAudit.rows.map(x=>[
+  key(x.partnerId,x.shopSku),{
+   status:x.status,costKopecks:
+    ['matched_exact','matched_owner'].includes(x.status)&&
+    validMoney(x.costKopecks)?x.costKopecks:null,
+   name:String(x.name||'').slice(0,200)
+  }
+ ]));
+ for(const partnerId of CAMPAIGNS){
+  const audit=reportByCampaign[partnerId];
+  if(audit?.code==='yandex_report_no_data'){
+   issues.push({partnerId,reason:'source_no_data'});continue;
+  }
+  if(!audit){issues.push({partnerId,reason:'source_missing'});continue;}
+  const delivered=verifiedSheet(audit,'delivered.json','deliveredCount');
+  const returned=verifiedSheet(audit,'returned.json','returnedCount');
+  for(const [type,sheet] of [['delivered',delivered],['returned',returned]]){
+   if(sheet.status!=='verified'){
+    issues.push({partnerId,reason:type+'_'+sheet.status});
+    continue;
+   }
+   for(const item of sheet.items){
+    const price=prices.get(key(partnerId,item.shopSku));
+    let line=result.find(x=>x.partnerId===partnerId&&
+     x.shopSku===item.shopSku);
+    if(!line){
+     if(result.length>=500)throw Error('yandex_sku_evidence_too_many');
+     line={partnerId,shopSku:item.shopSku,
+      name:String(price?.name||item.offerName||'').slice(0,200),
+      deliveredUnits:0,returnedUnits:0,
+      costKopecks:price?.costKopecks??null,
+      costStatus:price?.status||'missing'};
+     result.push(line);
+    }
+    line[type==='delivered'?'deliveredUnits':'returnedUnits']=item.units;
+    if(!line.name&&item.offerName)line.name=item.offerName;
+   }
+  }
+ }
+ const missing=result.filter(x=>x.deliveredUnits>0&&
+  x.costKopecks===null);
+ return {month:costAudit.month,rows:result,issues,
+  missing:missing.map(x=>({partnerId:x.partnerId,shopSku:x.shopSku,
+   name:x.name,deliveredUnits:x.deliveredUnits})),
+  sourceKind:'BROWSER_AUDITED_REALIZATION_SKU_SUMMARY',
+  netProfitKopecks:null};
+}
