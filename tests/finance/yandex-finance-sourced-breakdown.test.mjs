@@ -28,7 +28,7 @@ test('unrecognized partner is not attributed to either ООО shop',()=>{
  ]}).sheets[0];
  assert.equal(r.recognizedShopRows,1);
  assert.equal(r.rows,2);
- assert.equal(r.groupingStatus,'grouped_by_partner_id');
+ assert.equal(r.groupingStatus,'verified_campaign_or_shop_name');
 });
 test('full archive review requires all three audited DONE jobs from same period and scope',()=>{
  const map=new Map();
