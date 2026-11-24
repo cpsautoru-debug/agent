@@ -7,6 +7,7 @@ import {collectOrderSkuCandidates}
 import {onRequestPost}
  from '../../functions/api/yandex/catalog-cost-evidence.js';
 import {readFileSync} from 'node:fs';
+import {applyOwnerConfirmedOzonCosts} from '../../web/office/owner-cost-confirmations.mjs';
 
 const audit=()=>({
  code:'unified_finance_source_audit',month:'2026-10',
@@ -93,6 +94,36 @@ test('same Ozon SKU with conflicting auxiliary and main Profit costs is blocked'
  assert.equal(r.matched,0);
  assert.equal(r.conflicting.length,1);
  assert.deepEqual(r.conflicting[0].pricesKopecks,[470000,450000]);
+});
+test('owner confirmed 4500 RUB resolves exact Ozon SKU Cross conflict without D1 mutation',()=>{
+ const raw=[{sku:'5023073005',seller_article:
+  'веста кросс-оранжевая поддержка-оранжевые соты',
+  cost_kopecks:470000,status:'confirmed',source:'Old owner entry'}];
+ const result=applyOwnerConfirmedOzonCosts(raw);
+ assert.equal(raw[0].cost_kopecks,470000);
+ assert.equal(result.rows[0].cost_kopecks,450000);
+ assert.equal(result.rows[0].raw_cost_kopecks,470000);
+ assert.equal(result.decisions[0].status,'owner_confirmation_applied_read_side');
+ const x=audit();
+ x.ozonCatalog.entries=[{sku:result.rows[0].sku,
+  sellerArticle:result.rows[0].seller_article,model:'Lada Vesta Cross',
+  costKopecks:result.rows[0].cost_kopecks,status:'confirmed'}];
+ x.ozonProfit={entries:[{sku:'5023073005',costKopecks:450000,
+  validFrom:'2026-10-01',validTo:null,status:'confirmed'}]};
+ x.ozonProfitCards={status:'ready',items:[{sku:'5023073005',
+  sellerArticle:raw[0].seller_article,name:'Vesta Cross, оранжевые соты'}]};
+ const crosswalk=reconcileYandexSharedCosts([
+  item('5023073005','Vesta Cross, оранжевые соты')],x,'2026-10');
+ assert.equal(crosswalk.rows[0].costKopecks,450000);
+ assert.equal(crosswalk.rows[0].status,'matched_exact');
+ assert.equal(crosswalk.conflicting.length,0);
+ const unrelated=applyOwnerConfirmedOzonCosts([{
+  ...raw[0],sku:'different',cost_kopecks:470000}]);
+ assert.equal(unrelated.rows[0].cost_kopecks,470000);
+ const later=applyOwnerConfirmedOzonCosts([{
+  ...raw[0],cost_kopecks:490000}]);
+ assert.equal(later.rows[0].cost_kopecks,490000);
+ assert.equal(later.decisions[0].status,'unexpected_source_value');
 });
 test('preliminary and outside-period costs never count as confirmed',()=>{
  const x=audit();
