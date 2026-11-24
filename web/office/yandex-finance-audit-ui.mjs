@@ -55,7 +55,7 @@ export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unkn
   textNode(doc,summary,sheet.sheet+' · '+count+' строк','h5');
   if(count>0)textNode(doc,summary,
    assigned===count?'Распределение по магазинам: '+assigned+' из '+count:
-    'Известен результат всего ООО. По магазинам распознано '+
+    'Известен результат всего ИП. По магазинам распознано '+
     assigned+' из '+count+' строк.');
   for(const field of approvedFields){
    const value=sheet.sumFields?.[field];
@@ -141,14 +141,14 @@ export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unkn
   '. Без магазинной детализации: '+unassignedRows+'.');
  textNode(doc,section,'Показатели разных отчётов и листов нельзя '+
   'суммировать друг с другом. До сверки продаж, возвратов, '+
-  'себестоимости и прямых расходов чистая прибыль ООО не подтверждена.');
+  'себестоимости и прямых расходов чистая прибыль ИП не подтверждена.');
  root.append(section);
 }
 export function renderYandexMonthlyEvidence(doc,root,sourceEvidence){
  const data=buildYandexMonthlyEvidence(sourceEvidence);
  const wrapper=doc.createElement('section');
  wrapper.className='profit-panel yandex-accounting-summary';
- textNode(doc,wrapper,'Яндекс Маркет · финансовый результат ООО','h3');
+ textNode(doc,wrapper,'Яндекс Маркет · финансовый результат ИП','h3');
  const margin=data.orderMargin;
  if(Number.isSafeInteger(data.preliminaryOrderAfterServiceKopecks)){
   textNode(doc,wrapper,
@@ -184,9 +184,9 @@ export function renderYandexMonthlyEvidence(doc,root,sourceEvidence){
    fmt(data.payments.amount.kopecks)+
    ' (контрольная сумма транзакций, не выручка и не прибыль).');
  textNode(doc,wrapper,
-  'Чистая прибыль ООО: НЕ ПОДТВЕРЖДЕНА. '+
+  'Чистая прибыль ИП: НЕ ПОДТВЕРЖДЕНА. '+
   'Осталось сверить фактические продажи и возвраты по SKU, '+
-  'себестоимость, внешние расходы и налог ООО.');
+  'себестоимость, внешние расходы и налог ИП.');
  root.prepend(wrapper);
  return data;
 }
