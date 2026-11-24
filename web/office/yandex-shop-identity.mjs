@@ -44,6 +44,12 @@ export function resolveYandexShop(row){
     Number(row.partnerId.trim()):null;
  const mappedPartner=sourcePartner===null?null:
   VERIFIED_REPORT_PARTNERS.get(sourcePartner)||null;
+ // An unseen partner ID could belong to a different business or shop.
+ // Do not trust a familiar shop name alone when it contradicts a
+ // separately supplied, unequal businessId and partnerId.
+ if(row.partnerId!=null&&row.partnerId!==''&&
+    !directPartner&&!mappedPartner&&
+    !sameIdentity(row.partnerId,row.businessId))return null;
  const sources=[campaign,directPartner,mappedPartner,name].filter(Boolean);
  if(!sources.length||sources.some(id=>id!==sources[0]))return null;
  // A recognized ID or exact owner-confirmed name is required;
