@@ -58,6 +58,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
  else root.prepend(section);
  let running=false,doneKey='',lastRun=0,latestCosts=null;
  let lastSnapshotKey='',lastSnapshotAttempt=0;
+ let latestReportIds=new Map();
  const financeEvidence=new Map();
  function showContribution(){
   const existing=view.querySelector?.('#yandexPreliminaryContribution');
@@ -116,7 +117,8 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
    ['149106500','realization','realization149106500']];
   const reportIds={};
   for(const [scope,type,name] of needed){
-   const job=jobs.get(month+':'+scope+':'+type);
+   const key=month+':'+scope+':'+type;
+   const job=jobs.get(key)||latestReportIds.get(key);
    if(job?.status!=='DONE'||!job.reportId)return;
    reportIds[name]=job.reportId;
   }
@@ -176,21 +178,55 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
    'all':shopNode.value;
   if(shop!=='all')return;
   const ids=collectYandexConfirmedJobs(storage,month,'all');
-  if(!ids.orders)return;
   const stored=restoreYandexReportJobs(storage);
   const campaignIds=[149082506,149106500];
+  const localReady=!!ids.orders&&campaignIds.every(id=>{
+   const job=stored.get(month+':'+id+':realization');
+   return job?.status==='DONE'&&job.audited===true;
+  });
+  if(!localReady){
+   // D1 stores opaque IDs and report status only; every server-supplied
+   // report must be freshly audited before its figures are used.
+   try{
+    const records=await api('/api/yandex/report-jobs?month='+
+     encodeURIComponent(month));
+    if(records.code==='yandex_report_jobs_saved'&&
+       records.readOnly===true&&Array.isArray(records.jobs)){
+     const remote=records.jobs.filter(j=>j.month===month&&
+       j.status==='DONE'&&
+       /^[a-zA-Z0-9_-]{1,255}$/.test(j.reportId||'')&&
+       ((j.scope==='all'&&
+        ['orders','services','payments'].includes(j.reportType))||
+        (['149082506','149106500'].includes(j.scope)&&
+         j.reportType==='realization')));
+     for(const job of remote){
+      const key=month+':'+job.scope+':'+job.reportType;
+      if(!stored.has(key)){
+       // Do not treat a D1 report ID as a completed audit.
+       stored.set(key,{status:'DONE',reportId:job.reportId,
+        audited:false,noData:false,createdAt:job.createdAt});
+      }
+     }
+    }
+   }catch{/* Keep existing browser evidence; no false zero. */}
+  }
+  const ordersId=ids.orders||
+   (stored.get(month+':all:orders')?.status==='DONE'?
+    stored.get(month+':all:orders').reportId:null);
+  if(!ordersId)return;
+  latestReportIds=new Map(stored);
   const realizationJobs=campaignIds.map(id=>stored.get(
    month+':'+id+':realization'));
   const realizationKey=realizationJobs.map(job=>!job?'missing':
    (job.noData?'no-data':
     (job.status==='DONE'&&job.audited?'verified:':'pending:')+
       job.reportId)).join('|');
-  const cacheKey=month+':'+ids.orders+':'+realizationKey;
+  const cacheKey=month+':'+ordersId+':'+realizationKey;
   if(!force&&doneKey===cacheKey&&Date.now()-lastRun<15*60*1000)return;
   running=true;status.textContent='Сопоставляем товары Яндекса с подтверждёнными себестоимостями…';
   try{
    const [orders,audit]=await Promise.all([
-    api('/api/yandex/report-audit?reportId='+encodeURIComponent(ids.orders)),
+    api('/api/yandex/report-audit?reportId='+encodeURIComponent(ordersId)),
     api('/api/finance/cost-audit?month='+encodeURIComponent(month))
    ]);
    const realizationProofs={};
@@ -200,7 +236,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
      realizationProofs[id]={code:'yandex_report_no_data'};
      return;
     }
-    if(job?.status!=='DONE'||!job.audited)return;
+    if(job?.status!=='DONE')return;
     try{
      const proof=await api('/api/yandex/report-audit?reportId='+
       encodeURIComponent(job.reportId));
