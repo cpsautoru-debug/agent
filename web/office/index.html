@@ -43,6 +43,7 @@
       <span>▦</span>Отделы <b>7</b>
     </a>
     <a href="#wbFinance" data-page="wbFinance"><span>◴</span>Финансы · WB</a>
+    <a href="#yandexFinance" data-page="yandexFinance"><span>◴</span>Финансы · Яндекс</a>
     <a href="#ozonProfit" data-page="ozonProfit"><span>◴</span>Прибыль Ozon</a>
     <a href="#ozonFinance" data-page="ozonFinance">
       <span>◴</span>Финансы · Ozon
@@ -555,28 +556,12 @@
       </article>
 
 </section>
-<!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
-    <section class="page" data-section="dashboard" hidden>
-      <div class="ceo-board" id="ceoBoard">
-        <div class="ceo-heading">
-          <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
-            <h1>Весь бизнес на одном экране</h1>
-            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Период для Ozon выбирается отдельно, WB и производство показывают состояние сохранённых мониторов.</p>
-          </div>
-          <div class="ceo-actions">
-            <label>Завершённый месяц Ozon <input id="ceoMonth" type="month" aria-label="Месяц Ozon"></label>
-            <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
-          </div>
-        </div>
-        <div class="ceo-alert">
-          <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
-          <p>Общий подтверждённый чистый доход всех каналов пока неизвестен: Ozon, WB, Яндекс, Авито и офлайн не сведены в единый проверенный отчёт. Это управленческий монитор, а не закрытая бухгалтерская отчётность.</p>
-        </div>
-        <section class="business-pnl" aria-label="Сводный управленческий P&L">
-  <div class="business-pnl-actions"><h2>Прибыль бизнеса · все каналы</h2><button id="businessPnlRefresh" class="button light" type="button">Пересчитать сводку</button><span id="businessPnlLoadStatus" class="business-pnl-load-status" role="status" aria-live="polite">Готово к пересчёту</span></div>
-  <div id="businessPnl" role="status">Данные каналов загружаются. Налог и постоянные расходы будут вычитаться после результатов каналов.</div>
-</section>
-<section class="business-pnl" aria-label="Подключение Яндекс Маркета">
+<section class="page" data-section="yandexFinance" hidden>
+ <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ЯНДЕКС МАРКЕТ</div>
+ <h1>Финансы · Яндекс Маркет</h1>
+ <p>Два магазина одного ООО. Продажи, услуги, платежи и себестоимость анализируются отдельно; непроверенные суммы не считаются прибылью.</p>
+ </div><a href="#dashboard">← Пульт руководителя</a></div>
+ <section class="business-pnl" aria-label="Подключение Яндекс Маркета">
  <div class="business-pnl-actions"><h2>Яндекс Маркет · API и финансы</h2>
  <button id="yandexConnectionCheck" class="button light" type="button">Проверить API Яндекс Маркета</button></div>
  <p id="yandexConnectionStatus" role="status">Проверяем подключение к Яндекс Маркету при открытии дашборда. Секрет остаётся в Cloudflare.</p>
@@ -608,6 +593,29 @@
    </div>
    <div id="yandexFinanceReportLines" aria-label="Проверенные исходные суммы отчёта"></div>
  </div>
+</section>
+
+</section>
+<!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
+    <section class="page" data-section="dashboard" hidden>
+      <div class="ceo-board" id="ceoBoard">
+        <div class="ceo-heading">
+          <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
+            <h1>Весь бизнес на одном экране</h1>
+            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Период для Ozon выбирается отдельно, WB и производство показывают состояние сохранённых мониторов.</p>
+          </div>
+          <div class="ceo-actions">
+            <label>Завершённый месяц Ozon <input id="ceoMonth" type="month" aria-label="Месяц Ozon"></label>
+            <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
+          </div>
+        </div>
+        <div class="ceo-alert">
+          <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
+          <p>Общий подтверждённый чистый доход всех каналов пока неизвестен: Ozon, WB, Яндекс, Авито и офлайн не сведены в единый проверенный отчёт. Это управленческий монитор, а не закрытая бухгалтерская отчётность.</p>
+        </div>
+        <section class="business-pnl" aria-label="Сводный управленческий P&L">
+  <div class="business-pnl-actions"><h2>Прибыль бизнеса · все каналы</h2><button id="businessPnlRefresh" class="button light" type="button">Пересчитать сводку</button><span id="businessPnlLoadStatus" class="business-pnl-load-status" role="status" aria-live="polite">Готово к пересчёту</span></div>
+  <div id="businessPnl" role="status">Данные каналов загружаются. Налог и постоянные расходы будут вычитаться после результатов каналов.</div>
 </section>
 <div class="ceo-grid">
           <article class="ceo-card">
