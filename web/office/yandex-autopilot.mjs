@@ -100,6 +100,11 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
   try{
    const response=await api('/api/yandex/report-jobs?month='+
     encodeURIComponent(month));
+   if(response.code==='yandex_report_jobs_uninitialized'){
+    const existing=jobs();
+    if(existing.size&&serverWritable)void persistJobs(existing);
+    return;
+   }
    if(response.code!=='yandex_report_jobs_saved')return;
    const local=jobs();
    const combined=mergeYandexRemoteJobs(local,response.jobs||[]);
