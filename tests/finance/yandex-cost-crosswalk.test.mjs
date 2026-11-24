@@ -59,6 +59,23 @@ test('confirmed same-model costs can be reused but conflicting Cross remains unk
  assert.equal(r.netProfitKopecks,null);
 });
 
+test('main Ozon Profit cost ledger provides product cost via its verified article',()=>{
+ const x=audit();
+ x.ozonProfit={entries:[{sku:'5023073005',costKopecks:450000,
+  validFrom:'2026-10-01',validTo:null,status:'confirmed'}]};
+ x.ozonProfitCards={status:'ready',items:[{
+  sku:'5023073005',sellerArticle:'чехлы-веста-кросс-оранжевые',
+  name:'Авточехлы Lada Vesta Cross, оранжевые соты'
+ }]};
+ // Exactly the same physical article; explicit SKU mapping outranks
+ // different variants' generic model costs.
+ const r=reconcileYandexSharedCosts([
+  item('чехлы-веста-кросс-оранжевые','Чехлы Vesta Cross')],
+  x,'2026-10');
+ assert.equal(r.rows[0].costKopecks,450000);
+ assert.equal(r.rows[0].status,'matched_exact');
+ assert.ok(r.rows[0].sources.includes('Ozon Profit'));
+});
 test('preliminary and outside-period costs never count as confirmed',()=>{
  const x=audit();
  x.wb.entries=[{vendorCode:'коврики_ева',validFrom:'2026-11-01',
