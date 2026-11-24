@@ -118,7 +118,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    campaigns=result;
    shopSelect.replaceChildren();
    const joint=documentRef.createElement('option');
-   joint.value='all';joint.textContent='Оба магазина · одно ООО';
+   joint.value='all';joint.textContent='Оба магазина · ИП Жилина Ольга';
    shopSelect.append(joint);
    for(const shop of result.campaigns){
     const opt=documentRef.createElement('option');
