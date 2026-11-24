@@ -20,7 +20,7 @@ export async function verifyYandexOwner(request,env){
  return null;
 }
 export async function yandexRequest(env,path,{method='GET',body}={}){
- if(!/^\/v2\/(?:campaigns(?:\?.*)?|reports\/(?:united-orders|united-marketplace-services|united-netting)\/generate\?format=JSON|reports\/info\/[a-zA-Z0-9_-]{1,255})$/.test(path))
+ if(!/^\/v2\/(?:campaigns(?:\?.*)?|reports\/(?:united-orders|united-marketplace-services|united-netting|goods-realization)\/generate\?format=JSON|reports\/info\/[a-zA-Z0-9_-]{1,255})$/.test(path))
   throw Error('yandex_path_not_allowed');
  const response=await fetch('https://api.partner.market.yandex.ru'+path,{
   method,headers:{'Api-Key':env.YANDEX_MARKET_API_KEY,'Accept':'application/json',
@@ -82,7 +82,8 @@ export function monthBounds(month){
 export const reportPaths={
  orders:'united-orders',
  services:'united-marketplace-services',
- payments:'united-netting'
+ payments:'united-netting',
+ realization:'goods-realization'
 };
 export function mapSafeYandexError(error){
  return new Set(['yandex_access_denied','yandex_rate_limited',
