@@ -45,7 +45,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  const details=documentRef.createElement('p');
  panel.append(h,state,details);container.append(panel);
  const summaries=new Map();
- let timer=null,busy=false,checkedCampaigns=false,lastMonth='';
+ let timer=null,busy=false,checkedCampaigns=false,lastMonth='',announcedMonth='';
  const jobs=()=>restoreYandexReportJobs(storage);
  const save=(map)=>{saveYandexReportJobs(storage,map);
   windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));};
@@ -116,7 +116,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
      const status=await api('/api/yandex/finance-reports?action=status&reportId='+
       encodeURIComponent(job.reportId));
      if(status.code!=='yandex_report_status')throw Error('status_invalid');
-     job.status=status.status;changed=true;
+     if(job.status!==status.status){job.status=status.status;changed=true;}
     }
     if(job.status==='DONE'){
      const audit=await api('/api/yandex/report-audit?reportId='+
@@ -128,10 +128,13 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
      if(!job.audited){job.audited=true;changed=true;}
     }
    }
-   if(changed){
-    save(map);
-    if(TYPES.every(type=>map.get(key(month,'all',type))?.audited))
-     windowRef.dispatchEvent(new Event('yandex-finance-ready'));
+   if(changed)save(map);
+   // The three archives can already be audited while the two realization
+   // jobs are still pending. Do not re-download all three every 30 seconds.
+   if(TYPES.every(type=>map.get(key(month,'all',type))?.audited)&&
+     announcedMonth!==month){
+    announcedMonth=month;
+    windowRef.dispatchEvent(new Event('yandex-finance-ready'));
    }
    const missing=targets.find(x=>!map.has(key(month,x.scope,x.type)));
    if(missing&&Date.now()-last()>=GAP_MS){
