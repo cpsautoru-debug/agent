@@ -103,7 +103,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
    evidence.paymentAuditComplete?
     'Три финансовых архива проверены. ':
     'Услуги и платежи требуют сверки. ')+
-   'Себестоимость, возвраты, налог ООО и внешние расходы — отдельно.';
+   'Себестоимость, возвраты, налог ИП и внешние расходы — отдельно.';
  }
  function refreshYandexPanel(evidence){
   if(!lastRender||lastRender.month!==evidence?.month)return;
@@ -123,7 +123,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const sourceNotes={
     ozon:'Ожидает расчёт по сверенным данным.',
     wb:'Данные прибыли пока не подтверждены.',
-    yandex:'Отчёты двух магазинов стороннего ООО исключены. Для ИП Жилиной Ольги отдельный расчёт Яндекса пока не подтверждён.',
+    yandex:'Нет подключённого подтверждённого P&L за этот месяц.',
     avito:'Нет подключённого подтверждённого P&L за этот месяц.',
     offline:'Нет подключённого подтверждённого P&L за этот месяц.'
   };
