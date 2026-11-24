@@ -23,11 +23,21 @@ function render(root,pnl,sourceNotes={},interim={}){
  const cards=el('div','business-pnl-cards');
  for(const ch of pnl.channels){
   const card=el('article','business-pnl-card');
+  // The Yandex finance report verifies income *after included services*,
+  // not a channel profit. Show its real sourced amount as the main figure,
+  // but NEVER write it into the P&L contribution or consolidated total.
+  const yandexIncome=ch.id==='yandex'&&interim.yandex&&
+   Number.isSafeInteger(interim.yandex.incomeKopecks)&&
+   interim.yandex.month===pnl.month;
+  const mainAmount=yandexIncome?interim.yandex.incomeKopecks:ch.profitKopecks;
+  const mainMeaning=yandexIncome?
+   'Доход после услуг · НЕ чистая прибыль':
+   ch.status==='known_cost_result'?
+    'По известным затратам · не чистая прибыль':
+   ch.status==='verified'?'Подтверждено':'Нет закрытого расчёта';
   card.append(el('h3','',labels[ch.id]),
-   el('strong','',money(ch.profitKopecks)),
-   el('small','',ch.status==='known_cost_result'?
-     'По известным затратам · не чистая прибыль':
-     ch.status==='verified'?'Подтверждено':'Нет закрытого расчёта'));
+   el('strong','',money(mainAmount)),
+   el('small','',mainMeaning));
   if(ch.id==='wb'&&interim.wb){
    const detail=interim.wb;
    card.append(el('small','business-pnl-subhead',
@@ -43,14 +53,10 @@ function render(root,pnl,sourceNotes={},interim={}){
    }
    card.append(fold);
   }
-  if(ch.id==='yandex'&&interim.yandex){
-   card.append(el('small','business-pnl-subhead',
-    'Доход после услуг, уже включённых в отчёт'),
-    el('strong','business-pnl-interim-value',
-     money(interim.yandex.incomeKopecks)),
-    el('small','business-pnl-interim-warning',
-     'Оба магазина одного ООО · '+interim.yandex.orders+
-      ' заказов · НЕ чистая прибыль; услуги второй раз не вычитать'));
+  if(yandexIncome){
+   card.append(el('small','business-pnl-interim-warning',
+    'Оба магазина одного ООО · '+interim.yandex.orders+
+    ' заказов. Комиссии уже учтены. Себестоимость, возвраты, налог ООО и общие расходы ещё не выверены.'));
   }
   if(ch.id==='ozon'||ch.id==='wb'||ch.id==='yandex'){
    const link=el('a','business-pnl-detail-link',
