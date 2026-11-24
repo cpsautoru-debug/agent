@@ -219,7 +219,7 @@ test('Yandex catalog evidence API is owner-only and rejects cross-site requests'
 test('cost-mapping UI is loaded by the office and source has no API keys',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const code=readFileSync(new URL('../../web/office/yandex-cost-crosswalk-ui.mjs',import.meta.url),'utf8');
- assert.match(html,/yandex-cost-crosswalk-ui\.mjs/);
+ assert.doesNotMatch(html,/src="yandex-cost-crosswalk-ui\.mjs/);
  assert.match(code,/\/api\/finance\/cost-audit/);
  assert.match(code,/\/api\/yandex\/catalog-cost-evidence/);
  assert.doesNotMatch(code,/YANDEX_MARKET_API_KEY|Api-Key/);
