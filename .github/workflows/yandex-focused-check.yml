@@ -6,6 +6,11 @@ on:
     paths:
       - 'functions/api/yandex/**'
       - 'web/office/yandex-*.mjs'
+      - 'web/office/ceo-dashboard.mjs'
+      - 'web/office/business-pnl.mjs'
+      - 'web/office/office-source-registry.mjs'
+      - 'web/office/index.html'
+      - 'tests/office/ceo-dashboard.test.mjs'
       - 'tests/finance/yandex-*.test.mjs'
       - '.github/workflows/yandex-focused-check.yml'
   workflow_dispatch:
@@ -20,4 +25,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run only Yandex finance regressions
-        run: node --test tests/finance/yandex-*.test.mjs
+        run: node --test tests/finance/yandex-*.test.mjs tests/office/ceo-dashboard.test.mjs tests/finance/business-pnl-source-evidence.test.mjs
