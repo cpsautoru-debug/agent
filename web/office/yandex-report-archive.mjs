@@ -128,17 +128,29 @@ export function describeYandexReportSheets(files){
    }));
   const realizationKind=/^(delivered|returned)\.json$/i.exec(name)?.[1]||null;
   const realizationMap=new Map();
+  const realizationCoverage={recognizedRows:0,unmappedRows:0,
+   skippedRows:0,invalidQuantityRows:0};
   if(realizationKind){
    for(const row of rows){
     const sku=row?.yourSku||row?.shopSku;
-    if(typeof sku!=='string'||!sku||sku.length>150)continue;
-    if(!realizationMap.has(sku)&&realizationMap.size>=250)continue;
-    const stat=realizationMap.get(sku)||{shopSku:sku,rows:0,units:0,invalid:0};
+    if(typeof sku!=='string'||!sku||sku.length>150){
+     realizationCoverage.unmappedRows++;continue;
+    }
+    if(!realizationMap.has(sku)&&realizationMap.size>=250){
+     realizationCoverage.skippedRows++;continue;
+    }
+    realizationCoverage.recognizedRows++;
+    const stat=realizationMap.get(sku)||{shopSku:sku,
+     offerName:typeof row?.offerName==='string'?
+      row.offerName.slice(0,200):'',rows:0,units:0,invalid:0};
+    if(!stat.offerName&&typeof row?.offerName==='string')
+     stat.offerName=row.offerName.slice(0,200);
     const qty=row?.[realizationKind==='delivered'?'deliveredCount':'returnedCount'];
     stat.rows++;
     if(!Number.isSafeInteger(qty)||qty<0||
-       !Number.isSafeInteger(stat.units+qty))stat.invalid++;
-    else stat.units+=qty;
+       !Number.isSafeInteger(stat.units+qty)){
+     stat.invalid++;realizationCoverage.invalidQuantityRows++;
+    }else stat.units+=qty;
     realizationMap.set(sku,stat);
    }
   }
@@ -264,6 +276,7 @@ export function describeYandexReportSheets(files){
    isOrderMarginSource:marginSheet,ordersWithIds,duplicateOrderIds,
    sumFields,quantityTotals,realizationKind,
    realizationSkuSummaries:[...realizationMap.values()],
+   realizationSkuCoverage:realizationCoverage,
    transactionTypes:types,dimensions,
    shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
    recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
