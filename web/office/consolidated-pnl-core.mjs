@@ -48,11 +48,19 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
  const after=channelsTotal===null||sharedExpensesComplete!==true||
    taxesComplete!==true||sharedTotal===null||taxTotal===null?null:
    moneySum([channelsTotal,-sharedTotal,-taxTotal]);
+ // Arithmetic over visible known rows ONLY. Shared expenses and the
+ // whole-IP tax are not attributable to just these channels; the resulting
+ // number is neither channel profit nor the business net profit.
+ const visibleRowsRemainder=knownChannelsTotal!==null&&
+  sharedTotal!==null&&taxTotal!==null?
+   moneySum([knownChannelsTotal,-sharedTotal,-taxTotal]):null;
  return {month,channels:entries,sharedExpenses, taxes,
    status:confirmed?'verified':after!==null?'management_estimate':'incomplete',
    sharedExpensesComplete,taxesComplete,
    missingChannels:missing,channelsTotalKopecks:channelsTotal,
    knownChannelsTotalKopecks:knownChannelsTotal,
+   visibleRowsRemainderKopecks:visibleRowsRemainder,
+   visibleRowsRemainderIsProfit:false,
    knownChannelCount:knownEntries.length,
    sharedExpenseTotalKopecks:sharedTotal,taxTotalKopecks:taxTotal,
    finalProfitKopecks:after,verified:confirmed,
