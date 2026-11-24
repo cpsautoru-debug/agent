@@ -91,6 +91,32 @@ export function createUnifiedCostAuditHandler({now=Date.now}={}){
           }
         }catch{/* Known source missing, not an implicit zero. */}
       }
+      // The primary Ozon Profit cost ledger contains SKU identifiers.
+      // A verified same-month source file contains their seller articles and
+      // names; expose only owner-safe product identities, no sales rows.
+      let ozonProfitCards={status:'unavailable',items:[]};
+      if(rpc&&typeof rpc.getProfitDocument==='function'&&
+         profitDoc&&Array.isArray(profitDoc.entries)){
+        try{
+          const monthDoc=await rpc.getProfitDocument('month:'+month);
+          if(monthDoc?.key==='month:'+month&&
+             monthDoc.target==='ce9dd331-929d-4c3e-9073-368de3346bc9'&&
+             Array.isArray(monthDoc.value?.rows)&&
+             monthDoc.value.rows.length<=20000){
+            const required=new Set(profitDoc.entries.map(x=>String(x.sku)));
+            const cards=new Map();
+            for(const row of monthDoc.value.rows){
+              const sku=String(row?.sku||'');
+              if(!required.has(sku)||cards.has(sku)||
+                 typeof row?.name!=='string'||!row.name.trim()||
+                 typeof row.article!=='string'||!row.article.trim())continue;
+              cards.set(sku,{sku,name:row.name.slice(0,250),
+                sellerArticle:row.article.slice(0,250)});
+            }
+            ozonProfitCards={status:'ready',items:[...cards.values()]};
+          }
+        }catch{/* Other sources still usable, never assume empty cards. */}
+      }
       stage='source_validation';
       const audit=auditUnifiedCostSources({
         month,wbRows:wbResult.results,wbRegistryStatus,
@@ -99,7 +125,7 @@ export function createUnifiedCostAuditHandler({now=Date.now}={}){
         ozonExpensesDocument:expensesDoc,ozonExpensesStatus,
         profitVersion,expenseVersion
       });
-      return json(200,{...audit,asOfMs:now()});
+      return json(200,{...audit,ozonProfitCards,asOfMs:now()});
     }catch{
       return json(503,{code:'unified_cost_audit_unavailable',
         stage:['wb_costs_read','ozon_auxiliary_costs_read',
