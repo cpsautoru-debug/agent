@@ -2,6 +2,9 @@ import {collectYandexConfirmedJobs}
  from './yandex-finance-audit-ui.mjs';
 import {reconcileYandexSharedCosts}
  from './yandex-cost-crosswalk-core.mjs';
+import {restoreYandexReportJobs} from './yandex-finance-job-cache.mjs';
+import {reconcileYandexRealizationCosts,collectYandexRealizationCandidates}
+ from './yandex-realization-cost-evidence.mjs';
 // Matches only official October order SKUs, not every listed product.
 // The page is a read-only reconciliation surface; all prices are per unit.
 const knownShops={149082506:'САД',149106500:'автосклад'};
@@ -79,7 +82,15 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   if(shop!=='all')return;
   const ids=collectYandexConfirmedJobs(storage,month,'all');
   if(!ids.orders)return;
-  const cacheKey=month+':'+ids.orders;
+  const stored=restoreYandexReportJobs(storage);
+  const campaignIds=[149082506,149106500];
+  const realizationJobs=campaignIds.map(id=>stored.get(
+   month+':'+id+':realization'));
+  const realizationKey=realizationJobs.map(job=>!job?'missing':
+   (job.noData?'no-data':
+    (job.status==='DONE'&&job.audited?'verified:':'pending:')+
+      job.reportId)).join('|');
+  const cacheKey=month+':'+ids.orders+':'+realizationKey;
   if(!force&&doneKey===cacheKey&&Date.now()-lastRun<15*60*1000)return;
   running=true;status.textContent='Сопоставляем товары Яндекса с подтверждёнными себестоимостями…';
   try{
@@ -87,7 +98,30 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     api('/api/yandex/report-audit?reportId='+encodeURIComponent(ids.orders)),
     api('/api/finance/cost-audit?month='+encodeURIComponent(month))
    ]);
+   const realizationProofs={};
+   await Promise.all(campaignIds.map(async(id,index)=>{
+    const job=realizationJobs[index];
+    if(job?.noData){
+     realizationProofs[id]={code:'yandex_report_no_data'};
+     return;
+    }
+    if(job?.status!=='DONE'||!job.audited)return;
+    try{
+     const proof=await api('/api/yandex/report-audit?reportId='+
+      encodeURIComponent(job.reportId));
+     if(proof.code==='yandex_report_archive_audited'&&
+        proof.readOnly===true&&proof.changedRecords===0)
+      realizationProofs[id]=proof;
+    }catch{/* The other shop and the existing orders stay readable. */}
+   }));
    const candidates=collectOrderSkuCandidates(orders);
+   const seen=new Map(candidates.map(x=>[x.partnerId+':'+x.shopSku,x]));
+   for(const item of collectYandexRealizationCandidates(realizationProofs)){
+    const k=item.partnerId+':'+item.shopSku;
+    const old=seen.get(k);
+    if(!old){seen.set(k,item);candidates.push(item);}
+    else if(!old.offerName&&item.offerName)old.offerName=item.offerName;
+   }
    if(!candidates.length){
     status.textContent='Официальный отчёт не содержит распознанных SKU и названий товаров; автоматическая привязка пока невозможна.';
     return;
@@ -112,6 +146,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     catalogPurchasePriceKopecks:names.get(x.shopSku)?.catalogPurchasePriceKopecks??null
    }));
    const result=reconcileYandexSharedCosts(named,audit,month);
+   const costOfGoods=reconcileYandexRealizationCosts(result,realizationProofs);
    if(monthNode.value!==month||shopNode.value!=='all')return;
    view.replaceChildren();
    status.textContent='Товары из отчёта '+month+': '+result.total+
@@ -121,9 +156,43 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     '. Источник названий: '+(catalogStatus==='available'?
     'каталог Яндекса':'архив заказов')+'.';
    const found=result.rows.filter(x=>x.costKopecks!==null);
+   const deliveredStatus=el(documentRef,'div');
+   deliveredStatus.className='yandex-realization-cogs';
+   deliveredStatus.append(el(documentRef,'h4',
+    'Себестоимость по фактически доставленным и возвращённым товарам'));
+   for(const shop of costOfGoods.byShop){
+    const name=knownShops[shop.campaignId];
+    const statusLine=shop.status==='no_data'?
+     'Яндекс вернул NO_DATA; нулевые продажи не предполагаются':
+     shop.status==='not_ready'?'Отчёт реализации ещё не проверен':
+     'доставлено '+(shop.deliveredUnits??'не подтверждено')+
+     ', возвращено '+(shop.returnedUnits??'не подтверждено')+
+     '; себестоимость доставленных '+money(shop.deliveredCostKopecks)+
+     '; стоимость возвращённых по норме '+money(shop.returnedValueKopecks)+
+     (shop.missing.length?'; без стоимости SKU: '+shop.missing.length:'');
+    deliveredStatus.append(el(documentRef,'p',name+': '+statusLine));
+   }
+   if(costOfGoods.status==='two_shops_cost_verified')
+    deliveredStatus.append(el(documentRef,'p',
+     'Всё две точки: себестоимость доставленных '+
+     money(costOfGoods.totalDeliveredCostKopecks)+
+     '; стоимость возвратов по норме '+
+     money(costOfGoods.totalReturnedValueKopecks)+
+     '. Это не чистая прибыль и не подтверждённое списание себестоимости возвратов.'));
+   else deliveredStatus.append(el(documentRef,'p',
+    'Общая себестоимость ООО ещё не подтверждена: '+
+    'нет всех отчётов или цен. Пустые источники не считаются нулём.'));
+   view.append(deliveredStatus);
    makeList('Стоимость найдена',found,x=>
     ' · '+money(x.costKopecks)+' · '+x.sources.join(' + '));
-   makeList('Нужна себестоимость',result.missing);
+   const unresolved=new Map(result.missing.map(x=>
+    [x.partnerId+':'+x.shopSku,x]));
+   for(const x of costOfGoods.missing){
+    const k=x.partnerId+':'+x.shopSku;
+    if(!unresolved.has(k))unresolved.set(k,{
+     ...x,missingSource:'realization'});
+   }
+   makeList('Нужна себестоимость', [...unresolved.values()]);
    makeList('Разные цены в справочниках · требует уточнения',
     result.conflicting,x=>' · варианты: '+
      (x.pricesKopecks||[]).map(money).join(' / '));
@@ -135,6 +204,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   }finally{running=false;}
  }
  windowRef.addEventListener('yandex-finance-ready',()=>{void run(true);});
+ windowRef.addEventListener('yandex-auto-jobs-updated',()=>{void run();});
  windowRef.addEventListener('hashchange',()=>{void run();});
  monthNode.addEventListener('change',()=>{doneKey='';void run();});
  shopNode.addEventListener('change',()=>{doneKey='';void run();});
