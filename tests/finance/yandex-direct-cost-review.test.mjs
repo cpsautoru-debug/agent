@@ -123,3 +123,43 @@ test('an unnamed seller SKU can use exact title from owner Yandex catalog, never
  assert.equal(x.status,'preliminary_cost_reconciled');
  assert.equal(x.cogsKopecks,1220000);
 });
+
+test('generic realization product name is enriched by exact owner Yandex catalog identity',()=>{
+ const reports=realization();
+ reports[149082506]=audit({
+  'delivered.json':[{yourSku:'VESTA',
+   offerName:'Чехлы автомобильные',deliveredCount:2}],
+  'returned.json':[{yourSku:'VESTA',
+   offerName:'Чехлы автомобильные',returnedCount:1}]
+ });
+ const catalog=costs();
+ catalog.wb.entries=catalog.wb.entries.filter(x=>x.vendorCode!=='VESTA');
+ const first=reconcileDirectYandexMonth(month,sources(),reports,catalog);
+ assert.equal(first.status,'incomplete_cost_coverage');
+ assert.equal(first.missing.length,1);
+ const second=reconcileDirectYandexMonth(month,sources(),reports,catalog,{
+  catalogOfferNames:{VESTA:
+   'Авточехлы Vesta Cross оранжевая поддержка, оранжевые соты'}
+ });
+ assert.equal(second.status,'preliminary_cost_reconciled');
+ assert.equal(second.missing.length,0);
+ assert.equal(second.cogsKopecks,1220000);
+});
+test('conflicting identities in official Yandex report and catalog cannot invent unit cost',()=>{
+ const reports=realization();
+ reports[149082506]=audit({
+  'delivered.json':[{yourSku:'VESTA',
+   offerName:'Авточехлы Lada Granta',deliveredCount:2}],
+  'returned.json':[{yourSku:'VESTA',
+   offerName:'Авточехлы Lada Granta',returnedCount:1}]
+ });
+ const catalog=costs();
+ catalog.wb.entries=catalog.wb.entries.filter(x=>x.vendorCode!=='VESTA');
+ const result=reconcileDirectYandexMonth(month,sources(),reports,catalog,{
+  catalogOfferNames:{VESTA:
+   'Авточехлы Vesta Cross оранжевая поддержка, оранжевые соты'}
+ });
+ assert.equal(result.status,'incomplete_cost_coverage');
+ assert.equal(result.preliminaryContributionKopecks,null);
+ assert.equal(result.missing.length,1);
+});
