@@ -8,10 +8,16 @@ on:
       - 'web/office/yandex-*.mjs'
       - 'web/office/ceo-dashboard.mjs'
       - 'web/office/business-pnl.mjs'
+      - 'web/office/wb-management-profit.mjs'
+      - 'web/office/consolidated-pnl-core.mjs'
+      - 'web/office/ozon-provisional-profit.mjs'
       - 'web/office/office-source-registry.mjs'
       - 'web/office/index.html'
       - 'tests/office/ceo-dashboard.test.mjs'
       - 'tests/finance/yandex-*.test.mjs'
+      - 'tests/finance/consolidated-pnl.test.mjs'
+      - 'tests/finance/ozon-provisional-profit.test.mjs'
+      - 'tests/finance/wb-owner-cost-reconciliation.test.mjs'
       - '.github/workflows/yandex-focused-check.yml'
   workflow_dispatch:
 permissions:
@@ -24,5 +30,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run only Yandex finance regressions
-        run: node --test tests/finance/yandex-*.test.mjs tests/office/ceo-dashboard.test.mjs tests/finance/business-pnl-source-evidence.test.mjs
+      - name: Audit three marketplace finance modules
+        run: node --test tests/finance/yandex-*.test.mjs tests/finance/consolidated-pnl.test.mjs tests/finance/ozon-provisional-profit.test.mjs tests/finance/wb-owner-cost-reconciliation.test.mjs tests/office/ceo-dashboard.test.mjs tests/finance/business-pnl-source-evidence.test.mjs
