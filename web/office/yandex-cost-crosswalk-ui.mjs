@@ -61,6 +61,8 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   const group=el(documentRef,'details');
   const caption=el(documentRef,'summary',title+' · '+rows.length);
   group.append(caption);
+  // Show actionable questions immediately; only confirmed matches collapse.
+  group.open=title!=='Стоимость найдена';
   const list=el(documentRef,'ol');
   for(const x of rows){
    const item=el(documentRef,'li',knownShops[x.partnerId]+
