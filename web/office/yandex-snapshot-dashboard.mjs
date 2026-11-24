@@ -34,7 +34,10 @@ export function interpretYandexCostSnapshot(month,data){
     x.costKopecks===null).slice(0,30).map(x=>({
      shopSku:String(x.shopSku||'').slice(0,150),
      name:String(x.name||'').slice(0,200)})),
-   issues:e.issues.length,netProfitKopecks:null};
+   issues:e.issues.length,
+   issueDetails:e.issues.slice(0,10).map(x=>({
+    partnerId:x.partnerId,reason:String(x.reason||'unknown').slice(0,80)})),
+   netProfitKopecks:null};
  return blocked('preliminary_calculation_invalid');
 }
 
@@ -67,7 +70,10 @@ export function interpretYandexDirectCostReview(month,data){
    missingProducts:data.missing.slice(0,30).map(x=>({
     shopSku:String(x.shopSku||'').slice(0,150),
     name:String(x.name||'').slice(0,200)})),
-   issues:data.issues.length,netProfitKopecks:null,
+   issues:data.issues.length,
+   issueDetails:data.issues.slice(0,10).map(x=>({
+    partnerId:x.partnerId,reason:String(x.reason||'unknown').slice(0,80)})),
+   netProfitKopecks:null,
    source:'server_direct_yandex_report_and_cost_audit'};
  return unavailable;
 }
