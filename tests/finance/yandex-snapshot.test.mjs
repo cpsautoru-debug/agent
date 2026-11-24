@@ -39,8 +39,8 @@ test('no fabricated net profit, unknown costs, foreign owner or false period',()
    preliminaryContributionKopecks:1,
    deliveredCostKopecks:100,returnedValueKopecks:0}},
   {e:{ownerEntity:'ООО'}},
-  {reportIds:{orders:'other'}},
-  {month:'2026-11'},
+  {reportIds:{orders:'invalid/char'}},
+  {month:'2099-12'},
   {e:{skus:[{...base().evidence.skus[0],
    shopSku:'VESTA',costKopecks:0}]}}
  ];
