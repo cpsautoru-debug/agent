@@ -15,7 +15,7 @@ export function restoreYandexReportJobs(store,now=Date.now()){
       v.createdAt>now||now-v.createdAt>TTL||
       !['PENDING','PROCESSING','DONE','FAILED'].includes(v.status))continue;
    restored.set(key,{reportId:v.reportId,status:v.status,
-    createdAt:v.createdAt});
+    createdAt:v.createdAt,audited:v.audited===true});
   }
  }catch{return restored;}
  return restored;
@@ -28,7 +28,7 @@ export function saveYandexReportJobs(store,jobs,now=Date.now()){
      !Number.isSafeInteger(v.createdAt)||v.createdAt>now||
      now-v.createdAt>TTL)continue;
   entries[key]={reportId:v.reportId,status:v.status,
-   createdAt:v.createdAt};
+   createdAt:v.createdAt,audited:v.audited===true};
  }
  try{store.setItem(KEY,JSON.stringify(entries));return true;}
  catch{return false;}
