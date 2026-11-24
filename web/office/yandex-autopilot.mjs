@@ -1,4 +1,4 @@
-import {restoreYandexReportJobs,saveYandexReportJobs}
+import {restoreYandexReportJobs,saveYandexReportJobs,mergeYandexRemoteJobs}
  from './yandex-finance-job-cache.mjs';
 // Browser-side self-service runner. Every API call is owner-authenticated
 // server-side. No API keys, customer rows or signed download URLs stored here.
@@ -59,9 +59,15 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  panel.append(h,state,details);container.prepend(panel);
  const summaries=new Map();
  let timer=null,busy=false,checkedCampaigns=false,lastMonth='',announcedMonth='',authBlocked=false;
+ let fetchedRemoteMonth=null,serverWritable=true;
  const jobs=()=>restoreYandexReportJobs(storage);
- const save=(map)=>{saveYandexReportJobs(storage,map);
-  windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));};
+ const save=(map)=>{
+  saveYandexReportJobs(storage,map);
+  windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));
+  if(!serverWritable)return;
+  // Persist metadata only; no financial rows, customer information or token.
+  void persistJobs(map);
+ };
  const api=async(path,options)=>{
   const response=await fetcher(path,{credentials:'same-origin',cache:'no-store',
    signal:AbortSignal.timeout(30000),...options});
@@ -72,6 +78,39 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  const last=()=>{try{return Number(storage?.getItem(LAST)||0)||0;}
   catch{return 0;}};
  const stamp=()=>{try{storage?.setItem(LAST,String(Date.now()));}catch{}};
+ async function persistJobs(map){
+  try{
+   for(const [jobKey,job] of map){
+    const fields=jobKey.split(':');
+    if(fields.length!==3)continue;
+    const [month,scope,reportType]=fields;
+    if(!['orders','services','payments','realization'].includes(reportType))
+     continue;
+    await api('/api/yandex/report-jobs',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({month,scope,reportType,
+      reportId:job.reportId,status:job.status,createdAt:job.createdAt})});
+   }
+  }catch{serverWritable=false;}
+ }
+ async function loadRemoteJobs(month){
+  if(fetchedRemoteMonth===month)return;
+  // A failed server registry must not prevent local report generation.
+  fetchedRemoteMonth=month;
+  try{
+   const response=await api('/api/yandex/report-jobs?month='+
+    encodeURIComponent(month));
+   if(response.code!=='yandex_report_jobs_saved')return;
+   const local=jobs();
+   const combined=mergeYandexRemoteJobs(local,response.jobs||[]);
+   if([...combined].some(([key,val])=>
+     local.get(key)?.reportId!==val.reportId||
+     local.get(key)?.status!==val.status)){
+    saveYandexReportJobs(storage,combined);
+    windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));
+   }
+  }catch{/* Local-only operation remains intact. */}
+ }
  // Start while the office is open, not only after a finance-menu click.
  // Protected API endpoints still require an authenticated owner session.
  const active=()=>!authBlocked;
@@ -116,7 +155,10 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
   if(!isClosedYandexMonth(month)){state.textContent='Период ещё не закрыт; отчёты не создаются.';return;}
   busy=true;
   try{
-   if(lastMonth!==month){lastMonth=month;checkedCampaigns=false;}
+   if(lastMonth!==month){
+    lastMonth=month;checkedCampaigns=false;
+    serverWritable=true;
+   }
    if(!checkedCampaigns){
     const result=await api('/api/yandex/finance-reports?action=discover');
     if(result.ownerConfirmedSingleOoo!==true||
@@ -124,6 +166,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
      throw Error('yandex_shops_not_verified');
     checkedCampaigns=true;
    }
+   await loadRemoteJobs(month);
    const targets=[...TYPES.map(type=>({scope:'all',type})),
     ...CAMPAIGNS.map(campaignId=>({scope:String(campaignId),
       campaignId,type:'realization'}))];
