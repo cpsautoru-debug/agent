@@ -1,0 +1,23 @@
+name: Yandex finance focused check
+on:
+  push:
+    branches:
+      - feature/marketplace-agents-staging
+    paths:
+      - 'functions/api/yandex/**'
+      - 'web/office/yandex-*.mjs'
+      - 'tests/finance/yandex-*.test.mjs'
+      - '.github/workflows/yandex-focused-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  yandex-finance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run only Yandex finance regressions
+        run: node --test tests/finance/yandex-*.test.mjs
