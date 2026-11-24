@@ -12,7 +12,8 @@ function modelFamily(text){
  const s=normalizeCostKey(text);
  if(/карты|двер.*встав|встав.*двер|обшивк.*двер/.test(s))
   return 'door_cards';
- if(/чех.*подлокот|подлокот.*чех/.test(s))return 'armrest_cover';
+ if(/чех.*подлокот|подлокот.*чех/.test(s))
+  return /вест[ауы]|vesta/.test(s)?'armrest_cover':null;
  if(/накладк.*бампер.*калин|калин.*накладк.*бампер/.test(s))
   return 'kalina_bumper_trim';
  if(has(s,accessories))return null;
