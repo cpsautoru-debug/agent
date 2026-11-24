@@ -1,4 +1,5 @@
 import {restoreYandexReportJobs} from './yandex-finance-job-cache.mjs';
+import {buildYandexMonthlyEvidence} from './yandex-month-evidence.mjs';
 const MONTH='2026-10';
 const EXPECTED=['orders','services','payments'];
 const SHOPS={149082506:'Студия Авто Дизайна (САД)',
@@ -139,6 +140,52 @@ export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unkn
   'себестоимости и прямых расходов чистая прибыль ООО не подтверждена.');
  root.append(section);
 }
+export function renderYandexMonthlyEvidence(doc,root,sourceEvidence){
+ const data=buildYandexMonthlyEvidence(sourceEvidence);
+ const wrapper=doc.createElement('section');
+ wrapper.className='profit-panel yandex-accounting-summary';
+ textNode(doc,wrapper,'Яндекс Маркет · финансовый результат ООО','h3');
+ const margin=data.orderMargin;
+ if(Number.isSafeInteger(data.preliminaryOrderAfterServiceKopecks)){
+  textNode(doc,wrapper,
+   'Доход по заказам после услуг, уже включённых в отчёт: '+
+    fmt(data.preliminaryOrderAfterServiceKopecks),'h4');
+  textNode(doc,wrapper,'Промежуточная сумма из '+margin.rows+
+    ' заказов, а не чистая прибыль. Себестоимость, отдельные услуги, '+
+    'возвраты и налоги ещё не выверены.');
+ }else if(margin?.income){
+  textNode(doc,wrapper,'Доход после услуг по заполненным строкам: '+
+   fmt(margin.income.kopecks)+
+   '. Нельзя утверждать общую сумму: строк '+margin.income.rows+
+   ' из '+margin.rows+', повторов заказов: '+
+   (margin.duplicates??'не определены')+'.');
+ }else textNode(doc,wrapper,
+  'Доход после услуг: не подтверждён — поле incomeWithoutServices отсутствует или отчёт неполный.');
+ if(margin?.commission?.rows)
+  textNode(doc,wrapper,'Услуги в составе расчёта заказов: '+
+   fmt(margin.commission.kopecks)+
+   ' (уже учтены в доходе после услуг — второй раз не вычитать).');
+ const services=data.services;
+ if(services?.rows){
+  const verified=services.sheets.filter(x=>x.amount&&
+   x.amount.rows===x.rows&&x.amount.invalid===0);
+  const amount=verified.reduce((sum,x)=>sum+x.amount.kopecks,0);
+  textNode(doc,wrapper,'Отдельный отчёт услуг: '+
+   verified.length+' из '+services.sheets.length+
+   ' статей с подтверждёнными числовыми полями; сумма этих статей '+
+   fmt(amount)+'. Не вычитается повторно без сверки с заказами.');
+ }
+ if(data.payments?.amount)
+  textNode(doc,wrapper,'Платёжный реестр: '+
+   fmt(data.payments.amount.kopecks)+
+   ' (контрольная сумма транзакций, не выручка и не прибыль).');
+ textNode(doc,wrapper,
+  'Чистая прибыль ООО: НЕ ПОДТВЕРЖДЕНА. '+
+  'Осталось сверить фактические продажи и возвраты по SKU, '+
+  'себестоимость, внешние расходы и налог ООО.');
+ root.prepend(wrapper);
+ return data;
+}
 export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
  storage=window.localStorage}={}){
  const button=documentRef.getElementById('yandexFinanceAnalyzeAll');
@@ -158,6 +205,7 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
   }
   running=true;button.disabled=true;output.replaceChildren();
   let successes=0;
+  const auditedSources={};
   try{
    for(const type of EXPECTED){
     try{
@@ -167,6 +215,7 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
      if(!response.ok)throw Error('report_unavailable');
      const data=await response.json();
      renderYandexSourceAudit(documentRef,output,type,data,selectedShop);
+     auditedSources[type]=data;
      successes++;
     }catch{
      textNode(documentRef,output,
@@ -178,9 +227,10 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
     output.replaceChildren();
     status.textContent='Месяц или магазин изменён; данные прежней выборки скрыты.';
    }else{
-    status.textContent='Перепроверены '+successes+' из 3 архивов. '+
-     'Показаны суммы по магазинам и видам услуг. '+
-     'Следующее условие для прибыли: исключить двойной учёт, сопоставить себестоимость по SKU и подтвердить возвраты.';
+    renderYandexMonthlyEvidence(documentRef,output,auditedSources);
+    status.textContent='Финансовые источники: '+successes+' из 3 архивов. '+
+     'Выведен промежуточный результат заказов (при достаточном покрытии); '+
+     'чистая прибыль не подтверждается до сверки себестоимости и возвратов.';
    }
   }finally{running=false;button.disabled=false;}
  }
