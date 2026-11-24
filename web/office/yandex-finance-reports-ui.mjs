@@ -1,3 +1,4 @@
+import {restoreYandexReportJobs,saveYandexReportJobs} from './yandex-finance-job-cache.mjs';
 // Yandex Market reports are source evidence, NOT a verified P&L.
 // Report generation uses Yandex's asynchronous job API; status is explicit.
 export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}={}){
@@ -7,14 +8,32 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  const reportSelect=documentRef.getElementById('yandexFinanceReportType');
  const shopSelect=documentRef.getElementById('yandexFinanceShop');
  const generate=documentRef.getElementById('yandexFinanceGenerate');
+ const generateAll=documentRef.getElementById('yandexFinanceAllReports');
+ const jobSummary=documentRef.getElementById('yandexFinanceJobSummary');
  const check=documentRef.getElementById('yandexFinanceCheckStatus');
  const analyze=documentRef.getElementById('yandexFinanceAnalyze');
  const output=documentRef.getElementById('yandexFinanceReportLines');
  const monthInput=documentRef.getElementById('ceoMonth');
- if(!root||!status||!scope||!reportSelect||!shopSelect||!generate||!check||
+ if(!root||!status||!scope||!reportSelect||!shopSelect||!generate||
+   !generateAll||!jobSummary||!check||
    !analyze||!output||!monthInput)return false;
- const jobs=new Map();
- let campaigns=null,loading=false,pollTimer=null,pollAttempts=0;
+ let storage=null;
+ try{storage=window.localStorage;}catch{}
+ const jobs=restoreYandexReportJobs(storage);
+ let campaigns=null,loading=false,pollTimer=null,pollAttempts=0,batching=false;
+ function remember(){saveYandexReportJobs(storage,jobs);renderJobs();}
+ function renderJobs(){
+  jobSummary.replaceChildren();
+  const month=monthInput.value,scope=shopSelect.value;
+  const names={orders:'Заказы и товары',services:'Услуги Маркета',
+   payments:'Платежи'};
+  for(const type of ['orders','services','payments']){
+   const job=jobs.get(month+':'+scope+':'+type);
+   const line=documentRef.createElement('p');
+   line.textContent=names[type]+': '+(job?.status||'не запрошен');
+   jobSummary.append(line);
+  }
+ }
  function stopPolling(){if(pollTimer!==null){clearTimeout(pollTimer);pollTimer=null;}}
  function schedulePolling(){
   stopPolling();
@@ -38,7 +57,10 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  const getKey=()=>monthInput.value+':'+shopSelect.value+':'+reportSelect.value;
  function getJob(){return jobs.get(getKey());}
  function buttonState(){
-  generate.disabled=loading||campaigns?.automaticScope!=='single_business';
+  generate.disabled=loading||batching||
+   campaigns?.automaticScope!=='single_business'||!!getJob();
+  generateAll.disabled=loading||batching||
+   campaigns?.automaticScope!=='single_business';
   check.disabled=loading||!getJob();
   analyze.disabled=loading||!getJob()||getJob().status!=='DONE';
  }
@@ -87,7 +109,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   return /^[a-z_]{3,80}$/.test(e?.message||'')?e.message:'source_unavailable';
  }
  async function startReport(){
-  if(loading||campaigns?.automaticScope!=='single_business')return;
+  if(loading||campaigns?.automaticScope!=='single_business'||getJob())return;
   loading=true;buttonState();
   const type=reportSelect.value,month=monthInput.value,
     shop=shopSelect.value;
@@ -102,7 +124,9 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    if(data.code!=='yandex_report_requested'||data.month!==month||
      data.reportType!==type||typeof data.reportId!=='string')
     throw Error('report_response_invalid');
-   jobs.set(month+':'+shop+':'+type,{reportId:data.reportId,status:'PENDING'});
+   jobs.set(month+':'+shop+':'+type,{reportId:data.reportId,
+    status:'PENDING',createdAt:Date.now()});
+   remember();
    pollAttempts=0;schedulePolling();
    say('Отчёт «'+names[type]+'» принят Яндексом. Статус: формируется. '+
     'Проверяйте готовность без повторного запуска генерации.');
@@ -110,7 +134,29 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    '. Яндекс ограничивает частоту генерации — не повторяйте сразу.');}
   finally{loading=false;buttonState();}
  }
- async function checkStatus(){
+ async function startAllReports(){
+  if(loading||batching||campaigns?.automaticScope!=='single_business')return;
+  batching=true;
+  const initial=reportSelect.value;
+  try{
+   let submitted=0,already=0;
+   for(const type of ['orders','services','payments']){
+    reportSelect.value=type;
+    if(getJob()){already++;continue;}
+    await startReport();
+    if(getJob())submitted++;
+    // Do not hammer report-generation API if a call was rejected.
+    else break;
+   }
+   say('Финансовые отчёты Яндекса: новых заданий '+submitted+
+    ', ранее созданных '+already+'. Статусы и ID сохранены в этом браузере. '+
+    'Суммы отчётов не являются чистой прибылью.');
+  }finally{
+   reportSelect.value=initial;
+   batching=false;buttonState();renderJobs();
+  }
+ }
+  async function checkStatus(){
   const key=getKey(),job=jobs.get(key);
   if(loading||!job)return;
   loading=true;buttonState();say('Проверяем готовность отчёта…');
@@ -119,7 +165,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    const data=await request('/api/yandex/finance-reports?action=status&reportId='+
     encodeURIComponent(job.reportId));
    if(data.code!=='yandex_report_status')throw Error('unexpected_status');
-   job.status=data.status;
+   job.status=data.status;remember();
    auditReady=data.status==='DONE'&&key===getKey();
    say(data.status==='DONE'?
      'Отчёт сформирован. Проверяем его исходные строки…':
@@ -180,10 +226,11 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  }
  documentRef.getElementById('yandexFinanceDiscover')?.addEventListener('click',discover);
  generate.addEventListener('click',startReport);
+ generateAll.addEventListener('click',startAllReports);
  check.addEventListener('click',checkStatus);
  analyze.addEventListener('click',analyzeReport);
  shopSelect.addEventListener('change',()=>{
-  stopPolling();pollAttempts=0;buttonState();
+  stopPolling();pollAttempts=0;buttonState();renderJobs();
   if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
    schedulePolling();
  });
@@ -193,9 +240,9 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    schedulePolling();
  });
  monthInput.addEventListener('change',()=>{
-  stopPolling();pollAttempts=0;buttonState();
+  stopPolling();pollAttempts=0;buttonState();renderJobs();
  });
- buttonState();
+ buttonState();renderJobs();
  const onVisit=()=>{
   if(location.hash.split('/')[0]==='#dashboard'&&!campaigns&&!loading)
    void discover();
