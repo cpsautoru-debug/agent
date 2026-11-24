@@ -30,18 +30,54 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   for(const type of ['orders','services','payments']){
    const job=jobs.get(month+':'+scope+':'+type);
    const line=documentRef.createElement('p');
-   line.textContent=names[type]+': '+(job?.status||'не запрошен');
+   line.textContent=names[type]+': '+(job?.status||'не запрошен')+
+    (job?.audited?' · архив проверен':'');
    jobSummary.append(line);
   }
  }
  function stopPolling(){if(pollTimer!==null){clearTimeout(pollTimer);pollTimer=null;}}
  function schedulePolling(){
   stopPolling();
-  const job=getJob();
-  if(!job||!['PENDING','PROCESSING'].includes(job.status)||
-    pollAttempts>=12)return;
+  const prefix=monthInput.value+':'+shopSelect.value+':';
+  const pending=[...jobs].some(([key,v])=>key.startsWith(prefix)&&
+   ['PENDING','PROCESSING'].includes(v.status));
+  if(!pending||pollAttempts>=12)return;
   pollAttempts++;
-  pollTimer=setTimeout(()=>{pollTimer=null;if(!loading)void checkStatus();},25000);
+  pollTimer=setTimeout(()=>{
+   pollTimer=null;
+   if(loading){schedulePolling();return;}
+   void checkPendingJobs();
+  },25000);
+ }
+ async function checkPendingJobs(){
+  const prefix=monthInput.value+':'+shopSelect.value+':';
+  const pending=[...jobs].filter(([key,v])=>key.startsWith(prefix)&&
+   ['PENDING','PROCESSING'].includes(v.status));
+  if(!pending.length||loading)return;
+  loading=true;buttonState();
+  let processed=0;
+  try{
+   for(const [key,job]of pending){
+    try{
+     const data=await request('/api/yandex/finance-reports?action=status&reportId='+
+       encodeURIComponent(job.reportId));
+     if(data.code!=='yandex_report_status')continue;
+     job.status=data.status;
+     if(data.status==='DONE'&&!job.audited){
+      const audit=await request('/api/yandex/report-audit?reportId='+
+       encodeURIComponent(job.reportId));
+      if(audit.code==='yandex_report_archive_audited'&&
+         Array.isArray(audit.sheets)){
+       job.audited=true;processed++;
+      }
+     }
+    }catch{/* Network or upstream throttling: retain the job for another check. */}
+   }
+   remember();
+   say('Финансовые отчёты Яндекса: проверены статусы '+pending.length+
+     ', архивов успешно разобрано '+processed+
+     '. Финансовая прибыль не утверждается до сверки себестоимости и услуг.');
+  }finally{loading=false;buttonState();schedulePolling();}
  }
  const names={orders:'Заказы и товары',
   services:'Стоимость услуг Маркета',payments:'Платежи и взаимозачёты'};
@@ -103,7 +139,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   }catch(e){
    campaigns=null;
    say('Не удалось получить магазины: '+safeReason(e)+'.');
-  }finally{loading=false;buttonState();}
+  }finally{loading=false;buttonState();renderJobs();schedulePolling();}
  }
  function safeReason(e){
   return /^[a-z_]{3,80}$/.test(e?.message||'')?e.message:'source_unavailable';
@@ -153,7 +189,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
     'Суммы отчётов не являются чистой прибылью.');
   }finally{
    reportSelect.value=initial;
-   batching=false;buttonState();renderJobs();
+   batching=false;buttonState();renderJobs();schedulePolling();
   }
  }
   async function checkStatus(){
