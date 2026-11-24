@@ -1,7 +1,11 @@
 // Stores only Yandex-generated report IDs, not API credentials or financial rows.
 // Owner authorization is still enforced on every server request.
 const KEY='autosklad63.yandex.report-jobs.v1';
-const TTL=72*60*60*1000;
+const PENDING_TTL=72*60*60*1000;
+const VERIFIED_TTL=45*24*60*60*1000;
+const NO_DATA_TTL=7*24*60*60*1000;
+const ttlFor=job=>job?.noData===true?NO_DATA_TTL:
+ job?.audited===true&&job?.status==='DONE'?VERIFIED_TTL:PENDING_TTL;
 const ids=/^[a-zA-Z0-9_-]{1,255}$/;
 const jobKey=/^20\d{2}-(0[1-9]|1[0-2]):(?:all|\d{1,15}):(orders|services|payments|realization)$/;
 export function restoreYandexReportJobs(store,now=Date.now()){
@@ -12,7 +16,7 @@ export function restoreYandexReportJobs(store,now=Date.now()){
   for(const [key,v]of Object.entries(raw)){
    if(!jobKey.test(key)||!v||!ids.test(v.reportId||'')||
       !Number.isSafeInteger(v.createdAt)||
-      v.createdAt>now||now-v.createdAt>TTL||
+      v.createdAt>now||now-v.createdAt>ttlFor(v)||
       !['PENDING','PROCESSING','DONE','FAILED'].includes(v.status))continue;
    restored.set(key,{reportId:v.reportId,status:v.status,
     createdAt:v.createdAt,audited:v.audited===true,
@@ -29,7 +33,7 @@ export function saveYandexReportJobs(store,jobs,now=Date.now()){
  for(const [key,v]of jobs){
   if(!jobKey.test(key)||!ids.test(v?.reportId||'')||
      !Number.isSafeInteger(v.createdAt)||v.createdAt>now||
-     now-v.createdAt>TTL)continue;
+     now-v.createdAt>ttlFor(v))continue;
   entries[key]={reportId:v.reportId,status:v.status,
    createdAt:v.createdAt,audited:v.audited===true,
    noData:v.noData===true&&v.audited===true,
