@@ -166,16 +166,23 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
   const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
+   if(serial!==id||monthInput.value!==month)return x;
    if(x.status!=='unavailable')interim.yandexCost=x;
    applyYandexCostToChannels(base.channels,month,x);
    if(x.status==='preliminary_cost_reconciled')
-    sourceNotes.yandex='Себестоимость доставленных SKU подтверждена в сохранённой сверке. Остаток предварительный: отдельно проверить период возвратов, услуги, рекламу и АУСН.';
+    sourceNotes.yandex='Сверены доставленные SKU и их себестоимость. Результат до дополнительной рекламы, периода возвратов, услуг и АУСН.';
+   else if(x.status==='incomplete_cost_coverage')
+    sourceNotes.yandex='Сверка себестоимости Яндекса ещё не завершена. Неизвестные товары не считаются нулевыми затратами.';
+   if(lastRender?.base===base&&lastRender.month===month){
+    lastRender.pnl=consolidateBusinessPnl(base);
+    render(root,lastRender.pnl,sourceNotes,interim);
+   }
    return x;
   });
   if(month==='2026-10'){
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([yandexRead,yandexCosts,
+   await Promise.all([yandexRead,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
@@ -229,7 +236,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     })()
    ]);
   }
-  if(month!=='2026-10')await Promise.all([yandexRead,yandexCosts]);
+  if(month!=='2026-10')await yandexRead;
   if(serial!==id||monthInput.value!==month)return;
   refresh.disabled=false;
   refresh.textContent='Пересчитать сводку';
