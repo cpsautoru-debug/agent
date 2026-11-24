@@ -1,7 +1,9 @@
 // Autosklad63 consolidated management P&L: single deduction of shared costs.
 // Channel net figures must ALREADY include their direct marketplace fees,
 // advertising, manufacturing cost and other direct expenses.
-export const PNL_CHANNELS=['ozon','wb','yandex','avito','offline'];
+// Owner-selected financial perimeter: marketplace channels only. Avito and
+// physical shop are excluded, not assumed to have zero profit.
+export const PNL_CHANNELS=['ozon','wb','yandex'];
 const valid=x=>Number.isSafeInteger(x);
 export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
  completeSources=false,sharedExpensesComplete=false,taxesComplete=false}){
@@ -45,9 +47,15 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
    moneySum(sharedExpenses.map(x=>x.amountKopecks)):null;
  const taxTotal=taxes.length?
    moneySum(taxes.map(x=>x.amountKopecks)):null;
- const after=channelsTotal===null||sharedExpensesComplete!==true||
-   taxesComplete!==true||sharedTotal===null||taxTotal===null?null:
-   moneySum([channelsTotal,-sharedTotal,-taxTotal]);
+ // The provisional number may be shown if all three channels have
+ // independently reviewed direct-cost results, even when shared expenses
+ // and IP tax have not been certified as exhaustive. Never label it net.
+ const provisionalAfterExpenses=channelsTotal!==null&&
+  sharedTotal!==null&&taxTotal!==null?
+   moneySum([channelsTotal,-sharedTotal,-taxTotal]):null;
+ // Net profit is claimable only with fully certified three-channel results
+ // AND exhaustive, non-duplicated shared/tax records.
+ const after=confirmed?provisionalAfterExpenses:null;
  // Arithmetic over visible known rows ONLY. Shared expenses and the
  // whole-IP tax are not attributable to just these channels; the resulting
  // number is neither channel profit nor the business net profit.
@@ -55,14 +63,17 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
   sharedTotal!==null&&taxTotal!==null?
    moneySum([knownChannelsTotal,-sharedTotal,-taxTotal]):null;
  return {month,channels:entries,sharedExpenses, taxes,
-   status:confirmed?'verified':after!==null?'management_estimate':'incomplete',
+   status:confirmed?'verified':
+    provisionalAfterExpenses!==null?'management_estimate':'incomplete',
    sharedExpensesComplete,taxesComplete,
    missingChannels:missing,channelsTotalKopecks:channelsTotal,
    knownChannelsTotalKopecks:knownChannelsTotal,
    visibleRowsRemainderKopecks:visibleRowsRemainder,
    visibleRowsRemainderIsProfit:false,
+   provisionalAfterExpensesKopecks:provisionalAfterExpenses,
+   provisionalAfterExpensesIsNetProfit:false,
    knownChannelCount:knownEntries.length,
    sharedExpenseTotalKopecks:sharedTotal,taxTotalKopecks:taxTotal,
    finalProfitKopecks:after,verified:confirmed,
-   note:'Only direct-cost channel profit enters the total. Shared expenses and taxes are deducted once.'};
+   note:'Only Ozon, WB and Yandex direct-cost results enter the total; Avito and offline are excluded. Shared expenses and total IP tax are each deducted once. Provisional results never imply certified net profit.'};
 }
