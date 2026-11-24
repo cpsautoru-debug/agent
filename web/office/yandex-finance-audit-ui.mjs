@@ -36,8 +36,29 @@ export function renderYandexSourceAudit(doc,root,type,payload){
   const details=doc.createElement('details');
   const summary=doc.createElement('summary');
   summary.textContent=sheet.sheet+' · '+sheet.rows+' строк';
-  details.append(summary);
   const shops=Array.isArray(sheet.shops)?sheet.shops:[];
+  const verified=Number.isSafeInteger(sheet.recognizedShopRows)?
+    sheet.recognizedShopRows:0;
+  const total=Number.isSafeInteger(sheet.rows)?sheet.rows:0;
+  const overview=doc.createElement('p');
+  overview.textContent=sheet.sheet+' · '+total+' строк · '+
+    'привязано к магазинам '+verified+' из '+total+
+    (verified!==total?' · привязка неполная':' · привязка полная');
+  section.append(overview);
+  for(const [field,part] of Object.entries(sheet.sumFields||{})){
+   if(!SELECT_FIELDS.includes(field)||!part?.present||
+      !Number.isSafeInteger(part.totalKopecks))continue;
+   textNode(doc,section,field+': '+fmt(part.totalKopecks)+
+      ' · '+part.present+' строк (отдельное поле, не чистая прибыль)');
+  }
+  if(verified!==total){
+   const fields=sheet.shopIdentityEvidence?.present||{};
+   textNode(doc,section,'Для диагностики привязки: '+
+     ['partnerId','campaignId','shopName','businessId'].map(
+      k=>k+' '+(Number.isSafeInteger(fields[k])?fields[k]:0)
+     ).join('; '));
+  }
+  details.append(summary);
   if(shops.length){
    textNode(doc,details,'Разбивка по магазинам одного ООО:');
    for(const shop of shops){
