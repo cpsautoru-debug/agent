@@ -57,6 +57,15 @@ export function renderYandexSourceAudit(doc,root,type,payload){
      ['partnerId','campaignId','shopName','businessId'].map(
       k=>k+' '+(Number.isSafeInteger(fields[k])?fields[k]:0)
      ).join('; '));
+   const evidence=sheet.shopIdentityEvidence||{};
+   textNode(doc,section,'partnerId равен businessId: '+
+     (evidence.partnerIsBusiness||0)+' строк; знакомых названий магазинов: '+
+     (evidence.recognizedShopNames||0)+'.');
+   for(const field of ['partnerId','shopName','businessId']){
+    const samples=evidence.examples?.[field];
+    if(Array.isArray(samples)&&samples.length)
+     textNode(doc,section,'Примеры '+field+': '+samples.slice(0,3).join(', '));
+   }
   }
   details.append(summary);
   if(shops.length){
