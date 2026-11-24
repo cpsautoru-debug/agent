@@ -56,7 +56,24 @@ export function renderYandexSourceAudit(doc,root,type,payload){
      sheet.recognizedShopRows!==sheet.rows)
    textNode(doc,details,'Строк без подтверждённого магазина: '+
      (sheet.rows-(sheet.recognizedShopRows||0)));
-  for(const [dimension,part] of Object.entries(sheet.dimensions||{})){
+  if(Array.isArray(sheet.skuCandidates)&&sheet.skuCandidates.length){
+   const products=doc.createElement('details');
+   const headline=doc.createElement('summary');
+   headline.textContent='Товары и SKU для последующей сверки себестоимости · '+
+     sheet.skuCandidates.length;
+   products.append(headline);
+   textNode(doc,products,'Количество строк не равно числу проданных единиц. '+
+     'Финансовая себестоимость не назначена до подтверждения продажи и товара.');
+   for(const item of sheet.skuCandidates){
+    if(!SHOPS[item.partnerId]||typeof item.shopSku!=='string')continue;
+    textNode(doc,products,SHOPS[item.partnerId]+' · '+item.shopSku+
+      (item.offerName?' · '+item.offerName:'')+
+      ' · строк: '+item.reportRows+
+      ' · статусы: '+(item.statuses||[]).join(', '));
+   }
+   details.append(products);
+  }
+    for(const [dimension,part] of Object.entries(sheet.dimensions||{})){
    if(!['serviceName','service','recordType','transactionType',
     'model','placementModel','orderStatus'].includes(dimension))continue;
    const group=doc.createElement('details');
