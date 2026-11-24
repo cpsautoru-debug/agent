@@ -1,3 +1,4 @@
+import {knownYandexUnitCost} from './yandex-known-unit-costs.mjs';
 // Common unit-cost crosswalk for Yandex offers and confirmed Ozon/WB sources.
 // Never match by fuzzy string similarity; an exact article or an unambiguous
 // verified product family is necessary. Money is always integer kopecks.
@@ -77,6 +78,11 @@ function resultForOffer(offer,costs){
    {status:'cost_conflict',costKopecks:null,pricesKopecks:amounts,
     sources:[...new Set(exact.map(x=>x.channel))]};
  }
+ const previouslyConfirmed=knownYandexUnitCost(offer);
+ if(previouslyConfirmed)return {status:'matched_owner',
+  costKopecks:previouslyConfirmed.costKopecks,
+  sources:[previouslyConfirmed.source],
+  category:previouslyConfirmed.category};
  const identity=modelFamily([offer.name,offer.offerName,offer.shopSku]
   .filter(Boolean).join(' '));
  if(!identity)return {status:'missing',costKopecks:null};
