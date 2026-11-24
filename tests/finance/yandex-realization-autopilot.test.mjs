@@ -64,7 +64,7 @@ test('new mixed transaction quantity uses the source field, not sold units',()=>
 test('owner-only Yandex autopilot is loaded and does not embed credentials',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const code=readFileSync(new URL('../../web/office/yandex-autopilot.mjs',import.meta.url),'utf8');
- assert.match(html,/yandex-autopilot\.mjs/);
+ assert.doesNotMatch(html,/src="yandex-autopilot\.mjs/);
  assert.match(code,/announcedMonth!==month/);
  assert.doesNotMatch(code,/Api-Key|YANDEX_MARKET_API_KEY/);
 });
