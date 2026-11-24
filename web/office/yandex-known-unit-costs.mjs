@@ -24,7 +24,8 @@ export function knownYandexUnitCost(offer){
   return cost(90000,'Ворсовые автомобильные коврики');
  if(mats&&/\b(?:eva|ева)\b/.test(s)){
   // The more specific variant is checked first; generic EVA not assigned.
-  if(/(?:3\s*d|3д|3\s*д)/.test(s)&&/борт/.test(s))
+  if(/(?:3\s*d|3д|3\s*д)/.test(s)&&/борт/.test(s)&&
+     !/без\s*борт/.test(s))
    return cost(130000,'EVA-коврики с 3D-бортами');
   if(/пресс\s*борт/.test(s))
    return cost(110000,'EVA-коврики с пресс-бортами');
