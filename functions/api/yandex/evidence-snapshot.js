@@ -23,7 +23,9 @@ const schema=`CREATE TABLE IF NOT EXISTS yandex_month_evidence (
 ) STRICT`;
 export function validateYandexEvidenceSnapshot(body){
  if(!body||typeof body!=='object'||Array.isArray(body)||
-  !MONTH.test(body.month||'')||!body.reportIds||
+  !MONTH.test(body.month||'')||
+  Date.UTC(Number(body.month.slice(0,4)),Number(body.month.slice(5,7)),1)>Date.now()||
+  !body.reportIds||
   !body.evidence||typeof body.evidence!=='object')
   throw Error('invalid_snapshot');
  if(Object.keys(body.reportIds).length!==5||
