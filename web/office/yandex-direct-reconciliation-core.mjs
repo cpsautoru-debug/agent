@@ -16,7 +16,7 @@ export function collectYandexVerifiedOfferNames(orders){
   orders.readOnly!==true||orders.changedRecords!==0||
   !Array.isArray(orders.sheets))return mapped;
  for(const sheet of orders.sheets){
-  if(!/orders_and_offers_transactions\\.json$/.test(sheet.sheet)||
+  if(!/orders_and_offers_transactions\.json$/.test(sheet.sheet)||
    !Array.isArray(sheet.skuCandidates))continue;
   for(const row of sheet.skuCandidates){
    if(![149082506,149106500].includes(row?.partnerId)||
