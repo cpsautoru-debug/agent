@@ -76,6 +76,24 @@ test('main Ozon Profit cost ledger provides product cost via its verified articl
  assert.equal(r.rows[0].status,'matched_exact');
  assert.ok(r.rows[0].sources.includes('Ozon Profit'));
 });
+test('same Ozon SKU with conflicting auxiliary and main Profit costs is blocked',()=>{
+ const x=audit();
+ x.ozonCatalog.entries=[{sku:'5023073005',
+  sellerArticle:'веста кросс-оранжевая поддержка-оранжевые соты',
+  model:'Lada Vesta Cross',costKopecks:470000,status:'confirmed'}];
+ x.ozonProfit={entries:[{sku:'5023073005',costKopecks:450000,
+  validFrom:'2026-10-01',validTo:null,status:'confirmed'}]};
+ x.ozonProfitCards={status:'ready',items:[{sku:'5023073005',
+  sellerArticle:'веста кросс-оранжевая поддержка-оранжевые соты',
+  name:'Модельные авточехлы на Lada Vesta Cross, черные с оранжевой поддержкой'
+ }]};
+ const r=reconcileYandexSharedCosts([
+  item('5023073005','Модельные авточехлы на Lada Vesta Cross')],
+  x,'2026-10');
+ assert.equal(r.matched,0);
+ assert.equal(r.conflicting.length,1);
+ assert.deepEqual(r.conflicting[0].pricesKopecks,[470000,450000]);
+});
 test('preliminary and outside-period costs never count as confirmed',()=>{
  const x=audit();
  x.wb.entries=[{vendorCode:'коврики_ева',validFrom:'2026-11-01',
