@@ -55,8 +55,12 @@ function auditedCampaign(campaign,audit,rows){
    missing:[]};
  const deliveries=verifiedSheet(audit,'delivered.json','deliveredCount');
  const returns=verifiedSheet(audit,'returned.json','returnedCount');
+ // Model/fuzzy-family estimates are useful for review but not sufficient
+ // to certify the material cost of a particular physical SKU.
  const costs=new Map(rows.filter(x=>x.partnerId===campaign).map(x=>[
-  x.shopSku,validMoney(x.costKopecks)?x.costKopecks:null]));
+  x.shopSku,validMoney(x.costKopecks)&&
+   ['matched_exact','matched_owner'].includes(x.status)?
+    x.costKopecks:null]));
  const missing=new Map();
  function costUnits(sheet,kind){
   if(sheet.status!=='verified')return {kopecks:null,knownUnits:0,
