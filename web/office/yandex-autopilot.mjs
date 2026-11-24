@@ -11,11 +11,24 @@ const TYPES=['orders','services','payments'];
 const CAMPAIGNS=[149082506,149106500];
 const safeMonth=/^20\d{2}-(0[1-9]|1[0-2])$/;
 const key=(month,scope,type)=>month+':'+scope+':'+type;
-const closed=month=>{
+export function isClosedYandexMonth(month,now=Date.now()){
  if(!safeMonth.test(month))return false;
  const [year,part]=month.split('-').map(Number);
- return new Date(Date.UTC(year,part,1))<new Date();
-};
+ return Date.UTC(year,part,1)<=now;
+}
+export function classifyYandexReportStatus(report){
+ if(report?.code!=='yandex_report_status'||
+   !['PENDING','PROCESSING','FAILED','DONE'].includes(report.status))
+  return {kind:'invalid'};
+ if(['FAILED','DONE'].includes(report.status)&&
+   report.subStatus==='NO_DATA'&&!report.fileAvailable)
+  return {kind:'no_data'};
+ if(report.status==='FAILED')
+  return {kind:'failed',reason:report.subStatus||'UNKNOWN'};
+ if(report.status==='DONE')
+  return {kind:report.fileAvailable?'audit':'awaiting_file'};
+ return {kind:'waiting'};
+}
 const counter=(sheet,field)=>{
  if(!sheet||!Number.isSafeInteger(sheet.rows))return null;
  if(sheet.rows===0)return 0;
@@ -63,16 +76,24 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  // Protected API endpoints still require an authenticated owner session.
  const active=()=>!authBlocked;
  const paint=(month,list,error='')=>{
-  const ready=list.filter(x=>x.audited).length;
-  state.textContent='Отчёты '+month+': проверено '+ready+
-   ' из '+list.length+'. Обновляется автоматически при открытом офисе.'+
+  const ready=list.filter(x=>x.audited&&!x.noData).length;
+  const noData=list.filter(x=>x.noData).length;
+  state.textContent='Отчёты '+month+': проверено архивов '+ready+
+   ' из '+list.length+(noData?'; Яндекс ответил NO_DATA: '+noData:'')+
+   '. Обновляется автоматически при открытом офисе.'+
    (error?' Последнее отклонение: '+error+'.':'');
   const blocks=[];
   for(const campaign of CAMPAIGNS){
    const x=summaries.get(month+':'+campaign);
-   if(x)blocks.push((campaign===CAMPAIGNS[0]?'САД':'автосклад')+
+   const job=list[CAMPAIGNS.indexOf(campaign)+TYPES.length];
+   const name=campaign===CAMPAIGNS[0]?'САД':'автосклад';
+   if(job?.noData||x?.noData)blocks.push(name+
+    ': Яндекс вернул NO_DATA; продажи и возвраты не подтверждены');
+   else if(x)blocks.push(name+
     ': доставлено '+(x.delivered??'нет данных')+
     ', возвращено '+(x.returned??'нет данных'));
+   else if(job?.status==='FAILED')blocks.push(name+
+    ': отчёт не сформирован ('+(job.subStatus||'UNKNOWN')+')');
   }
   const both=CAMPAIGNS.map(x=>summaries.get(month+':'+x));
   if(both.every(x=>x&&Number.isSafeInteger(x.delivered)&&
@@ -89,7 +110,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  async function tick(){
   if(busy||!active())return;
   const month=monthInput.value;
-  if(!closed(month)){state.textContent='Период ещё не закрыт; отчёты не создаются.';return;}
+  if(!isClosedYandexMonth(month)){state.textContent='Период ещё не закрыт; отчёты не создаются.';return;}
   busy=true;
   try{
    if(lastMonth!==month){lastMonth=month;checkedCampaigns=false;}
