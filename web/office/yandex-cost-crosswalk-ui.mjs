@@ -5,6 +5,8 @@ import {reconcileYandexSharedCosts}
 import {restoreYandexReportJobs} from './yandex-finance-job-cache.mjs';
 import {reconcileYandexRealizationCosts,collectYandexRealizationCandidates}
  from './yandex-realization-cost-evidence.mjs';
+import {buildYandexPreliminaryContribution}
+ from './yandex-contribution-core.mjs';
 // Matches only official October order SKUs, not every listed product.
 // The page is a read-only reconciliation surface; all prices are per unit.
 const knownShops={149082506:'САД',149106500:'автосклад'};
@@ -52,7 +54,45 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
  const automatic=root.querySelector?.('#yandexAutoReportsStatus');
  if(automatic?.after)automatic.after(section);
  else root.prepend(section);
- let running=false,doneKey='',lastRun=0;
+ let running=false,doneKey='',lastRun=0,latestCosts=null;
+ const financeEvidence=new Map();
+ function showContribution(){
+  const existing=view.querySelector?.('#yandexPreliminaryContribution');
+  existing?.remove();
+  if(!latestCosts||latestCosts.month!==monthNode.value)return;
+  const card=el(documentRef,'section');
+  card.id='yandexPreliminaryContribution';
+  card.className='profit-panel';
+  card.append(el(documentRef,'h4',
+   'Промежуточный остаток после производственной себестоимости'));
+  const sources=financeEvidence.get(latestCosts.month);
+  if(!sources){
+   card.append(el(documentRef,'p',
+    'Для сопоставления ожидается подтверждение всех трёх финансовых архивов. Не нужно повторно создавать отчёты.'));
+   view.prepend(card);return;
+  }
+  const data=buildYandexPreliminaryContribution(sources,
+   latestCosts.costAudit,latestCosts.realizationReports);
+  if(data.status==='preliminary_contribution_ready'){
+   card.append(el(documentRef,'p','Доход по заказам после уже включённых услуг: '+
+    money(data.orderAfterServicesKopecks)));
+   card.append(el(documentRef,'p','Себестоимость всех доставленных товаров: '+
+    money(data.deliveredManufacturingCostKopecks)));
+   card.append(el(documentRef,'h4','Промежуточный остаток: '+
+    money(data.preliminaryContributionKopecks)));
+   card.append(el(documentRef,'p','Стоимость возвращённых товаров по нормативу: '+
+    money(data.returnsIndicativeCostKopecks)+
+    ' — не прибавляется автоматически без подтверждения восстановления товара.'));
+   card.append(el(documentRef,'p',
+    'Это НЕ чистая прибыль ООО: отдельно сверяются дополнительные услуги, налоги и общие расходы.'));
+  }else{
+   card.append(el(documentRef,'p',
+    'Промежуточный остаток не рассчитан: не все источники или товары полностью подтверждены. Нули вместо неизвестных затрат не используются.'));
+   if(data.blockers?.length)card.append(el(documentRef,'p',
+    'Не закрыто: '+data.blockers.join(', ')));
+  }
+  view.prepend(card);
+ }
  const api=async(path,options)=>{
   const response=await fetcher(path,{
    credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(30000),
@@ -208,12 +248,21 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     result.conflicting,x=>' · варианты: '+
      (x.pricesKopecks||[]).map(money).join(' / '));
    view.append(el(documentRef,'p','Подтверждённая себестоимость за штуку не равна чистой прибыли. Количество проданных и возвращённых товаров, налоги и внешние расходы сверяются отдельно.'));
+   latestCosts={month,costAudit:result,realizationReports:realizationProofs};
+   showContribution();
    doneKey=cacheKey;lastRun=Date.now();
   }catch(e){
    status.textContent='Сопоставление себестоимости недоступно: '+
     safeError(e)+'. Неизвестные значения не заменяются нулём.';
   }finally{running=false;}
  }
+ windowRef.addEventListener('yandex-financial-sources-audited',event=>{
+  const detail=event?.detail;
+  if(!detail||!/^(20\\d{2})-(0[1-9]|1[0-2])$/.test(detail.month)||
+     !detail.sources)return;
+  financeEvidence.set(detail.month,detail.sources);
+  showContribution();
+ });
  windowRef.addEventListener('yandex-finance-ready',()=>{void run(true);});
  windowRef.addEventListener('yandex-auto-jobs-updated',()=>{void run();});
  windowRef.addEventListener('hashchange',()=>{void run();});
