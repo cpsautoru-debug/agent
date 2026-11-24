@@ -76,9 +76,16 @@ export async function onRequestPost({request,env}){
     Number.isSafeInteger(params.campaignId)&&
      scope.campaignIds.includes(params.campaignId)?[params.campaignId]:null;
   if(!selected)return json(400,{code:'campaign_not_accessible'});
-  const body={businessId:scope.businessId,
-   dateFrom:bounds.dateFrom,dateTo:bounds.dateTo,
-   campaignIds:selected};
+  // Goods realization is legally shop-scoped (campaignId/year/month);
+  // the three existing united reports are business-scoped. Never combine
+  // these payloads or count a shop twice inside the same ООО.
+  if(params.reportType==='realization'&&selected.length!==1)
+   return json(400,{code:'realization_requires_single_campaign'});
+  const body=params.reportType==='realization'?
+   {campaignId:selected[0],year:Number(params.month.slice(0,4)),
+    month:Number(params.month.slice(5,7))}:
+   {businessId:scope.businessId,dateFrom:bounds.dateFrom,
+    dateTo:bounds.dateTo,campaignIds:selected};
   const path='/v2/reports/'+reportPaths[params.reportType]+
    '/generate?format=JSON';
   const result=await yandexRequest(env,path,{method:'POST',body});
