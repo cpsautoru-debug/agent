@@ -23,7 +23,7 @@ export function collectYandexConfirmedJobs(storage,month=MONTH,shop='all'){
  }
  return result;
 }
-export function renderYandexSourceAudit(doc,root,type,payload){
+export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unknown'){
  if(!root||!EXPECTED.includes(type)||payload?.code!=='yandex_report_archive_audited'||
     payload.readOnly!==true||payload.changedRecords!==0||
     payload.financeProfitVerified!==false||!Array.isArray(payload.sheets))
@@ -42,15 +42,19 @@ export function renderYandexSourceAudit(doc,root,type,payload){
   const total=Number.isSafeInteger(sheet.rows)?sheet.rows:0;
   const overview=doc.createElement('p');
   overview.textContent=sheet.sheet+' · '+total+' строк · '+
-    'для выбранного отчёта ООО: '+total+' строк; '+
+    (selectedShop==='all'?'совместный отчёт двух магазинов ООО: ': 'отчёт выбранного магазина: ')+
+    total+' строк; '+
     'отдельные магазины определены для '+verified+' из '+total+
     ' строк'+(verified!==total?' (разбивка неполная)':' (разбивка полная)');
   // A joint ООО report remains valid as one source even when it is not
   // possible to attribute individual rows to either shop.
   if(total>0&&verified===0)
-   textNode(doc,section,'Отчёт относится к выбранному общему охвату ООО. '+
-    'Невозможность разбить строки по магазинам не означает отсутствие '+
-    'операций или сумм; не распределяем их по магазинам без доказательств.');
+   textNode(doc,section,
+    selectedShop==='all'?
+     'Источник заказан сразу для двух магазинов ООО. Отсутствие разбивки '+
+     'по магазинам не делает общую сумму нулевой, но не позволяет распределить её.':
+     'Источник заказан для одного магазина; привязка строк внутри '+
+     'архива к нему пока не доказана.');
   section.append(overview);
   for(const [field,part] of Object.entries(sheet.sumFields||{})){
    if(!SELECT_FIELDS.includes(field)||!part?.present||
@@ -179,7 +183,7 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
        cache:'no-store',signal:AbortSignal.timeout(30000)});
      if(!response.ok)throw Error('report_unavailable');
      const data=await response.json();
-     renderYandexSourceAudit(documentRef,output,type,data);
+     renderYandexSourceAudit(documentRef,output,type,data,selectedShop);
      successes++;
     }catch{
      textNode(documentRef,output,
