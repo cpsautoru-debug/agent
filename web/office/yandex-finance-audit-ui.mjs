@@ -246,6 +246,11 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
   }
  };
  window.addEventListener('hashchange',onVisit);
+ window.addEventListener('yandex-finance-ready',()=>{
+  if(!running){wasLoaded=false;onVisit();}
+ });
+ month.addEventListener('change',()=>{wasLoaded=false;onVisit();});
+ shop.addEventListener('change',()=>{wasLoaded=false;onVisit();});
  // The other module discovers stores asynchronously and may replace the select;
  // the explicit button is always available if the first automatic attempt missed.
  onVisit();
