@@ -79,9 +79,12 @@ test('October Ozon and WB contributions appear as a partial sum, not business ne
  },sharedExpenses,taxes});
  assert.equal(r.knownChannelCount,2);
  assert.equal(r.knownChannelsTotalKopecks,83986255);
+ assert.equal(r.visibleRowsRemainderKopecks,58035555);
+ assert.equal(r.visibleRowsRemainderIsProfit,false);
  assert.equal(r.channelsTotalKopecks,null);
  assert.equal(r.finalProfitKopecks,null);
  assert.deepEqual(r.missingChannels,['yandex','avito','offline']);
  assert.equal(r.sharedExpenseTotalKopecks,5400000);
  assert.equal(r.taxTotalKopecks,20550700);
+ assert.equal(r.visibleRowsRemainderKopecks,58035555);
 });
