@@ -34,17 +34,71 @@ export function interpretYandexCostSnapshot(month,data){
  return blocked('preliminary_calculation_invalid');
 }
 
+const serverCache=new Map(),inFlight=new Map();
+export function interpretYandexDirectCostReview(month,data){
+ const unavailable={month,status:'unavailable',cogsKopecks:null,
+  preliminaryContributionKopecks:null,missingCount:null,
+  netProfitKopecks:null};
+ if(!monthValid(month)||data?.code!=='yandex_direct_cost_review'||
+  data.readOnly!==true||data.month!==month||
+  data.ownerEntity!=='ИП Жилина Ольга'||
+  data.netProfitKopecks!==null||
+  !Array.isArray(data.missing)||!Array.isArray(data.issues))
+  return unavailable;
+ if(data.status==='preliminary_cost_reconciled'&&
+    int(data.cogsKopecks)&&int(data.preliminaryContributionKopecks)&&
+    int(data.incomeKopecks)&&
+    data.incomeKopecks-data.cogsKopecks===
+     data.preliminaryContributionKopecks&&
+    data.missing.length===0&&data.issues.length===0)
+  return {month,status:'preliminary_cost_reconciled',
+   cogsKopecks:data.cogsKopecks,
+   preliminaryContributionKopecks:data.preliminaryContributionKopecks,
+   missingCount:0,netProfitKopecks:null,
+   source:'server_direct_yandex_report_and_cost_audit'};
+ if(data.status==='incomplete_cost_coverage')
+  return {month,status:'incomplete_cost_coverage',
+   cogsKopecks:null,preliminaryContributionKopecks:null,
+   missingCount:data.missing.length,
+   missingProducts:data.missing.slice(0,30).map(x=>({
+    shopSku:String(x.shopSku||'').slice(0,150),
+    name:String(x.name||'').slice(0,200)})),
+   issues:data.issues.length,netProfitKopecks:null,
+   source:'server_direct_yandex_report_and_cost_audit'};
+ return unavailable;
+}
 export async function loadYandexCostSnapshot(month,fetcher=fetch){
  const unavailable={month,status:'unavailable',cogsKopecks:null,
   preliminaryContributionKopecks:null,missingCount:null,
   netProfitKopecks:null};
  if(!monthValid(month))return unavailable;
- try{
-  const response=await fetcher('/api/yandex/evidence-snapshot?month='+
-   encodeURIComponent(month),{
-    method:'GET',credentials:'same-origin',cache:'no-store',
-    signal:AbortSignal.timeout(12000)});
-  if(!response.ok)return unavailable;
-  return interpretYandexCostSnapshot(month,await response.json());
- }catch{return unavailable;}
+ const cacheKey=month;
+ const cached=serverCache.get(cacheKey);
+ if(fetcher===fetch&&cached&&Date.now()-cached.at<10*60*1000)
+  return {...cached.value};
+ if(fetcher===fetch&&inFlight.has(cacheKey))return inFlight.get(cacheKey);
+ const job=(async()=>{
+  try{
+   const options={method:'GET',credentials:'same-origin',
+    cache:'no-store',signal:AbortSignal.timeout(30000)};
+   const response=await fetcher('/api/yandex/evidence-snapshot?month='+
+    encodeURIComponent(month),options);
+   if(response.ok){
+    const checked=interpretYandexCostSnapshot(month,await response.json());
+    if(checked.status!=='unavailable')return checked;
+   }
+   // The historical browser-controlled snapshot may never have been saved.
+   // Fetch directly from the five existing official Yandex reports on server.
+   const direct=await fetcher('/api/yandex/direct-cost-review?month='+
+    encodeURIComponent(month),options);
+   if(!direct.ok)return unavailable;
+   const result=interpretYandexDirectCostReview(month,await direct.json());
+   if(fetcher===fetch&&result.status!=='unavailable')
+    serverCache.set(cacheKey,{at:Date.now(),value:result});
+   return result;
+  }catch{return unavailable;}
+  finally{inFlight.delete(cacheKey);}
+ })();
+ if(fetcher===fetch)inFlight.set(cacheKey,job);
+ return job;
 }
