@@ -1,6 +1,7 @@
 import {verifySession} from '../auth/session.js';
 import {WB_ACCOUNT} from '../../../web/office/wb-unit-economics-core.mjs';
 import {auditUnifiedCostSources} from '../../../web/office/unified-cost-audit-core.mjs';
+import {applyOwnerConfirmedOzonCosts} from '../../../web/office/owner-cost-confirmations.mjs';
 
 const HEADERS={
   'Content-Type':'application/json; charset=utf-8',
@@ -61,6 +62,8 @@ export function createUnifiedCostAuditHandler({now=Date.now}={}){
         ozonResult.results.length>5000)
         return json(503,{code:'ozon_cost_catalog_incomplete'});
 
+      const confirmedCostEvidence=applyOwnerConfirmedOzonCosts(ozonResult.results);
+
       // Profit uses a DIFFERENT, versioned D1 behind the existing service
       // binding. Do not confuse the auxiliary ozon_cost_entries table with
       // the costs document the Profit calculator actually uses.
@@ -120,12 +123,15 @@ export function createUnifiedCostAuditHandler({now=Date.now}={}){
       stage='source_validation';
       const audit=auditUnifiedCostSources({
         month,wbRows:wbResult.results,wbRegistryStatus,
-        ozonCatalogRows:ozonResult.results,
+        ozonCatalogRows:confirmedCostEvidence.rows,
         ozonProfitDocument:profitDoc,ozonProfitStatus,
         ozonExpensesDocument:expensesDoc,ozonExpensesStatus,
         profitVersion,expenseVersion
       });
-      return json(200,{...audit,ozonProfitCards,asOfMs:now()});
+      return json(200,{...audit,ozonProfitCards,
+        ownerConfirmedCostDecisions:confirmedCostEvidence.decisions,
+        ownerConfirmedCostStatus:'read_side_adjustment_pending_D1_permission',
+        asOfMs:now()});
     }catch{
       return json(503,{code:'unified_cost_audit_unavailable',
         stage:['wb_costs_read','ozon_auxiliary_costs_read',
