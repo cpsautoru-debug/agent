@@ -141,6 +141,15 @@ export async function onRequestGet({request,env}){
   const snapshot=validateYandexEvidenceSnapshot({month,
    reportIds:JSON.parse(record.report_ids_json),
    evidence:JSON.parse(record.evidence_json)});
+  const registry=await env.OZON_FINANCE_DB.prepare(
+   'SELECT scope,report_type,report_id,status FROM yandex_finance_report_jobs WHERE month=?'
+  ).bind(month).all();
+  if(!Array.isArray(registry.results)||!EXPECTED.every(([scope,type,key])=>
+    registry.results.filter(x=>x.scope===scope&&
+     x.report_type===type&&x.report_id===snapshot.reportIds[key]&&
+     x.status==='DONE').length===1))
+   return json(200,{code:'yandex_month_evidence_stale',
+    month,netProfitKopecks:null});
   return json(200,{code:'yandex_month_evidence_available',
    ...snapshot,updatedAt:record.updated_at,readOnly:true,
    netProfitKopecks:null,sourceKind:'owner_browser_audited_summary'});
