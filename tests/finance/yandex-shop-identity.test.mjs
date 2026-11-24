@@ -27,19 +27,15 @@ test('source Yandex finance groups confirmed shops and retains unmatched rows',(
  assert.equal(r.skuCompleteness.includes('not verified'),true);
 });
 
-test('Yandex partnerId can be ООО business ID when verified shopName identifies the store',()=>{
+test('unknown partner IDs cannot be assigned to shop by shared business ID',()=>{
  const sharedBusiness=704400;
  assert.equal(resolveYandexShop({
   partnerId:sharedBusiness,businessId:sharedBusiness,
   shopName:'автосклад'
- }),149106500);
+ }),null);
  assert.equal(resolveYandexShop({
   partnerId:String(sharedBusiness),businessId:sharedBusiness,
   shopName:'Студия Авто Дизайна (САД)'
- }),149082506);
- assert.equal(resolveYandexShop({
-  partnerId:sharedBusiness,businessId:sharedBusiness,
-  shopName:'неизвестный магазин'
  }),null);
  assert.equal(resolveYandexShop({
   partnerId:sharedBusiness,businessId:sharedBusiness+1,
@@ -55,7 +51,7 @@ test('Yandex partnerId can be ООО business ID when verified shopName identifi
  }]);
  assert.equal(evidence.partnerIsBusiness,1);
  assert.equal(evidence.recognizedShopNames,1);
- assert.equal(evidence.verified,1);
+ assert.equal(evidence.verified,0);
 });
 
 test('October 2026 observed Yandex report store ID is independent of API campaign and business IDs',()=>{
