@@ -60,3 +60,17 @@ test('Yandex SKU evidence keeps shop names but never fabricates sales quantity',
  assert.equal(r.skuCandidates[0].soldUnits,undefined);
  assert.match(r.skuCompleteness,/not verified/);
 });
+
+test('joint ООО Yandex source amounts remain available when store attribution is absent',()=>{
+ const source=describeYandexReportSheets({'orders_and_offers_transactions.json':[
+  {businessId:704400,partnerId:704400,shopName:'другой формат названия',
+   billingPrice:12000},
+  {businessId:704400,partnerId:704400,shopName:'другой формат названия',
+   billingPrice:8000}
+ ]}).sheets[0];
+ assert.equal(source.rows,2);
+ assert.equal(source.recognizedShopRows,0);
+ assert.equal(source.sumFields.billingPrice.totalKopecks,2000000);
+ assert.equal(source.skuSourceCoverage,0);
+ assert.equal(source.shopIdentityEvidence.partnerIsBusiness,2);
+});
