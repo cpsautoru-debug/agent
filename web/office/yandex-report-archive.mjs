@@ -95,7 +95,9 @@ export function describeYandexReportSheets(files){
    fail('yandex_report_sheet_structure_unknown');
   const names=Object.keys(rows[0]||{}).slice(0,100);
   const sumFields=Object.fromEntries(['transactionSum','servicePrice',
-   'buyerPaymentAmount','billingPrice'].map(field=>{
+   'buyerPaymentAmount','billingPrice',
+   'incomeWithoutServices','summaryCommission','sumBillingPriceOfItems',
+   'marketplaceDiscountPaymentAmount','refundBuyerPaymentAmount'].map(field=>{
    let count=0,sumKopecks=0,invalid=0;
    for(const row of rows){
     const value=row?.[field];
@@ -196,7 +198,23 @@ export function describeYandexReportSheets(files){
      existing.statuses.push(status);
    skuMap.set(key,existing);
   }
+  // The orders-and-services margin sheet is order-level. Its canonical
+  // net-after-order-services field must not be reduced by the same
+  // summaryCommission a second time. Do not call this business net profit.
+  const marginSheet=/^services_and_orders_margin\\.json$/i.test(name);
+  const orderKeys=new Set();let duplicateOrderIds=0,ordersWithIds=0;
+  if(marginSheet){
+   for(const row of rows){
+    if(row?.orderId==null)continue;
+    const id=String(row.orderId);
+    if(!/^\\d{1,20}$/.test(id))continue;
+    ordersWithIds++;
+    if(orderKeys.has(id))duplicateOrderIds++;
+    else orderKeys.add(id);
+   }
+  }
   sheets.push({sheet:name,rows:rows.length,fields:names,
+   isOrderMarginSource:marginSheet,ordersWithIds,duplicateOrderIds,
    sumFields,transactionTypes:types,dimensions,
    shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
    recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
