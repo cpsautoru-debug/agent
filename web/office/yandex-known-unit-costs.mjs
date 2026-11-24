@@ -41,9 +41,10 @@ export function knownYandexUnitCost(offer){
    /подлокот|двер|накид|кресл\s*детск/.test(name))return null;
  // Exact physical variant confirmed by owner for Ozon SKU 5023073005.
  // Do not generalize to different Vesta Cross colors or trims.
- if(/(?:вест[ауы]|vesta)\s*(?:кросс|cross)/.test(name)&&
-   /оранж/.test(name)&&/сот/.test(name)&&
-   /(?:поддержк|боков)/.test(name))
+ if(/(?:вест[ауы]|vesta)\s*(?:кросс|cross)/.test(s)&&
+   /оранж/.test(s)&&/сот/.test(s)&&
+   /(?:поддержк|боков)/.test(s)&&
+   (!/син|красн|зелен|бел|сер|черн/.test(name)||/оранж/.test(name)))
   return {costKopecks:450000,
    category:'Vesta Cross с оранжевой поддержкой и оранжевыми сотами',
    source:'OWNER_CONFIRMED_OZON_SKU_5023073005_IDENTICAL_VARIANT'};
