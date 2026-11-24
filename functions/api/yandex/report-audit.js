@@ -60,10 +60,20 @@ export async function onRequestGet({request,env}){
   const response=await yandexRequest(env,
    '/v2/reports/info/'+url.searchParams.get('reportId'));
   const report=response.result;
-  if(report?.status!=='DONE'||typeof report.file!=='string')
-   return json(200,{code:'report_not_ready',
-    status:['PENDING','PROCESSING','FAILED'].includes(report?.status)?
-      report.status:'UNKNOWN',financeProfitVerified:false});
+  const status=['PENDING','PROCESSING','FAILED','DONE'].includes(
+   report?.status)?report.status:'UNKNOWN';
+  const subStatus=['NO_DATA','TOO_LARGE','RESOURCE_NOT_FOUND'].includes(
+   report?.subStatus)?report.subStatus:null;
+  // Yandex may finish an empty realization report without any ZIP link.
+  // NO_DATA is an explicit upstream status, not evidence of 0 sold units.
+  if(['FAILED','DONE'].includes(status)&&subStatus==='NO_DATA'&&
+     typeof report?.file!=='string')
+   return json(200,{code:'yandex_report_no_data',readOnly:true,
+    changedRecords:0,sourceStatus:status,subStatus,
+    dataAvailable:false,fileDownloaded:false,financeProfitVerified:false});
+  if(status!=='DONE'||typeof report?.file!=='string')
+   return json(200,{code:'report_not_ready',status,subStatus,
+    fileAvailable:false,financeProfitVerified:false});
   const archive=await loadOfficialArchive(report.file);
   const files=await parseYandexZip(archive);
   const result=describeYandexReportSheets(files);
