@@ -267,16 +267,14 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  analyze.addEventListener('click',analyzeReport);
  shopSelect.addEventListener('change',()=>{
   stopPolling();pollAttempts=0;buttonState();renderJobs();
-  if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
-   schedulePolling();
+  schedulePolling();
  });
  reportSelect.addEventListener('change',()=>{
   stopPolling();pollAttempts=0;buttonState();
-  if(getJob()?.status==='PENDING'||getJob()?.status==='PROCESSING')
-   schedulePolling();
+  schedulePolling();
  });
  monthInput.addEventListener('change',()=>{
-  stopPolling();pollAttempts=0;buttonState();renderJobs();
+  stopPolling();pollAttempts=0;buttonState();renderJobs();schedulePolling();
  });
  buttonState();renderJobs();
  const onVisit=()=>{
