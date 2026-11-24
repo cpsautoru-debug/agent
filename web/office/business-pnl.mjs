@@ -63,6 +63,17 @@ function render(root,pnl,sourceNotes={},interim={}){
     card.append(el('small','business-pnl-interim-warning',
      'Себестоимость Яндекса не закрыта: товаров без подтверждённой цены '+
       x.missingCount+', проблем покрытия отчётов '+x.issues+'.'));
+    if(Array.isArray(x.missingProducts)&&x.missingProducts.length){
+     const fold=el('details','business-pnl-wb-details');
+     fold.append(el('summary','','Товары без подтверждённой себестоимости · '+
+      x.missingProducts.length));
+     const list=el('ol','');
+     for(const item of x.missingProducts){
+      list.append(el('li','',
+       (item.name||'Без названия')+' · SKU '+item.shopSku));
+     }
+     fold.append(list);card.append(fold);
+    }
    }
   }
   if(ch.id==='ozon'||ch.id==='wb'||ch.id==='yandex'){
@@ -173,6 +184,8 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     sourceNotes.yandex='Сверены доставленные SKU и их себестоимость. Результат до дополнительной рекламы, периода возвратов, услуг и АУСН.';
    else if(x.status==='incomplete_cost_coverage')
     sourceNotes.yandex='Сверка себестоимости Яндекса ещё не завершена. Неизвестные товары не считаются нулевыми затратами.';
+   else if(x.status==='unavailable')
+    sourceNotes.yandex='Серверная сверка себестоимости Яндекса пока недоступна. Доход после услуг не считается прибылью без фактических SKU и расходов.';
    if(lastRender?.base===base&&lastRender.month===month){
     lastRender.pnl=consolidateBusinessPnl(base);
     render(root,lastRender.pnl,sourceNotes,interim);
