@@ -26,3 +26,34 @@ test('source Yandex finance groups confirmed shops and retains unmatched rows',(
  assert.equal(r.skuCandidates.length,2);
  assert.equal(r.skuCompleteness.includes('not verified'),true);
 });
+
+test('Yandex partnerId can be ООО business ID when verified shopName identifies the store',()=>{
+ const sharedBusiness=704400;
+ assert.equal(resolveYandexShop({
+  partnerId:sharedBusiness,businessId:sharedBusiness,
+  shopName:'автосклад'
+ }),149106500);
+ assert.equal(resolveYandexShop({
+  partnerId:String(sharedBusiness),businessId:sharedBusiness,
+  shopName:'Студия Авто Дизайна (САД)'
+ }),149082506);
+ assert.equal(resolveYandexShop({
+  partnerId:sharedBusiness,businessId:sharedBusiness,
+  shopName:'неизвестный магазин'
+ }),null);
+ assert.equal(resolveYandexShop({
+  partnerId:sharedBusiness,businessId:sharedBusiness+1,
+  shopName:'автосклад'
+ }),null);
+ assert.equal(resolveYandexShop({
+  partnerId:149082506,businessId:sharedBusiness,
+  shopName:'автосклад'
+ }),null);
+ const evidence=yandexShopIdentityEvidence([{
+  partnerId:sharedBusiness,businessId:sharedBusiness,
+  shopName:'автосклад'
+ }]);
+ assert.equal(evidence.partnerIsBusiness,1);
+ assert.equal(evidence.recognizedShopNames,1);
+ assert.equal(evidence.verified,1);
+});
