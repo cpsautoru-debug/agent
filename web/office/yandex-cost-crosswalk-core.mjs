@@ -66,8 +66,8 @@ function confirmedSources(source,month){
  return result.filter(x=>normalizeCostKey(x.code));
 }
 function resultForOffer(offer,costs){
- const keys=[offer.shopSku,offer.name,offer.offerName].map(normalizeCostKey)
-  .filter(Boolean);
+ const keys=[offer.shopSku,offer.name,offer.offerName,offer.catalogName]
+  .map(normalizeCostKey).filter(Boolean);
  const exact=costs.filter(c=>keys.includes(normalizeCostKey(c.code))||
   c.alternativeCode&&keys.includes(normalizeCostKey(c.alternativeCode)));
  const prices=rows=>[...new Set(rows.map(x=>x.costKopecks))];
@@ -79,11 +79,21 @@ function resultForOffer(offer,costs){
    {status:'cost_conflict',costKopecks:null,pricesKopecks:amounts,
     sources:[...new Set(exact.map(x=>x.channel))]};
  }
- const previouslyConfirmed=knownYandexUnitCost(offer);
- if(previouslyConfirmed)return {status:'matched_owner',
-  costKopecks:previouslyConfirmed.costKopecks,
-  sources:[previouslyConfirmed.source],
-  category:previouslyConfirmed.category};
+ // Seller-catalog titles are verified identities but NOT owner-confirmed
+ // costs. Reuse only exact model/variant owner prices, reject conflicting
+ // cost interpretations across official report and catalog titles.
+ const titles=[offer.name,offer.offerName,offer.catalogName]
+  .filter(x=>typeof x==='string'&&x.trim());
+ const known=titles.map(name=>knownYandexUnitCost({...offer,name}))
+  .filter(Boolean);
+ const knownPrices=[...new Set(known.map(x=>x.costKopecks))];
+ if(knownPrices.length>1)return {status:'cost_conflict',
+  costKopecks:null,pricesKopecks:knownPrices,
+  sources:[...new Set(known.map(x=>x.source))]};
+ if(knownPrices.length===1)return {status:'matched_owner',
+  costKopecks:knownPrices[0],
+  sources:[...new Set(known.map(x=>x.source))],
+  category:known[0].category};
  const identity=modelFamily([offer.name,offer.offerName,offer.shopSku]
   .filter(Boolean).join(' '));
  if(!identity)return {status:'missing',costKopecks:null};
