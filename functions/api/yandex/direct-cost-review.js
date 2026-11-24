@@ -4,10 +4,8 @@ import {onRequestGet as readOfficialReport}
  from './report-audit.js';
 import {onRequestGet as readCostSources}
  from '../finance/cost-audit.js';
-import {reconcileDirectYandexMonth,collectYandexVerifiedOfferNames}
+import {reconcileDirectYandexMonth}
  from '../../../web/office/yandex-direct-reconciliation-core.mjs';
-import {collectYandexRealizationCandidates}
- from '../../../web/office/yandex-realization-cost-evidence.mjs';
 
 const expected=[
  ['all','orders','orders'],
@@ -82,16 +80,16 @@ export async function onRequestGet({request,env}){
     status:'cost_sources_unavailable',readOnly:true,
     netProfitKopecks:null,missing:[]});
   const realizations={149082506:first,149106500:second};
-  // A small number of official realization records may have seller SKU
-  // but an empty offerName. First try the already audited order archive,
-  // then a read-only owner-authorized Yandex catalog lookup. Purchase
-  // price from that catalog is NOT treated as confirmed manufacturing cost.
-  const titleMap=collectYandexVerifiedOfferNames(orders);
-  const unresolved=collectYandexRealizationCandidates(realizations)
-   .filter(x=>!x.offerName&&!titleMap.get(
-    x.partnerId+':'+x.shopSku));
+  const base={orders,services,payments};
+  // Only after an initial exact audit, ask the official seller catalog for
+  // product titles of ACTUALLY missing delivered SKU, including generically
+  // named products. Catalog purchase prices are NEVER used as COGS.
+  const firstPass=reconcileDirectYandexMonth(
+   month,base,realizations,costAudit);
+  const unknown=firstPass.missing||[];
+  const unique=[...new Set(unknown.map(x=>x.shopSku))]
+   .filter(x=>typeof x==='string'&&x.length<=150);
   const catalogOfferNames={};
-  const unique=[...new Set(unresolved.map(x=>x.shopSku))];
   if(unique.length>0&&unique.length<=100){
    try{
     const scope=selectedBusiness(await listYandexCampaigns(env));
@@ -105,11 +103,11 @@ export async function onRequestGet({request,env}){
       offer.name.length>0&&offer.name.length<=200)
       catalogOfferNames[offer.offerId]=offer.name;
     }
-   }catch{/* Keep exact sources; no guessed product identity. */}
+   }catch{/* Missing owner catalog is not permission to guess cost. */}
   }
-  const result=reconcileDirectYandexMonth(month,
-   {orders,services,payments},
-   realizations,costAudit,{catalogOfferNames});
+  const result=Object.keys(catalogOfferNames).length?
+   reconcileDirectYandexMonth(month,base,realizations,costAudit,
+    {catalogOfferNames}):firstPass;
   return json(200,result);
  }catch{
   return json(503,{code:'yandex_direct_cost_source_unavailable',
