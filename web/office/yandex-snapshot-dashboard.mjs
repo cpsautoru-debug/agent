@@ -30,6 +30,10 @@ export function interpretYandexCostSnapshot(month,data){
   return {month,status:'incomplete_cost_coverage',
    cogsKopecks:int(e.deliveredCostKopecks)?e.deliveredCostKopecks:null,
    preliminaryContributionKopecks:null,missingCount:missing,
+   missingProducts:e.skus.filter(x=>x?.deliveredUnits>0&&
+    x.costKopecks===null).slice(0,30).map(x=>({
+     shopSku:String(x.shopSku||'').slice(0,150),
+     name:String(x.name||'').slice(0,200)})),
    issues:e.issues.length,netProfitKopecks:null};
  return blocked('preliminary_calculation_invalid');
 }
