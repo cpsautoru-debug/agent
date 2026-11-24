@@ -51,15 +51,14 @@ function render(root,pnl,sourceNotes={},interim={}){
   }
   if(metric.showIncome)
    card.append(el('small','business-pnl-interim-warning',metric.note));
+  if(Number.isSafeInteger(metric.incomeKopecks))
+   card.append(el('small','business-pnl-subhead',
+    'Доход после услуг до себестоимости: '+money(metric.incomeKopecks)));
   if(ch.id==='yandex'&&interim.yandexCost?.month===pnl.month){
    const x=interim.yandexCost;
    if(x.status==='preliminary_cost_reconciled'){
     card.append(el('small','business-pnl-subhead',
-     'Промежуточный результат после себестоимости'),
-     el('strong','business-pnl-interim-value',
-      money(x.preliminaryContributionKopecks)),
-     el('small','business-pnl-interim-warning',
-      'Не чистая прибыль: налог АУСН, внешний рекламный бюджет, возвраты и общие расходы требуют отдельной сверки.'));
+     'Подтверждённая себестоимость доставленных: '+money(x.cogsKopecks)));
    }else if(x.status==='incomplete_cost_coverage'){
     card.append(el('small','business-pnl-interim-warning',
      'Себестоимость Яндекса не закрыта: товаров без подтверждённой цены '+
@@ -144,7 +143,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   refresh.textContent='Пересчитываем…';
   root.setAttribute('aria-busy','true');
   let notice=documentRef.getElementById('businessPnlLoadStatus');
-  if(notice)notice.textContent='Обновляем Ozon и Wildberries за '+month+'…';
+  if(notice)notice.textContent='Обновляем Ozon, Wildberries и Яндекс за '+month+'…';
   const base={month,channels:{},sharedExpenses:[],taxes:[],
     completeSources:false};
   const interim={};
