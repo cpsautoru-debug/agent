@@ -242,7 +242,8 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
    }));
    const result=reconcileYandexSharedCosts(named,audit,month);
    const costOfGoods=reconcileYandexRealizationCosts(result,realizationProofs);
-   if(monthNode.value!==month||shopNode.value!=='all')return;
+   if(monthNode.value!==month||
+      (currentPage==='#yandexFinance'&&shopNode.value!=='all'))return;
    view.replaceChildren();
    const precise=result.rows.filter(x=>['matched_exact','matched_owner']
     .includes(x.status));
