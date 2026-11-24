@@ -1,29 +1,19 @@
-// Business-level legal-entity gate, based on the owner's explicit correction
-// on 24 November 2026. Third-party LLC source reports are NOT AutoSklad63 data.
-// Do not delete the archived data: quarantine it from company calculations.
+// Owner-verified financial scope for AutoSklad63. The owner explicitly
+// confirmed that the already connected Yandex API belongs to IP Zhilina
+// Olga. Earlier assistant statements about a third-party LLC were WRONG.
 export const AUTOSKLAD63_LEGAL_ENTITY=Object.freeze({
- type:'ИП',holder:'Жилина Ольга',
- displayName:'ИП Жилина Ольга'
+ type:'ИП',
+ holder:'Жилина Ольга',
+ displayName:'ИП Жилина Ольга',
+ source:'OWNER_EXPLICIT_CONFIRMATION_2026_11_24'
 });
-export const EXCLUDED_THIRD_PARTY_YANDEX_CAMPAIGNS=Object.freeze([
- 149082506,149106500
-]);
 export const YANDEX_OWNER_REPORT_SCOPE=Object.freeze({
- status:'not_verified_for_ip',
+ status:'owner_confirmed',
  legalEntity:AUTOSKLAD63_LEGAL_ENTITY.displayName,
- // The previously connected campaign IDs are confirmed as unrelated LLC data.
- excludedCampaignIds:EXCLUDED_THIRD_PARTY_YANDEX_CAMPAIGNS,
- expectedSource:'previously_uploaded_owner_ip_reports',
+ expectedSource:'existing_connected_yandex_api',
+ // Both known campaigns belong to this same owner per explicit correction.
+ campaignIds:Object.freeze([149082506,149106500]),
 });
 export function yandexEvidenceAllowedForBusiness(){
- // No trusted IP-owner business/campaign mapping is currently available.
- // Never infer it from an API token, a report DONE status or a shop name.
- return false;
-}
-export function excludedYandexIncome(month){
- return {month,status:'unavailable',incomeKopecks:null,
-  netProfitKopecks:null,orders:null,
-  reason:'third_party_llc_source_excluded',
-  legalEntity:AUTOSKLAD63_LEGAL_ENTITY.displayName,
-  sourceVerified:false};
+ return YANDEX_OWNER_REPORT_SCOPE.status==='owner_confirmed';
 }
