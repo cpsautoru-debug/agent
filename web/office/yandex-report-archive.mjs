@@ -190,8 +190,19 @@ export function describeYandexReportSheets(files){
    const existing=skuMap.get(key)||{partnerId:shop,shopSku:code,
     offerName:typeof row.offerName==='string'?
       row.offerName.slice(0,160):'',
-    reportRows:0,statuses:[]};
+    reportRows:0,statuses:[],quantityRows:0,reportedQuantity:0,
+    quantityInvalidRows:0};
    existing.reportRows++;
+   // Official "count" is the line quantity. It is NOT proof of a sale:
+   // order status, fulfillment and returns require a separate reconciliation.
+   const quantity=row.count;
+   if(quantity!==undefined&&quantity!==null){
+     if(Number.isSafeInteger(quantity)&&quantity>=0&&
+        Number.isSafeInteger(existing.reportedQuantity+quantity)){
+       existing.quantityRows++;
+       existing.reportedQuantity+=quantity;
+     }else existing.quantityInvalidRows++;
+   }
    const status=row.offerStatus||row.orderStatus;
    if(typeof status==='string'&&status.length<=60&&
       !existing.statuses.includes(status)&&existing.statuses.length<8)
@@ -223,7 +234,7 @@ export function describeYandexReportSheets(files){
      'shop_attribution_unavailable',
    skuCandidates:[...skuMap.values()],
    skuSourceCoverage:skuMap.size,
-   skuCompleteness:'SKU identification only; unit sales and COGS not verified'});
+   skuCompleteness:'Order-line quantities are shown for reconciliation only; delivered/returned sales and COGS not verified'});
  }
  return {sheets,
   note:'Amounts are raw source-field totals, NOT accounting revenue or net profit. Cross-sheet totals must not be added.'};
