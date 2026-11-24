@@ -33,7 +33,7 @@ export function attachYandexMarketConnection({documentRef=document,fetcher=fetch
  // read-only owner-gated request; token never enters browser JavaScript.
  let seen=false;
  const onVisible=()=>{
-  if(location.hash.split('/')[0]==='#dashboard'&&!seen){
+  if(location.hash.split('/')[0]==='#yandexFinance'&&!seen){
    seen=true;void check();
   }
  };
