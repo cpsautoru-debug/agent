@@ -61,7 +61,7 @@ export function buildYandexMonthlyEvidence(sources){
     payments.invalid>0)result.blocks.push('payment_coverage_incomplete');
  result.blocks.push('sales_returns_and_sku_cogs_not_reconciled');
  result.blocks.push('separate_service_charges_and_external_costs_not_reconciled');
- result.blocks.push('ooo_tax_and_bank_not_reconciled');
+ result.blocks.push('ip_ausn_tax_and_bank_not_reconciled');
  result.status='source_evidence_ready';
  return result;
 }
