@@ -156,22 +156,17 @@ function showWB(data){
     '. Выплата не равна прибыли.'+explanation);
 }
 export function showYandexDashboard(data,month=byId('ceoMonth')?.value){
- if(data?.status!=='order_income_verified'||data.month!==month||
-    !validInt(data.incomeKopecks)||!validInt(data.orders)||
-    data.orders<1||data.netProfitKopecks!==null)
-  throw Error('schema');
- set('ceoYandexValue',money(data.incomeKopecks));
- status('ceoYandexState','Доход после учтённых услуг · прибыль отдельно',
-   data.serviceAuditComplete&&data.paymentAuditComplete?'success':'warning');
- set('ceoYandexNote','Яндекс · оба магазина одного ООО · '+month+
-  '. Доход по '+count(data.orders)+' заказам из incomeWithoutServices; '+
-  'комиссии, уже включённые в отчёт, повторно не вычитаются. '+
-  (data.serviceAuditComplete&&data.paymentAuditComplete?
-   'Три финансовых архива проверены. ':
-   'Отдельные услуги или платежи требуют дополнительной сверки. ')+
-  'Это не сумма поступлений на счёт и не чистая прибыль.');
- reportSource('yandex','partial','Доступен доход после включённых услуг за '+month+
-  '; налог, возвраты, внешние расходы и чистая прибыль не подтверждены');
+ // Explicit owner correction: the previous two Yandex campaigns belong to
+ // an unrelated LLC. Refuse their figures even if old API jobs say DONE.
+ set('ceoYandexValue','Нет отчёта ИП');
+ status('ceoYandexState','Отчёты стороннего ООО исключены','warning');
+ set('ceoYandexNote',
+  'Для АвтоСклад63 учитываются только отчёты ИП Жилина Ольга. '+
+  'Ранее подключённые отчёты чужого ООО не используются в доходе, '+
+  'себестоимости или прибыли. Отчёты ИП требуют отдельной сверки.');
+ reportSource('yandex','blocked',
+  'Отчёты стороннего ООО исключены; требуется подтверждённый источник ИП Жилиной');
+ return false;
 }
 function showOzon(data){
   const p=data?.result;
@@ -342,8 +337,8 @@ async function refresh(){
   ];
   let confirmed=0;
   await Promise.all(sources.map(async([key,url,paint])=>{
-    try{paint(url?await jsonGet(url):
-      await loadYandexDashboardEvidence({month}),month);confirmed++;}
+    try{if(paint(url?await jsonGet(url):
+      await loadYandexDashboardEvidence({month}),month)!==false)confirmed++;}
     catch(e){unavailable(key,e);set(key+'Value','Нет данных');}
   }));
   // Ozon advertising is deliberately on-demand because it calls Ozon OAuth
