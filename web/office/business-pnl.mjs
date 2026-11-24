@@ -5,6 +5,7 @@ import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
 import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
  from './yandex-dashboard-evidence.mjs';
 import {yandexPnlCardMetric} from './yandex-pnl-card.mjs';
+import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
  avito:'Авито',offline:'Магазин · Пламя'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
@@ -50,6 +51,21 @@ function render(root,pnl,sourceNotes={},interim={}){
   }
   if(metric.showIncome)
    card.append(el('small','business-pnl-interim-warning',metric.note));
+  if(ch.id==='yandex'&&interim.yandexCost?.month===pnl.month){
+   const x=interim.yandexCost;
+   if(x.status==='preliminary_cost_reconciled'){
+    card.append(el('small','business-pnl-subhead',
+     'Промежуточный результат после себестоимости'),
+     el('strong','business-pnl-interim-value',
+      money(x.preliminaryContributionKopecks)),
+     el('small','business-pnl-interim-warning',
+      'Не чистая прибыль: налог АУСН, внешний рекламный бюджет, возвраты и общие расходы требуют отдельной сверки.'));
+   }else if(x.status==='incomplete_cost_coverage'){
+    card.append(el('small','business-pnl-interim-warning',
+     'Себестоимость Яндекса не закрыта: товаров без подтверждённой цены '+
+      x.missingCount+', проблем покрытия отчётов '+x.issues+'.'));
+   }
+  }
   if(ch.id==='ozon'||ch.id==='wb'||ch.id==='yandex'){
    const link=el('a','business-pnl-detail-link',
      ch.id==='ozon'?'Подробная прибыль Ozon →':
@@ -144,10 +160,14 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   let error=null,wbError=null;
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
+  const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
+   if(x.status!=='unavailable')interim.yandexCost=x;
+   return x;
+  });
   if(month==='2026-10'){
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([yandexRead,
+   await Promise.all([yandexRead,yandexCosts,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
@@ -201,7 +221,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     })()
    ]);
   }
-  if(month!=='2026-10')await yandexRead;
+  if(month!=='2026-10')await Promise.all([yandexRead,yandexCosts]);
   if(serial!==id||monthInput.value!==month)return;
   refresh.disabled=false;
   refresh.textContent='Пересчитать сводку';
@@ -221,6 +241,15 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const d=event?.detail;
   if(d?.month!==monthInput.value)return;
   refreshYandexPanel(deriveYandexDashboardEvidence(d.month,d.sources));
+ });
+ window.addEventListener('yandex-month-evidence-saved',()=>{
+  const month=monthInput.value;
+  if(!lastRender||lastRender.month!==month)return;
+  void loadYandexCostSnapshot(month,fetcher).then(x=>{
+   if(lastRender?.month!==month||x.status==='unavailable')return;
+   lastRender.interim.yandexCost=x;
+   render(root,lastRender.pnl,lastRender.sourceNotes,lastRender.interim);
+  });
  });
  window.addEventListener('yandex-auto-jobs-updated',()=>{
   const month=monthInput.value;
