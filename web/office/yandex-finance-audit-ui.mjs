@@ -232,6 +232,14 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
     status.textContent='Месяц или магазин изменён; данные прежней выборки скрыты.';
    }else{
     renderYandexMonthlyEvidence(documentRef,output,auditedSources);
+    // Reuse already audited summaries for SKU cost/contribution calculations.
+    // No additional three-archive downloads and no persistence of source rows.
+    if(successes===3&&selectedShop==='all'&&
+       EXPECTED.every(type=>auditedSources[type]?.readOnly===true&&
+        auditedSources[type]?.changedRecords===0&&
+        auditedSources[type]?.financeProfitVerified===false))
+     window.dispatchEvent(new CustomEvent('yandex-financial-sources-audited',{
+      detail:{month:selectedMonth,sources:auditedSources}}));
     status.textContent='Финансовые источники: '+successes+' из 3 архивов. '+
      'Выведен промежуточный результат заказов (при достаточном покрытии); '+
      'чистая прибыль не подтверждается до сверки себестоимости и возвратов.';
