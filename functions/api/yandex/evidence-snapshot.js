@@ -3,7 +3,7 @@ import {json,verifyYandexOwner} from './finance-source.js';
 // order, email, bank or transaction records. An authenticated browser sends
 // summaries of archives it has audited; server checks source report IDs against
 // canonical D1 jobs. The captured summary is NOT an accountant's certification.
-const MONTH=/^20\\d{2}-(0[1-9]|1[0-2])$/;
+const MONTH=/^20\d{2}-(0[1-9]|1[0-2])$/;
 const ID=/^[a-zA-Z0-9_-]{1,255}$/;
 const EXPECTED=[
  ['all','orders','orders'],['all','services','services'],
