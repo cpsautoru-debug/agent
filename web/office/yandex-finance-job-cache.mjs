@@ -43,3 +43,31 @@ export function saveYandexReportJobs(store,jobs,now=Date.now()){
  try{store.setItem(KEY,JSON.stringify(entries));return true;}
  catch{return false;}
 }
+
+/** Merge server report IDs conservatively; never overwrite an audited
+ * same-generation local job. A newer ID must be re-audited first. */
+export function mergeYandexRemoteJobs(local,remote,now=Date.now()){
+ if(!(local instanceof Map)||!Array.isArray(remote))return local;
+ const merged=new Map(local);
+ for(const job of remote.slice(0,20)){
+  if(!job||typeof job!=='object')continue;
+  const k=job.month+':'+job.scope+':'+job.reportType;
+  if(!jobKey.test(k)||!ids.test(job.reportId||'')||
+     !Number.isSafeInteger(job.createdAt)||job.createdAt>now||
+     now-job.createdAt>VERIFIED_TTL||
+     !['PENDING','PROCESSING','DONE','FAILED'].includes(job.status))
+   continue;
+  const before=merged.get(k);
+  if(before&&before.createdAt>job.createdAt)continue;
+  if(before&&before.reportId===job.reportId&&
+     before.createdAt===job.createdAt){
+   // Keep the local audit flag; server only stores job metadata.
+   if(before.status!=='DONE'&&job.status==='DONE')
+    merged.set(k,{...before,status:'DONE'});
+   continue;
+  }
+  merged.set(k,{reportId:job.reportId,status:job.status,
+   createdAt:job.createdAt,audited:false,noData:false,subStatus:null});
+ }
+ return merged;
+}
