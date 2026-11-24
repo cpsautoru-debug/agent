@@ -3,10 +3,12 @@ import {collectYandexConfirmedJobs}
 import {reconcileYandexSharedCosts}
  from './yandex-cost-crosswalk-core.mjs';
 import {restoreYandexReportJobs} from './yandex-finance-job-cache.mjs';
-import {reconcileYandexRealizationCosts,collectYandexRealizationCandidates}
+import {reconcileYandexRealizationCosts,collectYandexRealizationCandidates,
+ buildYandexSafeSkuEvidence}
  from './yandex-realization-cost-evidence.mjs';
 import {buildYandexPreliminaryContribution}
  from './yandex-contribution-core.mjs';
+import {buildYandexMonthlyEvidence} from './yandex-month-evidence.mjs';
 // Matches only official October order SKUs, not every listed product.
 // The page is a read-only reconciliation surface; all prices are per unit.
 const knownShops={149082506:'САД',149106500:'автосклад'};
@@ -55,6 +57,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
  if(automatic?.after)automatic.after(section);
  else root.prepend(section);
  let running=false,doneKey='',lastRun=0,latestCosts=null;
+ let lastSnapshotKey='',lastSnapshotAttempt=0;
  const financeEvidence=new Map();
  function showContribution(){
   const existing=view.querySelector?.('#yandexPreliminaryContribution');
@@ -92,6 +95,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     'Не закрыто: '+data.blockers.join(', ')));
   }
   view.prepend(card);
+  void persistCloseoutEvidence(data,sources);
  }
  const api=async(path,options)=>{
   const response=await fetcher(path,{
@@ -101,6 +105,52 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   if(!response.ok)throw Error(data.code||'source_unavailable');
   return data;
  };
+ async function persistCloseoutEvidence(data,sources){
+  if(!latestCosts||latestCosts.month!==monthNode.value||
+     !data||!sources||running&&monthNode.value!==latestCosts.month)return;
+  const month=latestCosts.month;
+  const jobs=restoreYandexReportJobs(storage);
+  const needed=[['all','orders','orders'],['all','services','services'],
+   ['all','payments','payments'],
+   ['149082506','realization','realization149082506'],
+   ['149106500','realization','realization149106500']];
+  const reportIds={};
+  for(const [scope,type,name] of needed){
+   const job=jobs.get(month+':'+scope+':'+type);
+   if(job?.status!=='DONE'||!job.reportId)return;
+   reportIds[name]=job.reportId;
+  }
+  let ledger,finance;
+  try{
+   ledger=buildYandexSafeSkuEvidence(latestCosts.costAudit,
+    latestCosts.realizationReports);
+   finance=buildYandexMonthlyEvidence(sources);
+  }catch{return;}
+  const evidence={ownerEntity:'ИП Жилина Ольга',
+   status:data.status==='preliminary_contribution_ready'&&
+     ledger.issues.length===0&&ledger.missing.length===0?
+      'preliminary_contribution_ready':'partial',
+   orderAfterServiceKopecks:data.orderAfterServicesKopecks,
+   deliveredCostKopecks:data.deliveredManufacturingCostKopecks,
+   returnedValueKopecks:data.returnsIndicativeCostKopecks,
+   preliminaryContributionKopecks:
+    data.status==='preliminary_contribution_ready'&&
+    ledger.issues.length===0&&ledger.missing.length===0?
+      data.preliminaryContributionKopecks:null,
+   orderRows:finance.orderMargin?.rows??0,
+   skus:ledger.rows,issues:ledger.issues,netProfitKopecks:null};
+  const body={month,reportIds,evidence};
+  const serialized=JSON.stringify(body),now=Date.now();
+  if(serialized===lastSnapshotKey&&now-lastSnapshotAttempt<15*60*1000)
+   return;
+  if(serialized.length>80000)return;
+  lastSnapshotKey=serialized;lastSnapshotAttempt=now;
+  try{
+   await api('/api/yandex/evidence-snapshot',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:serialized});
+  }catch{/* Keep the source on screen; persist again on the next change. */}
+ }
  const safeError=e=>/^[a-z_]{3,80}$/.test(e?.message||'')?
   e.message:'source_unavailable';
  const makeList=(title,rows,format)=>{
