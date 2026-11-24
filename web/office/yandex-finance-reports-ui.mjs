@@ -31,7 +31,8 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
    const job=jobs.get(month+':'+scope+':'+type);
    const line=documentRef.createElement('p');
    line.textContent=names[type]+': '+(job?.status||'не запрошен')+
-    (job?.audited?' · архив проверен':'');
+    (job?.audited?' · архив проверен':
+     job?.status==='DONE'?' · требуется проверка архива':'');
    jobSummary.append(line);
   }
  }
@@ -40,7 +41,8 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
   stopPolling();
   const prefix=monthInput.value+':'+shopSelect.value+':';
   const pending=[...jobs].some(([key,v])=>key.startsWith(prefix)&&
-   ['PENDING','PROCESSING'].includes(v.status));
+   (['PENDING','PROCESSING'].includes(v.status)||
+    (v.status==='DONE'&&!v.audited)));
   if(!pending||pollAttempts>=12)return;
   pollAttempts++;
   pollTimer=setTimeout(()=>{
@@ -52,10 +54,11 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  async function checkPendingJobs(){
   const prefix=monthInput.value+':'+shopSelect.value+':';
   const pending=[...jobs].filter(([key,v])=>key.startsWith(prefix)&&
-   ['PENDING','PROCESSING'].includes(v.status));
+   (['PENDING','PROCESSING'].includes(v.status)||
+    (v.status==='DONE'&&!v.audited)));
   if(!pending.length||loading)return;
   loading=true;buttonState();
-  let processed=0;
+  let processed=0,failures=0;
   try{
    for(const [key,job]of pending){
     try{
@@ -71,12 +74,17 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
        job.audited=true;processed++;
       }
      }
-    }catch{/* Network or upstream throttling: retain the job for another check. */}
+    }catch{failures++;/* Retain job for retry without regenerating report. */}
    }
    remember();
-   say('Финансовые отчёты Яндекса: проверены статусы '+pending.length+
-     ', архивов успешно разобрано '+processed+
-     '. Финансовая прибыль не утверждается до сверки себестоимости и услуг.');
+   const current=[...jobs].filter(([key])=>key.startsWith(prefix));
+   const audited=current.filter(([,x])=>x.audited).length;
+   const awaiting=current.filter(([,x])=>x.status==='PENDING'||x.status==='PROCESSING').length;
+   const errors=current.filter(([,x])=>x.status==='FAILED').length;
+   say('Яндекс Маркет · '+audited+' из '+current.length+
+     ' архивов проверено; формируется '+awaiting+
+     '; отклонено '+errors+'; временных ошибок проверки '+failures+
+     '. Повторная генерация не выполняется.');
   }finally{loading=false;buttonState();schedulePolling();}
  }
  const names={orders:'Заказы и товары',
