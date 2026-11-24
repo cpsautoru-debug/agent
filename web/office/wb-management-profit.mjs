@@ -86,7 +86,9 @@ export function attachWbFinancialPnl({documentRef=document,fetcher=fetch}={}){
    status.textContent='Сверены '+result.reports+' отчётов, '+result.rows+
     ' операций. '+(c?
       'Историческая себестоимость подтверждена по 35 из 35 артикулов через 9 сохранённых XLSX, 173 продажи и 6 пригодных возвратов. '+
-      'Основной реестр себестоимости WB пока не синхронизирован (в нём '+result.confirmedCostArticles+' из '+result.soldArticles+'). '+
+      (result.confirmedCostArticles===result.soldArticles?
+       'Основной реестр себестоимости WB подтверждён: '+result.confirmedCostArticles+' из '+result.soldArticles+' артикулов. ':
+       'Основной реестр себестоимости WB неполный: '+result.confirmedCostArticles+' из '+result.soldArticles+' артикулов. ')+
       'Результат после известных прямых затрат '+money(c.contributionKopecks)+
       ' — управленческий, не окончательная чистая прибыль.':
       'Себестоимость ещё не сверена.')+
