@@ -51,7 +51,22 @@ export function renderYandexSourceAudit(doc,root,type,payload){
     }
    }
   }else textNode(doc,details,
-   'Магазин не удалось определить по полю partnerId: эти суммы нельзя приписывать конкретному магазину.');
+   'Магазин не удалось надёжно определить по ID кампании или названию магазина. Распределение этих сумм заблокировано.');
+  const evidence=sheet.shopIdentityEvidence;
+  if(evidence&&typeof evidence==='object'&&sheet.rows>0){
+   const used=evidence.present||{};
+   textNode(doc,details,'Поля идентификации в исходном отчёте: '+
+    ['partnerId','campaignId','shopName','businessId'].map(
+      k=>k+' — '+(Number.isSafeInteger(used[k])?used[k]:0)
+    ).join('; ')+'.');
+   if(evidence.unmatchedRows>0){
+    const sample=Object.entries(evidence.examples||{}).filter(
+      ([k])=>['partnerId','campaignId','shopName'].includes(k));
+    for(const [field,values]of sample)
+     textNode(doc,details,'Неопознанные значения '+field+': '+
+       (Array.isArray(values)?values.slice(0,3).join(', '):'нет'));
+   }
+  }
   if(typeof sheet.rows==='number'&&
      sheet.recognizedShopRows!==sheet.rows)
    textNode(doc,details,'Строк без подтверждённого магазина: '+
