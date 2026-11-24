@@ -89,14 +89,14 @@ test('Yandex source ZIP is checked and raw transaction sums are not net profit',
  tampered[30+'transaction_date.json'.length+5]^=0x01;
  await assert.rejects(parseYandexZip(tampered.buffer),/checksum|json_invalid/);
 });
-test('Yandex finance reporting is present in office UI without browser secret',()=>{
+test('third-party Yandex report workflow is archived, not loaded for IP Zhilina',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const js=readFileSync(new URL('../../web/office/yandex-finance-reports-ui.mjs',import.meta.url),'utf8');
+ assert.match(html,/Отчёты стороннего ООО исключены/);
  for(const id of ['yandexFinanceReports','yandexFinanceDiscover',
   'yandexFinanceGenerate','yandexFinanceCheckStatus','yandexFinanceAnalyze'])
-  assert.match(html,new RegExp(id));
+  assert.doesNotMatch(html,new RegExp('id="'+id+'"'));
+ assert.doesNotMatch(html,/src="yandex-finance-reports-ui\.mjs/);
  assert.match(js,/\/api\/yandex\/finance-reports/);
- assert.match(js,/\/api\/yandex\/report-audit/);
  assert.doesNotMatch(js,/Api-Key|YANDEX_MARKET_API_KEY/);
- assert.match(js,/restoreYandexReportJobs/);
 });
