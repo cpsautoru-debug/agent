@@ -5,7 +5,7 @@ export const OFFICE_SOURCES=Object.freeze([
   {id:'msqueue',phase:1,title:'МойСклад · автоматическая очередь проверки',section:'production',status:'partial',next:'Проверить последний полный исторический снимок и очередь кандидатов; рабочие заказы отдельно'},
   {id:'ozon',phase:2,title:'Ozon · финансы и продажи',section:'ozonProfit',status:'partial',next:'Сверить начисления, возвраты, рекламу, налоги и банк'},
   {id:'wb',phase:2,title:'Wildberries · финансы и продажи',section:'wbFinance',status:'partial',next:'Устранить расхождения отчётов и подтвердить прибыль'},
-  {id:'yandex',phase:2,title:'Яндекс Маркет · финансы ООО',section:'yandexFinance',status:'partial',next:'Проверены отчёты и промежуточный доход; сверить COGS по SKU, возвраты, налог ООО и внешние расходы'},
+  {id:'yandex',phase:2,title:'Яндекс Маркет · ИП Жилина Ольга',section:'yandexFinance',status:'blocked',next:'Данные стороннего ООО исключены; прежние файлы ИП требуют отдельной сверки'},
   {id:'avito',phase:2,title:'Авито и офлайн-продажи',section:'connections',status:'planned',next:'Загрузка заказов и выручки с проверкой первичных документов'},
   {id:'inventory',phase:1,title:'Склад и закупки',section:'production',status:'partial',next:'Остатки двух складов, перемещения, отрицательные позиции и сигналы закупки'},
   {id:'agents',phase:3,title:'ИИ-агенты и поручения',section:'orchestrator',status:'partial',next:'Диспетчер, финансовый аналитик, аналитик продаж и журнал решений'},
