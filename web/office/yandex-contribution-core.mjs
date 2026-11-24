@@ -14,7 +14,7 @@ export function buildYandexPreliminaryContribution(sources,costAudit,realization
   orderAfterServicesKopecks:finance.preliminaryOrderAfterServiceKopecks,
   deliveredManufacturingCostKopecks:null,
   returnsIndicativeCostKopecks:null,netProfitKopecks:null,
-  missing:[],blockers:[],note:'Доход после учтённых услуг минус подтверждённая себестоимость доставленных. НЕ чистая прибыль; не учитывает отдельно невыверенные услуги, возвраты, налоги и общие расходы.'};
+  missing:[],blockers:[],note:'Ориентир: доход по заказам после услуг минус себестоимость доставленных. Периоды заказов и реализации могут различаться: сверка по orderId не выполнена. НЕ чистая прибыль; возвраты, налоги и общие расходы требуют отдельного учёта.'};
  if(!verifiedSources)result.blockers.push('financial_sources_not_verified');
  if(!Number.isSafeInteger(finance.preliminaryOrderAfterServiceKopecks)){
   result.blockers.push('order_income_not_verified');
