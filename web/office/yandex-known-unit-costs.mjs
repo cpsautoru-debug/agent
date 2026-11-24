@@ -1,4 +1,5 @@
-// Explicitly owner-confirmed Yandex product costs supplied 10 November 2026.
+// Explicitly owner-confirmed Yandex costs supplied 10 November 2026,
+// plus Lada Niva covers confirmed 31 October 2026.
 // Reuse only when the product type and variant are identifiable from title.
 // Never infer a generic EVA mat cost from an unknown shape or a car model alone.
 const norm=value=>typeof value==='string'?value.normalize('NFKC')
@@ -38,6 +39,9 @@ export function knownYandexUnitCost(offer){
  if(!/(?:авто\s*чехл|авточехл|чехл)/.test(name)||
    /подлокот|двер|накид|кресл\s*детск/.test(name))return null;
  if(/грант|granta/.test(name))return cost(320000,'Авточехлы Lada Granta');
+ if(/(?:lada|лада)\s*нива|(?:lada|лада)\s*niva/.test(name)&&
+   !/travel|тревел|chevrolet|шевроле/.test(name))
+  return cost(320000,'Авточехлы Lada Niva');
  if(/калин|kalina/.test(name))return cost(270000,'Авточехлы Lada Kalina');
  if(/газел|gazelle/.test(name))return cost(300000,'Авточехлы Газель');
  if(/(?:ваз|vaz)\s*2107|(?:lada|лада)\s*2107/.test(name))
