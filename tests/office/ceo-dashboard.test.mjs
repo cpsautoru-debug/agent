@@ -33,7 +33,8 @@ test('dashboard reads owner-only endpoints and never initiates writes',()=>{
 });
 test('unknown business data is not presented as zero and advertising request is manual',()=>{
  assert.match(html,/Не подтверждена/);
- assert.match(html,/Общий подтверждённый чистый доход всех каналов пока неизвестен/);
+ assert.match(html,/Расчёт ведём по Ozon, Wildberries и Яндекс Маркету/);
+ assert.match(html,/Авито и магазин «Пламя» в эту финансовую сводку сейчас не включены/);
  assert.match(js,/Не подтверждения|Нет подтверждения/);
  assert.match(js,/ceoAdsRefresh.*addEventListener\('click',refreshAds\)/);
  assert.doesNotMatch(js,/jsonGet\('\/api\/ozon\/ads-expense.*showAds/);
