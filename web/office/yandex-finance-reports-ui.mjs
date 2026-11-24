@@ -286,7 +286,7 @@ export function attachYandexFinanceReports({documentRef=document,fetcher=fetch}=
  });
  buttonState();renderJobs();
  const onVisit=()=>{
-  if(location.hash.split('/')[0]==='#dashboard'&&!campaigns&&!loading)
+  if(location.hash.split('/')[0]==='#yandexFinance'&&!campaigns&&!loading)
    void discover();
  };
  window.addEventListener('hashchange',onVisit);
