@@ -33,3 +33,18 @@ export function interpretYandexCostSnapshot(month,data){
    issues:e.issues.length,netProfitKopecks:null};
  return blocked('preliminary_calculation_invalid');
 }
+
+export async function loadYandexCostSnapshot(month,fetcher=fetch){
+ const unavailable={month,status:'unavailable',cogsKopecks:null,
+  preliminaryContributionKopecks:null,missingCount:null,
+  netProfitKopecks:null};
+ if(!monthValid(month))return unavailable;
+ try{
+  const response=await fetcher('/api/yandex/evidence-snapshot?month='+
+   encodeURIComponent(month),{
+    method:'GET',credentials:'same-origin',cache:'no-store',
+    signal:AbortSignal.timeout(12000)});
+  if(!response.ok)return unavailable;
+  return interpretYandexCostSnapshot(month,await response.json());
+ }catch{return unavailable;}
+}
