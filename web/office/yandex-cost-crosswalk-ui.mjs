@@ -84,7 +84,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     money(data.returnsIndicativeCostKopecks)+
     ' — не прибавляется автоматически без подтверждения восстановления товара.'));
    card.append(el(documentRef,'p',
-    'Ориентир, а не чистая прибыль ООО. Даты операций в отчётах заказов и реализации могут различаться; сверка по orderId, отдельные услуги, налоги и общие расходы ещё необходимы.'));
+    'Ориентир, а не чистая прибыль ИП. Даты операций в отчётах заказов и реализации могут различаться; сверка по orderId, отдельные услуги, налоги и общие расходы ещё необходимы.'));
   }else{
    card.append(el(documentRef,'p',
     'Промежуточный остаток не рассчитан: не все источники или товары полностью подтверждены. Нули вместо неизвестных затрат не используются.'));
@@ -228,7 +228,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
      money(costOfGoods.totalReturnedValueKopecks)+
      '. Это не чистая прибыль и не подтверждённое списание себестоимости возвратов.'));
    else deliveredStatus.append(el(documentRef,'p',
-    'Общая себестоимость ООО ещё не подтверждена: '+
+    'Себестоимость ИП Жилиной ещё не подтверждена: '+
     'нет всех отчётов или цен. Пустые источники не считаются нулём.'));
    view.append(deliveredStatus);
    makeList('Подтверждённая себестоимость',found,x=>
