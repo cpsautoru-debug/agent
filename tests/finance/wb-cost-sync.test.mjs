@@ -17,7 +17,7 @@ const older={vendor_code:'веста №2',valid_from:'2026-08-30',
 test('sync plans 35 October confirmations without overwriting earlier cost history',()=>{
  const x=buildOctoberWbSyncPlan(fixture(),[older]);
  assert.equal(x.inserts.length,35);
- assert.deepEqual(x.closeOlder,['веста №2']);
+ assert.deepEqual(x.immutableHistorical,['веста №2']);
  assert.equal(x.alreadyConfirmed.length,0);
 });
 test('idempotent when all 35 are already saved and confirmed',()=>{
@@ -50,4 +50,12 @@ test('POST endpoint refuses unauthorized and cross-site writes',async()=>{
   method:'POST',headers:{Origin:'https://office.example'}
  }),env:{}});
  assert.equal(noAuth.status,503);
+});
+
+test('immutable WB version is inserted for October and old open-ended preliminary stays unchanged',()=>{
+ const plan=buildOctoberWbSyncPlan(fixture(),[older]);
+ assert.equal(plan.inserts.length,35);
+ assert.equal(plan.immutableHistorical.length,1);
+ const oldAfter=structuredClone(older);
+ assert.deepEqual(oldAfter,older);
 });
