@@ -15,8 +15,8 @@ const r1=()=>archive({'delivered.json':[
 const r2=()=>archive({'delivered.json':[],
  'returned.json':[]});
 const audit=()=>({month:'2026-10',rows:[
- {partnerId:149082506,shopSku:'VESTA',costKopecks:420000},
- {partnerId:149082506,shopSku:'PRIORA',costKopecks:319900}
+ {partnerId:149082506,shopSku:'VESTA',costKopecks:420000,status:'matched_exact'},
+ {partnerId:149082506,shopSku:'PRIORA',costKopecks:319900,status:'matched_owner'}
 ]});
 test('matched Yandex delivered and returned SKU cost stays separate from profit',()=>{
  const x=reconcileYandexRealizationCosts(audit(),{
@@ -29,6 +29,16 @@ test('matched Yandex delivered and returned SKU cost stays separate from profit'
  assert.equal(x.totalDeliveredCostKopecks,1159900);
  assert.equal(x.totalReturnedValueKopecks,420000);
  assert.equal(x.netProfitKopecks,null);
+});
+test('model-level cost guesses never produce verified delivery cost',()=>{
+ const data=audit();
+ data.rows[0].status='matched_model';
+ const result=reconcileYandexRealizationCosts(data,{
+  149082506:r1(),149106500:r2()});
+ assert.equal(result.status,'reconciliation_incomplete');
+ assert.equal(result.byShop[0].unknownDeliveredUnits,2);
+ assert.equal(result.byShop[0].deliveredCostKopecks,null);
+ assert.equal(result.netProfitKopecks,null);
 });
 test('missing physical SKU cost blocks totals and exposes real product names',()=>{
  const data=audit();data.rows=data.rows.filter(x=>x.shopSku!=='PRIORA');
