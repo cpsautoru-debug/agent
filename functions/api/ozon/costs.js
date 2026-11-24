@@ -1,5 +1,6 @@
 
 import { verifySession } from "../auth/session.js";
+import {applyOwnerConfirmedOzonCosts} from "../../../web/office/owner-cost-confirmations.mjs";
 
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
@@ -121,9 +122,12 @@ export async function onRequestGet({ request, env }) {
       ORDER BY model, seller_article, sku
     `).all();
 
+    const effective=applyOwnerConfirmedOzonCosts(result.results||[]);
     return json({
       currency: "RUB",
-      costs: result.results || []
+      costs: effective.rows,
+      ownerConfirmedCostDecisions: effective.decisions,
+      writebackStatus: "pending_cloudflare_d1_permission"
     });
   } catch {
     return json({ error: "Database error" }, 503);
