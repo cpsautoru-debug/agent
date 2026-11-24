@@ -615,11 +615,11 @@
         </div>
         <div class="ceo-alert">
           <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
-          <p>Общий подтверждённый чистый доход всех каналов пока неизвестен: Ozon, WB, Яндекс, Авито и офлайн не сведены в единый проверенный отчёт. Это управленческий монитор, а не закрытая бухгалтерская отчётность.</p>
+          <p>Расчёт ведём по Ozon, Wildberries и Яндекс Маркету. Авито и магазин «Пламя» в эту финансовую сводку сейчас не включены. Чистая прибыль подтверждается отдельно после прямых затрат, общих расходов и налога ИП.</p>
         </div>
         <section class="business-pnl" aria-label="Сводный управленческий P&L">
   <div class="business-pnl-actions"><h2>Финансы маркетплейсов · Ozon, WB, Яндекс</h2><button id="businessPnlRefresh" class="button light" type="button">Пересчитать сводку</button><span id="businessPnlLoadStatus" class="business-pnl-load-status" role="status" aria-live="polite">Готово к пересчёту</span></div>
-  <div id="businessPnl" role="status">Данные каналов загружаются. Налог и постоянные расходы будут вычитаться после результатов каналов.</div>
+  <div id="businessPnl" role="status">Загружаем Ozon, WB и Яндекс. Дополнительные расходы и налог ИП вычитаются после результата трёх маркетплейсов ровно один раз.</div>
 </section>
 <div class="ceo-grid">
           <article class="ceo-card">
@@ -657,8 +657,8 @@
             <a href="#production">Сверка Ozon → МойСклад →</a>
           </article>
           <article class="ceo-card">
-            <h2>Общая чистая прибыль</h2><strong class="ceo-value" id="ceoProfitValue">Не подтверждена</strong>
-            <span class="ceo-state" data-state="warning">Ожидает сверки всех каналов</span>
+            <h2>Чистая прибыль трёх маркетплейсов</h2><strong class="ceo-value" id="ceoProfitValue">Не подтверждена</strong>
+            <span class="ceo-state" data-state="warning">Ожидает сверки трёх маркетплейсов</span>
             <p>Нет доказанного суммарного результата по Ozon, WB и Яндекс Маркету. Предварительные остатки и выплаты не складываются в прибыль.</p>
             <a href="#ozonProfit">Контроль финансов →</a>
           </article>
@@ -2368,7 +2368,7 @@
 <script src="app.js" defer></script>
 <script type="module" src="ceo-dashboard.mjs?v=20261124-finance-closeout-evidence"></script>
 <link rel="stylesheet" href="business-pnl.css?v=20261124-wb-month-finance">
-<script type="module" src="business-pnl.mjs?v=20261124-marketplaces-three-expenses"></script>
+<script type="module" src="business-pnl.mjs?v=20261124-marketplaces-three-expenses-v2"></script>
 <script type="module" src="wb-management-profit.mjs?v=20261124-finance-closeout-evidence"></script>
 <script type="module" src="wb-cost-sync-ui.mjs?v=20261124-immutable-auto-repair"></script>
 <script type="module" src="yandex-connection-ui.mjs?v=20261124-dedicated-yandex-finance"></script>
