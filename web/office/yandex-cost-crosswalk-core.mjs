@@ -48,11 +48,18 @@ function confirmedSources(source,month){
    alternativeCode:x.sku,costKopecks:x.costKopecks,
    family:familyFromSource(x,'ozon')});
  }
+ const ozonCards=new Map((source?.ozonProfitCards?.items||[])
+  .filter(x=>typeof x?.sku==='string'&&typeof x?.sellerArticle==='string')
+  .map(x=>[x.sku,x]));
  for(const x of source?.ozonProfit?.entries||[]){
   if(x?.status!=='confirmed'||!valid(x.costKopecks)||!inMonth(x,month))
    continue;
-  result.push({channel:'Ozon Profit',code:x.sku,
-   costKopecks:x.costKopecks,family:null});
+  const card=ozonCards.get(x.sku);
+  const article=card?.sellerArticle||x.sku;
+  result.push({channel:'Ozon Profit',code:article,
+   alternativeCode:x.sku,costKopecks:x.costKopecks,
+   family:card?familyFromSource({
+    sellerArticle:card.sellerArticle,model:card.name},'ozon'):null});
  }
  return result.filter(x=>normalizeCostKey(x.code));
 }
