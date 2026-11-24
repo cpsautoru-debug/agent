@@ -95,6 +95,20 @@ test('same Ozon SKU with conflicting auxiliary and main Profit costs is blocked'
  assert.equal(r.conflicting.length,1);
  assert.deepEqual(r.conflicting[0].pricesKopecks,[470000,450000]);
 });
+test('exact owner-confirmed Cross 4500 price can be identified by descriptive seller SKU',()=>{
+ const x=audit();
+ x.wb.entries=[];
+ x.ozonCatalog.entries=[];
+ const r=reconcileYandexSharedCosts([
+  item('веста кросс-оранжевая поддержка-оранжевые соты',
+   'Авточехлы автомобильные'),
+  item('веста кросс-красная поддержка-красные соты',
+   'Авточехлы автомобильные')
+ ],x,'2026-10');
+ assert.equal(r.rows[0].status,'matched_owner');
+ assert.equal(r.rows[0].costKopecks,450000);
+ assert.equal(r.rows[1].costKopecks,null);
+});
 test('previously confirmed Yandex categories are not requested again',()=>{
  const products=[
   ['Авточехлы на Lada Granta',320000],
