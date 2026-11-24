@@ -31,29 +31,31 @@ export function resolveYandexShop(row){
   null:NAME_TO_SHOP.get(normalizeName(row.shopName))||null;
  const campaign=verifiedId(row.campaignId);
  const partner=verifiedId(row.partnerId);
- // A campaign ID is a strong shop identifier, but it must not contradict
- // a recognized shopName or a separately recognized partner ID.
- if(campaign!==null){
-  if(name!==null&&name!==campaign||partner!==null&&partner!==campaign)
-   return null;
-  // Unknown partner IDs are only tolerated if explicitly equal to the
-  // business-level ID, indicating an ООО identifier rather than a shop ID.
-  if(row.partnerId!=null&&partner===null&&
-    !sameIdentity(row.partnerId,row.businessId))return null;
-  return campaign;
- }
- if(partner!==null){
-  if(name!==null&&name!==partner)return null;
-  return partner;
- }
- // Yandex financial report rows may use partnerId for the common business.
- // Only permit shopName attribution when this is independently evidenced
- // by partnerId === businessId. Two shops share that business ID.
- if(name!==null&&sameIdentity(row.partnerId,row.businessId))
+
+ // Strong campaign ID or a recognized partner ID takes precedence.
+ // Any conflict with a known shopName means no attribution.
+ if(campaign!==null&&partner!==null&&campaign!==partner)return null;
+ if(campaign!==null&&name!==null&&campaign!==name)return null;
+ if(partner!==null&&name!==null&&partner!==name)return null;
+ if(campaign!==null)return campaign;
+ if(partner!==null)return partner;
+
+ // Yandex finance reports may have a merchant-specific partnerId distinct
+ // from businessId and campaignId. Proven October 2026 source:
+ // partnerId 216779061, businessId 216779062, shopName
+ // "Студия Авто Дизайна (САД)". These DIFFERENT identifiers are valid.
+ // The exact owner-confirmed shopName is sufficient for the current row,
+ // provided that any present ID is well-formed; merchant ID itself is
+ // never treated as a campaign ID or applied to other rows.
+ if(name!==null){
+  for(const value of [row.partnerId,row.businessId,row.campaignId]){
+   if(value===undefined||value===null||value==='')continue;
+   const candidate=typeof value==='number'&&Number.isSafeInteger(value)?
+    String(value):typeof value==='string'?value.trim():'';
+   if(!/^\d{1,15}$/.test(candidate))return null;
+  }
   return name;
- // Missing partnerId is allowed with an exact, unambiguous shop name.
- if(name!==null&&(row.partnerId===undefined||row.partnerId===null||
-    row.partnerId===''))return name;
+ }
  return null;
 }
 export function yandexShopIdentityEvidence(rows){
