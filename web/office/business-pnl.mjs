@@ -4,6 +4,7 @@ import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
 import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
 import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
  from './yandex-dashboard-evidence.mjs';
+import {yandexPnlCardMetric} from './yandex-pnl-card.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
  avito:'Авито',offline:'Магазин · Пламя'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
@@ -17,27 +18,18 @@ const el=(tag,cls,value)=>{
 function render(root,pnl,sourceNotes={},interim={}){
  root.replaceChildren();
  const summary=el('div','business-pnl-heading');
- summary.append(el('h2','','Финансовый результат по каналам'),
-  el('p','','Сначала результат каждого канала после его прямых затрат. Затем общие расходы и налоги — один раз.'));
+ summary.append(el('h2','','Финансовые показатели по каналам'),
+  el('p','','Ozon и WB: результат после известных затрат. Яндекс: подтверждённый доход после услуг (пока без себестоимости). Общие расходы и налоги не распределяются до сверки.'));
  root.append(summary);
  const cards=el('div','business-pnl-cards');
  for(const ch of pnl.channels){
   const card=el('article','business-pnl-card');
-  // The Yandex finance report verifies income *after included services*,
-  // not a channel profit. Show its real sourced amount as the main figure,
-  // but NEVER write it into the P&L contribution or consolidated total.
-  const yandexIncome=ch.id==='yandex'&&interim.yandex&&
-   Number.isSafeInteger(interim.yandex.incomeKopecks)&&
-   interim.yandex.month===pnl.month;
-  const mainAmount=yandexIncome?interim.yandex.incomeKopecks:ch.profitKopecks;
-  const mainMeaning=yandexIncome?
-   'Доход после услуг · НЕ чистая прибыль':
-   ch.status==='known_cost_result'?
-    'По известным затратам · не чистая прибыль':
-   ch.status==='verified'?'Подтверждено':'Нет закрытого расчёта';
+  // This selects a display amount only; pnl.channels/knownChannelsTotal
+  // remain unchanged, so income is never added as channel profit.
+  const metric=yandexPnlCardMetric(ch,interim,pnl.month);
   card.append(el('h3','',labels[ch.id]),
-   el('strong','',money(mainAmount)),
-   el('small','',mainMeaning));
+   el('strong','',money(metric.primaryKopecks)),
+   el('small','',metric.meaning));
   if(ch.id==='wb'&&interim.wb){
    const detail=interim.wb;
    card.append(el('small','business-pnl-subhead',
@@ -53,11 +45,8 @@ function render(root,pnl,sourceNotes={},interim={}){
    }
    card.append(fold);
   }
-  if(yandexIncome){
-   card.append(el('small','business-pnl-interim-warning',
-    'Оба магазина одного ООО · '+interim.yandex.orders+
-    ' заказов. Комиссии уже учтены. Себестоимость, возвраты, налог ООО и общие расходы ещё не выверены.'));
-  }
+  if(metric.showIncome)
+   card.append(el('small','business-pnl-interim-warning',metric.note));
   if(ch.id==='ozon'||ch.id==='wb'||ch.id==='yandex'){
    const link=el('a','business-pnl-detail-link',
      ch.id==='ozon'?'Подробная прибыль Ozon →':
