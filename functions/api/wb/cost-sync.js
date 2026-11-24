@@ -27,7 +27,7 @@ export function buildOctoberWbSyncPlan(evidence,existing){
   const all=byCode.get(row.vendor_code)||[];all.push(row);
   byCode.set(row.vendor_code,all);
  }
- const inserts=[],closeOlder=[],existingConfirmed=[];
+ const inserts=[],immutableHistorical=[],existingConfirmed=[];
  for(const x of evidence.costLines){
   if(!Number.isSafeInteger(x.unitCostKopecks)||x.unitCostKopecks<=0)
    throw Error('wb_sync_cost_invalid');
@@ -47,12 +47,15 @@ export function buildOctoberWbSyncPlan(evidence,existing){
   const older=overlap.filter(r=>r.valid_from<'2026-10-01');
   if(older.some(r=>r.status!=='preliminary'||r.valid_to!==null)||
     older.length>1)throw Error('wb_sync_older_history_conflict');
-  if(older.length)closeOlder.push(older[0].vendor_code);
+  if(older.length)immutableHistorical.push(older[0].vendor_code);
   inserts.push({code:x.vendorCode,cost:x.unitCostKopecks});
  }
  if(inserts.length+existingConfirmed.length!==35)
   throw Error('wb_sync_count_mismatch');
- return {inserts,closeOlder,alreadyConfirmed:existingConfirmed};
+ // wb_profit_unit_costs has an immutable UPDATE trigger. Earlier preliminary
+ // records must never be edited. All readers use the most recent effective
+ // version; October's confirmed record supersedes it for October only.
+ return {inserts,immutableHistorical,alreadyConfirmed:existingConfirmed};
 }
 export async function onRequestPost({request,env}){
  if(request.method!=='POST')return reply(405,{code:'method_not_allowed'});
@@ -91,26 +94,20 @@ export async function onRequestPost({request,env}){
   const plan=buildOctoberWbSyncPlan(e,old.results);
   if(plan.inserts.length){
    stage='write';
-   // Instead of 35+ individual D1 batch statements, use two bounded
-   // set-based statements. The batch remains a single atomic transaction.
-   const statements=[];
-   if(plan.closeOlder.length){
-    statements.push(db.prepare(
-      "UPDATE wb_profit_unit_costs SET valid_to='2026-09-30' "+
-      "WHERE account_id=? AND valid_from<'2026-10-01' "+
-      "AND valid_to IS NULL AND status='preliminary' "+
-      "AND vendor_code IN (SELECT value FROM json_each(?))")
-      .bind(WB_ACCOUNT,JSON.stringify(plan.closeOlder)));
-   }
-   statements.push(db.prepare(
+   // The schema has wb_profit_cost_no_update/no_delete triggers.
+   // A single INSERT ... SELECT is atomic and preserves every prior version.
+   // On 2026-10-01 the confirmed version wins over the earlier preliminary
+   // version in findCostForReport() through descending validFrom order.
+   const insert=await db.prepare(
      "INSERT INTO wb_profit_unit_costs "+
      "(account_id,vendor_code,valid_from,valid_to,cost_kopecks,status,source,actor) "+
      "SELECT ?,json_extract(value,'$.code'),'2026-10-01','2026-10-31',"+
      "CAST(json_extract(value,'$.cost') AS INTEGER),'confirmed',"+
      "'WB_OWNER_CONFIRMED_XLSX_2026_10','owner_reconfirmation_2026_11_24' "+
      "FROM json_each(?)")
-     .bind(WB_ACCOUNT,JSON.stringify(plan.inserts)));
-   await db.batch(statements);
+     .bind(WB_ACCOUNT,JSON.stringify(plan.inserts)).run();
+   if(insert?.success===false||insert?.meta?.changes!==plan.inserts.length)
+    throw Error('wb_sync_postwrite_verification_failed');
   }
   stage='verify';
   const checked=await db.prepare(
@@ -122,6 +119,7 @@ export async function onRequestPost({request,env}){
   return reply(200,{code:'wb_cost_registry_synchronized',month:'2026-10',
    confirmedArticles:35,inserted:plan.inserts.length,
    alreadyConfirmed:plan.alreadyConfirmed.length,
+   immutableEarlierPreliminaryCount:plan.immutableHistorical.length,
    manufacturingCostKopecks:e.netManufacturingCostKopecks,
    note:'October only, owner-confirmed historical XLSX; no future price assumption.'});
  }catch(error){
@@ -132,7 +130,8 @@ export async function onRequestPost({request,env}){
    'wb_october_coverage_incomplete','wb_sync_source_unverified',
    'wb_sync_existing_invalid','wb_sync_cost_invalid','wb_sync_cost_conflict',
    'wb_sync_historical_version_conflict','wb_sync_existing_october_invalid',
-   'wb_sync_older_history_conflict','wb_sync_count_mismatch'
+   'wb_sync_older_history_conflict','wb_sync_count_mismatch',
+   'wb_sync_postwrite_verification_failed'
   ]);
   // Classify D1 failures without leaking raw database messages, SQL,
   // credentials or vendor codes. This is diagnostic only, not a retry.
