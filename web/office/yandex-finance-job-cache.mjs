@@ -3,7 +3,7 @@
 const KEY='autosklad63.yandex.report-jobs.v1';
 const TTL=72*60*60*1000;
 const ids=/^[a-zA-Z0-9_-]{1,255}$/;
-const jobKey=/^20\d{2}-(0[1-9]|1[0-2]):(?:all|\d{1,15}):(orders|services|payments)$/;
+const jobKey=/^20\d{2}-(0[1-9]|1[0-2]):(?:all|\d{1,15}):(orders|services|payments|realization)$/;
 export function restoreYandexReportJobs(store,now=Date.now()){
  const restored=new Map();
  try{
