@@ -59,11 +59,36 @@ export async function loadYandexDashboardEvidence({
  if(!MONTH.test(month))return {month,status:'unavailable',incomeKopecks:null,
   netProfitKopecks:null,reason:'invalid_month'};
  const jobs=restoreYandexReportJobs(storage);
- const ids=TYPES.map(type=>{
+ let ids=TYPES.map(type=>{
   const job=jobs.get(month+':all:'+type);
   return job?.status==='DONE'&&job.audited===true&&job.noData!==true?
    job.reportId:null;
  });
+ if(ids.some(id=>!id)){
+  // Fresh browsers have no audited local cache, but verified report IDs
+  // already exist in owner-protected D1. Use them as locators ONLY:
+  // the archive itself must still pass all three independent audits.
+  try{
+   const response=await fetcher('/api/yandex/report-jobs?month='+
+    encodeURIComponent(month),{method:'GET',credentials:'same-origin',
+    cache:'no-store',signal:AbortSignal.timeout(15000),
+    headers:{accept:'application/json'}});
+   if(response.ok){
+    const data=await response.json();
+    if(data?.code==='yandex_report_jobs_saved'&&
+       data.readOnly===true&&Array.isArray(data.jobs)){
+     ids=ids.map((id,i)=>{
+      if(id)return id;
+      const matching=data.jobs.filter(job=>
+       job?.month===month&&job.scope==='all'&&
+       job.reportType===TYPES[i]&&job.status==='DONE'&&
+       /^[a-zA-Z0-9_-]{1,255}$/.test(job.reportId||''));
+      return matching.length===1?matching[0].reportId:null;
+     });
+    }
+   }
+  }catch{/* No fabricated value if D1 or owner session is unavailable. */}
+ }
  if(ids.some(id=>!id))
   return {month,status:'unavailable',incomeKopecks:null,
    netProfitKopecks:null,reason:'verified_report_ids_missing'};
