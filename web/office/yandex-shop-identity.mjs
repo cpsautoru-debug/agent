@@ -20,24 +20,41 @@ function verifiedId(value){
  }
  return null;
 }
+function sameIdentity(a,b){
+ const x=typeof a==='number'?String(a):typeof a==='string'?a.trim():'';
+ const y=typeof b==='number'?String(b):typeof b==='string'?b.trim():'';
+ return !!x&&x===y&&/^\\d{1,15}$/.test(x);
+}
 export function resolveYandexShop(row){
  if(!row||typeof row!=='object'||Array.isArray(row))return null;
- const ids=[];
- for(const field of ['partnerId','campaignId']){
-  const raw=row[field];
-  if(raw!==undefined&&raw!==null&&raw!==''){
-   const matched=verifiedId(raw);
-   if(matched===null)return null;
-   ids.push(matched);
-  }
+ const name=row.shopName===undefined||row.shopName===null?
+  null:NAME_TO_SHOP.get(normalizeName(row.shopName))||null;
+ const campaign=verifiedId(row.campaignId);
+ const partner=verifiedId(row.partnerId);
+ // A campaign ID is a strong shop identifier, but it must not contradict
+ // a recognized shopName or a separately recognized partner ID.
+ if(campaign!==null){
+  if(name!==null&&name!==campaign||partner!==null&&partner!==campaign)
+   return null;
+  // Unknown partner IDs are only tolerated if explicitly equal to the
+  // business-level ID, indicating an ООО identifier rather than a shop ID.
+  if(row.partnerId!=null&&partner===null&&
+    !sameIdentity(row.partnerId,row.businessId))return null;
+  return campaign;
  }
- if(row.shopName!==undefined&&row.shopName!==null&&row.shopName!==''){
-  const byName=NAME_TO_SHOP.get(normalizeName(row.shopName));
-  if(!byName)return null;
-  ids.push(byName);
+ if(partner!==null){
+  if(name!==null&&name!==partner)return null;
+  return partner;
  }
- if(!ids.length||ids.some(x=>x!==ids[0]))return null;
- return ids[0];
+ // Yandex financial report rows may use partnerId for the common business.
+ // Only permit shopName attribution when this is independently evidenced
+ // by partnerId === businessId. Two shops share that business ID.
+ if(name!==null&&sameIdentity(row.partnerId,row.businessId))
+  return name;
+ // Missing partnerId is allowed with an exact, unambiguous shop name.
+ if(name!==null&&(row.partnerId===undefined||row.partnerId===null||
+    row.partnerId===''))return name;
+ return null;
 }
 export function yandexShopIdentityEvidence(rows){
  const keys=['partnerId','campaignId','shopName','businessId'];
