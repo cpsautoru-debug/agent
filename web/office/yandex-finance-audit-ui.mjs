@@ -146,7 +146,7 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
  }
  button.addEventListener('click',()=>{void run();});
  const onVisit=()=>{
-  if(location.hash.split('/')[0]==='#dashboard'&&!wasLoaded&&
+  if(location.hash.split('/')[0]==='#yandexFinance'&&!wasLoaded&&
     Object.keys(collectYandexConfirmedJobs(storage,month.value,shop.value)).length===3){
    wasLoaded=true;void run();
   }
