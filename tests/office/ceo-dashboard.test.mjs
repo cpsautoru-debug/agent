@@ -10,7 +10,7 @@ test('executive dashboard is the first owner landing page with all core panels',
  assert.match(html,/href="#dashboard" data-page="dashboard"/);
  assert.match(html,/data-section="dashboard"/);
  for(const id of ['ceoBoard','ceoMonth','ceoRefresh','ceoOzonValue',
-    'ceoProfitValue','ceoWbValue','ceoProductionValue',
+    'ceoProfitValue','ceoWbValue','ceoYandexValue','ceoProductionValue',
     'ceoAdsValue','ceoAdsRefresh','ceoOverallState'])
    assert.match(html,new RegExp('id="'+id+'"'));
  assert.match(html,/ceo-dashboard\.mjs/);
@@ -27,7 +27,9 @@ test('dashboard reads owner-only endpoints and never initiates writes',()=>{
  assert.doesNotMatch(js,/method:'POST'|localStorage|sessionStorage|innerHTML|eval\(/);
  assert.match(js,/reconciledToFinance!==false/);
  assert.match(js,/approvedForLiveQueue!==false/);
- assert.match(js,/netProfitVerified===true/);
+ assert.match(js,/close\.netProfitVerified!==false/);
+ assert.match(js,/loadYandexDashboardEvidence/);
+ assert.match(js,/showYandexDashboard/);
 });
 test('unknown business data is not presented as zero and advertising request is manual',()=>{
  assert.match(html,/Не подтверждена/);
