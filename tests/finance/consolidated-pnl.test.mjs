@@ -41,6 +41,13 @@ test('business tax and expenses cannot be doubled up as separate rows',()=>{
   ]
  }),/pnl_expense_invalid/);
 });
+test('external LLC tax must never be included in IP Zhilina profit',()=>{
+ assert.throws(()=>consolidateBusinessPnl({
+  month,channels:{},sharedExpenses:[],
+  taxes:[{id:'wrong-llc',label:'Налог чужого ООО',
+   entity:'ooo',amountKopecks:500000}]
+ }),/pnl_expense_invalid/);
+});
 test('dashboard includes separated channels and tax section',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  assert.match(html,/id="businessPnl"/);
