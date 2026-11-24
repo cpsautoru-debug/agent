@@ -48,7 +48,10 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
  const head=el(documentRef,'h3','Себестоимость · единый справочник WB + Ozon');
  const status=el(documentRef,'p','Сверка будет выполнена автоматически из отчётов и подтверждённых справочников.');
  const view=el(documentRef,'div');
- section.append(head,status,view);root.append(section);
+ section.append(head,status,view);
+ const automatic=root.querySelector?.('#yandexAutoReportsStatus');
+ if(automatic?.after)automatic.after(section);
+ else root.prepend(section);
  let running=false,doneKey='',lastRun=0;
  const api=async(path,options)=>{
   const response=await fetcher(path,{
@@ -65,7 +68,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   const caption=el(documentRef,'summary',title+' · '+rows.length);
   group.append(caption);
   // Show actionable questions immediately; only confirmed matches collapse.
-  group.open=title!=='Стоимость найдена';
+  group.open=title!=='Подтверждённая себестоимость';
   const list=el(documentRef,'ol');
   for(const x of rows){
    const item=el(documentRef,'li',knownShops[x.partnerId]+
@@ -149,13 +152,18 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
    const costOfGoods=reconcileYandexRealizationCosts(result,realizationProofs);
    if(monthNode.value!==month||shopNode.value!=='all')return;
    view.replaceChildren();
+   const precise=result.rows.filter(x=>['matched_exact','matched_owner']
+    .includes(x.status));
+   const estimates=result.rows.filter(x=>x.status==='matched_model');
    status.textContent='Товары из отчёта '+month+': '+result.total+
-    '; себестоимость определена '+result.matched+
+    '; точная себестоимость '+precise.length+
+    '; только по модели '+estimates.length+
     '; нет стоимости '+result.missing.length+
     '; расхождения '+result.conflicting.length+
     '. Источник названий: '+(catalogStatus==='available'?
     'каталог Яндекса':'архив заказов')+'.';
-   const found=result.rows.filter(x=>x.costKopecks!==null);
+   const found=result.rows.filter(x=>['matched_exact','matched_owner']
+    .includes(x.status));
    const deliveredStatus=el(documentRef,'div');
    deliveredStatus.className='yandex-realization-cogs';
    deliveredStatus.append(el(documentRef,'h4',
@@ -183,8 +191,11 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     'Общая себестоимость ООО ещё не подтверждена: '+
     'нет всех отчётов или цен. Пустые источники не считаются нулём.'));
    view.append(deliveredStatus);
-   makeList('Стоимость найдена',found,x=>
+   makeList('Подтверждённая себестоимость',found,x=>
     ' · '+money(x.costKopecks)+' · '+x.sources.join(' + '));
+   makeList('По модели — требуется идентификация комплектации',
+    estimates,x=>' · ориентир '+money(x.costKopecks)+
+     ' · '+x.sources.join(' + '));
    const unresolved=new Map(result.missing.map(x=>
     [x.partnerId+':'+x.shopSku,x]));
    for(const x of costOfGoods.missing){
