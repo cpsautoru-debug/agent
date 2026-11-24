@@ -2,6 +2,8 @@ import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs';
 import {summarizeOzonProvisionalProfit} from './ozon-provisional-profit.mjs';
 import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
 import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
+import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
+ from './yandex-dashboard-evidence.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',
  avito:'Авито',offline:'Магазин · Пламя'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
@@ -41,11 +43,22 @@ function render(root,pnl,sourceNotes={},interim={}){
    }
    card.append(fold);
   }
-  if(ch.id==='ozon'||ch.id==='wb'){
+  if(ch.id==='yandex'&&interim.yandex){
+   card.append(el('small','business-pnl-subhead',
+    'Доход после услуг, уже включённых в отчёт'),
+    el('strong','business-pnl-interim-value',
+     money(interim.yandex.incomeKopecks)),
+    el('small','business-pnl-interim-warning',
+     'Оба магазина одного ООО · '+interim.yandex.orders+
+      ' заказов · НЕ чистая прибыль; услуги второй раз не вычитать'));
+  }
+  if(ch.id==='ozon'||ch.id==='wb'||ch.id==='yandex'){
    const link=el('a','business-pnl-detail-link',
      ch.id==='ozon'?'Подробная прибыль Ozon →':
-       'Подробная экономика WB →');
-   link.href=ch.id==='ozon'?'#ozonProfit':'#wbFinance';
+     ch.id==='wb'?'Подробная экономика WB →':
+      'Финансы Яндекс Маркета →');
+   link.href=ch.id==='ozon'?'#ozonProfit':
+    ch.id==='wb'?'#wbFinance':'#yandexFinance';
    card.append(link);
   }
     const evidence=sourceNotes[ch.id];
@@ -79,7 +92,24 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
  const monthInput=documentRef.getElementById('ceoMonth');
  const refresh=documentRef.getElementById('businessPnlRefresh');
  if(!root||!monthInput||!refresh)return false;
- let serial=0;
+ let serial=0,lastRender=null;
+ function yandexInterim(evidence,sourceNotes,interim){
+  if(evidence?.status!=='order_income_verified'||
+     evidence.month!==monthInput.value)return;
+  interim.yandex={month:evidence.month,
+   incomeKopecks:evidence.incomeKopecks,orders:evidence.orders};
+  sourceNotes.yandex='Финансовые источники: подтверждён доход по '+
+   evidence.orders+' заказам после уже включённых услуг Яндекса. '+
+   (evidence.serviceAuditComplete&&evidence.paymentAuditComplete?
+    'Три архива проверены. ':
+    'Отдельные услуги/платежи требуют сверки. ')+
+   'Себестоимость, возвраты, налог ООО и внешние расходы — отдельно.';
+ }
+ function refreshYandexPanel(evidence){
+  if(!lastRender||lastRender.month!==evidence?.month)return;
+  yandexInterim(evidence,lastRender.sourceNotes,lastRender.interim);
+  render(root,lastRender.pnl,lastRender.sourceNotes,lastRender.interim);
+ }
  async function load(){
   const id=++serial,month=monthInput.value;
   refresh.disabled=true;
@@ -108,10 +138,12 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
      entity:'ip',amountKopecks:20550700}];
   }
   let error=null,wbError=null;
+  const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
+   evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
   if(month==='2026-10'){
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([
+   await Promise.all([yandexRead,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
@@ -169,6 +201,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     })()
    ]);
   }
+  if(month!=='2026-10')await yandexRead;
   if(serial!==id||monthInput.value!==month)return;
   refresh.disabled=false;
   refresh.textContent='Пересчитать сводку';
@@ -178,11 +211,22 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   try{pnl=consolidateBusinessPnl(base);}
   catch{root.textContent='Невозможно сформировать сводный отчёт: неверный период или данные.';return;}
   render(root,pnl,sourceNotes,interim);
+  lastRender={month,pnl,sourceNotes,interim};
   if(error)root.append(el('p','business-pnl-disclaimer',
    'Источник Ozon недоступен. Показатели не подставляются из предыдущих периодов.'));
   if(wbError)root.append(el('p','business-pnl-disclaimer',
    'Расчётный источник WB недоступен. Выручка и прибыль WB не подставляются из других периодов.'));
  }
+ window.addEventListener('yandex-financial-sources-audited',event=>{
+  const d=event?.detail;
+  if(d?.month!==monthInput.value)return;
+  refreshYandexPanel(deriveYandexDashboardEvidence(d.month,d.sources));
+ });
+ window.addEventListener('yandex-auto-jobs-updated',()=>{
+  const month=monthInput.value;
+  if(!lastRender||lastRender.month!==month||lastRender.interim.yandex)return;
+  void loadYandexDashboardEvidence({month,fetcher}).then(refreshYandexPanel);
+ });
  refresh.addEventListener('click',load);
  monthInput.addEventListener('change',load);
  load();
