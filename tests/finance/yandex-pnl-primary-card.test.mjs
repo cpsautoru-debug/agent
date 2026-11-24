@@ -15,6 +15,20 @@ test('Yandex post-fee income is the FIRST card amount, not No data',()=>{
  assert.match(metric.note,/Оба магазина ИП Жилиной Ольги/);
  assert.match(metric.note,/79 заказов/);
 });
+test('verified Yandex SKU contribution becomes primary, income becomes detail',()=>{
+ const ch={id:'yandex',status:'known_cost_result',
+  profitKopecks:29779235};
+ const x=yandexPnlCardMetric(ch,{
+  yandex:{month,incomeKopecks:61779235,orders:79},
+  yandexCost:{month,status:'preliminary_cost_reconciled',
+   cogsKopecks:32000000,preliminaryContributionKopecks:29779235,
+   missingCount:0,netProfitKopecks:null}
+ },month);
+ assert.equal(x.primaryKopecks,29779235);
+ assert.equal(x.incomeKopecks,61779235);
+ assert.match(x.meaning,/НЕ чистая прибыль/);
+ assert.equal(x.showIncome,true);
+});
 test('rejected unverified or previous-month data does not appear in card',()=>{
  for(const invalid of [
   null,{yandex:{month:'2026-09',incomeKopecks:61779235,orders:79}},
