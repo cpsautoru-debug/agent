@@ -97,5 +97,6 @@ test('Yandex finance reporting is present in office UI without browser secret',(
   assert.match(html,new RegExp(id));
  assert.match(js,/\/api\/yandex\/finance-reports/);
  assert.match(js,/\/api\/yandex\/report-audit/);
- assert.doesNotMatch(js,/Api-Key|YANDEX_MARKET_API_KEY|localStorage/);
+ assert.doesNotMatch(js,/Api-Key|YANDEX_MARKET_API_KEY/);
+ assert.match(js,/restoreYandexReportJobs/);
 });
