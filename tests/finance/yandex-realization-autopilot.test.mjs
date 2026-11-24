@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {reportPaths} from '../../functions/api/yandex/finance-source.js';
 import {describeYandexReportSheets} from '../../web/office/yandex-report-archive.mjs';
-import {summarizedRealization} from '../../web/office/yandex-autopilot.mjs';
+import {summarizedRealization,classifyYandexReportStatus,isClosedYandexMonth} from '../../web/office/yandex-autopilot.mjs';
+import {saveYandexReportJobs,restoreYandexReportJobs} from '../../web/office/yandex-finance-job-cache.mjs';
 import {readFileSync} from 'node:fs';
 
 const audited=sheets=>({code:'yandex_report_archive_audited',
@@ -66,4 +67,48 @@ test('owner-only Yandex autopilot is loaded and does not embed credentials',()=>
  assert.match(html,/yandex-autopilot\.mjs/);
  assert.match(code,/announcedMonth!==month/);
  assert.doesNotMatch(code,/Api-Key|YANDEX_MARKET_API_KEY/);
+});
+
+test('official NO_DATA is a verified absence of report, never zero delivered',()=>{
+ for(const state of ['FAILED','DONE']){
+  assert.deepEqual(classifyYandexReportStatus({
+   code:'yandex_report_status',status:state,
+   subStatus:'NO_DATA',fileAvailable:false}),{kind:'no_data'});
+ }
+ assert.deepEqual(classifyYandexReportStatus({
+  code:'yandex_report_status',status:'DONE',
+  subStatus:null,fileAvailable:false}),{kind:'awaiting_file'});
+ assert.deepEqual(classifyYandexReportStatus({
+  code:'yandex_report_status',status:'DONE',
+  subStatus:null,fileAvailable:true}),{kind:'audit'});
+ assert.deepEqual(classifyYandexReportStatus({
+  code:'yandex_report_status',status:'FAILED',
+  subStatus:'TOO_LARGE',fileAvailable:false}),
+  {kind:'failed',reason:'TOO_LARGE'});
+ assert.deepEqual(classifyYandexReportStatus({
+  code:'yandex_report_status',status:'PROCESSING',
+  subStatus:null,fileAvailable:false}),{kind:'waiting'});
+});
+
+test('NO_DATA state survives browser reload and never becomes fabricated zero',()=>{
+ const saved=new Map(),mem=new Map();
+ const now=Date.parse('2026-11-24T10:00:00Z');
+ saved.set('2026-10:149106500:realization',{
+  reportId:'safe-report-id',status:'FAILED',
+  createdAt:now-60000,audited:true,noData:true,subStatus:'NO_DATA'});
+ const storage={getItem:key=>mem.get(key)||null,
+  setItem:(key,value)=>mem.set(key,value)};
+ assert.equal(saveYandexReportJobs(storage,saved,now),true);
+ const after=restoreYandexReportJobs(storage,now);
+ assert.equal(after.size,1);
+ assert.deepEqual(after.get('2026-10:149106500:realization'),
+  saved.get('2026-10:149106500:realization'));
+});
+
+test('auto-reports never start for current or future unclosed month',()=>{
+ const now=Date.parse('2026-11-24T10:00:00Z');
+ assert.equal(isClosedYandexMonth('2026-11',now),false);
+ assert.equal(isClosedYandexMonth('2026-12',now),false);
+ assert.equal(isClosedYandexMonth('2026-10',now),true);
+ assert.equal(isClosedYandexMonth('bad',now),false);
 });
