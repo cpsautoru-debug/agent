@@ -20,7 +20,7 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
  function checkExpense(x,type){
    if(typeof x.id!=='string'||!x.id||seen.has(x.id)||!valid(x.amountKopecks)||
      x.amountKopecks<0||
-     (type==='tax'&&!['ip','ooo'].includes(x.entity)))
+     (type==='tax'&&x.entity!=='ip'))
      throw Error('pnl_expense_invalid');
    seen.add(x.id);
    return {...x,kind:type};
