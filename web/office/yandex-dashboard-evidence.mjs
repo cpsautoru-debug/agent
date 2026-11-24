@@ -1,6 +1,5 @@
 import {restoreYandexReportJobs} from './yandex-finance-job-cache.mjs';
 import {buildYandexMonthlyEvidence} from './yandex-month-evidence.mjs';
-import {yandexEvidenceAllowedForBusiness,excludedYandexIncome} from './legal-entity-scope.mjs';
 
 // Shared read-only monthly Yandex evidence. Only verified source totals are
 // retained in memory; never persist signed URLs, raw order rows or customers.
@@ -13,7 +12,6 @@ const known=new Map();
 const safeInt=x=>Number.isSafeInteger(x);
 
 export function deriveYandexDashboardEvidence(month,sources){
- if(!yandexEvidenceAllowedForBusiness())return excludedYandexIncome(month);
  if(!MONTH.test(month)||!sources||typeof sources!=='object')
   return {month,status:'unavailable',incomeKopecks:null,
    netProfitKopecks:null,reason:'no_verified_sources'};
@@ -41,10 +39,9 @@ export function deriveYandexDashboardEvidence(month,sources){
   blockers:result.blocks.filter(x=>x!=='sales_returns_and_sku_cogs_not_reconciled'),
   netProfitKopecks:null,
   evidence:'incomeWithoutServices from audited Yandex order-margin sheet; all 3 official reports read-only',
-  meaning:'Доход по заказам после уже включённых услуг Яндекса. Не выручка до комиссий, не выплата и не чистая прибыль ООО.'};
+  meaning:'Доход по заказам после уже включённых услуг Яндекса. Не выручка до комиссий, не выплата и не чистая прибыль ИП.'};
 }
 export function rememberYandexDashboardEvidence(snapshot){
- if(!yandexEvidenceAllowedForBusiness())return false;
  if(!snapshot||!MONTH.test(snapshot.month)||
   snapshot.status!=='order_income_verified'||
   !safeInt(snapshot.incomeKopecks)||!safeInt(snapshot.orders)||
@@ -53,14 +50,12 @@ export function rememberYandexDashboardEvidence(snapshot){
  return true;
 }
 export function lastYandexDashboardEvidence(month){
- if(!yandexEvidenceAllowedForBusiness())return null;
  const x=known.get(month);
  return x&&Date.now()-x.checkedAt<CACHE_MS?{...x}:null;
 }
 export async function loadYandexDashboardEvidence({
  month,fetcher=fetch,storage=typeof window!=='undefined'?
   window.localStorage:null,force=false}={}){
- if(!yandexEvidenceAllowedForBusiness())return excludedYandexIncome(month);
  if(!MONTH.test(month))return {month,status:'unavailable',incomeKopecks:null,
   netProfitKopecks:null,reason:'invalid_month'};
  const jobs=restoreYandexReportJobs(storage);
