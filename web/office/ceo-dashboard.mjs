@@ -1,4 +1,6 @@
 import {createSourceRegistry,renderSourceRegistry} from './office-source-registry.mjs';
+import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence,
+ rememberYandexDashboardEvidence} from './yandex-dashboard-evidence.mjs';
 /* AutoСклад63 CEO board: protected source summaries, read-only, fail-closed. */
 const byId=id=>document.getElementById(id);
 const validInt=x=>Number.isSafeInteger(x);
@@ -23,7 +25,7 @@ async function jsonGet(path,ms=16000){
 const messages={auth:'Требуется вход владельца',unavailable:'Источник недоступен',schema:'Ответ не подтверждён'};
 function unavailable(prefix,error){
   const msg=messages[error?.message]||'Нет подтверждённых данных';
-  const source={ceoOzon:'ozon',ceoWb:'wb',ceoProduction:'moysklad',ceoMsQueue:'msqueue',ceoAds:'ozonads'}[prefix];
+  const source={ceoOzon:'ozon',ceoWb:'wb',ceoYandex:'yandex',ceoProduction:'moysklad',ceoMsQueue:'msqueue',ceoAds:'ozonads'}[prefix];
   if(source)reportSource(source,'blocked',msg);
   status(prefix+'State',msg,'warning');
   set(prefix+'Note','Нет данных для безопасного вывода. Откройте подробный раздел.');
@@ -152,6 +154,24 @@ function showWB(data){
   set('ceoWbNote','Выплаты по завершённым отчётам: '+money(data.totalBankPaymentKop)+
     '. Ожидают обработки: '+count(data.queuedCount)+
     '. Выплата не равна прибыли.'+explanation);
+}
+export function showYandexDashboard(data,month=byId('ceoMonth')?.value){
+ if(data?.status!=='order_income_verified'||data.month!==month||
+    !validInt(data.incomeKopecks)||!validInt(data.orders)||
+    data.orders<1||data.netProfitKopecks!==null)
+  throw Error('schema');
+ set('ceoYandexValue',money(data.incomeKopecks));
+ status('ceoYandexState','Доход после учтённых услуг · прибыль отдельно',
+   data.serviceAuditComplete&&data.paymentAuditComplete?'success':'warning');
+ set('ceoYandexNote','Яндекс · оба магазина одного ООО · '+month+
+  '. Доход по '+count(data.orders)+' заказам из incomeWithoutServices; '+
+  'комиссии, уже включённые в отчёт, повторно не вычитаются. '+
+  (data.serviceAuditComplete&&data.paymentAuditComplete?
+   'Три финансовых архива проверены. ':
+   'Отдельные услуги или платежи требуют дополнительной сверки. ')+
+  'Это не сумма поступлений на счёт и не чистая прибыль.');
+ reportSource('yandex','partial','Доступен доход после включённых услуг за '+month+
+  '; налог, возвраты, внешние расходы и чистая прибыль не подтверждены');
 }
 function showOzon(data){
   const p=data?.result;
@@ -300,7 +320,7 @@ function showOzonOrdersReadiness(data){
   }
 }
 function reset(){
-  for(const p of ['ceoOzon','ceoOzonAudit','ceoOzonProfit','ceoOzonOrders','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
+  for(const p of ['ceoOzon','ceoOzonAudit','ceoOzonProfit','ceoOzonOrders','ceoYandex','ceoWb','ceoProduction','ceoMsQueue','ceoAds'])
     {set(p+'Value','Загрузка…');status(p+'State','Читаем источник');set(p+'Note','');}
   set('ceoProfitValue','Не подтверждена');set('ceoProductionWarning','');
 }
@@ -315,13 +335,15 @@ async function refresh(){
   const sources=[
     ['ceoOzon','/api/ozon/profit?month='+encodeURIComponent(month),showOzon],
     ['ceoOzonOrders','/api/ozon/orders-readiness',showOzonOrdersReadiness],
+    ['ceoYandex',null,showYandexDashboard],
     ['ceoWb','/api/wb/auto-sync-status',showWB],
     ['ceoProduction','/api/ms/production-auto-status',showProduction],
     ['ceoMsQueue','/api/ms/production-queue',showProductionQueue]
   ];
   let confirmed=0;
   await Promise.all(sources.map(async([key,url,paint])=>{
-    try{paint(await jsonGet(url));confirmed++;}
+    try{paint(url?await jsonGet(url):
+      await loadYandexDashboardEvidence({month}),month);confirmed++;}
     catch(e){unavailable(key,e);set(key+'Value','Нет данных');}
   }));
   // Ozon advertising is deliberately on-demand because it calls Ozon OAuth
@@ -357,6 +379,23 @@ if(typeof document!=='undefined'){
     month.addEventListener('change',()=>{lastRead=0;void refresh();});
     byId('ceoRefresh')?.addEventListener('click',()=>{lastRead=0;void refresh();});
     byId('ceoAdsRefresh')?.addEventListener('click',refreshAds);
+    window.addEventListener('yandex-financial-sources-audited',event=>{
+      const detail=event?.detail;
+      if(detail?.month!==byId('ceoMonth')?.value)return;
+      const snap=deriveYandexDashboardEvidence(detail.month,detail.sources);
+      if(snap.status!=='order_income_verified')return;
+      rememberYandexDashboardEvidence(snap);
+      showYandexDashboard(snap,detail.month);
+    });
+    window.addEventListener('yandex-auto-jobs-updated',()=>{
+      if(visible()&&!busy){
+       const month=byId('ceoMonth')?.value;
+       void loadYandexDashboardEvidence({month}).then(snap=>{
+        if(snap.status==='order_income_verified'&&
+           month===byId('ceoMonth')?.value)showYandexDashboard(snap,month);
+       });
+      }
+    });
     window.addEventListener('hashchange',maybeRefresh);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')maybeRefresh();});
     renderSourceRegistry(byId('ceoSourceRegistry'),sourceRegistry.snapshot());
