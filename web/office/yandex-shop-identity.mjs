@@ -60,15 +60,18 @@ export function yandexShopIdentityEvidence(rows){
  const keys=['partnerId','campaignId','shopName','businessId'];
  const present=Object.fromEntries(keys.map(k=>[k,0]));
  const unmatched={};
- let verified=0,conflictingOrUnknown=0;
+ let verified=0,conflictingOrUnknown=0,partnerIsBusiness=0,
+  recognizedShopNames=0;
  for(const row of rows){
   if(!row||typeof row!=='object')continue;
   for(const key of keys)if(row[key]!==undefined&&row[key]!==null)
    present[key]++;
+  if(sameIdentity(row.partnerId,row.businessId))partnerIsBusiness++;
+  if(NAME_TO_SHOP.has(normalizeName(row.shopName)))recognizedShopNames++;
   if(resolveYandexShop(row)!==null)verified++;
   else{
    conflictingOrUnknown++;
-   for(const field of ['partnerId','campaignId','shopName']){
+   for(const field of ['partnerId','campaignId','shopName','businessId']){
     const raw=row[field];
     if(raw===undefined||raw===null)continue;
     const safe=typeof raw==='number'&&Number.isSafeInteger(raw)?
@@ -81,6 +84,7 @@ export function yandexShopIdentityEvidence(rows){
   }
  }
  return {present,verified,unmatchedRows:conflictingOrUnknown,
+  partnerIsBusiness,recognizedShopNames,
   examples:unmatched,
   note:'Only campaign/partner IDs for known shops or exact known shop names can establish store identity.'};
 }
