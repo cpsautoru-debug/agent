@@ -57,3 +57,26 @@ test('Yandex partnerId can be ООО business ID when verified shopName identifi
  assert.equal(evidence.recognizedShopNames,1);
  assert.equal(evidence.verified,1);
 });
+
+test('October 2026 observed Yandex report store ID is independent of API campaign and business IDs',()=>{
+ const yandex={partnerId:216779061,businessId:216779062,
+  shopName:'Студия Авто Дизайна (САД)'};
+ assert.equal(resolveYandexShop(yandex),149082506);
+ assert.equal(resolveYandexShop({partnerId:'216779061',businessId:216779062,
+  partnerName:'Студия Авто Дизайна (САД)'}),149082506);
+ assert.equal(resolveYandexShop({partnerId:216779061,
+  businessId:216779062}),149082506);
+ assert.equal(resolveYandexShop({partnerId:216779061,
+  shopName:'автосклад',businessId:216779062}),null);
+ assert.equal(resolveYandexShop({partnerId:216779060,
+  businessId:216779062,shopName:'автосклад'}),null);
+ const sheet=describeYandexReportSheets({
+  'orders_and_offers_transactions.json':[
+   {...yandex,billingPrice:7000},
+   {...yandex,billingPrice:5000}
+  ]
+ }).sheets[0];
+ assert.equal(sheet.recognizedShopRows,2);
+ assert.equal(sheet.shops[0].partnerId,149082506);
+ assert.equal(sheet.shops[0].amounts.billingPrice,1200000);
+});
