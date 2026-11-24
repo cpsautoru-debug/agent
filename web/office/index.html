@@ -557,20 +557,48 @@
 
 </section>
 <section class="page" data-section="yandexFinance" hidden>
- <div class="page-heading">
-  <div><div class="eyebrow">ФИНАНСЫ · ЯНДЕКС МАРКЕТ</div>
-  <h1>Яндекс Маркет · ИП Жилина Ольга</h1>
-  <p>В финансовом учёте АвтоСклад63 используются исключительно данные ИП Жилиной Ольги.</p></div>
-  <a href="#dashboard">← Пульт руководителя</a>
+ <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ЯНДЕКС МАРКЕТ</div>
+ <h1>Финансы · Яндекс Маркет · ИП Жилина Ольга</h1>
+ <p>Два магазина ИП Жилиной Ольги. Продажи, услуги, платежи и себестоимость анализируются отдельно; непроверенные суммы не считаются прибылью.</p>
+ </div><a href="#dashboard">← Пульт руководителя</a></div>
+ <section class="business-pnl" aria-label="Подключение Яндекс Маркета">
+ <div class="business-pnl-actions"><h2>Яндекс Маркет · API и финансы</h2>
+ <button id="yandexConnectionCheck" class="button light" type="button">Проверить API Яндекс Маркета</button></div>
+ <p id="yandexConnectionStatus" role="status">Проверяем подключение к Яндекс Маркету при открытии дашборда. Секрет остаётся в Cloudflare.</p>
+ <div id="yandexFinanceReports" class="yandex-finance-report-panel">
+   <h3>Финансовые отчёты · выбранный завершённый месяц</h3>
+   <p>Формирование отчётов Яндекса асинхронное. Отчёты по заказам, услугам и платежам проверяются отдельно: перечисления не равны прибыли.</p>
+   <details class="yandex-manual-controls"><summary>Техническая диагностика и ручной запуск отчётов</summary>
+   <button id="yandexFinanceDiscover" type="button" class="button light">Обновить список магазинов</button>
+   <div id="yandexFinanceCampaigns" aria-label="Магазины из API"></div>
+   <div class="profit-toolbar">
+    <label for="yandexFinanceShop">Магазин / ИП</label>
+    <select id="yandexFinanceShop" disabled><option value="all">Оба магазина · одно ООО</option></select>
+    <label for="yandexFinanceReportType">Тип отчёта</label>
+    <select id="yandexFinanceReportType">
+     <option value="orders">Заказы и товары</option>
+     <option value="services">Стоимость услуг Маркета</option>
+     <option value="payments">Платежи и взаимозачёты</option>
+    </select>
+    <button id="yandexFinanceGenerate" type="button" class="button light" disabled>Запросить выбранный отчёт</button>
+    <button id="yandexFinanceAllReports" type="button" class="button light" disabled>Загрузить все 3 финансовых отчёта</button>
+    <button id="yandexFinanceCheckStatus" type="button" class="button light" disabled>Проверить готовность</button>
+    <button id="yandexFinanceAnalyze" type="button" class="button light" disabled>Проверить суммы и строки</button>
+   </div>
+   <p id="yandexFinanceReportsStatus" role="status">Сначала определяем кабинеты, доступные по серверному токену.</p>
+   <div id="yandexFinanceJobSummary" aria-label="Состояние финансовых отчётов Яндекса"></div>
+   </details>
+   <div class="yandex-finance-audit">
+    <details class="yandex-manual-controls"><summary>Повторная диагностика исходных архивов</summary>
+    <button id="yandexFinanceAnalyzeAll" type="button" class="button light">Показать финансы из 3 проверенных отчётов</button>
+    </details>
+    <p id="yandexFinanceDetailedStatus" role="status">Расшифровка проверенных отчётов: магазины, услуги и операции без двойного сложения.</p>
+    <div id="yandexFinanceDetailedResults"></div>
+   </div>
+   <div id="yandexFinanceReportLines" aria-label="Проверенные исходные суммы отчёта"></div>
  </div>
- <section class="business-pnl" aria-label="Юридическое лицо финансовых источников">
-  <h2>Отчёты стороннего ООО исключены</h2>
-  <p>Ранее подключённые два магазина и их октябрьские отчёты относятся к другой организации.
-    Их показатели не используются в доходе, себестоимости, налогах или прибыли АвтоСклад63.</p>
-  <p>Октябрьские отчёты ИП Жилиной, загруженные ранее, требуют отдельного сопоставления с подтверждённым источником ИП.
-    Пока это сопоставление не завершено, финансовые суммы Яндекса здесь не показываются.</p>
-  <p>Архивные сведения не удалялись. Автоматический запрос и публикация отчётов стороннего ООО отключены.</p>
- </section>
+</section>
+
 </section>
 <!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
     <section class="page" data-section="dashboard" hidden>
@@ -578,10 +606,10 @@
         <div class="ceo-heading">
           <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
             <h1>Весь бизнес на одном экране</h1>
-            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Выбранный месяц применяется к проверенным финансовым источникам ИП; WB и производство показывают состояние сохранённых мониторов.</p>
+            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Выбранный месяц применяется к Ozon и Яндексу; WB и производство показывают состояние сохранённых мониторов.</p>
           </div>
           <div class="ceo-actions">
-            <label>Завершённый отчётный месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей ИП Жилина"></label>
+            <label>Завершённый отчётный месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей Ozon и Яндекс"></label>
             <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
           </div>
         </div>
@@ -601,10 +629,10 @@
             <a href="#ozonProfit">Подробная прибыль Ozon →</a>
           </article>
           <article class="ceo-card" id="ceoYandexCard">
-            <h2>Яндекс Маркет · ИП Жилина Ольга</h2>
-            <strong class="ceo-value" id="ceoYandexValue">Нет расчёта ИП</strong>
-            <span class="ceo-state" id="ceoYandexState" data-state="warning">Стороннее ООО исключено</span>
-            <p id="ceoYandexNote">Отчёты двух магазинов стороннего ООО исключены. Доход и прибыль Яндекса по ИП Жилиной пока не подтверждены.</p>
+            <h2>Яндекс Маркет · доход после услуг</h2>
+            <strong class="ceo-value" id="ceoYandexValue">Нет подтверждения</strong>
+            <span class="ceo-state" id="ceoYandexState" data-state="warning">Ожидаем проверенные отчёты</span>
+            <p id="ceoYandexNote">Оба магазина ИП Жилиной Ольги, выбранный месяц. Показатель из incomeWithoutServices; это не выплата и не чистая прибыль. Суммы не дублируются.</p>
             <a href="#yandexFinance">Финансы Яндекс Маркета →</a>
           </article>
           <article class="ceo-card">
@@ -2343,11 +2371,11 @@
 <script type="module" src="business-pnl.mjs?v=20261124-wb-profit-closed-costs-v3"></script>
 <script type="module" src="wb-management-profit.mjs?v=20261124-wb-profit-closed-costs-v3"></script>
 <script type="module" src="wb-cost-sync-ui.mjs?v=20261124-immutable-auto-repair"></script>
-
-
-
-
-
+<script type="module" src="yandex-connection-ui.mjs?v=20261124-dedicated-yandex-finance"></script>
+<script type="module" src="yandex-finance-reports-ui.mjs?v=20261124-dedicated-yandex-finance"></script>
+<script type="module" src="yandex-finance-audit-ui.mjs?v=20261124-autopilot"></script>
+<script type="module" src="yandex-autopilot.mjs?v=20261124-autopilot"></script>
+<script type="module" src="yandex-cost-crosswalk-ui.mjs?v=20261124-cost-registry"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
