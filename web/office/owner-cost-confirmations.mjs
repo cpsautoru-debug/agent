@@ -35,7 +35,8 @@ export function applyOwnerConfirmedOzonCosts(rows){
    previousCostKopecks:row.cost_kopecks,
    effectiveCostKopecks:decision.costKopecks,
    confirmedAt:decision.ownerConfirmedAt});
-  return {...row,cost_kopecks:decision.costKopecks,
+  return {...row,raw_cost_kopecks:row.cost_kopecks,
+   cost_kopecks:decision.costKopecks,
    source:'OWNER_CONFIRMED_2026-11-24_SKU_5023073005'};
  });
  return {rows:effective,decisions};
