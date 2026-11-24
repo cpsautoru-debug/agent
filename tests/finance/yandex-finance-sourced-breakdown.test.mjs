@@ -43,3 +43,20 @@ test('full archive review requires all three audited DONE jobs from same period 
  assert.equal(Object.keys(collectYandexConfirmedJobs(storage,'2026-10','all')).length,3);
  assert.equal(Object.keys(collectYandexConfirmedJobs(storage,'2026-10','149082506')).length,0);
 });
+
+test('Yandex SKU evidence keeps shop names but never fabricates sales quantity',()=>{
+ const r=describeYandexReportSheets({'orders_and_offers_transactions.json':[
+  {partnerId:149082506,shopSku:'EVA-101',offerName:'Коврики EVA',
+   offerStatus:'DELIVERED',billingPrice:2400},
+  {partnerId:149082506,shopSku:'EVA-101',offerName:'Коврики EVA',
+   offerStatus:'RETURNED',billingPrice:2400},
+  {partnerId:149106500,shopSku:'COVER-202',offerName:'Авточехлы Vesta',
+   offerStatus:'DELIVERED',billingPrice:7000}
+ ]}).sheets[0];
+ assert.equal(r.skuSourceCoverage,2);
+ assert.equal(r.skuCandidates[0].reportRows,2);
+ assert.deepEqual(r.skuCandidates[0].statuses,['DELIVERED','RETURNED']);
+ assert.equal(r.skuCandidates[1].partnerId,149106500);
+ assert.equal(r.skuCandidates[0].soldUnits,undefined);
+ assert.match(r.skuCompleteness,/not verified/);
+});
