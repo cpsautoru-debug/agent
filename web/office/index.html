@@ -606,10 +606,10 @@
         <div class="ceo-heading">
           <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
             <h1>Весь бизнес на одном экране</h1>
-            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Период для Ozon выбирается отдельно, WB и производство показывают состояние сохранённых мониторов.</p>
+            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Выбранный месяц применяется к Ozon и Яндексу; WB и производство показывают состояние сохранённых мониторов.</p>
           </div>
           <div class="ceo-actions">
-            <label>Завершённый месяц Ozon <input id="ceoMonth" type="month" aria-label="Месяц Ozon"></label>
+            <label>Завершённый отчётный месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей Ozon и Яндекс"></label>
             <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
           </div>
         </div>
@@ -627,6 +627,13 @@
             <span class="ceo-state" id="ceoOzonState">Не загружено</span>
             <p id="ceoOzonNote">Продажи по выбранному месяцу. Не равны начислениям и чистой прибыли.</p>
             <a href="#ozonProfit">Подробная прибыль Ozon →</a>
+          </article>
+          <article class="ceo-card" id="ceoYandexCard">
+            <h2>Яндекс Маркет · доход после услуг</h2>
+            <strong class="ceo-value" id="ceoYandexValue">Нет подтверждения</strong>
+            <span class="ceo-state" id="ceoYandexState" data-state="warning">Ожидаем проверенные отчёты</span>
+            <p id="ceoYandexNote">Оба магазина одного ООО, выбранный месяц. Показатель из incomeWithoutServices; это не выплата и не чистая прибыль. Суммы не дублируются.</p>
+            <a href="#yandexFinance">Финансы Яндекс Маркета →</a>
           </article>
           <article class="ceo-card">
             <h2>Ozon · загрузка и сверка сумм</h2>
