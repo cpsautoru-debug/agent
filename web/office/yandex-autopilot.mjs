@@ -78,9 +78,12 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
  const paint=(month,list,error='')=>{
   const ready=list.filter(x=>x.audited&&!x.noData).length;
   const noData=list.filter(x=>x.noData).length;
-  state.textContent='Отчёты '+month+': проверено архивов '+ready+
-   ' из '+list.length+(noData?'; Яндекс ответил NO_DATA: '+noData:'')+
-   '. Обновляется автоматически при открытом офисе.'+
+  state.textContent='Отчёты '+month+': обработано источников '+
+   (ready+noData)+' из '+list.length+
+   ' (проверенных архивов '+ready+', ответов NO_DATA '+noData+'). '+
+   'NO_DATA означает отсутствие данных в конкретном отчёте, '+
+   'а не доказательство нулевых продаж. '+
+   'Обновляется автоматически при открытом офисе.'+
    (error?' Последнее отклонение: '+error+'.':'');
   const blocks=[];
   for(const campaign of CAMPAIGNS){
