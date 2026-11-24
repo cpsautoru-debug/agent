@@ -41,7 +41,7 @@ export function knownYandexUnitCost(offer){
    /подлокот|двер|накид|кресл\s*детск/.test(name))return null;
  // Exact physical variant confirmed by owner for Ozon SKU 5023073005.
  // Do not generalize to different Vesta Cross colors or trims.
- if(/(?:вест[ауы]|vesta)\\s*(?:кросс|cross)/.test(name)&&
+ if(/(?:вест[ауы]|vesta)\s*(?:кросс|cross)/.test(name)&&
    /оранж/.test(name)&&/сот/.test(name)&&
    /(?:поддержк|боков)/.test(name))
   return {costKopecks:450000,
