@@ -24,7 +24,7 @@ export function collectYandexConfirmedJobs(storage,month=MONTH,shop='all'){
  }
  return result;
 }
-export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unknown'){
+export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unknown',month=MONTH){
  if(!root||!EXPECTED.includes(type)||
     payload?.code!=='yandex_report_archive_audited'||
     payload.readOnly!==true||payload.changedRecords!==0||
@@ -34,7 +34,7 @@ export function renderYandexSourceAudit(doc,root,type,payload,selectedShop='unkn
   services:'Стоимость услуг Маркета',payments:'Платежи и взаимозачёты'}[type];
  const section=doc.createElement('section');
  section.className='profit-panel';
- textNode(doc,section,title+' · октябрь 2026','h4');
+ textNode(doc,section,title+' · '+month,'h4');
  let totalRows=0,assignedRows=0,unassignedRows=0;
  const money=(amount)=>fmt(amount);
  const approvedFields=type==='orders'?
@@ -218,7 +218,7 @@ export function attachYandexDetailedAudit({documentRef=document,fetcher=fetch,
        cache:'no-store',signal:AbortSignal.timeout(30000)});
      if(!response.ok)throw Error('report_unavailable');
      const data=await response.json();
-     renderYandexSourceAudit(documentRef,output,type,data,selectedShop);
+     renderYandexSourceAudit(documentRef,output,type,data,selectedShop,selectedMonth);
      auditedSources[type]=data;
      successes++;
     }catch{
