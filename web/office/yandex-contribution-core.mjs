@@ -3,12 +3,19 @@ import {reconcileYandexRealizationCosts} from './yandex-realization-cost-evidenc
 // Source-only preliminary contribution, not statutory net profit. Does not
 // re-subtract summaryCommission or the overlapping service report.
 export function buildYandexPreliminaryContribution(sources,costAudit,realizationReports){
+ const sourceTypes=['orders','services','payments'];
+ const verifiedSources=sourceTypes.every(type=>
+  sources?.[type]?.code==='yandex_report_archive_audited'&&
+  sources[type].readOnly===true&&
+  sources[type].changedRecords===0&&
+  sources[type].financeProfitVerified===false);
  const finance=buildYandexMonthlyEvidence(sources);
  const result={status:'incomplete',preliminaryContributionKopecks:null,
   orderAfterServicesKopecks:finance.preliminaryOrderAfterServiceKopecks,
   deliveredManufacturingCostKopecks:null,
   returnsIndicativeCostKopecks:null,netProfitKopecks:null,
   missing:[],blockers:[],note:'Доход после учтённых услуг минус подтверждённая себестоимость доставленных. НЕ чистая прибыль; не учитывает отдельно невыверенные услуги, возвраты, налоги и общие расходы.'};
+ if(!verifiedSources)result.blockers.push('financial_sources_not_verified');
  if(!Number.isSafeInteger(finance.preliminaryOrderAfterServiceKopecks)){
   result.blockers.push('order_income_not_verified');
  }
