@@ -88,3 +88,38 @@ test('server-side review needs owner authentication',async()=>{
  const bad=await onRequestGet({request:unknown,env:{}});
  assert.equal(bad.status,400);
 });
+
+test('missing realization title is recovered from official seller SKU in orders',()=>{
+ const input=sources(), realizationInputs=realization();
+ const name='Авточехлы Vesta Cross с оранжевой поддержкой и оранжевыми сотами';
+ const orderProducts=audit({'orders_and_offers_transactions.json':[
+  {partnerId:149082506,shopSku:'VESTA',offerName:name}
+ ]});
+ input.orders.sheets.push(...orderProducts.sheets);
+ realizationInputs[149082506]=audit({
+  'delivered.json':[{yourSku:'VESTA',offerName:'',deliveredCount:2}],
+  'returned.json':[{yourSku:'VESTA',offerName:'',returnedCount:1}]
+ });
+ const catalog=costs();
+ catalog.wb.entries=catalog.wb.entries.filter(x=>x.vendorCode!=='VESTA');
+ const x=reconcileDirectYandexMonth(month,input,realizationInputs,catalog);
+ assert.equal(x.status,'preliminary_cost_reconciled');
+ assert.equal(x.cogsKopecks,1220000); // two Vesta Cross at 4,500 + Granta at 3,200
+ assert.equal(x.indicativeReturnCostKopecks,450000);
+ assert.equal(x.preliminaryContributionKopecks,480000);
+ assert.equal(x.netProfitKopecks,null);
+});
+test('an unnamed seller SKU can use exact title from owner Yandex catalog, never purchasePrice',()=>{
+ const reports=realization();
+ reports[149082506]=audit({
+  'delivered.json':[{yourSku:'VESTA',offerName:'',deliveredCount:2}],
+  'returned.json':[{yourSku:'VESTA',offerName:'',returnedCount:1}]
+ });
+ const catalog=costs();
+ catalog.wb.entries=catalog.wb.entries.filter(x=>x.vendorCode!=='VESTA');
+ const x=reconcileDirectYandexMonth(month,sources(),reports,catalog,{
+  catalogOfferNames:{VESTA:'Авточехлы Vesta Cross оранжевая поддержка, оранжевые соты'}
+ });
+ assert.equal(x.status,'preliminary_cost_reconciled');
+ assert.equal(x.cogsKopecks,1220000);
+});
