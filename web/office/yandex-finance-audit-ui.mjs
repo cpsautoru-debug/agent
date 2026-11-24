@@ -42,8 +42,15 @@ export function renderYandexSourceAudit(doc,root,type,payload){
   const total=Number.isSafeInteger(sheet.rows)?sheet.rows:0;
   const overview=doc.createElement('p');
   overview.textContent=sheet.sheet+' · '+total+' строк · '+
-    'привязано к магазинам '+verified+' из '+total+
-    (verified!==total?' · привязка неполная':' · привязка полная');
+    'для выбранного отчёта ООО: '+total+' строк; '+
+    'отдельные магазины определены для '+verified+' из '+total+
+    ' строк'+(verified!==total?' (разбивка неполная)':' (разбивка полная)');
+  // A joint ООО report remains valid as one source even when it is not
+  // possible to attribute individual rows to either shop.
+  if(total>0&&verified===0)
+   textNode(doc,section,'Отчёт относится к выбранному общему охвату ООО. '+
+    'Невозможность разбить строки по магазинам не означает отсутствие '+
+    'операций или сумм; не распределяем их по магазинам без доказательств.');
   section.append(overview);
   for(const [field,part] of Object.entries(sheet.sumFields||{})){
    if(!SELECT_FIELDS.includes(field)||!part?.present||
@@ -58,7 +65,7 @@ export function renderYandexSourceAudit(doc,root,type,payload){
       k=>k+' '+(Number.isSafeInteger(fields[k])?fields[k]:0)
      ).join('; '));
    const evidence=sheet.shopIdentityEvidence||{};
-   textNode(doc,section,'partnerId равен businessId: '+
+   textNode(doc,section,'Проверка идентичности: partnerId равен businessId в '+
      (evidence.partnerIsBusiness||0)+' строк; знакомых названий магазинов: '+
      (evidence.recognizedShopNames||0)+'.');
    for(const field of ['partnerId','shopName','businessId']){
@@ -81,7 +88,8 @@ export function renderYandexSourceAudit(doc,root,type,payload){
     }
    }
   }else textNode(doc,details,
-   'Магазин не удалось надёжно определить по ID кампании или названию магазина. Распределение этих сумм заблокировано.');
+   'Это строки общего отчёта ООО. Распределение по конкретным магазинам '+
+   'не подтверждено — суммы не будут ошибочно отнесены к одному магазину.');
   const evidence=sheet.shopIdentityEvidence;
   if(evidence&&typeof evidence==='object'&&sheet.rows>0){
    const used=evidence.present||{};
