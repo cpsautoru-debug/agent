@@ -67,12 +67,31 @@ function render(root,pnl,sourceNotes={},interim={}){
      const fold=el('details','business-pnl-wb-details');
      fold.append(el('summary','','Товары без подтверждённой себестоимости · '+
       x.missingProducts.length));
+     fold.open=true;
      const list=el('ol','');
      for(const item of x.missingProducts){
       list.append(el('li','',
        (item.name||'Без названия')+' · SKU '+item.shopSku));
      }
      fold.append(list);card.append(fold);
+    }
+    if(Array.isArray(x.issueDetails)&&x.issueDetails.length){
+     const names={149082506:'САД',149106500:'автосклад'};
+     const explanations={
+      source_no_data:'API Яндекса не вернул данные реализации для этого магазина',
+      source_missing:'Не получен официальный отчёт реализации',
+      delivered_sheet_missing:'В архиве отсутствует лист доставленных товаров',
+      returned_sheet_missing:'В архиве отсутствует лист возвращённых товаров',
+      delivered_sku_coverage_incomplete:'В отчёте доставок есть неопознанные SKU',
+      returned_sku_coverage_incomplete:'В отчёте возвратов есть неопознанные SKU'
+     };
+     const details=el('div','business-pnl-interim-warning');
+     details.append(el('small','','Проблемы исходных отчётов:'));
+     for(const issue of x.issueDetails)
+      details.append(el('small','',
+       (names[issue.partnerId]||'Магазин '+issue.partnerId)+
+       ': '+(explanations[issue.reason]||issue.reason)));
+     card.append(details);
     }
    }
   }
