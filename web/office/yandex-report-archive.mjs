@@ -1,3 +1,4 @@
+import {resolveYandexShop,yandexShopIdentityEvidence} from './yandex-shop-identity.mjs';
 // Bounded ZIP/JSON decoder for official Yandex report archives.
 // Central-directory parsing supports data descriptors. No external dependencies.
 const MAX_ARCHIVE=12*1024*1024;
@@ -160,8 +161,8 @@ export function describeYandexReportSheets(files){
   }
   const shops=new Map();
   for(const row of rows){
-   const shop=row?.partnerId;
-   if(![149082506,149106500].includes(shop))continue;
+   const shop=resolveYandexShop(row);
+   if(shop===null)continue;
    const agg=shops.get(shop)||{rows:0,amounts:{}};
    agg.rows++;
    for(const field of amountFields){
@@ -179,9 +180,9 @@ export function describeYandexReportSheets(files){
   const skuMap=new Map();
   for(const row of rows){
    const code=row?.shopSku;
-   const shop=row?.partnerId;
+   const shop=resolveYandexShop(row);
    if(typeof code!=='string'||!code||code.length>120||
-     ![149082506,149106500].includes(shop))continue;
+     shop===null)continue;
    const key=shop+':'+code;
    if(!skuMap.has(key)&&skuMap.size>=250)continue;
    const existing=skuMap.get(key)||{partnerId:shop,shopSku:code,
@@ -199,7 +200,8 @@ export function describeYandexReportSheets(files){
    sumFields,transactionTypes:types,dimensions,
    shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
    recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
-   groupingStatus:shops.size?'grouped_by_partner_id':
+   shopIdentityEvidence:yandexShopIdentityEvidence(rows),
+   groupingStatus:shops.size?'verified_campaign_or_shop_name':
      'shop_attribution_unavailable',
    skuCandidates:[...skuMap.values()],
    skuSourceCoverage:skuMap.size,
