@@ -7,6 +7,7 @@ import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
 import {yandexPnlCardMetric} from './yandex-pnl-card.mjs?v=20261124-margin-first';
 import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs?v=20261124-direct-cost-review';
 import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs';
+import {readOctoberBusinessOverhead} from './business-overhead-core.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
  {style:'currency',currency:'RUB'}).format(x/100):'Нет данных';
@@ -135,6 +136,13 @@ function render(root,pnl,sourceNotes={},interim={}){
   sheet.append(row);
  }
  root.append(sheet);
+ if(interim.overhead)
+  root.append(el('p','business-pnl-subhead',
+   'Дополнительные расходы: подтверждённый реестр Ozon Profit D1, версия '+
+   interim.overhead.version+
+   '. Показаны только расходы бизнеса, не удержания маркетплейсов.'+
+   (interim.overhead.freightOverlapPossible?
+    ' Возможное повторное включение доставки материала в себестоимость требует сверки.':'')));
  root.append(el('p','business-pnl-disclaimer',
   pnl.finalProfitKopecks===null?
    'Чистая прибыль трёх маркетплейсов пока не подтверждена. '+
@@ -195,6 +203,21 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   let error=null,wbError=null;
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
+  const overheadRead=(async()=>{
+   if(month!=='2026-10')return;
+   try{
+    const response=await fetcher('/api/finance/cost-audit?month='+
+     encodeURIComponent(month),{method:'GET',
+      credentials:'same-origin',cache:'no-store',
+      signal:AbortSignal.timeout(16000)});
+    if(!response.ok)return;
+    const ledger=readOctoberBusinessOverhead(month,await response.json());
+    if(ledger&&id===serial&&monthInput.value===month){
+     base.sharedExpenses=ledger.items;
+     interim.overhead=ledger;
+    }
+   }catch{/* Retain known owner amounts as provisional, not unknown zero. */}
+  })();
   const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
    if(serial!==id||monthInput.value!==month)return x;
    if(x.status!=='unavailable')interim.yandexCost=x;
@@ -214,7 +237,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   if(month==='2026-10'){
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([yandexRead,
+   await Promise.all([yandexRead,overheadRead,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
