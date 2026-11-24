@@ -42,7 +42,9 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   const title=x.offerName||officialNames.get(x.partnerId+':'+x.shopSku)||
    (typeof catalogOfferNames?.[x.shopSku]==='string'?
     catalogOfferNames[x.shopSku]:'');
-  return {...x,offerName:title,name:title};
+  return {...x,offerName:title,name:title,
+   catalogName:typeof catalogOfferNames?.[x.shopSku]==='string'?
+    catalogOfferNames[x.shopSku]:''};
  });
  const costs=reconcileYandexSharedCosts(named,costAudit,month);
  const ledger=buildYandexSafeSkuEvidence(costs,realizations);
