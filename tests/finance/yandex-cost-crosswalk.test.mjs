@@ -95,6 +95,50 @@ test('same Ozon SKU with conflicting auxiliary and main Profit costs is blocked'
  assert.equal(r.conflicting.length,1);
  assert.deepEqual(r.conflicting[0].pricesKopecks,[470000,450000]);
 });
+test('previously confirmed Yandex categories are not requested again',()=>{
+ const products=[
+  ['Авточехлы на Lada Granta',320000],
+  ['Авточехлы Lada Kalina',270000],
+  ['Авточехлы на Газель',300000],
+  ['Авточехлы на ВАЗ 2107',280000],
+  ['Авточехлы Hyundai Solaris',430000],
+  ['Авточехлы Kia Rio',430000],
+  ['Авточехлы Lada Niva',320000],
+  ['Задние дисковые тормоза без ABS на ВАЗ',1600000],
+  ['EVA коврики с 3D бортами',130000],
+  ['EVA коврики с пресс бортами',110000],
+  ['Ворсовые автомобильные коврики',90000],
+  ['EVA коврики в багажник',70000],
+  ['EVA придверные коврики',20000],
+  ['EVA коврики в салон',60000]
+ ];
+ const offers=products.map(([name],i)=>item('YANDEX-'+i,name));
+ const x=reconcileYandexSharedCosts(offers,audit(),'2026-10');
+ assert.equal(x.missing.length,0);
+ assert.equal(x.matched,offers.length);
+ for(let i=0;i<products.length;i++){
+  assert.equal(x.rows[i].costKopecks,products[i][1],products[i][0]);
+  assert.equal(x.rows[i].status,'matched_owner',products[i][0]);
+ }
+});
+
+test('ambiguous EVA, unrelated articles and distinct car variants remain missing',()=>{
+ const names=[
+  'Коврики EVA универсальные',
+  'Коврики EVA 3D без бортов',
+  'EVA коврики с бортами без указания формы',
+  'Чехлы на Hyundai Creta',
+  'Чехлы на Chevrolet Niva',
+  'Авточехлы Lada Niva Travel',
+  'Накидки на сиденья Granta',
+  'Чехол на подлокотник Granta',
+  'Задние дисковые тормоза с ABS на ВАЗ'
+ ];
+ const offers=names.map((name,i)=>item('QUESTION-'+i,name));
+ const x=reconcileYandexSharedCosts(offers,audit(),'2026-10');
+ assert.equal(x.missing.length,names.length);
+ assert.equal(x.matched,0);
+});
 test('owner confirmed 4500 RUB resolves exact Ozon SKU Cross conflict without D1 mutation',()=>{
  const raw=[{sku:'5023073005',seller_article:
   'веста кросс-оранжевая поддержка-оранжевые соты',
