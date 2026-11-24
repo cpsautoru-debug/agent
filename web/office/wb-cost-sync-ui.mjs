@@ -1,11 +1,12 @@
-// User-triggered, owner-authorized exact October historical cost sync.
-// Never call this write endpoint automatically on page load.
+// Owner-authorized exact October historical cost sync.
+// Auto-attempt once per page load using immutable versioned data from already
+// owner-confirmed XLSX; the endpoint alone enforces owner authentication.
 export function attachWbCostSync({documentRef=document,fetcher=fetch}={}){
  const button=documentRef.getElementById('wbCostSyncButton');
  const status=documentRef.getElementById('wbCostSyncStatus');
  if(!button||!status)return false;
  let busy=false;
- button.addEventListener('click',async()=>{
+ const sync=async()=>{
   if(busy)return;
   busy=true;button.disabled=true;
   status.textContent='Проверяем 35 подтверждённых себестоимостей и синхронизируем только октябрь 2026…';
@@ -29,7 +30,8 @@ export function attachWbCostSync({documentRef=document,fetcher=fetch}={}){
      'wb_sync_existing_october_invalid','wb_sync_historical_version_conflict',
      'wb_sync_count_mismatch','database_write_forbidden',
      'database_constraint_rejected','database_batch_limit',
-     'database_timeout','database_schema_mismatch'
+     'database_timeout','database_schema_mismatch',
+     'wb_sync_postwrite_verification_failed'
     ];
     const stage=knownStages.includes(data.stage)?data.stage:'access';
     const reason=knownReasons.includes(data.reason)?data.reason:
@@ -49,7 +51,13 @@ export function attachWbCostSync({documentRef=document,fetcher=fetch}={}){
   }catch{
    status.textContent='Синхронизация не подтверждена: не удалось получить ответ от API. Сохранённый расчёт XLSX остаётся доступным.';
   }finally{busy=false;button.disabled=false;}
- });
+ };
+ button.addEventListener('click',sync);
+ // First read-only view of the office triggers one self-healing sync attempt.
+ // A 401/403 or other error does not loop; owner can see the safe status.
+ // This is one fixed-period write operation only, idempotent after success.
+ if(typeof window!=='undefined'&&window.location.protocol==='https:')
+  void sync();
  return true;
 }
 if(typeof document!=='undefined')attachWbCostSync();
