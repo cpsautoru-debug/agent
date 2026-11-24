@@ -153,7 +153,7 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
   const both=CAMPAIGNS.map(x=>summaries.get(month+':'+x));
   if(both.every(x=>x&&Number.isSafeInteger(x.delivered)&&
     Number.isSafeInteger(x.returned))){
-   blocks.unshift('ООО · по отчётам реализации: доставлено '+
+   blocks.unshift('ИП · по отчётам реализации: доставлено '+
     both.reduce((s,x)=>s+x.delivered,0)+', возвращено '+
     both.reduce((s,x)=>s+x.returned,0)+
     '. Количество не является себестоимостью или чистой прибылью');
