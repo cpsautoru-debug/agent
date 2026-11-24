@@ -58,7 +58,7 @@ test('actual business P&L uses the primary card metric once and no duplicated in
 test('financial dashboard labels WB intermediate separately and folds long detail',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const business=readFileSync(new URL('../../web/office/business-pnl.mjs',import.meta.url),'utf8');
- assert.match(html,/Финансы бизнеса · все каналы/);
+ assert.match(html,/Финансы маркетплейсов · Ozon, WB, Яндекс/);
  assert.match(business,/Удержания и детализация WB/);
  assert.match(business,/После удержаний WB, ДО себестоимости/);
  assert.match(business,/Результат после известных затрат/);
