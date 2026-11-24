@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {resolveYandexShop,yandexShopIdentityEvidence}
+ from '../../web/office/yandex-shop-identity.mjs';
+import {describeYandexReportSheets}
+ from '../../web/office/yandex-report-archive.mjs';
+test('Yandex same-OOO shops match numeric IDs, string IDs and exact names',()=>{
+ assert.equal(resolveYandexShop({partnerId:149082506}),149082506);
+ assert.equal(resolveYandexShop({partnerId:'149106500'}),149106500);
+ assert.equal(resolveYandexShop({shopName:' автосклад '}),149106500);
+ assert.equal(resolveYandexShop({shopName:'Студия Авто Дизайна (САД)'}),149082506);
+ assert.equal(resolveYandexShop({businessId:123}),null);
+ assert.equal(resolveYandexShop({campaignId:149082506,shopName:'автосклад'}),null);
+ assert.equal(resolveYandexShop({partnerId:'123456789'}),null);
+});
+test('source Yandex finance groups confirmed shops and retains unmatched rows',()=>{
+ const r=describeYandexReportSheets({'orders_and_offers_transactions.json':[
+  {partnerId:'149082506',shopSku:'Vesta',billingPrice:8900},
+  {shopName:'автосклад',shopSku:'EVA',billingPrice:2500},
+  {partnerId:'0000001',shopSku:'unknown',billingPrice:1000}
+ ]}).sheets[0];
+ assert.equal(r.recognizedShopRows,2);
+ assert.equal(r.shopIdentityEvidence.unmatchedRows,1);
+ assert.deepEqual(r.shops.map(x=>[x.partnerId,x.rows]),
+  [[149082506,1],[149106500,1]]);
+ assert.equal(r.skuCandidates.length,2);
+ assert.equal(r.skuCompleteness.includes('not verified'),true);
+});
