@@ -22,7 +22,7 @@ test('Yandex services are grouped per service and partner, not added to orders/p
  assert.equal(r.sumFields.servicePrice.totalKopecks,22572);
 });
 test('unrecognized partner is not attributed to either ООО shop',()=>{
- const r=describeYandexReportSheets({a.json:[
+ const r=describeYandexReportSheets({'a.json':[
   {partnerId:149082506,servicePrice:10},
   {partnerId:999999,servicePrice:20}
  ]}).sheets[0];
