@@ -15,9 +15,13 @@ export async function onRequestGet({request,env}){
    const campaigns=await listYandexCampaigns(env);
    const grouped=[...new Map(campaigns.map(c=>[c.businessId,
     {businessId:c.businessId,businessName:c.businessName}])).values()];
+   const oneLegalEntity=grouped.length===1&&campaigns.length===2&&
+     [149082506,149106500].every(id=>campaigns.some(c=>c.campaignId===id));
    return json(200,{code:'yandex_campaigns_discovered',
     readOnly:true,changedRecords:0,campaigns,businesses:grouped,
     automaticScope:grouped.length===1?'single_business':'selection_required',
+    ownerConfirmedSingleOoo:oneLegalEntity,
+    scopeRule:'Each shop individually or both shops together, never sum their joint report again',
     financeProfitKopecks:null,verifiedProfit:false});
   }catch(e){return json(503,{code:mapSafeYandexError(e)});}
  }
@@ -55,8 +59,9 @@ export async function onRequestPost({request,env}){
  let params;
  try{params=await request.json();}
  catch{return json(400,{code:'invalid_body'});}
- if(!params||Object.keys(params).sort().join(',')!=='month,reportType'||
-   !allowedReports.has(params.reportType))
+ if(!params||!allowedReports.has(params.reportType)||
+   !['month,reportType','campaignId,month,reportType'].includes(
+      Object.keys(params).sort().join(',')))
   return json(400,{code:'invalid_report_type'});
  let bounds;
  try{bounds=monthBounds(params.month);}
@@ -67,9 +72,13 @@ export async function onRequestPost({request,env}){
  try{
   const campaigns=await listYandexCampaigns(env);
   const scope=selectedBusiness(campaigns);
+  const selected=params.campaignId===undefined?scope.campaignIds:
+    Number.isSafeInteger(params.campaignId)&&
+     scope.campaignIds.includes(params.campaignId)?[params.campaignId]:null;
+  if(!selected)return json(400,{code:'campaign_not_accessible'});
   const body={businessId:scope.businessId,
    dateFrom:bounds.dateFrom,dateTo:bounds.dateTo,
-   campaignIds:scope.campaignIds};
+   campaignIds:selected};
   const path='/v2/reports/'+reportPaths[params.reportType]+
    '/generate?format=JSON';
   const result=await yandexRequest(env,path,{method:'POST',body});
@@ -78,7 +87,8 @@ export async function onRequestPost({request,env}){
    throw Error('yandex_report_response_invalid');
   return json(200,{code:'yandex_report_requested',
    month:params.month,reportType:params.reportType,
-   businessId:scope.businessId,campaignCount:scope.campaignIds.length,
+   businessId:scope.businessId,campaignCount:selected.length,
+   campaignIds:selected,legalEntity:'ООО · оба магазина одного владельца',
    reportId,status:'PENDING',financialPnlVerified:false,
    profitKopecks:null,
    note:'Yandex is generating source data; no financial results can be claimed yet.'});
