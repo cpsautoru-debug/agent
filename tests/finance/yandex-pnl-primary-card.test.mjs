@@ -1,67 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {yandexPnlCardMetric} from '../../web/office/yandex-pnl-card.mjs';
 import {consolidateBusinessPnl} from '../../web/office/consolidated-pnl-core.mjs';
-import {readFileSync} from 'node:fs';
 
 const month='2026-10';
-const channel={id:'yandex',status:'unknown',profitKopecks:null};
-test('Yandex post-fee income is the FIRST card amount, not No data',()=>{
- const metric=yandexPnlCardMetric(channel,{
-  yandex:{month,incomeKopecks:61779235,orders:79}},month);
- assert.equal(metric.showIncome,true);
- assert.equal(metric.primaryKopecks,61779235);
- assert.match(metric.meaning,/НЕ чистая прибыль/);
- assert.match(metric.note,/Оба магазина одного ООО/);
- assert.match(metric.note,/79 заказов/);
+const legacy={yandex:{month,incomeKopecks:61779235,orders:79}};
+test('third-party LLC Yandex income is excluded even if old interim exists',()=>{
+ const result=yandexPnlCardMetric({id:'yandex',status:'unknown',
+  profitKopecks:null},legacy,month);
+ assert.equal(result.showIncome,false);
+ assert.equal(result.primaryKopecks,null);
+ assert.equal(result.meaning,'Нет расчёта ИП Жилиной');
 });
-test('rejected unverified or previous-month data does not appear in card',()=>{
- for(const invalid of [
-  null,{yandex:{month:'2026-09',incomeKopecks:61779235,orders:79}},
-  {yandex:{month,incomeKopecks:null,orders:79}},
-  {yandex:{month,incomeKopecks:61779235,orders:0}}
- ]){
-  const r=yandexPnlCardMetric(channel,invalid,month);
-  assert.equal(r.showIncome,false);
-  assert.equal(r.primaryKopecks,null);
- }
+test('Ozon and WB primary amounts do not change after legal-entity exclusion',()=>{
+ const result=yandexPnlCardMetric({id:'ozon',status:'known_cost_result',
+  profitKopecks:54836991},legacy,month);
+ assert.equal(result.primaryKopecks,54836991);
+ assert.equal(result.showIncome,false);
 });
-test('Ozon and WB primary contribution remains unchanged',()=>{
- const other={id:'ozon',status:'known_cost_result',profitKopecks:54836991};
- const r=yandexPnlCardMetric(other,{
-  yandex:{month,incomeKopecks:61779235,orders:79}},month);
- assert.equal(r.primaryKopecks,54836991);
- assert.equal(r.showIncome,false);
-});
-test('Yandex income never contaminates P&L total, shared tax or channel contribution',()=>{
- const pnl=consolidateBusinessPnl({
-  month,channels:{
-   ozon:{status:'known_cost_result',profitKopecks:54836991},
-   wb:{status:'known_cost_result',profitKopecks:29149264}
-  },sharedExpenses:[],taxes:[],completeSources:false});
- assert.equal(yandexPnlCardMetric(pnl.channels.find(x=>x.id==='yandex'),
-  {yandex:{month,incomeKopecks:61779235,orders:79}},month)
-  .primaryKopecks,61779235);
+test('LLC figures never enter company P&L, shared taxes or reported profit',()=>{
+ const pnl=consolidateBusinessPnl({month,channels:{
+  ozon:{status:'known_cost_result',profitKopecks:54836991},
+  wb:{status:'known_cost_result',profitKopecks:29149264}
+ },sharedExpenses:[],taxes:[],completeSources:false});
+ assert.equal(yandexPnlCardMetric(
+  pnl.channels.find(x=>x.id==='yandex'),legacy,month).primaryKopecks,null);
  assert.equal(pnl.knownChannelsTotalKopecks,83986255);
  assert.equal(pnl.knownChannelCount,2);
  assert.equal(pnl.channelsTotalKopecks,null);
  assert.equal(pnl.finalProfitKopecks,null);
 });
-test('actual business P&L uses the primary card metric once and no duplicated intermediary',()=>{
- const s=readFileSync(new URL('../../web/office/business-pnl.mjs',import.meta.url),'utf8');
- assert.match(s,/yandexPnlCardMetric\(ch,interim,pnl\.month\)/);
- assert.match(s,/money\(metric\.primaryKopecks\)/);
- assert.match(s,/metric\.meaning/);
- assert.doesNotMatch(s,/business-pnl-interim-value.*interim\.yandex\.incomeKopecks/s);
-});
-
-test('financial dashboard labels WB intermediate separately and folds long detail',()=>{
+test('dashboard shows only properly separated IP costs and retains details',()=>{
  const html=readFileSync(new URL('../../web/office/index.html',import.meta.url),'utf8');
  const business=readFileSync(new URL('../../web/office/business-pnl.mjs',import.meta.url),'utf8');
  assert.match(html,/Финансы бизнеса · все каналы/);
  assert.match(business,/Удержания и детализация WB/);
- assert.match(business,/После удержаний WB, ДО себестоимости/);
  assert.match(business,/Результат после известных затрат/);
- assert.match(business,/pnl\.channels\.filter\(c=>c\.status!=='unknown'\)/);
- assert.match(business,/metric\.primaryKopecks/);
+ assert.match(business,/yandexPnlCardMetric\(ch,interim,pnl\.month\)/);
 });
