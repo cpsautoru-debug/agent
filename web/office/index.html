@@ -601,6 +601,11 @@
    </div>
    <p id="yandexFinanceReportsStatus" role="status">Сначала определяем кабинеты, доступные по серверному токену.</p>
    <div id="yandexFinanceJobSummary" aria-label="Состояние финансовых отчётов Яндекса"></div>
+   <div class="yandex-finance-audit">
+    <button id="yandexFinanceAnalyzeAll" type="button" class="button light">Показать финансы из 3 проверенных отчётов</button>
+    <p id="yandexFinanceDetailedStatus" role="status">Расшифровка проверенных отчётов: магазины, услуги и операции без двойного сложения.</p>
+    <div id="yandexFinanceDetailedResults"></div>
+   </div>
    <div id="yandexFinanceReportLines" aria-label="Проверенные исходные суммы отчёта"></div>
  </div>
 </section>
@@ -2349,6 +2354,7 @@
 <script type="module" src="wb-cost-sync-ui.mjs?v=20261124-write-classification"></script>
 <script type="module" src="yandex-connection-ui.mjs?v=20261124-cloudflare-secret-verified"></script>
 <script type="module" src="yandex-finance-reports-ui.mjs?v=20261124-three-jobs-auto-audit"></script>
+<script type="module" src="yandex-finance-audit-ui.mjs?v=20261124-three-source-breakdown"></script>
 <script src="office-auth.js?v=20261121" defer></script>
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
