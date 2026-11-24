@@ -114,6 +114,14 @@ export function attachYandexAutopilot({documentRef=document,fetcher=fetch,
     saveYandexReportJobs(storage,combined);
     windowRef.dispatchEvent(new Event('yandex-auto-jobs-updated'));
    }
+   const remoteKeys=new Map((response.jobs||[]).map(job=>
+    [job.month+':'+job.scope+':'+job.reportType,job]));
+   if(serverWritable&&[...combined].some(([key,job])=>{
+    const stored=remoteKeys.get(key);
+    return !stored||stored.reportId!==job.reportId||
+     stored.createdAt<job.createdAt||
+     (stored.status!==job.status&&job.status==='DONE');
+   }))void persistJobs(combined);
   }catch{/* Local-only operation remains intact. */}
  }
  // Start while the office is open, not only after a finance-menu click.
