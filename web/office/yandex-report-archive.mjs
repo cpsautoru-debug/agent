@@ -201,13 +201,13 @@ export function describeYandexReportSheets(files){
   // The orders-and-services margin sheet is order-level. Its canonical
   // net-after-order-services field must not be reduced by the same
   // summaryCommission a second time. Do not call this business net profit.
-  const marginSheet=/^services_and_orders_margin\\.json$/i.test(name);
+  const marginSheet=/^services_and_orders_margin\.json$/i.test(name);
   const orderKeys=new Set();let duplicateOrderIds=0,ordersWithIds=0;
   if(marginSheet){
    for(const row of rows){
     if(row?.orderId==null)continue;
     const id=String(row.orderId);
-    if(!/^\\d{1,20}$/.test(id))continue;
+    if(!/^\d{1,20}$/.test(id))continue;
     ordersWithIds++;
     if(orderKeys.has(id))duplicateOrderIds++;
     else orderKeys.add(id);
