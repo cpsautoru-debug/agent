@@ -73,8 +73,11 @@ function render(root,pnl,sourceNotes={},interim={}){
   ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
-  // Do not print subtotals as additional deductions: the rows above
-  // already display each one-time common expense and entity tax.
+  // This number is an arithmetic difference over only visible known
+  // contributions minus the shown shared costs and the WHOLE-IP tax. It
+  // cannot be interpreted as the profit of those specific channels.
+  ['Арифметический остаток известных строк — НЕ чистая прибыль',
+   pnl.visibleRowsRemainderKopecks],
   ['ИТОГОВАЯ ПРИБЫЛЬ БИЗНЕСА',pnl.finalProfitKopecks]
  ];
  for(const [label,value] of rows){
@@ -85,7 +88,8 @@ function render(root,pnl,sourceNotes={},interim={}){
  root.append(sheet);
  root.append(el('p','business-pnl-disclaimer',
   pnl.finalProfitKopecks===null?
-   'Итог пока не рассчитывается: не закрыта прибыль всех каналов и/или не подтверждён полный перечень общих расходов и налогов. Показаны только известные расходы; неизвестные суммы не заменяются нулями.':
+   'Чистая прибыль ИП пока не подтверждена: отсутствует результат '+pnl.missingChannels.map(x=>labels[x]).join(', ')+
+   '. Арифметический остаток известных строк не включает эти каналы; перечисленный налог относится ко всему ИП и здесь вычтен один раз. Неизвестные расходы не заменены нулями.':
    pnl.verified?'Все источники подтверждены.':'Управленческая оценка: имеются неподтверждённые источники.'));
 }
 export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
