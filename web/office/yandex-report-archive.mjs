@@ -112,6 +112,36 @@ export function describeYandexReportSheets(files){
    return [field,{present:count,invalid,
     totalKopecks:Number.isSafeInteger(sumKopecks)?sumKopecks:null}];
   }));
+  // Realization has separate delivered/returned sheets. Never add
+  // deliveredCount from returned.json to the delivered.json total.
+  const quantityTotals=Object.fromEntries(
+   ['deliveredCount','returnedCount','unredeemedCount'].map(field=>{
+    let present=0,invalid=0,total=0;
+    for(const row of rows){
+     const n=row?.[field];
+     if(n===undefined||n===null||n==='')continue;
+     if(!Number.isSafeInteger(n)||n<0||
+       !Number.isSafeInteger(total+n)){invalid++;continue;}
+     present++;total+=n;
+    }
+    return [field,{present,invalid,total:invalid?null:total}];
+   }));
+  const realizationKind=/^(delivered|returned)\.json$/i.exec(name)?.[1]||null;
+  const realizationMap=new Map();
+  if(realizationKind){
+   for(const row of rows){
+    const sku=row?.yourSku||row?.shopSku;
+    if(typeof sku!=='string'||!sku||sku.length>150)continue;
+    if(!realizationMap.has(sku)&&realizationMap.size>=250)continue;
+    const stat=realizationMap.get(sku)||{shopSku:sku,rows:0,units:0,invalid:0};
+    const qty=row?.[realizationKind==='delivered'?'deliveredCount':'returnedCount'];
+    stat.rows++;
+    if(!Number.isSafeInteger(qty)||qty<0||
+       !Number.isSafeInteger(stat.units+qty))stat.invalid++;
+    else stat.units+=qty;
+    realizationMap.set(sku,stat);
+   }
+  }
   const types={};
   if(/transaction_date\.json$/i.test(name)){
    for(const row of rows){
@@ -193,9 +223,15 @@ export function describeYandexReportSheets(files){
     reportRows:0,statuses:[],quantityRows:0,reportedQuantity:0,
     quantityInvalidRows:0};
    existing.reportRows++;
-   // Official "count" is the line quantity. It is NOT proof of a sale:
-   // order status, fulfillment and returns require a separate reconciliation.
-   const quantity=row.count;
+   // COUNT was removed from the transaction sheet in March 2026.
+   // deliveredOrReturned is a mixed delivered/returned quantity, NOT
+   // independently certified sold units. Preserve its source label.
+   const field=row.count!==undefined?'count':'deliveredOrReturned';
+   const quantity=row[field];
+   if(quantity!==undefined&&quantity!==null){
+     if(!existing.quantitySources)existing.quantitySources=[];
+     if(!existing.quantitySources.includes(field))existing.quantitySources.push(field);
+   }
    if(quantity!==undefined&&quantity!==null){
      if(Number.isSafeInteger(quantity)&&quantity>=0&&
         Number.isSafeInteger(existing.reportedQuantity+quantity)){
@@ -226,7 +262,9 @@ export function describeYandexReportSheets(files){
   }
   sheets.push({sheet:name,rows:rows.length,fields:names,
    isOrderMarginSource:marginSheet,ordersWithIds,duplicateOrderIds,
-   sumFields,transactionTypes:types,dimensions,
+   sumFields,quantityTotals,realizationKind,
+   realizationSkuSummaries:[...realizationMap.values()],
+   transactionTypes:types,dimensions,
    shops:[...shops.entries()].map(([partnerId,v])=>({partnerId,...v})),
    recognizedShopRows:[...shops.values()].reduce((sum,v)=>sum+v.rows,0),
    shopIdentityEvidence:yandexShopIdentityEvidence(rows),
@@ -234,7 +272,7 @@ export function describeYandexReportSheets(files){
      'shop_attribution_unavailable',
    skuCandidates:[...skuMap.values()],
    skuSourceCoverage:skuMap.size,
-   skuCompleteness:'Order-line quantities are shown for reconciliation only; delivered/returned sales and COGS not verified'});
+   skuCompleteness:'Mixed delivery/return quantities are source evidence, NOT verified sales or COGS'});
  }
  return {sheets,
   note:'Amounts are raw source-field totals, NOT accounting revenue or net profit. Cross-sheet totals must not be added.'};
