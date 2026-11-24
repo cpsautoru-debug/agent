@@ -32,12 +32,15 @@ function render(root,pnl,sourceNotes={},interim={}){
    el('small','',metric.meaning));
   if(ch.id==='wb'&&interim.wb){
    const detail=interim.wb;
-   card.append(el('small','business-pnl-subhead',
-     'Расчёты после удержаний WB · до себестоимости'),
-    el('strong','business-pnl-interim-value',money(detail.amountKopecks)),
-    el('small','business-pnl-interim-warning',detail.label));
+   // Show one primary management result. Keep the *pre-COGS* settlement
+   // inside details, so it cannot look like a second channel profit.
    const fold=el('details','business-pnl-wb-details');
-   fold.append(el('summary','','Расшифровка удержаний WB'));
+   fold.append(el('summary','','Удержания и детализация WB'));
+   fold.append(el('small','business-pnl-subhead',
+     'После удержаний WB, ДО себестоимости'),
+    el('strong','business-pnl-interim-value',
+      money(detail.amountKopecks)),
+    el('small','business-pnl-interim-warning',detail.label));
    for(const [label,amount] of detail.breakdown){
     const row=el('div','business-pnl-wb-line');
     row.append(el('span','',label),el('strong','',money(amount)));
@@ -63,7 +66,10 @@ function render(root,pnl,sourceNotes={},interim={}){
  root.append(cards);
  const sheet=el('div','business-pnl-sheet');
  const rows=[
-  ['Промежуточная сумма рассчитанных каналов ('+pnl.knownChannelCount+' из '+pnl.channels.length+') — до общих расходов и налога',pnl.knownChannelsTotalKopecks],
+  ['Результат после известных затрат ('+pnl.knownChannelCount+' из '+
+   pnl.channels.length+' каналов: '+pnl.channels.filter(c=>c.status!=='unknown')
+    .map(c=>labels[c.id]).join(' + ')+') — до общих расходов и налога',
+   pnl.knownChannelsTotalKopecks],
   ['Сумма результатов всех каналов',pnl.channelsTotalKopecks],
   ...pnl.sharedExpenses.map(x=>[x.label,-x.amountKopecks]),
   ...pnl.taxes.map(x=>[x.label,-x.amountKopecks]),
@@ -93,11 +99,10 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
      evidence.month!==monthInput.value)return;
   interim.yandex={month:evidence.month,
    incomeKopecks:evidence.incomeKopecks,orders:evidence.orders};
-  sourceNotes.yandex='Финансовые источники: подтверждён доход по '+
-   evidence.orders+' заказам после уже включённых услуг Яндекса. '+
-   (evidence.serviceAuditComplete&&evidence.paymentAuditComplete?
-    'Три архива проверены. ':
-    'Отдельные услуги/платежи требуют сверки. ')+
+  sourceNotes.yandex=(evidence.serviceAuditComplete&&
+   evidence.paymentAuditComplete?
+    'Три финансовых архива проверены. ':
+    'Услуги и платежи требуют сверки. ')+
    'Себестоимость, возвраты, налог ООО и внешние расходы — отдельно.';
  }
  function refreshYandexPanel(evidence){
@@ -180,18 +185,14 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
        };
       }
       const basis=wb.breakdown[0][1]+wb.breakdown[1][1];
-      sourceNotes.wb='После удержаний WB остаётся '+
-       displayRate(financeRateBps(wb.amountKopecks,basis))+
-       ' от суммы после возвратов (это НЕ прибыль). '+
-       wb.reports+' отчётов, '+wb.rows+
-       ' операций. '+(wb.managementCost?
-       'Исторические XLSX подтверждают себестоимость '+wb.managementCost.confirmedSkuCount+
-         ' артикулов и 6 пригодных возвратов. Результат после себестоимости: '+
-         money(wb.managementCost.contributionKopecks)+
-         '. До внешней рекламы, общих расходов и налога ИП.':
-       'Себестоимость в текущем реестре подтверждена для '+
-         wb.confirmedCostArticles+' из '+wb.soldArticles+
-         ' артикулов; управленческая прибыль пока не рассчитана.');
+      sourceNotes.wb=wb.managementCost?
+       'Себестоимость: '+wb.managementCost.confirmedSkuCount+
+       ' артикулов; 6 подтверждённых возвратов. '+wb.reports+
+       ' отчётов, '+wb.rows+
+       ' операций. До внешней рекламы, общих расходов и налога ИП.':
+       'Не полностью сверена себестоимость: '+wb.confirmedCostArticles+
+       ' из '+wb.soldArticles+' артикулов. '+wb.reports+
+       ' отчётов, '+wb.rows+' операций.';
      }catch(e){wbError=e;sourceNotes.wb='Нет полной сверенной расчётной суммы WB за выбранный период.';}
     })()
    ]);
