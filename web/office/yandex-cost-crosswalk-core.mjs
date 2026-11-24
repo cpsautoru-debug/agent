@@ -9,9 +9,14 @@ const has=(s,pattern)=>pattern.test(s);
 const accessories=/коврик|eva|багажник|подлокот|двер|карты|вставк|порог|аромат|брелок|бампер|накладк|защит|накидк|зеркал|шторк/;
 function modelFamily(text){
  const s=normalizeCostKey(text);
+ if(/карты|двер.*встав|встав.*двер|обшивк.*двер/.test(s))
+  return 'door_cards';
+ if(/чех.*подлокот|подлокот.*чех/.test(s))return 'armrest_cover';
+ if(/накладк.*бампер.*калин|калин.*накладк.*бампер/.test(s))
+  return 'kalina_bumper_trim';
  if(has(s,accessories))return null;
  if(/веста\s*кросс|vesta\s*cross/.test(s))return 'vesta_cross';
- if(/веста|vesta/.test(s))return 'vesta';
+ if(/вест[ауы]|vesta/.test(s))return 'vesta';
  if(/приора|priora/.test(s))return 'priora';
  if(/самара|samara/.test(s))return 'samara';
  if(/искра|iskra/.test(s))return 'iskra';
