@@ -1,4 +1,5 @@
 import {calculateProfit} from '../ozon/profit-model.js';
+import {onRequestGet as auditYandexArchive} from '../yandex/report-audit.js';
 import {verifySession} from '../auth/session.js';
 const HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 const out=(status,body)=>new Response(JSON.stringify(body),{status,headers:HEADERS});
@@ -83,12 +84,53 @@ export async function onRequestGet({request,env}){
    taxableGrossSalesKopecks:null,
    verifiedByFNS:false,
    note:'Saved WB report tax estimates are ASSUMED. A WB payout / for_pay is not gross taxable revenue.'};
-  // Owner corrected Yandex tax entity to sole proprietor on AUSN 8%; no derived amount
-  // without the delivered and returned gross sales source.
+  // Reuse the same owner-authorized audit endpoint used by the Yandex
+  // finance panel. A DONE job is only a locator, never proof of the amount.
+  let yandex={status:'gross_sales_source_not_reconciled',taxRateBps:800,
+   grossOrderValueKopecks:null,incomeKopecks:null,
+   taxEstimateKopecks:null,verifiedByFNS:false};
+  try{
+   const jobs=await env.OZON_FINANCE_DB.prepare(
+    "SELECT report_id FROM yandex_finance_report_jobs WHERE month=? "+
+    "AND scope='all' AND report_type='orders' AND status='DONE'"
+   ).bind(month).all();
+   if(jobs.results?.length===1&&
+      /^[a-zA-Z0-9_-]{1,255}$/.test(jobs.results[0].report_id)){
+    const target=new URL('/api/yandex/report-audit',url.origin);
+    target.searchParams.set('reportId',jobs.results[0].report_id);
+    const audited=await auditYandexArchive({request:new Request(target,{
+     method:'GET',headers:request.headers}),env});
+    if(audited.ok){
+     const data=await audited.json();
+     if(data?.code==='yandex_report_archive_audited'&&data.readOnly===true&&
+        data.changedRecords===0&&data.financeProfitVerified===false&&
+        Array.isArray(data.sheets)){
+      const sheets=data.sheets.filter(x=>x.sheet==='services_and_orders_margin.json');
+      if(sheets.length===1){
+       const sheet=sheets[0],v=sheet.sumFields?.sumBillingPriceOfItems;
+       if(safe(sheet.rows)&&sheet.rows>0&&safe(v?.totalKopecks)&&
+          v.totalKopecks>=0&&v.present===sheet.rows&&v.invalid===0&&
+          sheet.duplicateOrderIds===0&&sheet.ordersWithIds===sheet.rows){
+        const scenario=roundRate(v.totalKopecks,800);
+        yandex={status:'gross_order_scenario_before_returns',taxRateBps:800,
+         grossOrderValueKopecks:v.totalKopecks,
+         incomeKopecks:null,taxEstimateKopecks:scenario,
+         orderRows:sheet.rows,verifiedByFNS:false,
+         exclusions:['return_reconciliation','tax_recognition_dates',
+          'order_value_vs_taxable_income','marketplace_compensation']};
+       }else yandex.status='orders_tax_column_incomplete';
+      }else yandex.status='canonical_orders_sheet_missing';
+     }else yandex.status='report_archive_unverified';
+    }else yandex.status='report_archive_unavailable';
+   }else yandex.status='canonical_orders_report_missing';
+  }catch{
+   // The other channel estimates remain usable when Yandex is unavailable.
+   yandex.status='official_report_read_unavailable';
+  }
+
   return out(200,{code:'marketplace_tax_management_estimate',month,readOnly:true,
    changedRecords:0,entityOzonWb:'ИП Жилина',entityYandex:'ИП Жилина',
-   ozon,wb,yandex:{status:'gross_sales_source_not_reconciled',taxRateBps:800,
-    incomeKopecks:null,taxEstimateKopecks:null,verifiedByFNS:false},
+   ozon,wb,yandex,
    totalTaxKopecks:null,officialTaxVerified:false,
    note:'These are management estimates. Marketplace commissions are not subtracted from taxable gross income. No amount is treated as official tax.'});
  }catch{return out(503,{code:'marketplace_tax_sources_unavailable'});}
