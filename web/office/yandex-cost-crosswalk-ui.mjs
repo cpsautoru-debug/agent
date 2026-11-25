@@ -83,9 +83,9 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   const salesValue=taxSource.orderMargin?.coverageConfirmed===true?
    taxSource.orderMargin?.saleValue?.kopecks:null;
   if(Number.isSafeInteger(salesValue)&&salesValue>=0){
-   const taxEstimate=Number((BigInt(salesValue)*600n+5000n)/10000n);
+   const taxEstimate=Number((BigInt(salesValue)*800n+5000n)/10000n);
    card.append(el(documentRef,'h4',
-    'Сценарий УСН ООО 6% по валовой стоимости заказов: '+
+    'Сценарий АУСН ИП 8% по валовой стоимости заказов: '+
     money(taxEstimate)));
    card.append(el(documentRef,'p',
     'Исходная сумма заказов по официальному отчёту: '+money(salesValue)+
@@ -144,7 +144,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     latestCosts.realizationReports);
    finance=buildYandexMonthlyEvidence(sources);
   }catch{return;}
-  const evidence={ownerEntity:'ООО',
+  const evidence={ownerEntity:'ИП Жилина Ольга',
    status:data.status==='preliminary_contribution_ready'&&
      ledger.issues.length===0&&ledger.missing.length===0?
       'preliminary_contribution_ready':'partial',
