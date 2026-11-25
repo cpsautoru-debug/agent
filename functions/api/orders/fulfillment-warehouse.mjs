@@ -11,6 +11,18 @@ function entityId(ref, type) {
  return UUID.test(id) ? id.toLowerCase() : null;
 }
 
+function safeReadReason(error,entity){
+ const code=error?.message||'';
+ if(code==='ms_token_unavailable')return 'ms_token_unavailable';
+ if(code==='ms_request_budget_exhausted')return 'ms_request_budget_exhausted';
+ if(code==='ms_request_deadline')return 'ms_request_deadline';
+ if(code==='ms_http_401'||code==='ms_http_403')return 'ms_authorization_denied';
+ if(code==='ms_http_404')return entity+'_not_found';
+ if(code==='ms_http_429')return 'ms_rate_limited';
+ if(/^ms_http_5\\d\\d$/.test(code))return 'ms_upstream_unavailable';
+ return entity+'_read_failed';
+}
+
 function matches(entity, id) {
  return typeof entity?.id === 'string' && entity.id.toLowerCase() === id &&
   typeof entity.name === 'string' && entity.name.trim().length > 0 && entity.name.length <= 250;
@@ -44,11 +56,11 @@ export async function readWarehouse(order, mapping, readEntity) {
   // names, or request URLs in the owner-visible diagnostic.
   let store,organization;
   try {store=await readEntity('store/' + storeId);}
-  catch {return blocked('store_read_failed');}
+  catch(error) {return blocked(safeReadReason(error,'store'));}
   if (!matches(store,storeId)||store.archived===true)
    return blocked('store_entity_mismatch');
   try {organization=await readEntity('organization/' + organizationId);}
-  catch {return blocked('organization_read_failed');}
+  catch(error) {return blocked(safeReadReason(error,'organization'));}
   if (!matches(organization,organizationId)||organization.archived===true)
    return blocked('organization_entity_mismatch');
   return {
