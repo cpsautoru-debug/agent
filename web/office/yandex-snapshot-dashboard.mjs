@@ -9,7 +9,7 @@ export function interpretYandexCostSnapshot(month,data){
  if(!monthValid(month)||data?.code!=='yandex_month_evidence_available'||
   data.readOnly!==true||data.month!==month||
   data.sourceKind!=='owner_browser_audited_summary'||
-  data.evidence?.ownerEntity!=='ИП Жилина Ольга'||
+  data.evidence?.ownerEntity!=='ООО'||
   data.evidence?.netProfitKopecks!==null||
   !Array.isArray(data.evidence?.skus)||data.evidence.skus.length>500||
   !Array.isArray(data.evidence?.issues))
@@ -48,7 +48,7 @@ export function interpretYandexDirectCostReview(month,data){
   netProfitKopecks:null};
  if(!monthValid(month)||data?.code!=='yandex_direct_cost_review'||
   data.readOnly!==true||data.month!==month||
-  data.ownerEntity!=='ИП Жилина Ольга'||
+  data.ownerEntity!=='ООО'||
   data.netProfitKopecks!==null||
   !Array.isArray(data.missing)||!Array.isArray(data.issues))
   return unavailable;
