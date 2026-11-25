@@ -72,12 +72,23 @@
      cell(tr,line.plannedCovered);
      cell(tr,line.missing);
      cell(tr,check?.checkedAt?new Date(check.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'}):null);
-     cell(tr,'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта'));
+     const statusLabel=line.status==='sewing_required'
+       ?'Требуется пошив · '+line.missing+' шт.'
+       :line.status==='production_covered'?'Покрыто существующим производством'
+       :line.status==='warehouse_covered'?'Учётно обеспечено складом'
+       :'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта');
+     cell(tr,statusLabel);
      fulfillmentRows.append(tr);
    }
    fulfillmentTable.hidden=!fulfillmentRows.childNodes.length;
+   const confirmed=entries.filter(e=>['sewing_required','production_covered',
+     'warehouse_covered'].includes(e.line.status));
+   const pending=entries.length-confirmed.length;
+   const sewing=confirmed.reduce((n,e)=>n+(e.line.missing||0),0);
    fulfillmentSummary.textContent='Активных заказов в выборке: '+active.length+
-     ' · Требуют уточнения: '+active.length+
+     ' · Подтверждённых позиций: '+confirmed.length+
+     ' · Требуют уточнения: '+pending+
+     ' · Подтверждённая потребность: '+sewing+' шт. (только подтверждённые позиции)'+
      (data.fulfillmentAvailable?'':'. Сохранённые проверки недоступны.');
  }
  for(const filter of [channelFilter,warehouseFilter,modelFilter]){
