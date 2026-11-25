@@ -59,6 +59,20 @@ export function summarizeOzonProvisionalProfit(month,data){
  require(Number.isSafeInteger(cogs)&&cogs>=0&&
    Number.isSafeInteger(net-cogs),'cogs_amount_not_confirmed');
  const valid=blockers.length===0;
+ // Only totals present in the current canonical Ozon Profit documents
+ // may appear in the review. Never hardcode a taxpayer's tax register.
+ const currentExpenses=data?.configuration?.expenses;
+ const overheadRows=Array.isArray(currentExpenses?.items)?
+  currentExpenses.items.filter(x=>x.scope==='business'&&
+   typeof x.validFrom==='string'&&x.validFrom<month+'-32'&&
+   (x.validTo===null||x.validTo>=month+'-01')):null;
+ const overheadTotal=overheadRows&&overheadRows.every(x=>
+  Number.isSafeInteger(x.amountKopecks)&&x.amountKopecks>=0)?
+  overheadRows.reduce((sum,x)=>sum+x.amountKopecks,0):null;
+ const taxDoc=data?.configuration?.tax;
+ const taxTotal=taxDoc?.complete===true&&
+  Array.isArray(taxDoc.events)&&taxDoc.events.length>0?
+  null:null; // Tax amount is not an audited FNS payment or allocated share.
  return {
   month,source:'OZON_XLSX_API_DAY_PARITY_AND_DATE_COGS',
   status:valid?'provisional_known_cost_result':'insufficient_evidence',
@@ -68,8 +82,8 @@ export function summarizeOzonProvisionalProfit(month,data){
   financeNetKopecks:valid?net:null,
   netManufacturingCostKopecks:valid?cogs:null,
   beforeAllocationKopecks:valid?net-cogs:null,
-  ownerTaxTotalKopecks:month==='2026-10'?20550700:null,
-  businessOverheadTotalKopecks:month==='2026-10'?5400000:null,
+  ownerTaxTotalKopecks:taxTotal,
+  businessOverheadTotalKopecks:Number.isSafeInteger(overheadTotal)?overheadTotal:null,
   ozonTaxAllocationKopecks:null,ozonOverheadAllocationKopecks:null,
   netProfitKopecks:null,verifiedNetProfit:false,
   warning:'Source amounts and manufacturing cost do not establish audited tax, bank settlement, or channel allocation.'
@@ -78,8 +92,9 @@ export function summarizeOzonProvisionalProfit(month,data){
 export function describeOzonProvisionalProfit(s){
  if(!s||s.verifiedNetProfit!==false||s.netProfitKopecks!==null)
   throw Error('invalid_provisional_result');
- const rub=n=>new Intl.NumberFormat('ru-RU',
-   {style:'currency',currency:'RUB'}).format(n/100);
+ const rub=n=>Number.isSafeInteger(n)?
+  new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(n/100):
+  'не подтверждено';
  if(s.status!=='provisional_known_cost_result')
    return 'Промежуточный результат недоступен: '+
      (Array.isArray(s.missingEvidence)?s.missingEvidence.join(', '):
@@ -90,7 +105,7 @@ export function describeOzonProvisionalProfit(s){
   'Себестоимость с возвратами: −'+rub(s.netManufacturingCostKopecks)+'\\n'+
   'Промежуточный результат: '+rub(s.beforeAllocationKopecks)+'\\n'+
   'Налог ИП в целом: '+rub(s.ownerTaxTotalKopecks)+'; доля Ozon неизвестна.\\n'+
-  'Общие расходы бизнеса: '+rub(s.businessOverheadTotalKopecks)+'; доля Ozon неизвестна.\\n'+
+  'Общие расходы по регистру (не подтверждение оплаты): '+rub(s.businessOverheadTotalKopecks)+'; доля Ozon неизвестна.\\n'+
   'Чистая прибыль Ozon: НЕ РАССЧИТАНА. Это не нижняя или верхняя граница прибыли.';
 }
 export function attachOzonProvisionalProfit({documentRef=document,fetcher=fetch}={}){
@@ -99,7 +114,7 @@ export function attachOzonProvisionalProfit({documentRef=document,fetcher=fetch}
  const monthInput=documentRef.getElementById('profitMonth');
  if(!button||!text||!monthInput)return false;
  let generation=0;
- button.addEventListener('click',async()=>{
+ const load=async()=>{
   const thisRun=++generation,month=monthInput.value;
   if(month!=='2026-10'){
    text.textContent='Проверенный расчёт по исходным документам пока доступен только за октябрь 2026.';
@@ -121,10 +136,23 @@ export function attachOzonProvisionalProfit({documentRef=document,fetcher=fetch}
    if(generation===thisRun&&monthInput.value===month)
     text.textContent='Пока не удалось подтвердить промежуточный расчёт. Не считайте отсутствие данных нулём.';
   }finally{if(generation===thisRun)button.disabled=false;}
- });
+ };
+ button.addEventListener('click',load);
+ let autoLoaded='';
+ const auto=()=>{
+  if(typeof window==='undefined'||window.location.hash.split('/')[0]!=='#ozonProfit')return;
+  if(monthInput.value==='2026-10'&&autoLoaded!==monthInput.value){
+   autoLoaded=monthInput.value;void load();
+  }
+ };
+ if(typeof window!=='undefined'){
+  window.addEventListener('hashchange',auto);
+  // The month input is populated by the existing finance UI during init.
+  queueMicrotask(auto);
+ }
  monthInput.addEventListener('change',()=>{
-  generation++;text.textContent='Новый месяц не проверен. Нажмите кнопку для сверки.';
-  button.disabled=false;
+  generation++;autoLoaded='';text.textContent='Выбран новый месяц. Сверка доступна после появления официальных документов.';
+  button.disabled=false;auto();
  });
  return true;
 }
