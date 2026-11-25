@@ -1,4 +1,5 @@
 import {calculateProfit} from '../ozon/profit-model.js';
+import {readWbRetailListSource} from './wb-retail-list-source.js';
 import {onRequestGet as auditYandexArchive} from '../yandex/report-audit.js';
 import {verifySession} from '../auth/session.js';
 const HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
@@ -21,6 +22,9 @@ export async function onRequestGet({request,env}){
   const yes=await env.OZON_FINANCE_DB.prepare(OWNER)
    .bind(user,env.OFFICE_ALLOWED_EMAIL).first();
   if(yes?.allowed!==1)return out(403,{code:'forbidden'});
+  // WB official retail amounts are a separate, cached source scenario.
+  // Run alongside Ozon and Yandex reads; never replace the payout audit.
+  const wbRetailJob=readWbRetailListSource(env,month);
   const profit=await env.OZON_FINANCE_SYNC.getProfitDocument('month:'+month);
   const confirmedMonth=profit?.key==='month:'+month&&
    profit?.target==='ce9dd331-929d-4c3e-9073-368de3346bc9'&&
@@ -132,6 +136,14 @@ export async function onRequestGet({request,env}){
    yandex.status='official_report_read_unavailable';
   }
 
+  const wbRetail=await wbRetailJob;
+  wb.retailReportAudit={status:wbRetail.status,
+   source:wbRetail.source??null,
+   reports:wbRetail.savedReports??null,
+   grossRetailKopecks:wbRetail.retailGrossKopecks,
+   grossRetailTaxScenarioKopecks:wbRetail.retailTaxScenarioKopecks,
+   verifiedTaxBase:false,
+   caveat:'WB report retail sales are NOT yet adjusted for confirmed tax-date returns and settlement.'};
   return out(200,{code:'marketplace_tax_management_estimate',month,readOnly:true,
    changedRecords:0,entityOzonWb:'ИП Жилина',entityYandex:'ИП Жилина',
    ozon,wb,yandex,
