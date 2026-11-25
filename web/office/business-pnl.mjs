@@ -125,9 +125,18 @@ function render(root,pnl,sourceNotes={},interim={}){
      const list=el('ol','');
      for(const item of x.missingProducts){
       list.append(el('li','',
-       (item.name||'Без названия')+' · SKU '+item.shopSku));
+       (item.name||'Без названия')+' · артикул '+item.shopSku+
+       (item.partnerId?' · магазин '+item.partnerId:'')+
+       (Number.isSafeInteger(item.deliveredUnits)?
+        ' · доставлено '+item.deliveredUnits+' шт.':'')+
+       ' · себестоимость 1 шт. не подтверждена'));
      }
-     fold.append(list);card.append(fold);
+     fold.append(list);
+    fold.append(el('p','business-pnl-interim-warning',
+     'Не вводите произвольную цену: требуется фактическая стоимость '+
+     'материала и пошива именно этой комплектации. Отсутствующие '+
+     'товары не считаются бесплатными.'));
+    card.append(fold);
     }
     if(Array.isArray(x.issueDetails)&&x.issueDetails.length){
      const names={149082506:'САД',149106500:'автосклад'};
