@@ -1824,6 +1824,16 @@
         <p class="ms-production-status" id="ordersIntakeStatus" role="status">Проверка по API ещё не запускалась. Документы МойСклад не создаются.</p>
         <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
         <p class="ms-production-status" id="ordersStockStatus" role="status">Сначала загрузите FBS-заказы. Сверка только на чтение; результат не подтверждает физический запас.</p>
+        <section class="ms-sites" aria-labelledby="ordersSkuMapTitle">
+          <h3 id="ordersSkuMapTitle">Постоянный справочник соответствий SKU</h3>
+          <p>Связь товара маркетплейса с номенклатурой МойСклад сохраняется только после явного подтверждения владельцем. Предложения по названиям не становятся связями автоматически. Склад, остатки и отгрузки не изменяются.</p>
+          <button type="button" id="ordersSkuLinksRefresh" class="ms-production-detail-button">Обновить справочник</button>
+          <p class="ms-production-status" id="ordersSkuLinksStatus" role="status">Проверка базы соответствий ещё не выполнялась.</p>
+          <div class="ms-production-scroll"><table class="ms-production-table" id="ordersSkuLinksTable" hidden>
+            <thead><tr><th>Канал / кабинет</th><th>SKU</th><th>Связь с МойСклад</th><th>Действие</th></tr></thead>
+            <tbody id="ordersSkuLinksRows"></tbody>
+          </table></div>
+        </section>
         <div class="ms-production-scroll">
           <table id="ordersIntakeTable" class="ms-production-table" hidden>
             <caption>Предпросмотр заказов: только строки, подтверждённые источником</caption>
