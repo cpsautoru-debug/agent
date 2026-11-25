@@ -4,6 +4,8 @@ on:
     branches: [feature/marketplace-agents-staging]
     paths:
       - 'functions/api/ms/orders-stock-match.js'
+      - 'functions/api/ms/order-sku-links.js'
+      - 'tests/ms-order-sku-links.test.mjs'
       - 'web/office/orders-intake-board.mjs'
       - 'tests/ms-orders-stock-match.test.mjs'
       - 'functions/api/ms/production-order-evidence.js'
@@ -37,4 +39,4 @@ jobs:
         with:
           node-version: '22'
       - name: Validate owner-only queue and order evidence
-        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs tests/ms-production-queue-selection.test.mjs tests/ms-customer-order-status-catalog.test.mjs tests/marketplace-order-import-preview.test.mjs tests/moysklad-order-diagnostic.test.mjs tests/ms-orders-stock-match.test.mjs
+        run: node --test tests/ms-production-queue.test.mjs tests/ms-production-order-evidence.test.mjs tests/ms-production-queue-selection.test.mjs tests/ms-customer-order-status-catalog.test.mjs tests/marketplace-order-import-preview.test.mjs tests/moysklad-order-diagnostic.test.mjs tests/ms-orders-stock-match.test.mjs tests/ms-order-sku-links.test.mjs
