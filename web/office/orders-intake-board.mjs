@@ -13,6 +13,7 @@
    yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'FIRST_PAGE_BOTH_SHOPS_NOT_COMPLETE_QUEUE'}
  };
  const sourceOrders=new Map(),stockResults=new Map(),approvedLinks=new Map();
+ let mappingStorageReady=false;
  const mapButton=el('ordersSkuLinksRefresh'),mapStatus=el('ordersSkuLinksStatus'),
    mapRows=el('ordersSkuLinksRows'),mapTable=el('ordersSkuLinksTable');
  const stockButton=el('ordersStockCheck'),stockStatus=el('ordersStockStatus');
@@ -174,7 +175,7 @@
      const candidates=result?.possibleNameCandidates||
        (result?.itemId&&result?.itemType?[{id:result.itemId,
          type:result.itemType,name:result.itemName||result.itemId}]:[]);
-     if(!link&&candidates.length){
+     if(mappingStorageReady&&!link&&candidates.length){
        for(const candidate of candidates){
          if(!['product','variant','bundle'].includes(candidate.type)||!
             /^[a-f0-9-]{36}$/i.test(candidate.id))continue;
@@ -184,7 +185,8 @@
          btn.addEventListener('click',()=>approve(entry,candidate));
          action.append(btn);
        }
-     }else action.textContent=link?'Связь сохранена':'Нет подтверждённых кандидатов';
+     }else action.textContent=link?'Связь сохранена':
+       !mappingStorageReady?'Справочник пока не активирован':'Нет подтверждённых кандидатов';
      tr.append(action);mapRows.append(tr);
    }
    mapTable.hidden=mapRows.children.length===0;
@@ -199,7 +201,7 @@
      const data=await response.json();
      if(!response.ok||data?.code!=='sku_links_read'||
        !Array.isArray(data.approvedLinks))throw Error(data?.code||'api_unavailable');
-     approvedLinks.clear();
+     approvedLinks.clear();mappingStorageReady=true;
      for(const row of data.approvedLinks){
        if(row&&typeof row.source==='string'&&typeof row.seller_account==='string'&&
          typeof row.marketplace_sku==='string')
@@ -210,14 +212,14 @@
        '. Автоматическое списание не включено.';
      renderMappingCandidates();
    }catch(error){
-     approvedLinks.clear();renderMappingCandidates();
+     approvedLinks.clear();mappingStorageReady=false;renderMappingCandidates();
      mapStatus.textContent=String(error?.message)==='sku_links_storage_unavailable'?
        'Справочник создан в коде, но D1-таблица пока не активирована. Требуется применение миграции.':
        'Справочник недоступен: '+String(error?.message||'ошибка').slice(0,70);
    }finally{mapButton.disabled=false;}
  }
  async function approve(entry,candidate){
-   if(busy||!confirm('Подтвердить связь '+entry.source+' / '+entry.sku+
+   if(busy||!mappingStorageReady||!confirm('Подтвердить связь '+entry.source+' / '+entry.sku+
      ' с товаром МойСклад «'+candidate.name+'»? Это сохранит только соответствие SKU, не изменит остатки.'))return;
    busy=true;
    mapStatus.textContent='Проверяем товар и сохраняем выбранную связь…';
