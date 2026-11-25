@@ -60,7 +60,8 @@ const db=(runtime=state,counts=tally,rows=[item],unknownRows=[unknownItem])=>{
         };}};
       }};
     if(sql.includes('MAX(checked_ms) AS last_checked_ms'))
-      return {bind(id){assert.equal(id,runtime.generation);return{
+      return {bind(id){assert.equal(id,runtime.run_status==='pass_complete'?
+        runtime.generation:runtime.generation-1);return{
         async first(){return {...counts,last_checked_ms:NOW-60_000};}
       };}};
     if(sql.includes('COUNT(*)'))
