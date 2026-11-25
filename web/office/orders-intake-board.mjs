@@ -175,9 +175,12 @@
      const link=approvedLinks.get(mapKey(entry.source,entry.account,entry.sku));
      const result=stockResults.get(mapKey(entry.source,entry.account,entry.sku));
      const td=document.createElement('td');
-     if(link)td.textContent='Утверждено владельцем: '+link.ms_item_name;
+     if(result?.status==='conflict')
+       td.textContent='КОНФЛИКТ: сохранённая связь «'+(link?.ms_item_name||result.mappedItemName||'')+
+         '» не совпадает с точным артикулом/кодом в МойСклад';
+     else if(link)td.textContent='Утверждено владельцем: '+link.ms_item_name;
      else if(result?.status==='unmapped_sku')
-       td.textContent='Нет соответствия; предложения ниже требуют подтверждения';
+       td.textContent='Точное совпадение артикула/кода не найдено; названия ниже — только предположения';
      else if(result?.itemId)
        td.textContent='Точный SKU обнаружен, но постоянная связь не подтверждена';
      else td.textContent='Не подтверждено';
