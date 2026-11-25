@@ -1829,6 +1829,17 @@
           <button type="button" class="ms-production-detail-button" id="persistentOrdersSync">Синхронизировать и сохранить источники</button>
           <button type="button" class="ms-production-detail-button" id="persistentOrdersRefresh">Показать сохранённую очередь</button>
           <p class="ms-production-status" role="status" id="persistentOrdersStatus">Данные D1 ещё не загружались.</p>
+          <div class="ms-sites-steps">
+            <label for="persistentOrdersBucket">Показать заказы:</label>
+            <select id="persistentOrdersBucket" aria-label="Фильтр по этапу заказа">
+              <option value="active">Активные — проверить наличие</option>
+              <option value="review">Требуют уточнения</option>
+              <option value="transit">В доставке</option>
+              <option value="history">История: закрытые и отменённые</option>
+              <option value="all">Все</option>
+            </select>
+            <p id="persistentOrdersBucketCounts" class="ms-production-status" role="status">Сначала загрузите сохранённую очередь.</p>
+          </div>
           <div class="ms-production-scroll"><table class="ms-production-table" id="persistentOrdersTable" hidden>
             <thead><tr><th>Источник</th><th>Заказ</th><th>Состав</th><th>Статус источника</th><th>Исполнение</th><th>Последняя проверка</th></tr></thead>
             <tbody id="persistentOrdersRows"></tbody>
