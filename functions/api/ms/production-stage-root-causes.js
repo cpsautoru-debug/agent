@@ -19,7 +19,7 @@ const HEADERS={'Content-Type':'application/json; charset=utf-8',
 const reply=(status,obj)=>new Response(JSON.stringify(obj),{status,headers:HEADERS});
 const string=(x,max=100)=>typeof x==='string'&&x.length<=max&&
  !/[\u0000-\u001f\u007f]/.test(x)?x:null;
-const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(x)?x:null;
+const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(x)?x:null;
 const num=x=>typeof x==='number'&&Number.isFinite(x)&&Math.abs(x)<10000000?x:null;
 const reference=x=>{
  const href=x?.meta?.href;
@@ -55,7 +55,8 @@ function compactLine(x){
  const referenceValue=reference(x?.assortment)||reference(x?.material)||
   reference(x?.product);
  return {assortment:referenceValue,
-  quantity:num(x?.quantity),productionVolume:num(x?.productionVolume),
+  quantity:num(x?.quantity),consumedQuantity:num(x?.consumedQuantity),
+  producedQuantity:num(x?.producedQuantity),productionVolume:num(x?.productionVolume),
   fieldsPresent:Object.keys(x||{}).slice(0,18)};
 }
 async function lines(fetcher,token,path){
@@ -68,7 +69,7 @@ async function lines(fetcher,token,path){
  const matches={};
  for(const [key,id] of Object.entries(MATERIALS))
   matches[key]=v.rows.filter(x=>compactLine(x).assortment?.id===id)
-   .map(x=>num(x.quantity));
+   .map(x=>num(x.consumedQuantity));
  return {status:'ok',total:v.meta.size,complete:v.meta.size===v.rows.length,
   filmAndSpunbond:matches,
   sample:v.rows.slice(0,14).map(compactLine)};
@@ -112,6 +113,7 @@ export function createRootCauseHandler({fetcher=fetch}={}){
     result.productionRow=reference(v.productionRow);
     result.processingPlan=reference(v.processingPlan);
     result.productionStageDefinition=reference(v.stage);
+    result.stageMaterialsReference=reference(v.materials);
     result.totalQuantity=num(v.totalQuantity);
     result.completedQuantity=num(v.completedQuantity);
    }
