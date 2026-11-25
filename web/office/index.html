@@ -1822,10 +1822,12 @@
           <article class="ms-site-card"><strong>Дилер Ирина</strong><p>Требуется определить продажу либо передачу на реализацию, склад и юрлицо.</p></article>
         </div>
         <p class="ms-production-status" id="ordersIntakeStatus" role="status">Проверка по API ещё не запускалась. Документы МойСклад не создаются.</p>
+        <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
+        <p class="ms-production-status" id="ordersStockStatus" role="status">Сначала загрузите FBS-заказы. Сверка только на чтение; результат не подтверждает физический запас.</p>
         <div class="ms-production-scroll">
           <table id="ordersIntakeTable" class="ms-production-table" hidden>
             <caption>Предпросмотр заказов: только строки, подтверждённые источником</caption>
-            <thead><tr><th>Канал</th><th>Внешний ID</th><th>Артикул / количество</th><th>Источник: статус</th><th>Назначение</th><th>Дубли МойСклад</th><th>Готовность</th></tr></thead>
+            <thead><tr><th>Канал</th><th>Внешний ID</th><th>Артикул / количество</th><th>Источник: статус</th><th>Назначение</th><th>Дубли МойСклад</th><th>Готовность</th><th>Учётные остатки по SKU · предварительно</th></tr></thead>
             <tbody id="ordersIntakeRows"></tbody>
           </table>
         </div>
