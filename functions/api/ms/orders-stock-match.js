@@ -139,9 +139,37 @@ async function targetedSku(fetcher,token,sku){
   found.set(id,{id,type,name:typeof a.name==='string'?a.name.slice(0,150):null,
    matchFields:[...new Set([...(prev?.matchFields||[]),...fields])]});
  }
- if(found.size!==1)
-  return {sku,status:found.size?'ambiguous':'not_matched',
-   candidates:found.size,stores:[],accountingTotal:null,itemName:null};
+ if(found.size!==1){
+  // A bounded text search cannot prove an SKU is absent from the whole
+  // catalogue. Offer name-based leads separately; never approve a mapping.
+  const leads=[];
+  if(found.size===0){
+   const words=sku.replace(/[_-]+/g,' ').split(/\\s+/)
+    .filter(x=>x.length>=4&&!/^\\d+$/.test(x));
+   const longest=[...words].sort((a,b)=>b.length-a.length)[0];
+   if(longest&&longest!==sku){
+    try{
+     const url=new URL(ROOT+'entity/assortment');
+     url.searchParams.set('search',longest);
+     url.searchParams.set('limit','20');
+     const suggestions=await requestSmall(fetcher,token,url);
+     const tokens=words.map(x=>x.toLocaleLowerCase('ru-RU'));
+     const rows=suggestions.rows.filter(x=>{
+      if(typeof x?.name!=='string'||x.name.length>150)return false;
+      const name=x.name.toLocaleLowerCase('ru-RU');
+      return tokens.filter(t=>name.includes(t)).length>=Math.min(2,tokens.length);
+     });
+     for(const row of rows.slice(0,3)){
+      if(typeof row?.id==='string'&&UUID.test(row.id))
+       leads.push({id:row.id,name:row.name});
+     }
+    }catch{} // candidate discovery is optional evidence, never a blocker
+   }
+  }
+  return {sku,status:found.size?'ambiguous':'unmapped_sku',
+   candidates:found.size,possibleNameCandidates:leads,
+   mappingApproved:false,stores:[],accountingTotal:null,itemName:null};
+ }
  const item=[...found.values()][0];
  // Explicit bounded stock read is independent of match evidence.
  // A rejected stock filter MUST NOT erase the verified article/code match.
