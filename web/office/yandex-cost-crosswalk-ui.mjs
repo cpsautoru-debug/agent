@@ -77,6 +77,22 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
   }
   const data=buildYandexPreliminaryContribution(sources,
    latestCosts.costAudit,latestCosts.realizationReports);
+  // Managerial 6% tax scenario based on the official orders gross-billing
+  // column. Timing and customer refunds are not tax-reconciled.
+  const taxSource=buildYandexMonthlyEvidence(sources);
+  const salesValue=taxSource.orderMargin?.coverageConfirmed===true?
+   taxSource.orderMargin?.saleValue?.kopecks:null;
+  if(Number.isSafeInteger(salesValue)&&salesValue>=0){
+   const taxEstimate=Number((BigInt(salesValue)*600n+5000n)/10000n);
+   card.append(el(documentRef,'h4',
+    'Сценарий УСН ООО 6% по валовой стоимости заказов: '+
+    money(taxEstimate)));
+   card.append(el(documentRef,'p',
+    'Исходная сумма заказов по официальному отчёту: '+money(salesValue)+
+    '. Это оценка ДО корректировок возвратов, дат получения денег и '+
+    'необлагаемых операций. Она не является налогом к уплате и не '+
+    'вычитается повторно из предварительной прибыли.'));
+  }
   if(data.status==='preliminary_contribution_ready'){
    card.append(el(documentRef,'p','Доход по заказам после уже включённых услуг: '+
     money(data.orderAfterServicesKopecks)));
