@@ -547,7 +547,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     ).bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
     if(owner?.allowed!==1)return json(403,{code:'owner_only'});
     }catch{return json(503,{code:'owner_auth_unavailable'});}
-    const token=source==='wb'?env.WB_API_TOKEN:env.OZON_API_KEY;
+    const token=source==='wb'?env.WB_ORDERS_API_TOKEN:env.OZON_API_KEY;
     const account=source==='wb'?'wb-primary':String(env.OZON_CLIENT_ID||'');
     if(typeof token!=='string'||!token||/\s/.test(token)||
       !safe(account))return json(503,{code:'marketplace_credentials_missing'});
