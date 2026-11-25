@@ -59,6 +59,10 @@ const db=(runtime=state,counts=tally,rows=[item],unknownRows=[unknownItem])=>{
           modified_rows:2,stage_changed_rows:1
         };}};
       }};
+    if(sql.includes('MAX(checked_ms) AS last_checked_ms'))
+      return {bind(id){assert.equal(id,runtime.generation);return{
+        async first(){return {...counts,last_checked_ms:NOW-60_000};}
+      };}};
     if(sql.includes('COUNT(*)'))
       return {bind(id){assert.equal(id,runtime.generation);return{
         async first(){return counts;}
@@ -142,17 +146,16 @@ test('completed historical pass uses same D1 generation and shows incomplete row
   assert.equal(body.unverifiedItems[0].number,'00741');
   assert.equal(body.unverifiedItems[0].status,'unverified');
   assert.equal(body.unverifiedItems[0].documentUpdated,'2026-11-20 16:10:00.000');
-  assert.equal(storage.calls.length,5);
+  assert.equal(storage.calls.length,6);
   assert.doesNotMatch(JSON.stringify(body),/00000000-0000-4000-8000|synthetic-session-secret/);
 });
 test('partial history cannot imply coverage or claim completion, even when runtime reports complete',()=>{
-  const result=summarizeAutoStatus(
+  // A committed cursor of 15 with only 14 persisted records must fail closed.
+  assert.throws(()=>summarizeAutoStatus(
     normalizeAutoRuntime(state,NOW),
     {checked:14,incomplete:2,complete:11,unverified:1},
     [item],NOW
-  );
-  assert.equal(result.completeHistoricalPass,false);
-  assert.equal(result.scope,'PARTIAL_HISTORICAL_SCAN_NOT_LIVE_ACTIVE_QUEUE');
+  ),/auto_summary_unverified/);
   const unfinished=summarizeAutoStatus(
     normalizeAutoRuntime({...state,run_status:'scanning'},NOW),
     tally,[item],NOW);
@@ -217,8 +220,9 @@ test('date risk indicators are only scoped to shown verified incomplete rows',()
     {...item,task_id:'00000000-0000-4000-8000-000000000005',
       number:'00744',plan_date:'2026-02-31 10:00:00.000'}
   ];
-  const result=summarizeAutoStatus(normalizeAutoRuntime(state,NOW),
-    {checked:12,incomplete:8,complete:3,unverified:1},rows,NOW);
+  const result=summarizeAutoStatus(normalizeAutoRuntime({
+    ...state,run_status:'scanning',next_offset:12
+  },NOW),{checked:12,incomplete:8,complete:3,unverified:1},rows,NOW);
   assert.deepEqual(result.visibleDateChecks,
     {past:1,today:1,future:1,notSet:1,unverified:1});
   assert.deepEqual(result.items.map(x=>x.plannedDateControl),
@@ -244,10 +248,11 @@ test('unknown stage records are exposed by number but never counted as productio
   assert.equal(data.unverifiedItems[0].number,'00741');
   assert.ok(!Object.hasOwn(data.unverifiedItems[0],'remaining'));
   assert.doesNotMatch(JSON.stringify(data),/00000000-0000-4000-8000/);
-  assert.equal(fake.calls.length,5);
+  assert.equal(fake.calls.length,6);
   assert.ok(fake.calls.every(sql=>!/^INSERT|^UPDATE|^DELETE/i.test(sql)));
   assert.match(fake.calls[3],/task_stage_status='unverified'/);
-  assert.match(fake.calls[4],/AS previous_rows/);
+  assert.match(fake.calls[4],/MAX\(checked_ms\) AS last_checked_ms/);
+  assert.match(fake.calls[5],/AS previous_rows/);
 });
 
 test('tampered unverified documents are not exposed as completed or active jobs',async()=>{
