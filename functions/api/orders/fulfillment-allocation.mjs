@@ -88,6 +88,11 @@ export function calculateFulfillmentCohort({balance,warehouseOccupancy,productio
  const stock=allocateStock(balance,ordered,true);
  if(!stock)return unverified('competing_order_coverage_unverified');
  const jobs=production.jobs;
+ // A dated production commitment cannot be assumed to cover an undated
+ // customer order, nor may its absence be treated as zero planned output.
+ if(jobs.some(job=>Number(job.pending)>0)&&ordered.some((claim,i)=>
+    stock[i].missing>0&&!claim.deadline))
+  return unverified('production_unverified');
  if(jobs.some(x=>!integer(x.pending)||!nonempty(x.id)||
   !Array.isArray(x.customerOrderIds)||!Array.isArray(x.taskIds)&&x.taskIds!==undefined))
   return unverified('production_unverified');
