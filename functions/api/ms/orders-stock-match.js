@@ -144,8 +144,8 @@ async function targetedSku(fetcher,token,sku){
   // catalogue. Offer name-based leads separately; never approve a mapping.
   const leads=[];
   if(found.size===0){
-   const words=sku.replace(/[_-]+/g,' ').split(/\\s+/)
-    .filter(x=>x.length>=4&&!/^\\d+$/.test(x));
+   const words=sku.replace(/[_-]+/g,' ').split(' ')
+    .filter(x=>x.length>=4&&![...x].every(ch=>ch>='0'&&ch<='9'));
    const longest=[...words].sort((a,b)=>b.length-a.length)[0];
    if(longest&&longest!==sku){
     try{
@@ -162,8 +162,13 @@ async function targetedSku(fetcher,token,sku){
      for(const row of rows.slice(0,3)){
       if(typeof row?.id==='string'&&UUID.test(row.id)){
        let type=null;
-       try{type=new URL(row?.meta?.href||'').pathname.match(
-        /\\/entity\\/(product|variant|bundle)\\//)?.[1]||null;}catch{}
+       try{
+        const parsed=new URL(row?.meta?.href||'');
+        const parts=parsed.pathname.split('/');
+        const kind=parts[parts.indexOf('entity')+1];
+        if(parsed.origin==='https://api.moysklad.ru'&&
+         ['product','variant','bundle'].includes(kind))type=kind;
+       }}catch{}
        if(type)leads.push({id:row.id,name:row.name,type});
       }
      }
