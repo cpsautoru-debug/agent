@@ -310,22 +310,28 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  if(legacy)root._technicalDetails=legacy;
  root.replaceChildren();
  const cards=el('div','executive-pnl-cards');
- const statusFor=ch=>ch.status==='verified'?'Подтверждено':
-  ch.status==='known_cost_result'?'Оценка':'Не закрыто';
+ // The executive screen presents the measured amount, not repetitive
+ // coloured estimate badges. Only missing data needs an explicit status.
+ // A non-missing contribution is still NOT certified net profit.
  function card(title,amount,caption,status){
   const node=el('article','executive-pnl-card');
   node.append(el('h2','',title),el('strong','executive-pnl-amount',executiveMoney(amount)),
    el('span','executive-pnl-caption',caption));
-  const badge=el('span','executive-pnl-status',status);
-  badge.dataset.status=status==='Подтверждено'?'verified':status==='Оценка'?'estimate':'incomplete';
-  node.append(badge);return node;
+  if(status==='Не закрыто'){
+   const flag=el('span','executive-pnl-status',status);
+   flag.dataset.status='incomplete';
+   node.append(flag);
+  }
+  return node;
  }
  for(const ch of pnl.channels)
   cards.append(card(labels[ch.id],ch.profitKopecks,
-   Number.isSafeInteger(ch.profitKopecks)?'После прямых затрат':'Не закрыто',statusFor(ch)));
+   Number.isSafeInteger(ch.profitKopecks)?
+    'После известных прямых затрат':'Нет полного расчёта',
+   ch.status==='unknown'?'Не закрыто':''));
  cards.append(card('Итого',pnl.knownChannelsTotalKopecks,
-  pnl.knownChannelCount+' из 3 каналов',pnl.knownChannelCount===0?'Не закрыто':
-   pnl.channels.every(ch=>ch.status==='verified')?'Подтверждено':'Оценка'));
+  pnl.knownChannelCount+' из 3 каналов · до общих расходов и АУСН',
+  pnl.knownChannelCount===3?'':'Не закрыто'));
  root.append(cards);
  const summary=el('section','executive-pnl-summary');
  summary.setAttribute('aria-label','Итог бизнеса');
