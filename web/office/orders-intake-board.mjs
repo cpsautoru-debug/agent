@@ -12,6 +12,8 @@
    wb:{label:'Wildberries FBS',coverage:'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS'},
    yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'FIRST_PAGE_BOTH_SHOPS_NOT_COMPLETE_QUEUE'}
  };
+ const sourceOrders=new Map(),stockResults=new Map();
+ const stockButton=el('ordersStockCheck'),stockStatus=el('ordersStockStatus');
  const blocks=Object.fromEntries(Object.keys(sources).map(k=>[k,el('ordersSource_'+k)]));
  let busy=false;
  const cell=(tr,value)=>{const td=document.createElement('td');td.textContent=String(value??'Не подтверждено');tr.append(td);};
@@ -49,6 +51,10 @@
      cell(tr,order.duplicateStatus==='already_exists'?'Совпадение по ID найдено':
        order.duplicateStatus==='not_found'?'По новому ID совпадения нет · старые дубли возможны':'Дубли не исключены');
      cell(tr,'Без подтверждения SKU/юрлица · запись выключена');
+     const evidence=document.createElement('td');
+     evidence.dataset.stockFor=order.externalKey;
+     evidence.textContent='Не проверялось';
+     tr.append(evidence);
      tbody.append(tr);
    }
    table.hidden=tbody.children.length===0;
@@ -80,6 +86,9 @@
      const before=tbody.children.length;
      add(k,data);
      for(const tr of [...tbody.children].slice(before))tr.dataset.source=k;
+     sourceOrders.set(k,data.orders);
+     stockResults.clear();
+     refreshStockCells();
      const coverage=k==='yandex'?('два магазина доступны; в выборке представлены '+
        new Set(data.orders.map(o=>o.campaignId)).size+' из 2; первая страница'):
        k==='ozon_fbo'?'FBO, продажи со склада Ozon, НЕ очередь пошива':
@@ -96,4 +105,67 @@
    }finally{busy=false;buttons.forEach(b=>b.disabled=false);}
  }
  buttons.forEach(b=>b.addEventListener('click',()=>load(b.dataset.orderSource)));
+ function refreshStockCells(){
+   const orders=[...sourceOrders.values()].flat();
+   const all=stockResults;
+   for(const tr of tbody.children){
+     const td=tr.querySelector('[data-stock-for]');if(!td)continue;
+     const order=orders.find(o=>o.externalKey===td.dataset.stockFor);
+     if(!order){td.textContent='Нет данных';continue;}
+     if(order.productionQueue!=='candidate_needs_inventory'){
+       td.textContent='Не относится к очереди пошива';continue;
+     }
+     const findings=order.items.map(item=>{
+       const matched=all.get(item.sku);
+       if(!matched)return item.sku+': ещё не сверено';
+       if(matched.status==='not_matched')return item.sku+': точного совпадения нет';
+       if(matched.status==='ambiguous')return item.sku+': несколько совпадений';
+       if(matched.status!=='matched_stock_report')return item.sku+': остаток неизвестен';
+       const entries=matched.stores.filter(x=>x.accountingFree>=item.quantity);
+       if(entries.length)
+         return item.sku+': учётно достаточно на '+entries.map(x=>x.store).join(', ')+
+           ' (физическое наличие не подтверждено)';
+       return item.sku+': по учёту не хватает на одном складе; проверить физически';
+     });
+     td.textContent=findings.join('; ');
+   }
+ }
+ if(stockButton)stockButton.addEventListener('click',async()=>{
+   if(busy)return;
+   const candidates=[...sourceOrders.values()].flat()
+     .filter(o=>o.productionQueue==='candidate_needs_inventory');
+   const sku=[...new Set(candidates.flatMap(o=>o.items.map(x=>x.sku)))];
+   if(!sku.length){stockStatus.textContent='Нет кандидатов из проверенных выборок. Сначала загрузите FBS-заказы.';return;}
+   if(sku.length>20){stockStatus.textContent='Более 20 артикулов: ограниченный безопасный пакет. Требуется расширенный режим сверки; данные не изменены.';return;}
+   busy=true;stockButton.disabled=true;buttons.forEach(b=>b.disabled=true);
+   stockStatus.textContent='Получаем полный учётный каталог и остатки по складам МойСклад (только чтение)…';
+   try{
+     const response=await fetch('/api/ms/orders-stock-match',{
+       method:'POST',credentials:'same-origin',cache:'no-store',
+       headers:{'Content-Type':'application/json',Accept:'application/json'},
+       body:JSON.stringify({skus:sku}),signal:AbortSignal.timeout(90000)
+     });
+     const data=await response.json();
+     if(!response.ok||data?.code!=='ms_orders_stock_match'||
+       data.readOnly!==true||data.changedRecords!==0||
+       data.completeCatalog!==true||data.completeStockReport!==true||
+       !Array.isArray(data.matches)||data.matches.length!==sku.length)
+       throw Error('stock_snapshot_unverified');
+     stockResults.clear();
+     for(const result of data.matches){
+       if(sku.includes(result.sku)&&['not_matched','ambiguous',
+         'matched_stock_report','matched_stock_unknown'].includes(result.status))
+         stockResults.set(result.sku,result);
+     }
+     if(stockResults.size!==sku.length)throw Error('stock_items_unverified');
+     refreshStockCells();
+     const matched=[...stockResults.values()].filter(x=>x.status==='matched_stock_report').length;
+     stockStatus.textContent='Сверено '+sku.length+' SKU; точное соответствие с учётным остатком: '+
+       matched+'. Данные неатомарны и не подтверждают физическое наличие или готовность отгрузки. '+
+       'Ни одного резерва, задания или отгрузки не создано.';
+   }catch{
+     stockResults.clear();refreshStockCells();
+     stockStatus.textContent='Сверка не подтверждена: каталог или остатки неполны/недоступны. Решения о пошиве и отгрузках не принимаем.';
+   }finally{busy=false;stockButton.disabled=false;buttons.forEach(b=>b.disabled=false);}
+ });
 })();
