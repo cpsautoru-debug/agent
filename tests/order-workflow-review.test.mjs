@@ -38,11 +38,13 @@ test('historical, transit and FBO orders never reach D1 workflow writes',async()
  }
 });
 test('owner can only save active reviewed status with optimistic revision',async()=>{
+ const sourceStamp=time();
  const statements=[];
  const db={prepare(sql){
   if(sql.includes('office_authorized_users'))return owner();
   if(sql.startsWith('SELECT order_key,source'))return {bind:()=>({
-   first:async()=>({order_key:key,source:'yandex',source_status:'PROCESSING',source_checked_at:time()})})};
+   first:async()=>({order_key:key,source:'yandex',source_status:'PROCESSING',source_checked_at:sourceStamp})})};
+  if(sql.includes('FROM office_order_queue_sync'))return {bind:()=>({first:async()=>({last_success_at:sourceStamp})})};
   if(sql.startsWith('SELECT workflow_state'))return {bind:()=>({first:async()=>null})};
   return {bind:(...params)=>({run:async()=>{statements.push({sql,params});return {success:true,meta:{changes:1}};}})};
  }};
@@ -78,4 +80,23 @@ test('workflow writes require owner session',async()=>{
  const response=await handler({request:new Request(url,{method:'POST',headers:{Origin:origin},
   body:JSON.stringify({orderKey:key,action:'mark_reviewed',expectedRevision:0})}),env:env(db)});
  assert.equal(response.status,401);assert.equal(calls,0);
+});
+
+test('owner review rejects an order no longer in latest complete source snapshot',async()=>{
+ const old=new Date(Date.now()-1000).toISOString();
+ const current=time();
+ let writes=0;
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return owner();
+  if(sql.startsWith('SELECT order_key,source'))return {bind:()=>({
+   first:async()=>({order_key:key,source:'yandex',source_status:'PROCESSING',source_checked_at:old})})};
+  if(sql.includes('FROM office_order_queue_sync'))return {bind:()=>({
+   first:async()=>({last_success_at:current})})};
+  writes++;throw Error('no review write expected');
+ }};
+ const r=await createWorkflowReview()({request:await req({
+  orderKey:key,action:'mark_reviewed',expectedRevision:0}),env:env(db)});
+ assert.equal(r.status,409);
+ assert.equal((await r.json()).code,'order_not_in_latest_snapshot');
+ assert.equal(writes,0);
 });
