@@ -42,7 +42,7 @@ test('invalid business campaign scope, fake order and wrong SKU fail closed',()=
  ])assert.throws(()=>normalizeYandexOrderPreview(
   {...fixture,orders:[{...fixture.orders[0],...change}]},CAMPAIGNS));
 });
-test('owner-only two-shop requests hit documented endpoint with bounded first page',async()=>{
+test('owner-only two-shop requests hit documented endpoint with bounded complete page',async()=>{
  const secret='unit-test-yandex-session';
  const cookie=(await createSession('owner-sub',secret)).split(';')[0];
  const req=new Request(BASE,{headers:{Cookie:cookie}});
@@ -52,7 +52,13 @@ test('owner-only two-shop requests hit documented endpoint with bounded first pa
  let calls=0;
  const handler=createYandexOrdersPreview({campaignLoader,fetcher:async(url,opts)=>{
   calls++;
-  assert.equal(url,'https://api.partner.market.yandex.ru/v1/businesses/12345/orders?limit=10');
+  const parsed=new URL(url);
+  assert.equal(parsed.origin,'https://api.partner.market.yandex.ru');
+  assert.equal(parsed.pathname,'/v1/businesses/12345/orders');
+  assert.equal(parsed.searchParams.get('limit'),'50');
+  assert.ok(parsed.searchParams.has('fromDate'));
+  assert.ok(parsed.searchParams.has('toDate'));
+  assert.equal(parsed.searchParams.has('pageToken'),false);
   assert.equal(opts.method,'POST');
   assert.equal(opts.headers['Api-Key'],'read-only-test-api-key');
   assert.deepEqual(JSON.parse(opts.body),{campaignIds:CAMPAIGNS,fake:false});
@@ -67,6 +73,42 @@ test('owner-only two-shop requests hit documented endpoint with bounded first pa
  assert.equal(data.received,1);assert.equal(data.complete,true);
  assert.equal(data.approvedForWrite,false);
  assert.equal(data.duplicateScan,'NOT_PERFORMED');
+});
+test('Yandex preview paginates both shops and requires complete pages',async()=>{
+ const secret='page-yandex-session';
+ const cookie=(await createSession('owner-sub',secret)).split(';')[0];
+ const requests=[];
+ const second={...fixture,orders:[{...fixture.orders[0],orderId:124,campaignId:CAMPAIGNS[1]}],paging:{}};
+ const handler=createYandexOrdersPreview({campaignLoader,fetcher:async(url,opts)=>{
+   const u=new URL(url);requests.push(u);
+   assert.equal(opts.method,'POST');
+   assert.deepEqual(JSON.parse(opts.body),{campaignIds:CAMPAIGNS,fake:false});
+   return Response.json(requests.length===1?
+     {...fixture,paging:{nextPageToken:'next-2'}}:second);
+ }});
+ const res=await handler({request:new Request(BASE,{headers:{Cookie:cookie}}),
+   env:{OFFICE_SESSION_SECRET:secret,OFFICE_ALLOWED_EMAIL:'x',
+     OZON_FINANCE_DB:{prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})},
+     YANDEX_MARKET_API_KEY:'read-only-test-api-key'}});
+ const data=await res.json();
+ assert.equal(res.status,200);assert.equal(data.complete,true);
+ assert.equal(data.pages,2);assert.equal(data.received,2);
+ assert.equal(requests[1].searchParams.get('pageToken'),'next-2');
+ assert.equal(data.coverage,'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE');
+});
+test('Yandex repeated order ID across pages cannot claim completeness',async()=>{
+ const secret='dupe-yandex-session';
+ const cookie=(await createSession('owner-sub',secret)).split(';')[0];
+ let calls=0;
+ const handler=createYandexOrdersPreview({campaignLoader,fetcher:async()=>{
+   calls++;return Response.json({...fixture,paging:calls===1?{nextPageToken:'next'}:{}});
+ }});
+ const res=await handler({request:new Request(BASE,{headers:{Cookie:cookie}}),
+   env:{OFFICE_SESSION_SECRET:secret,OFFICE_ALLOWED_EMAIL:'x',
+     OZON_FINANCE_DB:{prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})},
+     YANDEX_MARKET_API_KEY:'read-only-test-api-key'}});
+ assert.equal(res.status,503);
+ assert.equal((await res.json()).code,'yandex_orders_response_unverified');
 });
 test('unexpected third shop or different business cannot be mixed into orders',async()=>{
  const secret='test-yandex-session';

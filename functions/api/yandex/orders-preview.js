@@ -5,7 +5,7 @@ import {verifyYandexOwner,listYandexCampaigns,selectedBusiness,json,mapSafeYande
 const ENDPOINT='https://api.partner.market.yandex.ru';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const CAMPAIGNS=[149082506,149106500];
-const MAX_BYTES=256*1024, LIMIT=10;
+const MAX_BYTES=256*1024, LIMIT=50, MAX_PAGES=20;
 const MAX_ID=999999999999999;
 const string=(s,n=100)=>typeof s==='string'&&s.length>0&&s.length<=n&&
  !/[\u0000-\u001f\u007f]/.test(s);
@@ -72,34 +72,57 @@ export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYand
        selectedBusiness(selected).campaignIds.length!==2)
        throw Error('yandex_order_campaign_scope_unverified');
      const businessId=selected[0].businessId;
-     const apiUrl=ENDPOINT+'/v1/businesses/'+businessId+'/orders?limit='+LIMIT;
-     const upstream=await fetcher(apiUrl,{
-       method:'POST',redirect:'manual',
-       headers:{'Api-Key':env.YANDEX_MARKET_API_KEY,
-         Accept:'application/json','Content-Type':'application/json'},
-       body:JSON.stringify({campaignIds:CAMPAIGNS,fake:false}),
-       signal:AbortSignal.timeout(15000)
-     });
-     if(upstream.status!==200){
-       await upstream.body?.cancel().catch(()=>{});
-       return json(503,{code:upstream.status===401||upstream.status===403?
-         'yandex_orders_access_denied':upstream.status===420||upstream.status===429?
-         'yandex_orders_rate_limited':'yandex_orders_upstream_error',
-         upstreamHttp:upstream.status,readOnly:true,changedRecords:0});
+     const end=new Date();
+     const start=new Date(end.getTime()-29*86400000);
+     const dateOnly=d=>d.toISOString().slice(0,10);
+     const allOrders=[],seenOrders=new Set(),seenTokens=new Set();
+     let pageToken=null,pages=0,complete=false;
+     for(;pages<MAX_PAGES;pages++){
+       const apiUrl=new URL(ENDPOINT+'/v1/businesses/'+businessId+'/orders');
+       apiUrl.searchParams.set('limit',String(LIMIT));
+       apiUrl.searchParams.set('fromDate',dateOnly(start));
+       apiUrl.searchParams.set('toDate',dateOnly(end));
+       if(pageToken)apiUrl.searchParams.set('pageToken',pageToken);
+       const upstream=await fetcher(apiUrl.toString(),{
+         method:'POST',redirect:'manual',
+         headers:{'Api-Key':env.YANDEX_MARKET_API_KEY,
+           Accept:'application/json','Content-Type':'application/json'},
+         body:JSON.stringify({campaignIds:CAMPAIGNS,fake:false}),
+         signal:AbortSignal.timeout(15000)
+       });
+       if(upstream.status!==200){
+         await upstream.body?.cancel().catch(()=>{});
+         return json(503,{code:upstream.status===401||upstream.status===403?
+           'yandex_orders_access_denied':upstream.status===420||upstream.status===429?
+           'yandex_orders_rate_limited':'yandex_orders_upstream_error',
+           upstreamHttp:upstream.status,readOnly:true,changedRecords:0,
+           complete:false,pages});
+       }
+       const payload=await readJsonBounded(upstream);
+       const pageOrders=normalizeYandexOrderPreview(payload,CAMPAIGNS);
+       for(const order of pageOrders){
+         if(seenOrders.has(order.externalKey))throw Error('yandex_order_duplicate');
+         seenOrders.add(order.externalKey);allOrders.push(order);
+       }
+       const next=payload?.paging?.nextPageToken;
+       if(next!==undefined&&(typeof next!=='string'||!next||next.length>500))
+         throw Error('yandex_orders_paging_unverified');
+       if(!next){complete=true;pages++;break;}
+       if(seenTokens.has(next))throw Error('yandex_orders_paging_unverified');
+       seenTokens.add(next);pageToken=next;
      }
-     const payload=await readJsonBounded(upstream);
-     const orders=normalizeYandexOrderPreview(payload,CAMPAIGNS);
-     const next=payload?.paging?.nextPageToken;
-     if(next!==undefined&&(typeof next!=='string'||!next||next.length>500))
-       throw Error('yandex_orders_paging_unverified');
+     if(!complete)return json(503,{code:'yandex_orders_page_limit',
+       readOnly:true,changedRecords:0,approvedForWrite:false,
+       coverage:'INCOMPLETE_PAGE_LIMIT',businessScope:'one_business_two_campaigns',
+       campaignIds:CAMPAIGNS,received:allOrders.length,pages,complete:false,
+       hasNextPage:true,duplicateScan:'NOT_PERFORMED',itemsMapped:false});
      return json(200,{code:'yandex_orders_preview_ok',
        readOnly:true,changedRecords:0,approvedForWrite:false,
-       coverage:'FIRST_PAGE_BOTH_SHOPS_NOT_COMPLETE_QUEUE',
+       coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE',
        businessScope:'one_business_two_campaigns',
-       campaignIds:CAMPAIGNS,received:orders.length,
-       hasNextPage:Boolean(next),complete:Boolean(!next),
-       duplicateScan:'NOT_PERFORMED',itemsMapped:false,
-       sampleTime:new Date().toISOString(),orders});
+       campaignIds:CAMPAIGNS,received:allOrders.length,pages,
+       hasNextPage:false,complete:true,duplicateScan:'NOT_PERFORMED',
+       itemsMapped:false,sampleTime:new Date().toISOString(),orders:allOrders});
    }catch(e){
      const reason=e?.message==='yandex_order_campaign_scope_unverified'?
        'yandex_order_campaign_scope_unverified':

@@ -10,7 +10,7 @@
    ozon:{label:'Ozon FBS',coverage:'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS'},
    ozon_fbo:{label:'Ozon FBO',coverage:'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE'},
    wb:{label:'Wildberries FBS',coverage:'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS'},
-   yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'FIRST_PAGE_BOTH_SHOPS_NOT_COMPLETE_QUEUE'}
+   yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE'}
  };
  const sourceOrders=new Map(),stockResults=new Map(),approvedLinks=new Map();
  let mappingStorageReady=false;
@@ -92,8 +92,7 @@
      sourceOrders.set(k,data.orders);
      stockResults.clear();
      refreshStockCells();renderMappingCandidates();
-     const coverage=k==='yandex'?('два магазина доступны; в выборке представлены '+
-       new Set(data.orders.map(o=>o.campaignId)).size+' из 2; первая страница'):
+     const coverage=k==='yandex'?('оба магазина · полная выборка за 30 дней · '+data.orders.length+' заказов'):
        k==='ozon_fbo'?'FBO, продажи со склада Ozon, НЕ очередь пошива':
        k==='ozon'?'FBS: первая страница за 7 дней':'FBS: только первая страница новых заданий';
      if(badge)badge.textContent=data.orders.length+' строк · '+coverage;
