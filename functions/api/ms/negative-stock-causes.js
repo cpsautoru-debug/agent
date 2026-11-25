@@ -24,7 +24,8 @@ const str=(x,max=140)=>typeof x==='string'&&x.length<=max&&
 const number=x=>typeof x==='number'&&Number.isFinite(x)&&
  Math.abs(x)<1000000000?x:null;
 async function getReport(fetcher,token,item){
- const url=new URL(API+'report/byoperations/stock');
+ // Correct operational turnover report; /byoperations/stock only reports current balances.
+ const url=new URL(API+'report/turnover/byoperations');
  url.searchParams.set('limit','100');
  url.searchParams.set('offset','0');
  url.searchParams.set('filter','assortment='+API+'entity/product/'+item.id);
@@ -53,6 +54,12 @@ async function getReport(fetcher,token,item){
   if(data.rows.length>100||data.rows.length>data.meta.size)
    return {...item,status:'unexpected_pagination',documents:[]};
   const count={};
+  const isOperational=data.rows.every(row=>row?.operation?.meta?.type&&
+   typeof row?.quantity==='number'&&Number.isFinite(row.quantity));
+  if(data.rows.length>0&&!isOperational)
+   return {...item,status:'unverified_operational_shape',
+    reportedRows:data.meta.size,columnsPresent:Object.keys(data.rows[0]).slice(0,25),
+    documents:[],documentCount:null};
   const documents=data.rows.map(row=>{
    const operation=row?.operation;
    const type=str(operation?.meta?.type,45)||
@@ -83,6 +90,7 @@ async function getReport(fetcher,token,item){
    'document_list_complete':'document_list_first_100_only',
    documentCount:data.meta.size,readCount:data.rows.length,
    countByDocumentType:count,documents:documents.slice(0,70),
+   sourceReport:'report/turnover/byoperations',
    columnsPresent:data.rows.length?
     Object.keys(data.rows[0]).slice(0,25):[],
    caution:'Reported stock and quantity fields may represent balances, not individual consumption. No causality is proven without full document records.'};
@@ -126,7 +134,7 @@ export function createNegativeCausesAudit({fetcher=fetch}={}){
    checkedItems:findings.length,requestedItems:TARGETS.length,
    completeTargetSet:findings.length===TARGETS.length,
    results:findings,
-   interpretation:'Look for missing incoming documents, wrong source warehouse, production double deductions, and shipment placeholder goods. A negative balance alone cannot identify the cause.'
+   interpretation:'Operation turnover is read-only. Check same-stock warehouse and real inflow/outflow events; a negative balance cannot identify the root cause without confirming document totals.'
   });
  };
 }
