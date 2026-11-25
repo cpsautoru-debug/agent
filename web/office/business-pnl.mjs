@@ -296,8 +296,7 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
   Number.isSafeInteger(x)&&x>=0);
  const estimatedTaxTotal=allEstimatesPresent?
   estimateParts.reduce((sum,x)=>sum+x,0):null;
- const estimateHint=Number.isSafeInteger(estimatedTaxTotal)&&
-  Number.isSafeInteger(pnl.taxTotalKopecks)===false?
+ const estimateHint=Number.isSafeInteger(estimatedTaxTotal)&&!taxKnown?
   'Оценка: '+executiveMoney(estimatedTaxTotal):
   hasEstimate?'Оценка неполная':'';
  for(const [label,value,kind,hint] of [
