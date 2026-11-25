@@ -83,26 +83,47 @@ export function createStockPrecheck({fetcher=fetch}={}){
   const token=env.MS_API_TOKEN;
   let reads=0;
   const read=async path=>{
-   if(typeof token!=='string'||!token||/\s/.test(token)||++reads>40||
-      Date.now()-Date.parse(checkedAt)>30000)throw Error();
-   const result=await fetcher(ROOT+path,{method:'GET',redirect:'manual',
-    headers:{Authorization:'Bearer '+token,Accept:'application/json'},
-    signal:AbortSignal.timeout(8000)});
-   const reader=result.body?.getReader();
-   if(!reader)throw Error();
-   try{
-    if(result.status!==200)throw Error();
-    let bytes=0,raw='';
-    const decoder=new TextDecoder('utf-8',{fatal:true});
-    for(;;){
-     const {done,value}=await reader.read();
-     if(done)break;
-     bytes+=value.byteLength;
-     if(bytes>512*1024)throw Error();
-     raw+=decoder.decode(value,{stream:true});
+   if(typeof token!=='string'||!token||/\\s/.test(token))
+    throw Error('ms_token_unavailable');
+   // Bounded retry for transient upstream throttling / server outages only.
+   // Never silently retry authorization, missing entities or invalid JSON.
+   for(let attempt=0;attempt<2;attempt++){
+    if(++reads>40)throw Error('ms_request_budget_exhausted');
+    if(Date.now()-Date.parse(checkedAt)>30000)
+     throw Error('ms_request_deadline');
+    let result;
+    try{
+     result=await fetcher(ROOT+path,{method:'GET',redirect:'manual',
+      headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+      signal:AbortSignal.timeout(8000)});
+    }catch{
+     if(attempt===0){await new Promise(r=>setTimeout(r,300));continue;}
+     throw Error('ms_network_failure');
     }
-    return JSON.parse(raw+decoder.decode());
-   }finally{await reader.cancel().catch(()=>{});}
+    if(result.status!==200){
+     const code=result.status;
+     await result.body?.cancel().catch(()=>{});
+     if(attempt===0&&(code===429||code>=500&&code<=504)){
+      await new Promise(r=>setTimeout(r,500));continue;
+     }
+     throw Error('ms_http_'+code);
+    }
+    const reader=result.body?.getReader();
+    if(!reader)throw Error('ms_body_unavailable');
+    try{
+     let bytes=0,raw='';
+     const decoder=new TextDecoder('utf-8',{fatal:true});
+     for(;;){
+      const {done,value}=await reader.read();
+      if(done)break;
+      bytes+=value.byteLength;
+      if(bytes>512*1024)throw Error('ms_response_too_large');
+      raw+=decoder.decode(value,{stream:true});
+     }
+     return JSON.parse(raw+decoder.decode());
+    }finally{await reader.cancel().catch(()=>{});}
+   }
+   throw Error('ms_network_failure');
   };
   let warehouse={status:'warehouse_unverified'};
   let warehouseSaved=false;
