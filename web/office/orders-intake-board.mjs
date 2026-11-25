@@ -118,6 +118,7 @@
      const findings=order.items.map(item=>{
        const matched=all.get(item.sku);
        if(!matched)return item.sku+': ещё не сверено';
+       if(matched.status==='unverified')return item.sku+': проверка не завершена ('+String(matched.reason||'нет данных').slice(0,40)+')';
        if(matched.status==='not_matched')return item.sku+': точного совпадения нет';
        if(matched.status==='ambiguous')return item.sku+': несколько совпадений';
        if(matched.status!=='matched_stock_report')return item.sku+': остаток неизвестен';
@@ -159,19 +160,19 @@
      }
      if(data?.code!=='ms_orders_stock_match'||
        data.readOnly!==true||data.changedRecords!==0||
-       data.completeCatalog!==true||data.completeStockReport!==true||
+       data.targetedSkuChecks!==true||
        !Array.isArray(data.matches)||data.matches.length!==sku.length)
        throw Error('Формат или полнота ответа не подтверждены');
      stockResults.clear();
      for(const result of data.matches){
        if(sku.includes(result.sku)&&['not_matched','ambiguous',
-         'matched_stock_report','matched_stock_unknown'].includes(result.status))
+         'matched_stock_report','matched_stock_unknown','unverified'].includes(result.status))
          stockResults.set(result.sku,result);
      }
      if(stockResults.size!==sku.length)throw Error('stock_items_unverified');
      refreshStockCells();
      const matched=[...stockResults.values()].filter(x=>x.status==='matched_stock_report').length;
-     stockStatus.textContent='Сверено '+sku.length+' SKU; точное соответствие с учётным остатком: '+
+     stockStatus.textContent='Запрошено '+sku.length+' SKU; подтверждённых точных совпадений с учётным остатком: '+
        matched+'. Данные неатомарны и не подтверждают физическое наличие или готовность отгрузки. '+
        'Ни одного резерва, задания или отгрузки не создано.';
    }catch(error){
