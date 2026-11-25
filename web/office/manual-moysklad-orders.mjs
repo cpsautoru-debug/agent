@@ -22,6 +22,24 @@
  const status=document.createElement('p');status.className='wb-monitor-meta';status.setAttribute('role','status');status.setAttribute('aria-live','polite');status.textContent='Данные не загружены. Запрос к МойСклад выполняется только после нажатия.';
  row.append(button);section.append(row,status);
  const coverage=document.createElement('p');coverage.className='wb-monitor-meta';section.append(coverage);
+ const fieldStatus=document.createElement('p');fieldStatus.className='wb-monitor-meta';
+ fieldStatus.textContent='Поле «Канал продаж» ещё не проверено; пока используется внешний код.';
+ section.append(fieldStatus);
+ async function checkChannelField(){
+  try{
+   const r=await fetch('/api/ms/manual-channel-field',{credentials:'same-origin',
+    headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(20000)});
+   const data=await r.json();
+   if(!r.ok||data?.code!=='ms_manual_channel_field_discovery')throw Error();
+   fieldStatus.textContent=data.exists?
+    'Поле «Канал продаж» найдено, тип: '+String(data.fieldType||'не определён')+
+      '. Импорт по полю пока не включён до проверки значений.':
+    'Дополнительное поле «Канал продаж» не найдено; пока используется внешний код.';
+  }catch{
+   fieldStatus.textContent='Метаданные полей недоступны. Внешний код остаётся рабочим способом.';
+  }
+ }
+
  const wrap=document.createElement('div');wrap.className='table-wrap';
  const table=document.createElement('table');table.className='wb-unit-table';const thead=document.createElement('thead'),trh=document.createElement('tr');
  for(const label of ['Канал','Заказ МойСклад','Дата · статус','Организация · склад','Товар из каталога МойСклад','Кол-во','Обработка']){const th=document.createElement('th');th.textContent=label;trh.append(th);}
@@ -32,6 +50,7 @@
  button.addEventListener('click',async()=>{
   if(button.disabled)return;button.disabled=true;status.textContent='Читаем помеченные заказы по страницам. Только GET; записи не создаются.';
   tbody.replaceChildren();coverage.textContent='';
+  void checkChannelField();
   try{
    const response=await fetch('/api/ms/manual-orders-preview',{method:'GET',credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:AbortSignal.timeout(120000)});
    const data=await response.json();
