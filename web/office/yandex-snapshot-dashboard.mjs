@@ -62,6 +62,10 @@ export function interpretYandexDirectCostReview(month,data){
    cogsKopecks:data.cogsKopecks,
    preliminaryContributionKopecks:data.preliminaryContributionKopecks,
    missingCount:0,netProfitKopecks:null,
+   orderRealizationMatched:data.orderRealizationMatched===true,
+   deliveredUnits:int(data.deliveredUnits)?data.deliveredUnits:null,
+   returnedUnits:int(data.returnedUnits)?data.returnedUnits:null,
+   skuAuditMatches:data.skuAuditMatches===true,
    source:'server_direct_yandex_report_and_cost_audit'};
  if(data.status==='incomplete_cost_coverage')
   return {month,status:'incomplete_cost_coverage',
