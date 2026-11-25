@@ -1,4 +1,3 @@
--- Staging-only operational mirror; accounting remains in MoySklad.
 CREATE TABLE IF NOT EXISTS office_order_queue (
  order_key TEXT PRIMARY KEY,
  source TEXT NOT NULL CHECK(source IN ('ozon','ozon_fbo','wb','yandex','avito','plamya','dealer_ruslan','dealer_irina')),
