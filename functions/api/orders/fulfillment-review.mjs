@@ -2,12 +2,14 @@ export function buildReview(warehouse,rows){
  return {warehouse,lines:rows.map(row=>({
   item:row.item,itemId:row.itemId,ordered:row.ordered,
   accounting:row.accounting??null,production:row.production??null,
+  occupancy:row.occupancy??null,
   status:'requires_review',
   reason:!row.itemId?'item_mapping_unverified':
    warehouse.status!=='warehouse_verified'?'warehouse_unverified':
    row.accounting?.status!=='accounting_verified'?'availability_unverified':
+   row.occupancy?.status!=='warehouse_orders_verified'?'competing_order_coverage_unverified':
    row.production?.status!=='production_verified'?'production_unverified':
-   'competing_order_coverage_unverified',
+   'marketplace_coverage_unverified',
   warehouseCovered:null,plannedCovered:null,missing:null
  }))};
 }

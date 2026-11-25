@@ -70,6 +70,17 @@
    heading.textContent='Товар: '+reportName+' · UUID '+reportId+
     ' · проверено: '+(current.checkedAt||'время не указано')+'.';
    output.append(heading);
+   const evidence=document.createElement('p');
+   const occupancy=current.occupancy;
+   const production=current.production;
+   evidence.textContent=occupancy?.status==='warehouse_orders_verified'
+    ? 'Заказы МойСклад по этому складу сверены. Дополнительно занято в пределах выборки: '+
+      occupancy.warehouseAdditional+'. Охват обязательств маркетплейсов требует проверки.'
+    : 'Занятость требует уточнения · '+(occupancy?.reason||'availability_unverified');
+   evidence.textContent+=' · '+(production?.status==='production_verified'
+    ? 'Подтверждённых строк заданий: '+production.jobs.length
+    : 'Производство требует уточнения');
+   output.append(evidence);
    const table=document.createElement('table');
    table.className='ms-production-table';
    const thead=document.createElement('thead');

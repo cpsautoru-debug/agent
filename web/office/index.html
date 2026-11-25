@@ -1852,7 +1852,7 @@
           <label>Склад <select id="orderFulfillmentWarehouse"><option value="">Все</option></select></label>
           <label>Модель или SKU <input id="orderFulfillmentModel" type="search"></label>
           <div class="ms-production-scroll"><table class="ms-production-table" id="orderFulfillmentTable" hidden>
-            <thead><tr><th>Заказ</th><th>Канал</th><th>Позиция</th><th>Склад</th><th>Заказано</th><th>Учётный остаток</th><th>Резерв</th><th>Задания МойСклад</th><th>Недостаёт</th><th>Статус</th></tr></thead>
+            <thead><tr><th>Заказ</th><th>Канал</th><th>Позиция</th><th>Склад</th><th>Заказано</th><th>Учётный остаток</th><th>Резерв</th><th>Занято по заказам МойСклад вне резерва</th><th>Обеспечено складом</th><th>Задания МойСклад</th><th>Обеспечено выпуском</th><th>Недостаёт</th><th>Проверено</th><th>Статус</th></tr></thead>
             <tbody id="orderFulfillmentRows"></tbody>
           </table></div>
         </section>
@@ -2516,10 +2516,10 @@
 <script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
 <script type="module" src="orders-intake-board.mjs?v=20261125-orders-v1"></script>
 <script type="module" src="manual-moysklad-orders.mjs?v=20261125-manual-order-feed-v1"></script>
-<script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-review"></script>
+<script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-evidence"></script>
 <script type="module" src="warehouse-route-approval.mjs?v=20261125-approval"></script>
 <script type="module" src="saved-sku-confirmation.mjs?v=20261125-targeted"></script>
-<script type="module" src="approved-sku-stock-diagnostic.mjs?v=20261125-reserves-exact-v3"></script>
+<script type="module" src="approved-sku-stock-diagnostic.mjs?v=20261125-coverage"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>

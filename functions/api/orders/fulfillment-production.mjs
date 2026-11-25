@@ -1,3 +1,5 @@
+import {readCompletePages} from './fulfillment-occupancy.mjs';
+
 const BASE='https://api.moysklad.ru/api/remap/1.2/entity/';
 const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const unknown={status:'production_unverified',jobs:[]};
@@ -29,7 +31,7 @@ function deadline(value){
 export async function readProduction(itemId,storeId,read){
  if(!ID.test(itemId||'')||!ID.test(storeId||''))return unknown;
  try{
-  const tasks=complete(await read('entity/productiontask?limit=12'),12);
+  const tasks=await readCompletePages(read,'entity/productiontask',{limit:50,maxPages:4});
   const jobs=[];
   for(const task of tasks){
    const warehouse=idOf(task.productsStore,'store');

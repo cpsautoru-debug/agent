@@ -30,7 +30,8 @@
    warehouse_unverified:'Склад исполнения не подтверждён',
    availability_unverified:'Остаток или резерв не подтверждён',
    production_unverified:'Требуется сверка производства',
-   competing_order_coverage_unverified:'Охват конкурирующих заказов не подтверждён'
+   competing_order_coverage_unverified:'Охват конкурирующих заказов не подтверждён',
+   marketplace_coverage_unverified:'Охват обязательств маркетплейсов не подтверждён'
  };
  function renderFulfillment(data){
    if(!fulfillmentTable)return;
@@ -39,7 +40,7 @@
    const entries=active.flatMap(order=>{
      const check=checks.get(order.order_key);
      return (check?.lines||order.items.map(i=>({item:i.name||i.sku||i.itemId,
-       ordered:i.quantity}))).map(line=>({order,line,store:check?.warehouse?.storeName||'Не подтверждён'}));
+       ordered:i.quantity}))).map(line=>({order,line,check,store:check?.warehouse?.storeName||'Не подтверждён'}));
    });
    for(const [select,values] of [
      [channelFilter,entries.map(e=>e.order.source)],[warehouseFilter,entries.map(e=>e.store)]
@@ -50,13 +51,14 @@
      select.value=values.includes(selected)?selected:'';
    }
    fulfillmentRows.replaceChildren();
-   for(const {order,line,store} of entries){
+   for(const {order,line,check,store} of entries){
      if(channelFilter.value&&channelFilter.value!==order.source||
         warehouseFilter.value&&warehouseFilter.value!==store||
         !String(line.item).toLowerCase().includes(modelFilter.value.trim().toLowerCase()))continue;
      const tr=document.createElement('tr');
      for(const value of [order.external_id,order.source,line.item,store,line.ordered,
-        line.accounting?.stock,line.accounting?.reserve])cell(tr,value);
+        line.accounting?.stock,line.accounting?.reserve,line.occupancy?.warehouseAdditional,
+        line.warehouseCovered])cell(tr,value);
      const jobs=document.createElement('td');
      for(const job of line.production?.jobs||[]){
        const a=document.createElement('a');
@@ -67,7 +69,9 @@
      }
      if(!jobs.childNodes.length)jobs.textContent='—';
      tr.append(jobs);
+     cell(tr,line.plannedCovered);
      cell(tr,line.missing);
+     cell(tr,check?.checkedAt?new Date(check.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'}):null);
      cell(tr,'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта'));
      fulfillmentRows.append(tr);
    }

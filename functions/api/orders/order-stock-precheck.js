@@ -4,6 +4,7 @@ import {projectOrderLine} from './order-availability.js';
 import {readWarehouse} from './fulfillment-warehouse.mjs';
 import {readStock,readExpandedStock} from './fulfillment-stock.mjs';
 import {readProduction} from './fulfillment-production.mjs';
+import {readOccupancy} from './fulfillment-occupancy.mjs';
 import {buildReview,saveReview} from './fulfillment-review.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
@@ -150,8 +151,9 @@ export function createStockPrecheck({fetcher=fetch}={}){
      let accounting=await readStock(id,warehouse.storeId,read);
      if(accounting.status!=='accounting_verified')
       accounting=await readExpandedStock(type,id,warehouse.storeId,read);
+     const occupancy=await readOccupancy(type,id,warehouse.storeId,accounting,read);
      const production=await readProduction(id,warehouse.storeId,read);
-     evidenceByItem.set(id,{accounting,production});
+     evidenceByItem.set(id,{accounting,occupancy,production});
     }
     Object.assign(entry,evidenceByItem.get(id));
     if(entry.accounting.status==='accounting_verified'){

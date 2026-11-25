@@ -1,5 +1,7 @@
 import {verifySession} from '../auth/session.js';
 import {readStock,readExpandedStock} from '../orders/fulfillment-stock.mjs';
+import {readOccupancy} from '../orders/fulfillment-occupancy.mjs';
+import {readProduction} from '../orders/fulfillment-production.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/approved-sku-stock-current';
 const ROOT='https://api.moysklad.ru/api/remap/1.2/';
@@ -126,10 +128,22 @@ export function createApprovedStockCurrent({fetcher=fetch}={}){
     readOnly:true,changedRecords:0,itemId:approved.ms_item_id,
     storeId:route.store_id,stock:null,reserve:null,diagnostics,
     note:'Current report missing, filtered or inconsistent; no quantities established.'});
+  const evidenceStarted=Date.now();
+  let evidenceReads=0;
+  const readEvidence=async path=>{
+   if(++evidenceReads>20||Date.now()-evidenceStarted>15000)throw Error('read_budget');
+   return boundedFetch(path,path.split('?')[0].replace(/[a-f0-9-]{36}/g,'{id}'));
+  };
+  const itemId=approved.ms_item_id.toLowerCase();
+  const storeId=route.store_id.toLowerCase();
+  const [occupancy,production]=await Promise.all([
+   readOccupancy(approved.ms_item_type,itemId,storeId,values,readEvidence),
+   readProduction(itemId,storeId,readEvidence)
+  ]);
   return response(200,{code:'approved_stock_current',readOnly:true,changedRecords:0,
    source:body.source,sellerAccount:body.sellerAccount,sku:body.sku,
    itemName:approved.ms_item_name,itemId:approved.ms_item_id,storeId:route.store_id,storeName,
-   report:values.report||'current',diagnostics,
+   report:values.report||'current',diagnostics,occupancy,production,
    stock:values.stock,reserve:values.reserve,
    accountingFree:values.stock-values.reserve,checkedAt:new Date().toISOString(),
    allocationAllowed:false,sewingAllowed:false,

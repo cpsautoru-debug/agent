@@ -28,6 +28,7 @@ test('approved exact warehouse and SKU reconcile stock, reserve and free stock',
   const u=new URL(url);
   if(u.pathname.endsWith('/'+item))return Response.json({id:item,name:'Веста БП'});
   if(u.pathname.endsWith('/'+store))return Response.json({id:store,name:'Основной'});
+  if(/entity\/(customerorder|productiontask)$/.test(u.pathname))return Response.json({meta:{size:0},rows:[]});
   assert.equal(u.pathname,'/api/remap/1.2/report/stock/bystore/current');
   assert.equal(u.searchParams.get('filter'),'assortmentId='+item);
   const field=u.searchParams.get('stockType');
@@ -42,7 +43,7 @@ test('approved exact warehouse and SKU reconcile stock, reserve and free stock',
  assert.equal(x.code,'approved_stock_current');
  assert.equal(x.stock,4);assert.equal(x.reserve,2);assert.equal(x.accountingFree,2);
  assert.equal(x.allocationAllowed,false);assert.equal(x.sewingAllowed,false);
- assert.equal(calls,5);
+ assert.equal(calls,7);
 });
 test('inconsistent stock and reserve block accounting numbers',async()=>{
  const fetcher=async url=>{
