@@ -120,9 +120,12 @@ export function createOrderStockMatch({fetcher=fetch}={}){
     input.skus.some(x=>!safeSku(x))||new Set(input.skus).size!==input.skus.length)
     throw Error();
   }catch{return json(400,{code:'invalid_sku_batch'});}
+  let failedStage='catalog';
   try{
    const assortment=await pages(fetcher,env.MS_API_TOKEN,'entity/assortment');
+   failedStage='stock_report';
    const stock=await pages(fetcher,env.MS_API_TOKEN,'report/stock/bystore');
+   failedStage='matching';
    const matches=matchOrdersStock(input.skus,assortment.rows,stock.rows);
    return json(200,{code:'ms_orders_stock_match',readOnly:true,changedRecords:0,
     completeCatalog:true,completeStockReport:true,atomicSnapshot:false,
@@ -134,7 +137,7 @@ export function createOrderStockMatch({fetcher=fetch}={}){
     'upstream_rejected','snapshot_unverified','snapshot_incomplete','snapshot_limit',
     'stock_duplicate_item','stock_stores_unverified','response_too_large'];
    return json(502,{code:allowed.includes(e?.message)?e.message:'stock_match_unavailable',
-    http:Number.isSafeInteger(e?.http)?e.http:null,
+    stage:failedStage,http:Number.isSafeInteger(e?.http)?e.http:null,
     readOnly:true,changedRecords:0,completeCatalog:false,completeStockReport:false});
   }
  };
