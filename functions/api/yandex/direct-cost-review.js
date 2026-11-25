@@ -27,16 +27,18 @@ async function responseJSON(response){
  if(!data||typeof data!=='object')throw Error('source_invalid');
  return data;
 }
-export function selectYandexMonthlyReportIds(rows){
+export function selectYandexMonthlyReportIds(rows,month){
  if(!Array.isArray(rows)||rows.length>20)return null;
  const result={};
- for(const [scope,type,key] of expected){
+ const scopes=typeof month==='string'&&month>='2026-10'?
+  expected.filter(x=>x[2]!=='149106500'):expected;
+ for(const [scope,type,key] of scopes){
   const matches=rows.filter(x=>x.scope===scope&&
    x.report_type===type&&x.status==='DONE'&&id.test(x.report_id||''));
   if(matches.length!==1)return null;
   result[key]=matches[0].report_id;
  }
- if(new Set(Object.values(result)).size!==5)return null;
+ if(new Set(Object.values(result)).size!==scopes.length)return null;
  return result;
 }
 export async function onRequestGet({request,env}){
@@ -53,20 +55,26 @@ export async function onRequestGet({request,env}){
   const jobs=await env.OZON_FINANCE_DB.prepare(
    'SELECT scope,report_type,report_id,status FROM yandex_finance_report_jobs WHERE month=? LIMIT 21'
   ).bind(month).all();
-  const ids=selectYandexMonthlyReportIds(jobs.results);
+  const ids=selectYandexMonthlyReportIds(jobs.results,month);
   if(!ids)return json(200,{code:'yandex_direct_cost_incomplete',
    month,status:'report_ids_incomplete',readOnly:true,
    netProfitKopecks:null,missing:[]});
-  const [orders,services,payments,first,second,costAudit]=
-   await Promise.all([
-    ...['orders','services','payments','149082506','149106500']
-     .map(k=>readOfficialReport({env,request:pathFor(request,
-      '/api/yandex/report-audit','?reportId='+encodeURIComponent(ids[k]))})
-      .then(responseJSON)),
-    readCostSources({env,request:pathFor(request,
-     '/api/finance/cost-audit','?month='+encodeURIComponent(month))})
-     .then(responseJSON)
-   ]);
+  const keys=month>='2026-10'?
+   ['orders','services','payments','149082506']:
+   ['orders','services','payments','149082506','149106500'];
+  const answers=await Promise.all([
+   ...keys.map(k=>readOfficialReport({env,request:pathFor(request,
+    '/api/yandex/report-audit','?reportId='+encodeURIComponent(ids[k]))})
+    .then(responseJSON)),
+   readCostSources({env,request:pathFor(request,
+    '/api/finance/cost-audit','?month='+encodeURIComponent(month))})
+    .then(responseJSON)
+  ]);
+  const results=Object.fromEntries(keys.map((key,i)=>[key,answers[i]]));
+  const orders=results.orders,services=results.services,
+   payments=results.payments,first=results['149082506'],
+   second=results['149106500']??null,
+   costAudit=answers[answers.length-1];
   for(const x of [orders,services,payments]){
    if(x.code!=='yandex_report_archive_audited'||
      x.readOnly!==true||x.changedRecords!==0)
