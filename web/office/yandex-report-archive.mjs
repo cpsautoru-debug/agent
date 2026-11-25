@@ -97,7 +97,9 @@ export function describeYandexReportSheets(files){
   const sumFields=Object.fromEntries(['transactionSum','servicePrice',
    'buyerPaymentAmount','billingPrice',
    'incomeWithoutServices','summaryCommission','sumBillingPriceOfItems',
-   'marketplaceDiscountPaymentAmount','refundBuyerPaymentAmount'].map(field=>{
+   'marketplaceDiscountPaymentAmount','refundBuyerPaymentAmount',
+   // The official services report uses totalAmount only for placement.json.
+   'totalAmount'].map(field=>{
    let count=0,sumKopecks=0,invalid=0;
    for(const row of rows){
     const value=row?.[field];
