@@ -231,9 +231,14 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
   const t=interim.tax;
   const section=el('section','business-pnl-tax-evidence');
   section.append(el('h3','','АУСН 8% · оценка по данным маркетплейсов'));
+  const wbRetailReady=t.wb?.retailReportAudit?.status===
+   'report_retail_amounts_matched';
+  const wbTaxScenario=wbRetailReady?
+   t.wb.retailReportAudit.grossRetailTaxScenarioKopecks:
+   t.wb?.savedTaxEstimateKopecks;
   for(const [name,obj,amount] of [
    ['Ozon',t.ozon,t.ozon?.taxEstimateKopecks],
-   ['Wildberries',t.wb,t.wb?.savedTaxEstimateKopecks],
+   ['Wildberries',wbRetailReady?t.wb.retailReportAudit:t.wb,wbTaxScenario],
    ['Яндекс Маркет',t.yandex,t.yandex?.taxEstimateKopecks]]){
    const row=el('p','',''+name+': '+money(amount)+
     ' · источник '+String(obj?.status||'не определён'));
@@ -306,8 +311,12 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  const summary=el('section','executive-pnl-summary');
  summary.setAttribute('aria-label','Итог бизнеса');
  const taxKnown=pnl.taxesComplete===true&&Number.isSafeInteger(pnl.taxTotalKopecks);
+ const retailAudit=interim.tax?.wb?.retailReportAudit;
+ const wbScenario=retailAudit?.status==='report_retail_amounts_matched'?
+  retailAudit.grossRetailTaxScenarioKopecks:
+  interim.tax?.wb?.savedTaxEstimateKopecks;
  const estimateParts=[interim.tax?.ozon?.taxEstimateKopecks,
-  interim.tax?.wb?.savedTaxEstimateKopecks,interim.tax?.yandex?.taxEstimateKopecks];
+  wbScenario,interim.tax?.yandex?.taxEstimateKopecks];
  const hasEstimate=estimateParts.some(Number.isSafeInteger);
  // Three partial scenarios are visible for planning only: they never
  // become the consolidated tax deduction until the base is reconciled.
