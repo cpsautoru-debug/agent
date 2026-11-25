@@ -16,6 +16,10 @@ function safeReadReason(error,entity){
  if(code==='ms_token_unavailable')return 'ms_token_unavailable';
  if(code==='ms_request_budget_exhausted')return 'ms_request_budget_exhausted';
  if(code==='ms_request_deadline')return 'ms_request_deadline';
+ if(code==='ms_network_failure')return 'ms_network_failure';
+ if(code==='ms_body_read_failed'||code==='ms_body_unavailable')return 'ms_body_read_failed';
+ if(code==='ms_invalid_json')return 'ms_invalid_json';
+ if(code==='ms_response_too_large')return 'ms_response_too_large';
  if(code==='ms_http_401'||code==='ms_http_403')return 'ms_authorization_denied';
  if(code==='ms_http_404')return entity+'_not_found';
  if(code==='ms_http_429')return 'ms_rate_limited';
