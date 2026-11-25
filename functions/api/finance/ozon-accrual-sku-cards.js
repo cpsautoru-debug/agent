@@ -1,6 +1,6 @@
 import {verifySession} from '../auth/session.js';
 import {validateOzonSellerProductInfo} from '../../../web/office/finance-ozon-sku-lookup-core.mjs';
-import {ownerCoverCostFromTitle} from '../../../web/office/owner-unit-costs.mjs';
+import {ownerProductCostFromOfficialTitle} from '../../../web/office/owner-unit-costs.mjs';
 
 const HEADERS={'Content-Type':'application/json; charset=utf-8',
  'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff',
@@ -52,11 +52,13 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
    const items=normalized.items.map(x=>{
     const sourceRow=rowMap.get(x.sku);
     // The owner-approved model cost is a review candidate, never certified SKU COGS.
-    const reference=ownerCoverCostFromTitle(x.name);
+    const reference=ownerProductCostFromOfficialTitle(x.name);
     return {...x,ledgerArticle:sourceRow?.article??null,
      operationRows:sourceRow?.operation_rows??0,
      referenceCostKopecks:reference?.costKopecks??null,
-     referenceModel:reference?.category??null,priceStatus:'candidate_not_applied',
+     referenceModel:reference?.category??null,referenceSource:reference?.source??null,
+     exactArticleMatch:x.offerId===sourceRow?.article,
+     priceStatus:'candidate_not_applied',
      historicalCostVerified:false};
    });
    return respond(200,{code:'ozon_accrual_sku_cards',readOnly:true,changedRecords:0,
