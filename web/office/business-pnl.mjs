@@ -46,7 +46,7 @@ function renderCloseoutStatus(root,pnl,interim){
  }
  if(interim.tax?.code==='marketplace_tax_management_estimate'){
   if(interim.tax.wb?.complete!==true)
-   blockers.push('АУСН WB: не подтверждена вся налоговая база ('+
+   blockers.push('АУСН WB: отсутствует полная валовая выручка с возвратами и взаимозачётами; оценки налога не подтверждают базу ('+
     (interim.tax.wb?.savedReports??'?')+' XLSX / '+
     (interim.tax.wb?.apiReports??'?')+' API-отчётов)');
   if(interim.tax.ozon?.status!=='tax_base_reconciled')
@@ -316,7 +316,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   })();
   const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
    if(serial!==id||monthInput.value!==month)return x;
-   if(x.status!=='unavailable')interim.yandexCost=x;
+   interim.yandexCost=x;
    applyYandexCostToChannels(base.channels,month,x);
    if(x.status==='preliminary_cost_reconciled')
     sourceNotes.yandex='Сверены доставленные SKU и их себестоимость. Результат до дополнительной рекламы, периода возвратов, услуг и АУСН.';

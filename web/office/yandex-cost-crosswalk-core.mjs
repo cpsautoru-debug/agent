@@ -94,16 +94,10 @@ function resultForOffer(offer,costs){
   costKopecks:knownPrices[0],
   sources:[...new Set(known.map(x=>x.source))],
   category:known[0].category};
- const identity=modelFamily([offer.name,offer.offerName,offer.shopSku]
-  .filter(Boolean).join(' '));
- if(!identity)return {status:'missing',costKopecks:null};
- const same=costs.filter(x=>x.family===identity);
- const amounts=prices(same);
- if(!amounts.length)return {status:'missing',costKopecks:null};
- if(amounts.length!==1)return {status:'cost_conflict',costKopecks:null,
-  pricesKopecks:amounts,sources:[...new Set(same.map(x=>x.channel))]};
- return {status:'matched_model',costKopecks:amounts[0],
-  sources:[...new Set(same.map(x=>x.channel))]};
+ // A unanimous cost within a model family is still not evidence that this
+ // exact offer has the same manufacturing specification and historical cost.
+ // Keep it missing until an exact source or explicit owner rule resolves it.
+ return {status:'missing',costKopecks:null};
 }
 export function reconcileYandexSharedCosts(offers,audit,month){
  if(!Array.isArray(offers)||offers.length>250||

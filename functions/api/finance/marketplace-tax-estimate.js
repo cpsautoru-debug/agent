@@ -79,7 +79,11 @@ export async function onRequestGet({request,env}){
   const amount=wbR?.tax;
   const wb={status:saved>0?'partial_manual_xlsx_tax_estimates':'no_tax_source',
    taxRateBps:800,savedReports:saved,apiReports:available,
-   complete:saved===available&&saved>0&&Number(wbR.assumed)===saved,
+   // Report count parity is not evidence of a reconciled taxable base.
+   // ASSUMED/MANUAL_ESTIMATE snapshots can never close this gate.
+   reportCoverageComplete:saved===available&&saved>0,
+   complete:false,
+   taxBaseComplete:false,
    savedTaxEstimateKopecks:safe(amount)&&amount>=0?amount:null,
    taxableGrossSalesKopecks:null,
    verifiedByFNS:false,
