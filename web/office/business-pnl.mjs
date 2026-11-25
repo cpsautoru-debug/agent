@@ -239,6 +239,19 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
     ' · источник '+String(obj?.status||'не определён'));
    section.append(row);
   }
+  if(t.wb?.retailReportAudit?.status==='report_retail_amounts_matched'){
+   const retail=t.wb.retailReportAudit;
+   section.append(el('p','business-pnl-subhead',
+    'Wildberries · розничные продажи по официальному API: '+
+    money(retail.grossRetailKopecks)+
+    ' · 8% до корректировок: '+money(retail.grossRetailTaxScenarioKopecks)+
+    ' · сверено отчётов: '+retail.reports+'. '+
+    'Это источник валовых продаж, но не итоговая база АУСН.'));
+  }else if(t.wb?.retailReportAudit?.status){
+   section.append(el('p','business-pnl-disclaimer',
+    'Wildberries · отдельная проверка валовых продаж API: '+
+    String(t.wb.retailReportAudit.status)+'. Сценарий налога не уточнён.'));
+  }
   section.append(el('p','business-pnl-disclaimer',
    'Это три предварительные оценки одного ИП. Wildberries основан на '+
    (t.wb?.savedReports??'?')+' XLSX из '+(t.wb?.apiReports??'?')+
