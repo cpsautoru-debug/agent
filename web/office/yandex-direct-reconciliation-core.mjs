@@ -71,9 +71,11 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   // Safe source-only diagnosis for the owner: no customer/order details.
   serviceAudit:finance.services?.sheets?.map(sheet=>({
    sheet:sheet.name,rows:sheet.rows,
-   servicePriceRows:sheet.amount?.rows??0,
-   servicePriceInvalid:sheet.invalidRows??0,
-   missingServicePriceRows:sheet.uncoveredRows??null,
+   amountField:sheet.amountField,
+   amountRows:sheet.amount?.rows??0,
+   amountInvalid:sheet.invalidRows??0,
+   missingAmountRows:sheet.uncoveredRows??null,
+   amountKopecks:sheet.amount?.kopecks??null,
    candidateAmountFields:sheet.candidates||[]
   }))??[],
   cogsKopecks:summary.deliveredManufacturingCostKopecks,
