@@ -8,7 +8,11 @@
    sync=document.getElementById('persistentOrdersSync'),
    refresh=document.getElementById('persistentOrdersRefresh'),
    bucketSelect=document.getElementById('persistentOrdersBucket'),
-   bucketSummary=document.getElementById('persistentOrdersBucketCounts');
+   bucketSummary=document.getElementById('persistentOrdersBucketCounts'),
+   workflowStatus=document.getElementById('persistentOrdersWorkflowStatus');
+ const workflowEndpoint='/api/orders/workflow-review';
+ const workflowByKey=new Map();
+ let workflowReady=false;
  let latest=null;
  let working=false;
  const endpoint='/api/orders/persistent-queue';
@@ -32,6 +36,29 @@
      cell(tr,order.source_status);
      cell(tr,labels[order.queue_bucket]||labels.review);
      cell(tr,order.source_checked_at);
+     const td=document.createElement('td');
+     const entry=workflowByKey.get(order.order_key);
+     const state=entry?.workflow_state||'pending_review';
+     const stateNames={pending_review:'Ожидает просмотра',reviewed:'Просмотрено',
+       stock_check_requested:'Проверить остаток',on_hold:'Приостановлено'};
+     td.append(document.createTextNode(stateNames[state]||'Неизвестный этап'));
+     if(workflowReady&&order.queue_bucket==='active'){
+       const actions={
+         pending_review:[['mark_reviewed','Подтвердить просмотр'],['hold','Приостановить']],
+         reviewed:[['request_stock_check','Запросить проверку остатка'],['hold','Приостановить']],
+         stock_check_requested:[['hold','Приостановить']],
+         on_hold:[['resume_review','Возобновить просмотр']]
+       };
+       for(const [action,title] of actions[state]||[]){
+         const button=document.createElement('button');button.type='button';
+         button.className='ms-production-detail-button';
+         button.textContent=title;
+         button.style.margin='4px';
+         button.addEventListener('click',()=>transition(order,entry,action,button));
+         td.append(button);
+       }
+     }
+     tr.append(td);
      tbody.append(tr);
    }
    table.hidden=!matching.length;
@@ -44,12 +71,53 @@
      '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.';
  }
  if(bucketSelect)bucketSelect.addEventListener('change',()=>{if(latest)render(latest);});
+ async function loadWorkflow(){
+   const r=await fetch(workflowEndpoint,{credentials:'same-origin',cache:'no-store',
+     headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});
+   const data=await r.json();
+   if(!r.ok||data?.code!=='order_workflow_review_read'||
+      !Array.isArray(data.rows)||!Array.isArray(data.events))
+     throw Error(data?.code||'workflow_unavailable');
+   workflowByKey.clear();
+   for(const row of data.rows)if(typeof row.order_key==='string')
+     workflowByKey.set(row.order_key,row);
+   workflowReady=true;
+   const recent=data.events.slice(0,3).map(e=>
+     (e.order_key||'заказ')+': '+(e.from_state||'первое действие')+' → '+e.to_state).join(' · ');
+   workflowStatus.textContent='Предварительных действий по заказам: '+data.events.length+
+     ' (последние 150). '+(recent||'Действий пока нет.')+
+     ' Склад, производство и отгрузки не меняются.';
+ }
+ async function transition(order,entry,action,button){
+   if(working||!workflowReady)return;
+   if(!confirm('Сохранить этап рассмотрения заказа '+order.external_id+
+     '? Это не производственное задание и не движение товара.'))return;
+   working=true;button.disabled=true;
+   try{
+     const r=await fetch(workflowEndpoint,{method:'POST',credentials:'same-origin',
+       cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json'},
+       body:JSON.stringify({orderKey:order.order_key,action,
+         expectedRevision:entry?.revision||0}),signal:AbortSignal.timeout(20000)});
+     const data=await r.json();
+     if(!r.ok||data?.code!=='workflow_review_saved')
+       throw Error(data?.code||'review_not_saved');
+     await loadWorkflow();
+     if(latest)render(latest);
+   }catch(e){
+     workflowStatus.textContent='Этап не сохранён: '+String(e.message).slice(0,100);
+   }finally{working=false;button.disabled=false;}
+ }
  async function reload(){
    const r=await fetch(endpoint,{credentials:'same-origin',cache:'no-store',
      headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});
    const data=await r.json();
    if(!r.ok||data?.code!=='persistent_queue_read'||!Array.isArray(data.orders)||
       !Array.isArray(data.sources))throw Error(data?.code||'queue_unavailable');
+   try{await loadWorkflow();}catch(e){
+     workflowReady=false;
+     workflowStatus.textContent='Этапы рассмотрения пока недоступны: '+
+       String(e.message).slice(0,100)+'. Необходимо применить миграцию D1.';
+   }
    render(data);
  }
  refresh.addEventListener('click',async()=>{
