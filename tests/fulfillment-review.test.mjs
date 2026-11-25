@@ -63,3 +63,20 @@ test('only complete cohort evidence becomes a numeric sewing requirement',()=>{
   assert.equal(rejected.missing,null);
  }
 });
+
+test('manual channels use manual snapshot clock when reading saved reviews',async()=>{
+ const sqlite=new DatabaseSync(':memory:');
+ for(const name of ['persistent_order_queue','order_warehouse','order_fulfillment']){
+  sqlite.exec(readFileSync(new URL('../migrations/20261125_'+name+'.sql',import.meta.url),'utf8'));
+ }
+ const db={prepare:sql=>({bind:(...values)=>({
+  run:()=>({meta:sqlite.prepare(sql).run(...values)}),
+  all:()=>({results:sqlite.prepare(sql).all(...values)})
+ })})};
+ const stamp=new Date().toISOString();
+ sqlite.prepare("INSERT INTO office_order_queue(order_key,source,account,external_id,source_status,production_disposition,items_json,source_checked_at) VALUES('manual-test','plamya','moysklad','order','Regular','unverified','[]',?)").run(stamp);
+ sqlite.prepare("INSERT INTO office_order_queue_sync(source,last_success_at,coverage,rows_seen,note) VALUES('manual',?,'fixture',1,'fixture')").run(stamp);
+ const review=buildReview({status:'warehouse_unverified'},[{item:'test',itemId:null,ordered:1}]);
+ assert.equal((await saveReview(db,{order_key:'manual-test',source_checked_at:stamp},new Date(Date.now()+1).toISOString(),review)).meta.changes,1);
+ assert.equal((await readReviews(db)).results.length,1);
+});
