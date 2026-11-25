@@ -16,14 +16,14 @@ export const OWNER_UNIT_COSTS=Object.freeze({
 export const OWNER_COST_SOURCE='OWNER_CONFIRMED_BUSINESS_COST_REFERENCE_2026';
 const norm=s=>typeof s==='string'?s.normalize('NFKC')
  .toLocaleLowerCase('ru-RU').replace(/ё/g,'е')
- .replace(/[^\\p{L}\\p{N}]+/gu,' ').replace(/\\s+/g,' ').trim():'';
+ .replace(/[^\p{L}\p{N}]+/gu,' ').replace(/\s+/g,' ').trim():'';
 // A verified product title is required. Never guess from marketplace SKU alone.
 export function ownerCoverCostFromTitle(title){
  const s=norm(title);
  if(!s||!/(авточехл|авто чехл|чехл|сиден)/.test(s)||
     /(подлокот|двер|накидк|коврик|брелок|аромат|накладк|универсальн)/.test(s))return null;
  let key=null;
- if(/(?:вест[ауы]|vesta)\\s*(?:кросс|cross)/.test(s))key='vesta_cross';
+ if(/(?:вест[ауы]|vesta)\s*(?:кросс|cross)/.test(s))key='vesta_cross';
  else if(/(?:вест[ауы]|vesta)/.test(s))key='vesta';
  else if(/(?:искра|iskra)/.test(s))key='iskra';
  else if(/(?:приора|priora)/.test(s))key='priora';
