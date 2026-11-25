@@ -1,17 +1,18 @@
+import {OWNER_UNIT_COSTS} from './owner-unit-costs.mjs';
 // Proposed October 2026 WB cost mapping. Read-only and intentionally
 // NOT confirmed: category similarity cannot establish exact product identity.
 // Values originate from previously owner-confirmed unit costs in Ozon / WB.
 const rates=Object.freeze({
- vesta:{label:'Vesta',costKopecks:420000},
- cross:{label:'Vesta Cross',costKopecks:450000},
- priora:{label:'Priora',costKopecks:319900},
- samara:{label:'Samara',costKopecks:320000},
- iskra:{label:'Iskra',costKopecks:469700},
- door:{label:'Дверные вставки',costKopecks:35000},
- armrest:{label:'Подлокотник Vesta',costKopecks:10000},
- bumper:{label:'Накладка на бампер',costKopecks:30000},
- spinner:{label:'Брелок-антистресс с шестерёнками · механический спиннер',costKopecks:5000},
- fragrance:{label:'Ароматизатор для авто Dolce & Gabbana The One',costKopecks:26000}
+ vesta:{label:'Vesta',costKopecks:OWNER_UNIT_COSTS.vesta.costKopecks},
+ cross:{label:'Vesta Cross',costKopecks:OWNER_UNIT_COSTS.vesta_cross.costKopecks},
+ priora:{label:'Priora',costKopecks:OWNER_UNIT_COSTS.priora.costKopecks},
+ samara:{label:'Samara',costKopecks:OWNER_UNIT_COSTS.samara.costKopecks},
+ iskra:{label:'Iskra',costKopecks:OWNER_UNIT_COSTS.iskra.costKopecks},
+ door:{label:'Дверные вставки',costKopecks:OWNER_UNIT_COSTS.door_cards.costKopecks},
+ armrest:{label:'Подлокотник Vesta',costKopecks:OWNER_UNIT_COSTS.armrest_cover.costKopecks},
+ bumper:{label:'Накладка на бампер',costKopecks:OWNER_UNIT_COSTS.kalina_bumper_trim.costKopecks},
+ spinner:{label:'Брелок-антистресс с шестерёнками · механический спиннер',costKopecks:OWNER_UNIT_COSTS.keychain.costKopecks},
+ fragrance:{label:'Ароматизатор для авто Dolce & Gabbana The One',costKopecks:OWNER_UNIT_COSTS.fragrance.costKopecks}
 });
 export function classifyWbCostCandidate(code){
  if(typeof code!=='string'||code.length>200||!code.trim())throw Error('invalid_wb_code');
