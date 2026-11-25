@@ -37,10 +37,13 @@ function assortmentId(item){
 }
 export function normalizeManualCustomerOrder(row){
  const channel=manualOrderChannel(row?.externalCode);
+ const positions=Array.isArray(row?.positions)?row.positions:row?.positions?.rows;
+ const declaredCount=row?.positions?.meta?.size;
  if(!channel||!ID.test(row?.id||'')||!clean(row?.name,100)||
-   !Array.isArray(row?.positions)||row.positions.length>100)
+   !Array.isArray(positions)||positions.length>100||
+   (declaredCount!==undefined&&declaredCount!==positions.length))
    throw Error('manual_order_schema_unverified');
- const items=row.positions.map(p=>{
+ const items=positions.map(p=>{
   const assortment=p?.assortment,ref=assortmentId(assortment);
   if(!ref||!clean(assortment?.name,200)||typeof p.quantity!=='number'||
     !Number.isFinite(p.quantity)||p.quantity<=0||p.quantity>10000)
@@ -75,7 +78,7 @@ async function readChannel(fetcher,token,channel){
  for(let page=0;page<MAX_PAGES;page++){
   const u=new URL(ROOT);u.searchParams.set('filter','externalCode~'+channel.marker);
   u.searchParams.set('limit',String(LIMIT));u.searchParams.set('offset',String(page*LIMIT));
-  u.searchParams.set('expand','positions');
+  u.searchParams.set('expand','positions.assortment,organization,store,state');
   const res=await fetcher(u.toString(),{method:'GET',redirect:'manual',
    headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
    signal:AbortSignal.timeout(18000)});
