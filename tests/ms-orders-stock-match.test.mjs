@@ -49,15 +49,21 @@ test('unauthenticated and origin-mismatched requests cannot read MoySklad',async
   body:JSON.stringify({skus:['vesta-1']})}),env:{}});
  assert.equal(crossSite.status,403);assert.equal(calls,0);
 });
-test('authenticated bounded crosswalk reads catalogue and stock without writes',async()=>{
+test('authenticated owner can probe exact SKU without full-catalog download',async()=>{
  const token='test-only-owner';
  const cookie=(await createSession('owner',token)).split(';')[0];
  const calls=[];
  const handler=createOrderStockMatch({fetcher:async(url,options)=>{
   calls.push({url,method:options.method,auth:options.headers.Authorization});
-  const isCatalog=url.includes('/entity/assortment?');
-  return Response.json({meta:{size:isCatalog?assorted.length:stocks.length},
-   rows:isCatalog?assorted:stocks});
+  const u=new URL(url), filter=u.searchParams.get('filter');
+  if(u.pathname.endsWith('/entity/assortment'))
+   return Response.json(filter==='article=vesta-1'?
+    {meta:{size:1},rows:[{...assorted[0],meta:{href:
+      'https://api.moysklad.ru/api/remap/1.2/entity/product/'+A}}]}:
+    {meta:{size:0},rows:[]});
+  if(u.pathname.endsWith('/report/stock/bystore'))
+   return Response.json({meta:{size:1},rows:stocks});
+  throw Error('unrecognized request');
  }});
  const request=new Request(endpoint,{method:'POST',headers:{
   Origin:ORIGIN,Cookie:cookie,'Content-Type':'application/json'},
@@ -71,27 +77,28 @@ test('authenticated bounded crosswalk reads catalogue and stock without writes',
  assert.equal(data.code,'ms_orders_stock_match');
  assert.equal(data.readOnly,true);
  assert.equal(data.changedRecords,0);
- assert.equal(data.completeCatalog,true);
- assert.equal(data.completeStockReport,true);
+ assert.equal(data.targetedSkuChecks,true);
  assert.equal(data.matches[0].status,'matched_stock_report');
- assert.equal(calls.length,2);
+ assert.equal(data.matches[0].stores[0].accountingFree,2);
+ assert.equal(calls.length,3);
  assert.ok(calls.every(x=>x.method==='GET'&&x.auth==='Bearer test-moysklad-token'));
+ assert.ok(calls.every(x=>!x.url.endsWith('entity/assortment')));
 });
-test('incomplete source snapshot is never returned as available',async()=>{
+test('one oversized exact filter returns an unverified SKU, not a total failure',async()=>{
  const token='test-only-owner';
  const cookie=(await createSession('owner',token)).split(';')[0];
- const handler=createOrderStockMatch({fetcher:async()=>{
-  return Response.json({meta:{size:3000},rows:[]});
- }});
- const res=await handler({request:new Request(endpoint,{method:'POST',headers:{
+ const handler=createOrderStockMatch({fetcher:async()=>
+  Response.json({meta:{size:1},rows:[{name:'X'.repeat(700000)}]})});
+ const response=await handler({request:new Request(endpoint,{method:'POST',headers:{
   Origin:ORIGIN,Cookie:cookie,'Content-Type':'application/json'},
   body:JSON.stringify({skus:['vesta-1']})}),env:{
   OFFICE_SESSION_SECRET:token,OFFICE_ALLOWED_EMAIL:'owner@example.test',
   OZON_FINANCE_DB:{prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})},
   MS_API_TOKEN:'test-moysklad-token'
  }});
- assert.equal(res.status,502);
- const data=await res.json();
- assert.equal(data.completeStockReport,false);
- assert.equal(data.completeCatalog,false);
+ assert.equal(response.status,200);
+ const data=await response.json();
+ assert.equal(data.matches[0].status,'unverified');
+ assert.equal(data.matches[0].reason,'response_too_large');
+ assert.equal(data.matches[0].accountingTotal,null);
 });
