@@ -10,7 +10,8 @@ const LIMIT=100,MAX_PAGES=5,MAX_BYTES=512*1024;
 const CHANNELS=[
  {key:'avito',label:'Авито',marker:'AS63:manual:avito:'},
  {key:'dealer_ruslan',label:'Дилер · Руслан',marker:'AS63:manual:dealer_ruslan:'},
- {key:'dealer_irina',label:'Дилер · Ирина',marker:'AS63:manual:dealer_irina:'}
+ {key:'dealer_irina',label:'Дилер · Ирина',marker:'AS63:manual:dealer_irina:'},
+ {key:'plamya',label:'Пламя · точка',marker:'AS63:manual:plamya:'}
 ];
 const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const H={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store',
@@ -53,6 +54,7 @@ export function normalizeManualCustomerOrder(row){
  return {
   source:channel.key,sourceLabel:channel.label,manualOrderRef:channel.orderRef,
   externalCode:row.externalCode,documentId:row.id.toLowerCase(),documentName:row.name,
+  orderIdentity:'AS63:manual:'+channel.key+':'+row.id.toLowerCase(),
   moment:typeof row.moment==='string'&&row.moment.length<=40?row.moment:null,
   status:clean(row?.state?.name,100)?row.state.name:'Статус не подтверждён',
   statusType:stateType,organization:clean(row?.organization?.name,120)?row.organization.name:null,
