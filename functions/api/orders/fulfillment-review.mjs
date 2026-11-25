@@ -13,7 +13,7 @@ export function buildReview(warehouse,rows,allocation=null){
     Number.isSafeInteger(verified.missing)&&verified.missing>=0&&
     verified.warehouseCovered+verified.plannedCovered+verified.missing===row.ordered;
   return {
-   item:row.item,itemId:row.itemId,ordered:row.ordered,
+   key:row.key??null,item:row.item,itemId:row.itemId,ordered:row.ordered,
    accounting:row.accounting??null,production:row.production??null,
    occupancy:row.occupancy??null,
    status:valid?(verified.missing>0?'sewing_required':
