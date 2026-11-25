@@ -68,8 +68,13 @@ export function interpretYandexDirectCostReview(month,data){
    cogsKopecks:null,preliminaryContributionKopecks:null,
    missingCount:data.missing.length,
    missingProducts:data.missing.slice(0,30).map(x=>({
+    partnerId:[149082506,149106500].includes(x.partnerId)?x.partnerId:null,
     shopSku:String(x.shopSku||'').slice(0,150),
-    name:String(x.name||'').slice(0,200)})),
+    name:String(x.name||'').slice(0,200),
+    deliveredUnits:int(x.deliveredUnits)&&x.deliveredUnits>=0?
+     x.deliveredUnits:null,
+    returnedUnits:int(x.returnedUnits)&&x.returnedUnits>=0?
+     x.returnedUnits:null})),
    issues:data.issues.length,
    issueDetails:data.issues.slice(0,10).map(x=>({
     partnerId:x.partnerId,reason:String(x.reason||'unknown').slice(0,80)})),
