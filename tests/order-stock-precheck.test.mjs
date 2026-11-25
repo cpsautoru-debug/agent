@@ -1,0 +1,72 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createSession} from '../functions/api/auth/session.js';
+import {projectOrderLine} from '../functions/api/orders/order-availability.js';
+import {createStockPrecheck,validateStockRow} from '../functions/api/orders/order-stock-precheck.js';
+const origin='https://autosklad63-office-staging.pages.dev';
+const route=origin+'/api/orders/order-stock-precheck';
+const key='AS63:yandex:149082506:live1';
+const cookie=async()=>(await createSession('owner','unit-test')).split(';')[0];
+const env=db=>({OFFICE_SESSION_SECRET:'unit-test',OFFICE_ALLOWED_EMAIL:'owner@example.test',
+ OZON_FINANCE_DB:db,MS_API_TOKEN:'unit-token'});
+const body=JSON.stringify({orderKey:key});
+const request=async()=>new Request(route,{method:'POST',headers:{Origin:origin,
+ Cookie:await cookie(),'Content-Type':'application/json'},body});
+const owner=()=>({bind:()=>({first:async()=>({allowed:1})})});
+test('accounting stock cannot approve picking or sewing without store, allocations and physical check',()=>{
+ const x=projectOrderLine({ordered:5,stock:2,reserve:0,orderActive:true,itemConfirmed:true,
+  storeConfirmed:true,stockConfirmed:true,allocationsConfirmed:true,otherAllocations:0});
+ assert.equal(x.state,'accounting_projection_only');
+ assert.equal(x.provisionalMissing,3);
+ assert.equal(x.provisionalPick,2);
+ assert.equal(x.pickable,null);
+ assert.equal(x.missing,null);
+ const y=projectOrderLine({ordered:5,stock:2,reserve:0,orderActive:true,itemConfirmed:true,
+  storeConfirmed:false,stockConfirmed:true,allocationsConfirmed:true});
+ assert.equal(y.state,'unverified');
+ assert.equal(y.provisionalMissing,undefined);
+ assert.equal(projectOrderLine({ordered:1,orderActive:false}).state,'not_for_sewing');
+});
+test('strict stock rows reject mismatched item or malformed stores',()=>{
+ const href='https://api.moysklad.ru/api/remap/1.2/entity/product/12345678-1234-4234-9234-1234567890ab';
+ const row={meta:{href},stockByStore:[{name:'Main',stock:5,reserve:3}]};
+ assert.equal(validateStockRow(row,'product','12345678-1234-4234-9234-1234567890ab')[0].accountingFree,2);
+ assert.throws(()=>validateStockRow(row,'variant','12345678-1234-4234-9234-1234567890ab'));
+ assert.throws(()=>validateStockRow({...row,stockByStore:[{name:'Main',stock:'5',reserve:0}]},'product','12345678-1234-4234-9234-1234567890ab'));
+});
+test('history order never calls stock or approved SKU lookup',async()=>{
+ let other=0;
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return owner();
+  if(sql.includes('FROM office_order_queue WHERE'))return {bind:()=>({
+   first:async()=>({order_key:key,source:'yandex',account:'149082506',
+     source_status:'DELIVERED',source_checked_at:new Date().toISOString(),
+     items_json:JSON.stringify([{sku:'sample',quantity:1}])})})};
+  other++;throw Error('unexpected');
+ }};
+ const r=await createStockPrecheck({fetcher:()=>{throw Error('HTTP called');}})({
+  request:await request(),env:env(db)});
+ assert.equal(r.status,409);assert.equal((await r.json()).code,'order_not_active');
+ assert.equal(other,0);
+});
+test('unmapped active order returns blocked per-line plan without external request',async()=>{
+ let calls=0;
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return owner();
+  if(sql.includes('FROM office_order_queue WHERE'))return {bind:()=>({
+   first:async()=>({order_key:key,source:'yandex',account:'149082506',
+     source_status:'PROCESSING',source_checked_at:new Date().toISOString(),
+     items_json:JSON.stringify([{sku:'sample',quantity:2}])})})};
+  if(sql.includes('FROM office_order_sku_links'))return {bind:()=>({first:async()=>null})};
+  throw Error('unexpected DB query');
+ }};
+ const r=await createStockPrecheck({fetcher:()=>{calls++;throw Error();}})({
+  request:await request(),env:env(db)});
+ const data=await r.json();
+ assert.equal(r.status,200);
+ assert.equal(data.sewingAllowed,false);
+ assert.equal(data.rows[0].projection.reason,'item_mapping_unverified');
+ assert.equal(data.rows[0].projection.missing,null);
+ assert.equal(calls,0);
+ assert.equal(data.changedMoySkladRecords,0);
+});
