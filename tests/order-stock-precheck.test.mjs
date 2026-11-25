@@ -70,3 +70,42 @@ test('unmapped active order returns blocked per-line plan without external reque
  assert.equal(calls,0);
  assert.equal(data.changedMoySkladRecords,0);
 });
+test('active FBS check persists exact warehouse evidence but blocks picking and sewing',async()=>{
+ const id='12345678-1234-4234-9234-1234567890ab';
+ const org='12345678-1234-4234-9234-1234567890ac';
+ const stamp=new Date().toISOString();
+ const paths=[];
+ let stored;
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return owner();
+  if(sql.includes('FROM office_order_queue WHERE')&&sql.startsWith('SELECT'))return {bind:()=>({
+   first:async()=>({order_key:key,source:'yandex',account:'149082506',
+     source_status:'PROCESSING',source_checked_at:stamp,
+     items_json:JSON.stringify([{sku:'sample',quantity:2}])})})};
+  if(sql.includes('FROM office_order_warehouse_routes'))return {bind:()=>({first:async()=>({
+   store_id:id,organization_id:org,store_kind:'retail'
+  })})};
+  if(sql.includes('INSERT INTO office_order_warehouse_checks'))return {bind:(...args)=>({
+   run:async()=>{stored=args;return {meta:{changes:1}};}
+  })};
+  if(sql.includes('FROM office_order_sku_links'))return {bind:()=>({first:async()=>null})};
+  throw Error('unexpected query');
+ }};
+ const handler=createStockPrecheck({fetcher:async(url,options)=>{
+  paths.push(new URL(url).pathname);
+  assert.equal(options.method,'GET');
+  return Response.json({id:url.endsWith(id)?id:org,name:'Verified'});
+ }});
+ const result=await handler({request:await request(),env:env(db)});
+ const data=await result.json();
+ assert.equal(result.status,200);
+ assert.equal(data.warehouse.status,'warehouse_verified');
+ assert.equal(data.warehouse.storeId,id);
+ assert.equal(data.warehouse.organizationId,org);
+ assert.equal(stored[3],stamp);
+ assert.equal(JSON.parse(stored[0]).storeId,id);
+ assert.equal(paths.length,2);
+ assert.equal(data.sewingAllowed,false);
+ assert.equal(data.rows[0].projection.missing,null);
+ assert.equal(data.changedMoySkladRecords,0);
+});

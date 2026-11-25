@@ -103,7 +103,14 @@
        return item.item+' × '+item.ordered+' — '+status+
          (stores?'; '+stores:'');
      });
-     precheckStatus.textContent='Заказ '+order.external_id+': '+notes.join(' | ')+
+     const warehouse=data.warehouse;
+     const warehouseText=warehouse?.status==='warehouse_verified'
+       ? [warehouse.organizationName,warehouse.storeName,
+          warehouse.source==='customerorder'?'Заказ покупателя МойСклад':'Привязка кабинета',
+          new Date(warehouse.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'})].join(' · ')
+       : 'Склад исполнения требует подтверждения';
+     precheckStatus.textContent='Заказ '+order.external_id+' · '+order.source+' · '+warehouseText+
+       ' | '+notes.join(' | ')+
        '. Потребность в пошиве и доступность к отбору НЕ подтверждены. Документы не изменены.';
    }catch(e){
      precheckStatus.textContent='Проверка не завершена: '+String(e.message).slice(0,110)+

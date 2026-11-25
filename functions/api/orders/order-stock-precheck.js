@@ -1,6 +1,7 @@
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {projectOrderLine} from './order-availability.js';
+import {readWarehouse} from './fulfillment-warehouse.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -51,7 +52,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
   let order,items;
   try{
    order=await db.prepare(
-    'SELECT order_key,source,account,source_status,source_checked_at,items_json FROM office_order_queue WHERE order_key=? LIMIT 1')
+    'SELECT order_key,source,account,source_status,source_checked_at,items_json,ms_customerorder_id FROM office_order_queue WHERE order_key=? LIMIT 1')
     .bind(key).first();
    if(!order)return response(404,{code:'order_not_found'});
    if(classifyOrderBucket(order).bucket!=='active')
@@ -63,6 +64,35 @@ export function createStockPrecheck({fetcher=fetch}={}){
    items=JSON.parse(order.items_json);
    if(!Array.isArray(items)||items.length<1||items.length>8)throw Error();
   }catch{return response(503,{code:'order_data_unverified',changedRecords:0});}
+  const checkedAt=new Date().toISOString();
+  let warehouse={status:'warehouse_unverified'};
+  let warehouseSaved=false;
+  try{
+   const mapping=await db.prepare(
+    'SELECT store_id,organization_id,store_kind FROM office_order_warehouse_routes WHERE source=? AND seller_account=?')
+    .bind(order.source,order.account).first();
+   const token=env.MS_API_TOKEN;
+   warehouse=await readWarehouse(order,mapping,async path=>{
+    if(typeof token!=='string'||!token||/\s/.test(token))throw Error();
+    const result=await fetcher(ROOT+'entity/'+path,{method:'GET',redirect:'manual',
+     headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+     signal:AbortSignal.timeout(8000)});
+    if(result.status!==200){
+     await result.body?.cancel().catch(()=>{});
+     throw Error();
+    }
+    return result.json();
+   });
+   const saved=await db.prepare(`INSERT INTO office_order_warehouse_checks
+    (order_key,evidence_json,checked_at)
+    SELECT order_key,?,? FROM office_order_queue WHERE order_key=? AND source_checked_at=?
+    ON CONFLICT(order_key) DO UPDATE SET evidence_json=excluded.evidence_json,
+     checked_at=excluded.checked_at
+    WHERE office_order_warehouse_checks.checked_at<excluded.checked_at`)
+    .bind(JSON.stringify(warehouse),checkedAt,key,order.source_checked_at).run();
+   warehouseSaved=saved.meta?.changes===1;
+  }catch{}
+  if(!warehouseSaved)warehouse={status:'warehouse_unverified'};
   const rows=[];
   for(const item of items){
    const ordered=item.quantity;
@@ -84,7 +114,8 @@ export function createStockPrecheck({fetcher=fetch}={}){
     }
    }
    const label=item.sku||item.name||item.itemId||'unknown';
-   const projection=projectOrderLine({ordered,orderActive:true,itemConfirmed:!!id});
+   const projection=projectOrderLine({ordered,orderActive:true,itemConfirmed:!!id,
+    storeConfirmed:warehouse.status==='warehouse_verified'});
    const entry={item:label,ordered,itemId:id,itemType:type,
     stores:[],stockEvidence:'not_verified',projection};
    if(id&&typeof env.MS_API_TOKEN==='string'&&env.MS_API_TOKEN&&!/\s/.test(env.MS_API_TOKEN)){
@@ -110,10 +141,11 @@ export function createStockPrecheck({fetcher=fetch}={}){
    }
    rows.push(entry);
   }
-  return response(200,{code:'order_stock_precheck',readOnly:true,
-   changedRecords:0,changedMoySkladRecords:0,orderKey:key,rows,
+  return response(200,{code:'order_stock_precheck',readOnly:!warehouseSaved,
+   changedRecords:warehouseSaved?1:0,changedMoySkladRecords:0,orderKey:key,rows,
+   warehouse:{...warehouse,checkedAt:warehouseSaved?checkedAt:null},
    completeness:'NOT_READY_FOR_ALLOCATION',sewingAllowed:false,
-   note:'No verified warehouse, full allocations, physical stock or existing production orders. Stock by store is informational; no sewing or picking amounts are approved.'});
+   note:'Stock by store remains informational until complete allocation and production evidence is available.'});
  };
 }
 export const onRequestPost=createStockPrecheck();
