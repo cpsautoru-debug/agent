@@ -1823,6 +1823,18 @@
           <article class="ms-site-card"><strong>Дилер Ирина</strong><p>Требуется определить продажу либо передачу на реализацию, склад и юрлицо.</p></article>
         </div>
         <p class="ms-production-status" id="ordersIntakeStatus" role="status">Проверка по API ещё не запускалась. Документы МойСклад не создаются.</p>
+        <section class="ms-sites" aria-labelledby="persistentOrdersTitle">
+          <h3 id="persistentOrdersTitle">Постоянная очередь D1 · предварительные данные</h3>
+          <p>Снимки заказов сохраняются отдельно от МойСклад. Кнопка читает реальные источники повторно через сервер; неполные выборки не записываются. Статусы сотрудников, резервы, реальное наличие и отгрузки пока не подтверждены.</p>
+          <button type="button" class="ms-production-detail-button" id="persistentOrdersSync">Синхронизировать и сохранить источники</button>
+          <button type="button" class="ms-production-detail-button" id="persistentOrdersRefresh">Показать сохранённую очередь</button>
+          <p class="ms-production-status" role="status" id="persistentOrdersStatus">Данные D1 ещё не загружались.</p>
+          <div class="ms-production-scroll"><table class="ms-production-table" id="persistentOrdersTable" hidden>
+            <thead><tr><th>Источник</th><th>Заказ</th><th>Состав</th><th>Статус источника</th><th>Исполнение</th><th>Последняя проверка</th></tr></thead>
+            <tbody id="persistentOrdersRows"></tbody>
+          </table></div>
+        </section>
+
         <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
         <p class="ms-production-status" id="ordersStockStatus" role="status">Сначала загрузите FBS-заказы. Сверка только на чтение; результат не подтверждает физический запас.</p>
         <section class="ms-sites" aria-labelledby="ordersSkuMapTitle">
@@ -2448,6 +2460,7 @@
 <script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
 <script type="module" src="orders-intake-board.mjs?v=20261125-orders-v1"></script>
 <script type="module" src="manual-moysklad-orders.mjs?v=20261125-manual-order-feed-v1"></script>
+<script type="module" src="persistent-order-queue.mjs?v=20261125-d1-queue-v1"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
