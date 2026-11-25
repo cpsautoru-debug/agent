@@ -60,7 +60,26 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
  const summary=buildYandexPreliminaryContribution(sources,costs,realizations);
  const finance=buildYandexMonthlyEvidence(sources);
  const missing=ledger.missing;
- const complete=!archivedActivity&&
+ // Owner-only SKU evidence: qty is taken from realization archive;
+ // unit cost from dated exact/owner-confirmed crosswalk. NO order PII.
+ const skuAudit=ledger.rows.slice(0,150).map(x=>{
+  const qty=Number.isSafeInteger(x.deliveredUnits)?x.deliveredUnits:null;
+  const unit=Number.isSafeInteger(x.costKopecks)?x.costKopecks:null;
+  const line=Number.isSafeInteger(qty)&&Number.isSafeInteger(unit)?
+   qty*unit:null;
+  return {shopSku:x.shopSku,name:x.name,
+   deliveredUnits:qty,returnedUnits:x.returnedUnits,
+   unitCostKopecks:unit,deliveredCostKopecks:
+    Number.isSafeInteger(line)?line:null,costStatus:x.costStatus};
+ });
+ const skuAuditSum=skuAudit.reduce((total,x)=>
+  Number.isSafeInteger(total)&&
+  Number.isSafeInteger(x.deliveredCostKopecks)?
+   total+x.deliveredCostKopecks:null,0);
+ const skuAuditMatches=skuAudit.length===ledger.rows.length&&
+  Number.isSafeInteger(skuAuditSum)&&
+  skuAuditSum===summary.deliveredManufacturingCostKopecks;
+ const complete=!archivedActivity&&skuAuditMatches&&
   summary.status==='preliminary_contribution_ready'&&
   ledger.issues.length===0&&missing.length===0;
  return {code:'yandex_direct_cost_review',month,readOnly:true,
@@ -85,6 +104,10 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   reviewContributionBeforeReturnsKopecks:!archivedActivity&&
    Number.isSafeInteger(summary.reviewContributionBeforeReturnsKopecks)?
    summary.reviewContributionBeforeReturnsKopecks:null,
+  skuAudit,skuAuditSumKopecks:skuAuditMatches?skuAuditSum:null,
+  deliveredUnits:skuAudit.reduce((n,x)=>n+(x.deliveredUnits??0),0),
+  returnedUnits:skuAudit.reduce((n,x)=>n+(x.returnedUnits??0),0),
+  skuAuditMatches,
   missing,issues:ledger.issues,
   blockers:[...summary.blockers,...(archivedActivity?['archived_campaign_has_order_rows']:[])],
   activeCampaigns:active,archivedCampaigns:[149106500].filter(id=>!active.includes(id)),
