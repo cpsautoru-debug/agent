@@ -50,6 +50,13 @@ test('Plamya channel has an exact independent marker and MoySklad UUID identity'
  assert.equal(order.items[0].itemId,id);
  assert.equal(manualOrderChannel('AS63:manual:plamya:'),null);
 });
+test('expanded MoySklad positions.rows must be complete',()=>{
+ const row={...validRow,positions:{meta:{size:1},rows:validRow.positions}};
+ const result=normalizeManualCustomerOrder(row);
+ assert.equal(result.items[0].itemId,id);
+ assert.throws(()=>normalizeManualCustomerOrder({...row,positions:{
+  meta:{size:2},rows:validRow.positions}}),/manual_order_schema_unverified/);
+});
 test('document without a manual marker is excluded',()=>{
  assert.throws(()=>normalizeManualCustomerOrder({...validRow,externalCode:'ordinary-order-123'}),
   /manual_order_schema_unverified/);
