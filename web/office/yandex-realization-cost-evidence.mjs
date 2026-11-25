@@ -2,7 +2,13 @@
 // archives and the owner-verified WB/Ozon unit-cost crosswalk.
 // Never substitute missing SKUs or amounts with zero, and never equate this
 // manufacturing cost with accounting profit or tax-deductible expense.
-const CAMPAIGNS=[149082506,149106500];
+const HISTORICAL_CAMPAIGNS=[149082506,149106500];
+// Owner confirmed: SAD is the only active seller for October 2026 onwards.
+// Historical archives for 149106500 remain accessible but do not block current COGS.
+export function applicableYandexCampaigns(month){
+ return /^20\d{2}-(0[1-9]|1[0-2])$/.test(month)&&month>='2026-10'?
+  [149082506]:[...HISTORICAL_CAMPAIGNS];
+}
 const key=(partnerId,shopSku)=>partnerId+':'+shopSku;
 const validMoney=v=>Number.isSafeInteger(v)&&v>0&&v<=100000000;
 const validQuantity=v=>Number.isSafeInteger(v)&&v>=0&&v<=1000000;
@@ -108,11 +114,11 @@ export function reconcileYandexRealizationCosts(costAudit,reportByCampaign){
  if(!costAudit||!Array.isArray(costAudit.rows)||
     !reportByCampaign||typeof reportByCampaign!=='object')
   throw Error('yandex_realization_inputs_invalid');
- const byShop=CAMPAIGNS.map(id=>
+ const byShop=applicableYandexCampaigns(costAudit.month).map(id=>
   auditedCampaign(id,reportByCampaign[id],costAudit.rows));
  return {month:costAudit.month,byShop,
   status:byShop.every(x=>x.status==='cost_verified')?
-   'two_shops_cost_verified':'reconciliation_incomplete',
+   'active_shops_cost_verified':'reconciliation_incomplete',
   totalDeliveredCostKopecks:byShop.every(x=>
    Number.isSafeInteger(x.deliveredCostKopecks))?
    byShop.reduce((n,x)=>n+x.deliveredCostKopecks,0):null,
@@ -123,9 +129,9 @@ export function reconcileYandexRealizationCosts(costAudit,reportByCampaign){
   netProfitKopecks:null,
   note:'Delivered and returned manufacturing-cost values are separate evidence. Returned value is NOT confirmed COGS recovery; tax and other costs are not reconciled.'};
 }
-export function collectYandexRealizationCandidates(reportByCampaign){
+export function collectYandexRealizationCandidates(reportByCampaign,month){
  const result=[],seen=new Set();
- for(const campaign of CAMPAIGNS){
+ for(const campaign of applicableYandexCampaigns(month)){
   const audit=reportByCampaign?.[campaign];
   if(audit?.code!=='yandex_report_archive_audited'||
      audit.readOnly!==true)continue;
@@ -162,7 +168,7 @@ export function buildYandexSafeSkuEvidence(costAudit,reportByCampaign){
    name:String(x.name||'').slice(0,200)
   }
  ]));
- for(const partnerId of CAMPAIGNS){
+ for(const partnerId of applicableYandexCampaigns(costAudit.month)){
   const audit=reportByCampaign[partnerId];
   if(audit?.code==='yandex_report_no_data'){
    issues.push({partnerId,reason:'source_no_data'});continue;
