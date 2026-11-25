@@ -10,7 +10,17 @@ const OWNER="SELECT 1 AS allowed FROM office_authorized_users WHERE google_sub=?
 const MISSING="SELECT a.sku,MAX(a.seller_article) AS article,COUNT(*) AS operation_rows FROM ozon_accruals a LEFT JOIN ozon_cost_entries c ON c.sku=a.sku WHERE a.sku IS NOT NULL AND a.sku<>'' AND c.sku IS NULL GROUP BY a.sku ORDER BY operation_rows DESC LIMIT 101";
 export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}){
  return async function({request,env}){
-  if(request.method!=='GET')return respond(405,{code:'method_not_allowed'});
+  if(!['GET','POST'].includes(request.method))return respond(405,{code:'method_not_allowed'});
+  const saving=request.method==='POST';
+  if(saving){
+   if(request.headers.get('Origin')!==new URL(request.url).origin)
+    return respond(403,{code:'origin_denied'});
+   if(request.headers.get('Content-Type')?.split(';')[0]!=='application/json')
+    return respond(415,{code:'content_type_required'});
+   let input;try{input=await request.json();}catch{return respond(400,{code:'invalid_body'});}
+   if(!input||Object.keys(input).length!==1||input.action!=='sync_preliminary')
+    return respond(400,{code:'invalid_action'});
+  }
   if(new URL(request.url).search)return respond(400,{code:'invalid_scope'});
   if(!env?.OZON_FINANCE_DB||!env.OFFICE_SESSION_SECRET||
      !env.OFFICE_ALLOWED_EMAIL)return respond(503,{code:'configuration_unavailable'});
@@ -27,7 +37,7 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
    const skus=rows.map(x=>String(x.sku));
    if(skus.some(x=>!/^\d{1,18}$/.test(x))||new Set(skus).size!==skus.length)
     return respond(503,{code:'invalid_sku_catalog'});
-   if(skus.length===0)return respond(200,{code:'ozon_accrual_sku_cards',readOnly:true,
+   if(skus.length===0)return respond(200,{code:'ozon_accrual_sku_cards',readOnly:!saving,
     changedRecords:0,source:'OZON_SELLER_API_CURRENT',foundCount:0,
     missingCount:0,items:[],notFound:[],asOfMs:now()});
    let upstream;
@@ -52,7 +62,34 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
      referenceModel:reference?.category??null,priceStatus:'candidate_not_applied',
      historicalCostVerified:false};
    });
-   return respond(200,{code:'ozon_accrual_sku_cards',readOnly:true,changedRecords:0,
+   let changedRecords=0,skipped=0;
+   if(saving){
+    // Insert only preliminary prices: a current catalog title is never
+    // evidence of identical physical composition at each historical sale.
+    const insert=env.OZON_FINANCE_DB.prepare(
+     "INSERT INTO ozon_cost_entries(sku,seller_article,model,cost_kopecks,status,source,updated_at) "+
+     "SELECT ?,?,?,?,'preliminary','OWNER_MODEL_NORM_OZON_SELLER_API_2026_11_25',CURRENT_TIMESTAMP "+
+     "WHERE NOT EXISTS(SELECT 1 FROM ozon_cost_entries WHERE sku=?)"
+    );
+    for(const item of items){
+     const cost=item.referenceCostKopecks;
+     const row=rowMap.get(item.sku);
+     // Require exact offer_id/Seller article agreement. Unverified,
+     // renamed, ambiguous or special-variant items stay in the review list.
+     if(!Number.isSafeInteger(cost)||cost<=0||
+        !row||item.offerId!==row.article||
+        /подлокот|премиум|premium|комплект.*\u0434\u043e\u043f/i.test(item.name)){
+       skipped++;continue;
+     }
+     const result=await insert.bind(item.sku,row.article,item.referenceModel,
+       cost,item.sku).run();
+     const count=result?.meta?.changes;
+     if(!Number.isSafeInteger(count)||count<0||count>1)
+      throw Error('write_unverified');
+     changedRecords+=count;
+    }
+   }
+   return respond(200,{code:'ozon_accrual_sku_cards',readOnly:!saving,changedRecords,skipped,
     source:'OZON_SELLER_API_CURRENT',missingCount:rows.length,
     foundCount:items.length,items,notFound:normalized.notFound,asOfMs:now(),
     profitVerified:false,
