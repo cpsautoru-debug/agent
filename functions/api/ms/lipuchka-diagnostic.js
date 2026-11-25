@@ -58,9 +58,17 @@ export function createLipuchkaHandler(fetcher=fetch){
           signal:AbortSignal.timeout(20000)
         });
         if(response.status!==200){
+          let msErrorCode=null;
+          if([400,412,415,422].includes(response.status)){
+            try{
+              const errorBody=await boundedJson(response);
+              const numeric=errorBody?.errors?.[0]?.code;
+              if(Number.isSafeInteger(numeric)&&numeric>=0)msErrorCode=numeric;
+            }catch{}
+          }
           await response.body?.cancel().catch(()=>{});
           return json(200,{code:'ms_lipuchka_upstream_partial',readOnly:true,changedRecords:0,
-            upstreamHttp:response.status,offset,pages,rowsRead:read,expectedRows:total,
+            upstreamHttp:response.status,msErrorCode,offset,pages,rowsRead:read,expectedRows:total,
             warning:'No conclusions until all report pages have been read'});
         }
         const data=await boundedJson(response),rows=data?.rows;
