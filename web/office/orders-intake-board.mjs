@@ -12,7 +12,9 @@
    wb:{label:'Wildberries FBS',coverage:'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS'},
    yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'FIRST_PAGE_BOTH_SHOPS_NOT_COMPLETE_QUEUE'}
  };
- const sourceOrders=new Map(),stockResults=new Map();
+ const sourceOrders=new Map(),stockResults=new Map(),approvedLinks=new Map();
+ const mapButton=el('ordersSkuLinksRefresh'),mapStatus=el('ordersSkuLinksStatus'),
+   mapRows=el('ordersSkuLinksRows'),mapTable=el('ordersSkuLinksTable');
  const stockButton=el('ordersStockCheck'),stockStatus=el('ordersStockStatus');
  const blocks=Object.fromEntries(Object.keys(sources).map(k=>[k,el('ordersSource_'+k)]));
  let busy=false;
@@ -88,7 +90,7 @@
      for(const tr of [...tbody.children].slice(before))tr.dataset.source=k;
      sourceOrders.set(k,data.orders);
      stockResults.clear();
-     refreshStockCells();
+     refreshStockCells();renderMappingCandidates();
      const coverage=k==='yandex'?('два магазина доступны; в выборке представлены '+
        new Set(data.orders.map(o=>o.campaignId)).size+' из 2; первая страница'):
        k==='ozon_fbo'?'FBO, продажи со склада Ozon, НЕ очередь пошива':
@@ -134,6 +136,108 @@
      td.textContent=findings.join('; ');
    }
  }
+ const mapKey=(source,account,sku)=>[source,account,sku].join('\\u0001');
+ function mappingEntries(){
+   const unique=new Map();
+   for(const [source,orders] of sourceOrders){
+     for(const order of orders){
+       if(order.productionQueue!=='candidate_needs_inventory')continue;
+       const parts=order.externalKey.split(':');
+       if(parts.length<4||parts[0]!=='AS63'||parts[1]!==source)continue;
+       const account=parts[2];
+       for(const item of order.items){
+         const k=mapKey(source,account,item.sku);
+         if(!unique.has(k))unique.set(k,{source,account,sku:item.sku});
+       }
+     }
+   }
+   return [...unique.values()];
+ }
+ function renderMappingCandidates(){
+   if(!mapRows||!mapTable)return;
+   mapRows.replaceChildren();
+   for(const entry of mappingEntries()){
+     const tr=document.createElement('tr');
+     cell(tr,entry.source+' · '+entry.account);
+     cell(tr,entry.sku);
+     const link=approvedLinks.get(mapKey(entry.source,entry.account,entry.sku));
+     const result=stockResults.get(entry.sku);
+     const td=document.createElement('td');
+     if(link)td.textContent='Утверждено владельцем: '+link.ms_item_name;
+     else if(result?.status==='unmapped_sku')
+       td.textContent='Нет соответствия; предложения ниже требуют подтверждения';
+     else if(result?.itemId)
+       td.textContent='Точный SKU обнаружен, но постоянная связь не подтверждена';
+     else td.textContent='Не подтверждено';
+     tr.append(td);
+     const action=document.createElement('td');
+     const candidates=result?.possibleNameCandidates||
+       (result?.itemId&&result?.itemType?[{id:result.itemId,
+         type:result.itemType,name:result.itemName||result.itemId}]:[]);
+     if(!link&&candidates.length){
+       for(const candidate of candidates){
+         if(!['product','variant','bundle'].includes(candidate.type)||!
+            /^[a-f0-9-]{36}$/i.test(candidate.id))continue;
+         const btn=document.createElement('button');
+         btn.type='button';btn.className='ms-production-detail-button';
+         btn.textContent='Проверить и связать: '+candidate.name;
+         btn.addEventListener('click',()=>approve(entry,candidate));
+         action.append(btn);
+       }
+     }else action.textContent=link?'Связь сохранена':'Нет подтверждённых кандидатов';
+     tr.append(action);mapRows.append(tr);
+   }
+   mapTable.hidden=mapRows.children.length===0;
+ }
+ async function refreshLinks(){
+   if(!mapButton)return;
+   mapButton.disabled=true;
+   mapStatus.textContent='Читаем сохранённый справочник D1…';
+   try{
+     const response=await fetch('/api/ms/order-sku-links',{credentials:'same-origin',
+       headers:{Accept:'application/json'},cache:'no-store'});
+     const data=await response.json();
+     if(!response.ok||data?.code!=='sku_links_read'||
+       !Array.isArray(data.approvedLinks))throw Error(data?.code||'api_unavailable');
+     approvedLinks.clear();
+     for(const row of data.approvedLinks){
+       if(row&&typeof row.source==='string'&&typeof row.seller_account==='string'&&
+         typeof row.marketplace_sku==='string')
+         approvedLinks.set(mapKey(row.source,row.seller_account,row.marketplace_sku),row);
+     }
+     mapStatus.textContent='Сохранено утверждённых связей: '+approvedLinks.size+
+       (data.hasMore?' (показаны первые 200)':'')+
+       '. Автоматическое списание не включено.';
+     renderMappingCandidates();
+   }catch(error){
+     approvedLinks.clear();renderMappingCandidates();
+     mapStatus.textContent=String(error?.message)==='sku_links_storage_unavailable'?
+       'Справочник создан в коде, но D1-таблица пока не активирована. Требуется применение миграции.':
+       'Справочник недоступен: '+String(error?.message||'ошибка').slice(0,70);
+   }finally{mapButton.disabled=false;}
+ }
+ async function approve(entry,candidate){
+   if(busy||!confirm('Подтвердить связь '+entry.source+' / '+entry.sku+
+     ' с товаром МойСклад «'+candidate.name+'»? Это сохранит только соответствие SKU, не изменит остатки.'))return;
+   busy=true;
+   mapStatus.textContent='Проверяем товар и сохраняем выбранную связь…';
+   try{
+     const response=await fetch('/api/ms/order-sku-links',{
+       method:'POST',credentials:'same-origin',cache:'no-store',
+       headers:{'Content-Type':'application/json',Accept:'application/json'},
+       body:JSON.stringify({source:entry.source,sellerAccount:entry.account,
+         sku:entry.sku,itemType:candidate.type,itemId:candidate.id})
+     });
+     const data=await response.json();
+     if(response.status!==201||data?.code!=='sku_link_approved')
+       throw Error(data?.code||'link_not_saved');
+     mapStatus.textContent='Связь сохранена в D1. Для проверки остальных товаров нажмите «Обновить справочник».';
+   }catch(error){
+     mapStatus.textContent='Связь не сохранена: '+
+       String(error?.message||'ошибка').slice(0,90);
+   }finally{busy=false;await refreshLinks();}
+ }
+ if(mapButton)mapButton.addEventListener('click',refreshLinks);
  if(stockButton)stockButton.addEventListener('click',async()=>{
    if(busy)return;
    const candidates=[...sourceOrders.values()].flat()
@@ -173,13 +277,13 @@
          stockResults.set(result.sku,result);
      }
      if(stockResults.size!==sku.length)throw Error('stock_items_unverified');
-     refreshStockCells();
+     refreshStockCells();renderMappingCandidates();
      const matched=[...stockResults.values()].filter(x=>x.status==='matched_stock_report').length;
      stockStatus.textContent='Запрошено '+sku.length+' SKU; подтверждённых точных совпадений с учётным остатком: '+
        matched+'. Данные неатомарны и не подтверждают физическое наличие или готовность отгрузки. '+
        'Ни одного резерва, задания или отгрузки не создано.';
    }catch(error){
-     stockResults.clear();refreshStockCells();
+     stockResults.clear();refreshStockCells();renderMappingCandidates();
      stockStatus.textContent='Сверка не подтверждена: '+String(error?.message||'нет данных').slice(0,150)+
        '. Решения о пошиве и отгрузках не принимаем.';
    }finally{busy=false;stockButton.disabled=false;buttons.forEach(b=>b.disabled=false);}
