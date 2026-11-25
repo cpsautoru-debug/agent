@@ -36,7 +36,7 @@ export function normalizeYandexOrderPreview(body,allowedCampaignIds){
    // Even FBS must be checked against inventory, buyer cancellations and
    // seller obligations. This preview never approves dispatch.
    const candidate=scheme==='FBS'&&!terminal&&
-     ['PROCESSING','DELIVERY','PICKUP','PLACING'].includes(o.status);
+     o.status==='PROCESSING';
    return {source:'yandex',externalKey,campaignId:o.campaignId,
      status:o.status,programType:scheme,items,
      productionQueue:candidate?'candidate_needs_inventory':'not_for_sewing',
