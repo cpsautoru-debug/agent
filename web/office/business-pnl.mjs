@@ -251,6 +251,13 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
   const t=interim.tax;
   const section=el('section','business-pnl-tax-evidence');
   section.append(el('h3','','АУСН 8% · оценка по данным маркетплейсов'));
+  const fnsReference=ownerFnsTaxReference(pnl.month);
+  if(fnsReference)section.append(el('p','business-pnl-subhead',
+   'Для расчётной прибыли использован АУСН по кабинету ФНС: '+
+   money(fnsReference.taxKopecks)+
+   ' · октябрь 2026 · документ №'+fnsReference.documentNumber+
+   '. Это общий налог ИП; нижние API-сценарии не прибавляются к нему.'));
+
   const wbRetailReady=t.wb?.retailReportAudit?.status===
    'report_retail_amounts_matched';
   const wbTaxScenario=wbRetailReady?
