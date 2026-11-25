@@ -1,5 +1,6 @@
 import {calculateProfit} from '../ozon/profit-model.js';
 import {readWbRetailListSource} from './wb-retail-list-source.js';
+import {yandexDeliveryGrossScenario} from '../../../web/office/yandex-tax-delivery-scenario.mjs';
 import {onRequestGet as auditYandexArchive} from '../yandex/report-audit.js';
 import {verifySession} from '../auth/session.js';
 const HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
@@ -92,49 +93,58 @@ export async function onRequestGet({request,env}){
    taxableGrossSalesKopecks:null,
    verifiedByFNS:false,
    note:'Saved WB report tax estimates are ASSUMED. A WB payout / for_pay is not gross taxable revenue.'};
-  // Reuse the same owner-authorized audit endpoint used by the Yandex
-  // finance panel. A DONE job is only a locator, never proof of the amount.
-  let yandex={status:'gross_sales_source_not_reconciled',taxRateBps:800,
+  // A scenario on EXACTLY the delivered orders, not the 79 mixed-status
+  // order rows. AУСН cash-recognition dates and compensations still require
+  // separate treatment; this is management evidence, not final FNS tax.
+  let yandex={status:'delivered_order_tax_source_unavailable',taxRateBps:800,
    grossOrderValueKopecks:null,incomeKopecks:null,
    taxEstimateKopecks:null,verifiedByFNS:false};
   try{
    const jobs=await env.OZON_FINANCE_DB.prepare(
-    "SELECT report_id FROM yandex_finance_report_jobs WHERE month=? "+
-    "AND scope='all' AND report_type='orders' AND status='DONE'"
+    "SELECT scope,report_type,report_id FROM yandex_finance_report_jobs "+
+    "WHERE month=? AND status='DONE' AND "+
+    "((scope='all' AND report_type='orders') OR "+
+    "(scope='149082506' AND report_type='realization')) LIMIT 4"
    ).bind(month).all();
-   if(jobs.results?.length===1&&
-      /^[a-zA-Z0-9_-]{1,255}$/.test(jobs.results[0].report_id)){
-    const target=new URL('/api/yandex/report-audit',url.origin);
-    target.searchParams.set('reportId',jobs.results[0].report_id);
-    const audited=await auditYandexArchive({request:new Request(target,{
-     method:'GET',headers:request.headers}),env});
-    if(audited.ok){
-     const data=await audited.json();
-     if(data?.code==='yandex_report_archive_audited'&&data.readOnly===true&&
-        data.changedRecords===0&&data.financeProfitVerified===false&&
-        Array.isArray(data.sheets)){
-      const sheets=data.sheets.filter(x=>x.sheet==='services_and_orders_margin.json');
-      if(sheets.length===1){
-       const sheet=sheets[0],v=sheet.sumFields?.sumBillingPriceOfItems;
-       if(safe(sheet.rows)&&sheet.rows>0&&safe(v?.totalKopecks)&&
-          v.totalKopecks>=0&&v.present===sheet.rows&&v.invalid===0&&
-          sheet.duplicateOrderIds===0&&sheet.ordersWithIds===sheet.rows){
-        const scenario=roundRate(v.totalKopecks,800);
-        yandex={status:'gross_order_scenario_before_returns',taxRateBps:800,
-         grossOrderValueKopecks:v.totalKopecks,
-         incomeKopecks:null,taxEstimateKopecks:scenario,
-         orderRows:sheet.rows,verifiedByFNS:false,
-         exclusions:['return_reconciliation','tax_recognition_dates',
-          'order_value_vs_taxable_income','marketplace_compensation']};
-       }else yandex.status='orders_tax_column_incomplete';
-      }else yandex.status='canonical_orders_sheet_missing';
-     }else yandex.status='report_archive_unverified';
-    }else yandex.status='report_archive_unavailable';
-   }else yandex.status='canonical_orders_report_missing';
-  }catch{
-   // The other channel estimates remain usable when Yandex is unavailable.
-   yandex.status='official_report_read_unavailable';
-  }
+   const row=jobs.results||[];
+   const pick=(scope,type)=>row.filter(x=>x.scope===scope&&
+    x.report_type===type&&/^[a-zA-Z0-9_-]{1,255}$/.test(x.report_id||''));
+   const o=pick('all','orders'),d=pick('149082506','realization');
+   if(o.length===1&&d.length===1){
+    const fetchReport=async reportId=>{
+     const target=new URL('/api/yandex/report-audit',url.origin);
+     target.searchParams.set('reportId',reportId);
+     const reply=await auditYandexArchive({request:new Request(target,{
+      method:'GET',headers:request.headers}),env});
+     if(!reply.ok)return null;
+     const data=await reply.json();
+     return data?.code==='yandex_report_archive_audited'&&
+      data.readOnly===true&&data.changedRecords===0&&
+      data.financeProfitVerified===false&&
+      Array.isArray(data.sheets)?data:null;
+    };
+    const [ordersReport,deliveryReport]=await Promise.all([
+     fetchReport(o[0].report_id),fetchReport(d[0].report_id)
+    ]);
+    if(ordersReport&&deliveryReport){
+     const verified=yandexDeliveryGrossScenario(month,
+      ordersReport,deliveryReport);
+     if(verified){
+      yandex={status:verified.status,taxRateBps:800,
+       grossOrderValueKopecks:verified.grossKopecks,
+       incomeKopecks:null,taxEstimateKopecks:verified.taxScenarioKopecks,
+       orderRows:verified.deliveredOrders,
+       deliveredUnits:verified.deliveredUnits,
+       excludedNonDeliveryOrderRows:verified.excludedOrderRows,
+       verifiedByFNS:false,
+       exclusions:['tax_cash_recognition_dates',
+        'marketplace_discount_compensations',
+        'cash_receipt_and_offset_reconciliation',
+        'separate_returns_and_other_ip_income']};
+     }else yandex.status='delivery_order_join_incomplete';
+    }else yandex.status='delivery_or_order_archive_unavailable';
+   }else yandex.status='delivery_or_order_archive_missing';
+  }catch{yandex.status='official_delivery_order_read_unavailable';}
 
   const wbRetail=await wbRetailJob;
   wb.retailReportAudit={status:wbRetail.status,
