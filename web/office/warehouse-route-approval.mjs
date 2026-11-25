@@ -15,7 +15,7 @@
  const fill=(select,items,getValue,getText)=>{
   select.replaceChildren(...items.map(x=>new Option(getText(x),getValue(x))));
  };
- async function refresh(){
+ async function refresh(target=null){
   if(busy)return;
   busy=true;load.disabled=true;approve.disabled=true;
   status.textContent='Проверяем доступные кабинеты, склады и юрлица через МойСклад…';
@@ -31,6 +31,8 @@
    const existing=new Set(data.routes.map(x=>x.source+'|'+x.seller_account));
    const options=data.accounts.filter(x=>!existing.has(x.source+'|'+x.account));
    fill(account,options,x=>x.source+'|'+x.account,x=>x.source+' · '+x.account);
+   if(target&&options.some(x=>x.source===target.source&&x.account===target.account))
+     account.value=target.source+'|'+target.account;
    fill(store,data.stores,x=>x.id,x=>x.name+' · '+x.id);
    fill(org,data.organizations,x=>x.id,x=>x.name+' · '+x.id);
    form.hidden=!options.length||!data.stores.length||!data.organizations.length;
@@ -42,7 +44,14 @@
    status.textContent='Подтверждение пока недоступно: '+String(e.message).slice(0,100);
   }finally{busy=false;load.disabled=false;approve.disabled=false;}
  }
- load.addEventListener('click',refresh);
+ document.addEventListener('as63:focus-route',event=>{
+   const target=event.detail;
+   if(!target||!['ozon','wb','yandex'].includes(target.source)||
+      typeof target.account!=='string')return;
+   load.scrollIntoView({behavior:'smooth',block:'center'});
+   refresh(target);
+ });
+ load.addEventListener('click',()=>refresh());
  approve.addEventListener('click',async()=>{
   if(busy||!known||form.hidden)return;
   const [source,sellerAccount]=account.value.split('|');
