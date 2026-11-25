@@ -51,6 +51,18 @@ export function classifyMarketplaceOrder(source,status){
   return {queue:'unverified',reason:'OZON_STATUS_UNVERIFIED'};
 }
 
+export function extractOzonOrderPage(page,source){
+  if(!['ozon','ozon_fbo'].includes(source))throw Error('order_source_unverified');
+  // Ozon v3 FBO documents pagination at the response root; support a wrapped
+  // result only as a complete schema object, never mix root and nested fields.
+  const result=source==='ozon_fbo'&&page?.result&&
+    Array.isArray(page.result.postings)?page.result:page;
+  const rows=result?.postings,hasNext=result?.has_next,next=result?.cursor;
+  if(!Array.isArray(rows)||rows.length>ORDER_PAGE_LIMIT||
+    typeof hasNext!=='boolean')throw Error('order_pagination_unverified');
+  return {rows,hasNext,next};
+}
+
 export function normalizeMarketplaceOrders(source,body,account){
   const raw=source==='wb'?body?.orders:
     source==='ozon_fbo'?(body?.result?.postings||body?.postings):body?.postings;
@@ -565,7 +577,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         const end=new Date(now()),start=new Date(end.getTime()-7*86400000);
         let cursor='',complete=false,pages=0;
         const postings=[],seenCursors=new Set();
-        for(;pages<MAX_ORDER_PAGES;pages++){
+        while(pages<MAX_ORDER_PAGES){
           options={method:'POST',headers:{'Client-Id':account,
             'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
             body:JSON.stringify(source==='ozon_fbo'?
@@ -574,21 +586,16 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
               {...buildOzonFbsPreviewBody(now()),cursor}),
             signal:AbortSignal.timeout(20000)};
           const page=await requestJson(fetcher,upstream,options);
-          const result=source==='ozon_fbo'?page?.result:page;
-          const rows=source==='ozon_fbo'?result?.postings:page?.postings;
-          const hasNext=source==='ozon_fbo'?result?.has_next:page?.has_next;
-          const next=source==='ozon_fbo'?result?.cursor:page?.cursor;
-          if(!Array.isArray(rows)||rows.length>ORDER_PAGE_LIMIT||
-            typeof hasNext!=='boolean')throw Error('order_pagination_unverified');
+          // v3 FBO normally returns pagination fields at the root. Accept the
+          // documented shape and a complete result wrapper without mixing fields.
+          const {rows,hasNext,next}=extractOzonOrderPage(page,source);
           if(postings.length+rows.length>MAX_IMPORTED_ORDERS)
             throw Error('order_feed_limit_reached');
-          postings.push(...rows);
-          pages++;
+          postings.push(...rows);pages++;
           if(!hasNext){complete=true;break;}
           if(typeof next!=='string'||!next||next.length>500||
             seenCursors.has(next))throw Error('order_pagination_unverified');
           seenCursors.add(next);cursor=next;
-          pages--; // the for-loop increments after a consumed cursor page
         }
         if(!complete)return json(503,{code:'order_page_limit_reached',source,
           stage:'marketplace',readOnly:true,changedRecords:0,

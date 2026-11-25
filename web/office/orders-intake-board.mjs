@@ -13,6 +13,7 @@
    yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE'}
  };
  const sourceOrders=new Map(),stockResults=new Map(),approvedLinks=new Map();
+ const MAX_YANDEX_ORDERS=1000;
  let mappingStorageReady=false;
  const mapButton=el('ordersSkuLinksRefresh'),mapStatus=el('ordersSkuLinksStatus'),
    mapRows=el('ordersSkuLinksRows'),mapTable=el('ordersSkuLinksTable');
@@ -25,7 +26,9 @@
      d.readOnly===true&&d.changedRecords===0&&d.approvedForWrite===false&&
      d.coverage===sources[k].coverage&&Array.isArray(d.campaignIds)&&
      d.campaignIds.length===2&&Array.isArray(d.orders)&&
-     d.received===d.orders.length&&d.orders.length<=10&&
+     d.complete===true&&d.hasNextPage===false&&
+     Number.isSafeInteger(d.pages)&&d.pages>=1&&d.pages<=20&&
+     d.received===d.orders.length&&d.orders.length<=MAX_YANDEX_ORDERS&&
      d.orders.every(o=>o?.source==='yandex'&&
        typeof o.externalKey==='string'&&o.externalKey.startsWith('AS63:yandex:')&&
        o.readyToWrite===false&&o.assortmentVerified===false&&
@@ -151,7 +154,7 @@
      if(badge)badge.textContent=data.orders.length+' строк · '+coverage;
      report.textContent='Получено '+data.orders.length+' заказов '+sources[k].label+
        '. Это ограниченная выборка, не полная очередь. Заказов без подтверждённого соответствия для записи: '+
-       data.orders.length+'. Документы МойСклад не создавались.';
+       data.orders.length+'. Данные показаны в этом сеансе; документы МойСклад не создавались.';
    }catch(error){
      const message=error?.name==='TimeoutError'?'Превышено время ответа':
        'Не удалось проверить источник/формат';

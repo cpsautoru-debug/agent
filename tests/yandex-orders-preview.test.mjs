@@ -127,3 +127,22 @@ test('unexpected third shop or different business cannot be mixed into orders',a
  assert.equal(r.status,503);
  assert.equal((await r.json()).code,'yandex_order_campaign_scope_unverified');
 });
+
+test('Yandex complete first page may contain more than ten orders',async()=>{
+ const secret='eleven-yandex-session';
+ const cookie=(await createSession('owner-sub',secret)).split(';')[0];
+ const orders=Array.from({length:11},(_,i)=>({...fixture.orders[0],
+   orderId:300+i,campaignId:CAMPAIGNS[i%2]}));
+ const handler=createYandexOrdersPreview({campaignLoader,fetcher:async()=>{
+   return Response.json({...fixture,orders,paging:{}});
+ }});
+ const response=await handler({request:new Request(BASE,{headers:{Cookie:cookie}}),
+   env:{OFFICE_SESSION_SECRET:secret,OFFICE_ALLOWED_EMAIL:'x',
+     OZON_FINANCE_DB:{prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})},
+     YANDEX_MARKET_API_KEY:'read-only-test-api-key'}});
+ const data=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(data.complete,true);
+ assert.equal(data.received,11);
+ assert.equal(data.orders.length,11);
+});

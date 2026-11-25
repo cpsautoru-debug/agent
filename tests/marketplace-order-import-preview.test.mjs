@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,findMoyskladNameSuggestion,barcodeValues,matchMoyskladOzonBarcodes,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview}
+import {externalKey,normalizeMarketplaceOrders,buildOzonFbsPreviewBody,lookupMoyskladDuplicate,scanMoyskladOrderKeys,matchMoyskladArticles,matchMoyskladArticlesBudgeted,fetchOzonProductEvidence,findMoyskladNameSuggestion,barcodeValues,matchMoyskladOzonBarcodes,verifyExactAssortmentSku,probeExactAssortmentSku,classifyMarketplaceOrder,createMarketplaceOrderPreview,extractOzonOrderPage}
   from '../functions/api/marketplace/order-import-preview.js';
 
 test('external keys are stable across retries and separate account/source',()=>{
@@ -512,4 +512,16 @@ test('WB FBS uses dedicated read-only orders token without financial-token fallb
   assert.equal(calls.length,1);
   assert.equal(calls[0].url,'https://marketplace-api.wildberries.ru/api/v3/orders/new');
   assert.equal(calls[0].authorization,'dedicated-orders-token');
+});
+
+test('Ozon FBO pagination accepts documented root schema and a complete wrapped schema',()=>{
+ const rows=[{posting_number:'FBO-1'}];
+ assert.deepEqual(extractOzonOrderPage({postings:rows,has_next:true,cursor:'c2'},'ozon_fbo'),
+   {rows,hasNext:true,next:'c2'});
+ assert.deepEqual(extractOzonOrderPage({result:{postings:rows,has_next:false,cursor:''}},'ozon_fbo'),
+   {rows,hasNext:false,next:''});
+ assert.throws(()=>extractOzonOrderPage({result:{postings:rows},has_next:true,cursor:'c2'},'ozon_fbo'),
+   /pagination_unverified/);
+ assert.throws(()=>extractOzonOrderPage({postings:rows,has_next:true,cursor:'c2'},'ozon'),
+   /pagination_unverified/);
 });
