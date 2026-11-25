@@ -40,11 +40,14 @@ export function createWorkflowReview(){
   }catch{return reply(503,{code:'auth_unavailable'});}
   if(request.method==='GET'){
    try{
-    const r=await db.prepare("SELECT w.order_key,w.workflow_state,w.revision,w.updated_at,w.note FROM office_order_workflow w ORDER BY w.updated_at DESC LIMIT 150").all();
-    if(!Array.isArray(r.results))throw Error();
+    const [r,history]=await Promise.all([
+      db.prepare("SELECT w.order_key,w.workflow_state,w.revision,w.updated_at,w.note FROM office_order_workflow w ORDER BY w.updated_at DESC LIMIT 150").all(),
+      db.prepare("SELECT e.order_key,e.from_state,e.to_state,e.revision,e.at FROM office_order_workflow_events e ORDER BY e.id DESC LIMIT 150").all()
+    ]);
+    if(!Array.isArray(r.results)||!Array.isArray(history.results))throw Error();
     return reply(200,{code:'order_workflow_review_read',readOnly:true,
-     rows:r.results,limit:150,stageScope:'owner_preliminary_review_only',
-     fulfillmentEnabled:false});
+     rows:r.results,events:history.results,limit:150,
+     stageScope:'owner_preliminary_review_only',fulfillmentEnabled:false});
    }catch{return reply(503,{code:'workflow_storage_unavailable',
     migration:'20261125_order_workflow_review.sql'});}
   }
