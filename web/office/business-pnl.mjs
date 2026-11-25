@@ -197,8 +197,9 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     {id:'shared-leather-delivery',label:'Доставка кожи',amountKopecks:2000000},
     {id:'shared-remote-salary',label:'Зарплата Ильи',amountKopecks:2500000}
    ];
-   base.taxes=[{id:'ip-ausn',label:'Налог ИП · АУСН 8%',
-     entity:'ip',amountKopecks:20550700}];
+   // Tax is supplied by marketplace income evidence, not a fixed owner-wide charge.
+   // Until the full IP base is reconciled keep consolidated tax unknown.
+   base.taxes=[];
   }
   let error=null,wbError=null;
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
