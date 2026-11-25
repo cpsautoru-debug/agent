@@ -68,7 +68,7 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
     let requests=0;
     const read=async (kind,id,part)=>{
       if(!['productionstagecompletion','productionstage','productiontask','processingplan'].includes(kind)||
-         !UUID.test(id)||part&&!['materials','products','productionRows'].includes(part)||
+         !UUID.test(id)||part&&!['materials','products','productionrows'].includes(part)||
          requests>=22)throw Error('invalid_read_scope');
       requests++;
       const response=await fetcher(ROOT+kind+'/'+id+(part?'/'+part:''),{
@@ -93,7 +93,7 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
         const taskId=ref(stage.productionTask,'productiontask')||
           ref(doc.productionTask,'productiontask')||stageRow?.taskId||null;
         const task=taskId?await read('productiontask',taskId):null;
-        const rows=taskId?await read('productiontask',taskId,'productionRows'):null;
+        const rows=taskId?await read('productiontask',taskId,'productionrows'):null;
         const rowRecords=Array.isArray(rows?.rows)?rows.rows:[];
         const matchingRow=stageRow?rowRecords.find(r=>r.id?.toLowerCase()===stageRow.rowId):null;
         const planId=ref(matchingRow?.processingPlan,'processingplan')||
@@ -110,7 +110,7 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
           linkedProductionRowId:stageRow?.rowId||null,
           productionRowsStatus:rows?.error|| (rows?'complete':'unavailable'),productionRowsHttp:rows?.http||null,
           matchedProductionRow:!!matchingRow,
-          productionRowQuantity:quantity(matchingRow?.quantity),
+          productionRowQuantity:quantity(matchingRow?.productionVolume),
           productionRowFields:matchingRow?Object.keys(matchingRow).filter(k=>/plan|product|assort|quantity|volume/i.test(k)):[],
           productionTaskNumber:short(task?.name),productionTaskError:task?.error||null,productionTaskHttp:task?.http||null,
           processingPlanId:planId,processingPlanName:short(plan?.name),processingPlanError:plan?.error||null,processingPlanHttp:plan?.http||null,
