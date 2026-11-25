@@ -1859,6 +1859,23 @@
 
         <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
         <p class="ms-production-status" id="ordersStockStatus" role="status">Сначала загрузите FBS-заказы. Сверка только на чтение; результат не подтверждает физический запас.</p>
+        <section class="ms-sites" aria-labelledby="warehouseRouteApprovalTitle">
+          <h3 id="warehouseRouteApprovalTitle">Подтверждение склада исполнения и юрлица</h3>
+          <p>Получить реальные склады и организации МойСклад и сохранить выбранную связь с кабинетом маркетплейса. Автоматических предположений нет. Маршрут подтверждается владельцем один раз; складские документы и остатки не меняются.</p>
+          <button type="button" id="warehouseRoutesLoad" class="ms-production-detail-button">Проверить склады и организации МойСклад</button>
+          <div id="warehouseRoutesForm" hidden class="ms-sites-steps">
+            <label>Кабинет <select id="warehouseRoutesAccount"></select></label>
+            <label>Склад <select id="warehouseRoutesStore"></select></label>
+            <label>Юридическое лицо <select id="warehouseRoutesOrganization"></select></label>
+            <label>Назначение склада <select id="warehouseRoutesKind">
+              <option value="manufacturer">Производство</option>
+              <option value="retail">Торговая точка</option>
+              <option value="marketplace">Склад маркетплейса</option>
+            </select></label>
+            <button type="button" id="warehouseRoutesApprove" class="ms-production-detail-button">Подтвердить выбранную связь</button>
+          </div>
+          <p class="ms-production-status" id="warehouseRoutesStatus" role="status">Маршруты не проверены.</p>
+        </section>
         <section class="ms-sites" aria-labelledby="ordersSkuMapTitle">
           <h3 id="ordersSkuMapTitle">Постоянный справочник соответствий SKU</h3>
           <p>Связь товара маркетплейса с номенклатурой МойСклад сохраняется только после явного подтверждения владельцем. Предложения по названиям не становятся связями автоматически. Склад, остатки и отгрузки не изменяются.</p>
@@ -2483,6 +2500,7 @@
 <script type="module" src="orders-intake-board.mjs?v=20261125-orders-v1"></script>
 <script type="module" src="manual-moysklad-orders.mjs?v=20261125-manual-order-feed-v1"></script>
 <script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-review"></script>
+<script type="module" src="warehouse-route-approval.mjs?v=20261125-approval"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
