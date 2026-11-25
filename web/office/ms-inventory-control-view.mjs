@@ -38,6 +38,11 @@ export function classifyInventory(item){
   const full=norm([name,path,code].join(' '));
   // Product names, paths and SKU can identify excluded goods. An EVA group
   // cannot be reintroduced as "finished" merely because it sits under production.
+  // EVA-only edging and shipment pseudo-SKUs are outside the cover-sewing scope.
+  // This is display filtering only; never archive, delete or write MoySklad records.
+  if(/^кант\s*\(/iu.test(name)||
+     /^(?:отправка\s+(?:яндекс|озон|вб)|рынок)(?:\s|$)/iu.test(name))
+    return 'excluded';
   if(excludedItem.test(full))return 'excluded';
   const parts=path?path.split(SPLIT).map(norm):[];
   if(parts.some(x=>!x))return 'excluded';
@@ -55,6 +60,11 @@ export function classifyInventory(item){
       (parts[0]==='материалы'||!path));
   // Material and cut are not sellable stock even if the part has a model name.
   if(hasCut&&(production||covers||door||hasModel))return 'cut';
+  // Trims and fasteners used by the cover-sewing workshop live under
+  // ПРОИЗВОДСТВО/Сопутка, not a generic materials folder. Keep their
+  // deficits visible (and flagged as awaiting physical BOM verification).
+  if(production&&parts.includes('сопутка')&&
+    /^(?:крючки|липучка\b)/iu.test(name))return 'materials';
   if(material)return 'materials';
   if(door)return 'doorCards';
   if(hasFinished&&(production||covers||hasModel))return 'finished';
