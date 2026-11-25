@@ -17,14 +17,16 @@ function matches(entity, id) {
 }
 
 export async function readWarehouse(order, mapping, readEntity) {
- const blocked = {status: 'warehouse_unverified'};
+ const blocked = reason => ({status: 'warehouse_unverified',reason});
  let storeId, organizationId, source, storeKind;
  try {
   if (MANUAL.has(order.source)) {
    const orderId = order.ms_customerorder_id?.toLowerCase();
-   if (!UUID.test(orderId || '')) return blocked;
-   const doc = await readEntity('customerorder/' + orderId);
-   if (doc?.id?.toLowerCase() !== orderId) return blocked;
+   if (!UUID.test(orderId || '')) return blocked('customer_order_id_missing');
+   let doc;
+   try {doc=await readEntity('customerorder/' + orderId);}
+   catch {return blocked('customer_order_read_failed');}
+   if (doc?.id?.toLowerCase() !== orderId) return blocked('customer_order_identity_mismatch');
    storeId = entityId(doc.store, 'store');
    organizationId = entityId(doc.organization, 'organization');
    source = 'customerorder';
@@ -35,18 +37,25 @@ export async function readWarehouse(order, mapping, readEntity) {
    organizationId = mapping.organization_id?.toLowerCase();
    source = 'cabinet_mapping';
    storeKind = mapping.store_kind;
-  }
-  if (!UUID.test(storeId || '') || !UUID.test(organizationId || '')) return blocked;
-  const [store, organization] = await Promise.all([
-   readEntity('store/' + storeId), readEntity('organization/' + organizationId)
-  ]);
-  if (!matches(store, storeId) || !matches(organization, organizationId) || store.archived === true ||
-      organization.archived === true) return blocked;
+  } else return blocked('cabinet_route_missing');
+  if (!UUID.test(storeId || '') || !UUID.test(organizationId || ''))
+   return blocked('route_entity_id_invalid');
+  // Separate calls retain safe failure stage. Do not expose API bodies, tokens,
+  // names, or request URLs in the owner-visible diagnostic.
+  let store,organization;
+  try {store=await readEntity('store/' + storeId);}
+  catch {return blocked('store_read_failed');}
+  if (!matches(store,storeId)||store.archived===true)
+   return blocked('store_entity_mismatch');
+  try {organization=await readEntity('organization/' + organizationId);}
+  catch {return blocked('organization_read_failed');}
+  if (!matches(organization,organizationId)||organization.archived===true)
+   return blocked('organization_entity_mismatch');
   return {
    status: 'warehouse_verified', storeId, storeName: store.name, storeKind,
    organizationId, organizationName: organization.name, source
   };
  } catch {
-  return blocked;
+  return blocked('warehouse_validation_failed');
  }
 }
