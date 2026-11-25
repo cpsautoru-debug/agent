@@ -80,7 +80,8 @@
      const before=tbody.children.length;
      add(k,data);
      for(const tr of [...tbody.children].slice(before))tr.dataset.source=k;
-     const coverage=k==='yandex'?'два магазина, первая страница (не вся очередь)':
+     const coverage=k==='yandex'?('два магазина доступны; в выборке представлены '+
+       new Set(data.orders.map(o=>o.campaignId)).size+' из 2; первая страница'):
        k==='ozon_fbo'?'FBO, продажи со склада Ozon, НЕ очередь пошива':
        k==='ozon'?'FBS: первая страница за 7 дней':'FBS: только первая страница новых заданий';
      if(badge)badge.textContent=data.orders.length+' строк · '+coverage;
