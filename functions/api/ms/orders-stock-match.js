@@ -109,59 +109,72 @@ async function requestSmall(fetcher,token,url){
  }
  const body=await boundedJson(res);
  if(!Array.isArray(body?.rows)||!Number.isSafeInteger(body.meta?.size)||
-   body.meta.size<0||body.rows.length>2)throw Error('snapshot_unverified');
+   body.meta.size<0||body.rows.length>20)throw Error('snapshot_unverified');
  return body;
 }
 async function targetedSku(fetcher,token,sku){
+ // MoySklad assortment rejected article/code filters with 412 for this account.
+ // Context search is followed by strict equality on article/code. Search
+ // is NOT an exact filter: truncated pages never prove a missing item.
  const found=new Map();
- for(const field of ['article','code']){
-  const url=new URL(ROOT+'entity/assortment');
-  url.searchParams.set('filter',field+'='+sku);
-  url.searchParams.set('limit','2');
-  const data=await requestSmall(fetcher,token,url);
-  if(data.meta.size>data.rows.length)
-   return {sku,status:'ambiguous',candidates:data.meta.size,stores:[],
-    accountingTotal:null,itemName:null};
-  for(const a of data.rows){
-   if(a?.[field]!==sku||typeof a?.id!=='string'||!UUID.test(a.id))
-    throw Error('snapshot_unverified');
-   const id=a.id.toLowerCase();
-   const name=typeof a.name==='string'?a.name.slice(0,150):null;
-   const entityType=typeof a?.meta?.href==='string'?
-    new URL(a.meta.href).pathname.match(/\/entity\/(product|variant)\//)?.[1]:null;
-   if(!entityType)throw Error('unsupported_item_type');
-   const earlier=found.get(id);
-   found.set(id,{id,name,type:entityType,matchFields:[
-    ...(earlier?.matchFields||[]),field]});
-  }
+ const query=new URL(ROOT+'entity/assortment');
+ query.searchParams.set('search',sku);query.searchParams.set('limit','20');
+ const data=await requestSmall(fetcher,token,query);
+ if(data.meta.size>data.rows.length)
+  return {sku,status:'unverified',reason:'search_truncated',candidates:null,
+   stores:[],accountingTotal:null,itemName:null};
+ for(const a of data.rows){
+  const fields=[...(a.article===sku?['article']:[]),
+    ...(a.code===sku?['code']:[])];
+  if(!fields.length)continue;
+  if(typeof a?.id!=='string'||!UUID.test(a.id))
+   throw Error('snapshot_unverified');
+  const id=a.id.toLowerCase();
+  let type=null;
+  try{type=typeof a?.meta?.href==='string'?
+   new URL(a.meta.href).pathname.match(/\/entity\/(product|variant|bundle)\//)?.[1]:null;}
+  catch{throw Error('snapshot_unverified');}
+  if(!type)throw Error('unsupported_item_type');
+  const prev=found.get(id);
+  found.set(id,{id,type,name:typeof a.name==='string'?a.name.slice(0,150):null,
+   matchFields:[...new Set([...(prev?.matchFields||[]),...fields])]});
  }
- if(found.size!==1)return {sku,status:found.size?'ambiguous':'not_matched',
-  candidates:found.size,stores:[],accountingTotal:null,itemName:null};
+ if(found.size!==1)
+  return {sku,status:found.size?'ambiguous':'not_matched',
+   candidates:found.size,stores:[],accountingTotal:null,itemName:null};
  const item=[...found.values()][0];
- const url=new URL(ROOT+'report/stock/bystore');
- url.searchParams.set('filter',item.type+'='+ROOT+'entity/'+item.type+'/'+item.id);
- url.searchParams.set('limit','2');
- const data=await requestSmall(fetcher,token,url);
- const strictRows=data.rows.filter(row=>extractId(row?.meta?.href)===item.id);
- if(data.meta.size>2||strictRows.length>1)throw Error('stock_duplicate_item');
- if(data.rows.some(row=>extractId(row?.meta?.href)!==item.id))
-  throw Error('stock_filter_unverified');
- const row=strictRows[0];
- if(!row||!Array.isArray(row.stockByStore))
-  return {sku,status:'matched_stock_unknown',candidates:1,stores:[],
-   itemName:item.name,itemId:item.id,accountingTotal:null,
-   matchFields:item.matchFields};
- const stores=row.stockByStore.map(v=>{
-  if(typeof v?.name!=='string'||v.name.length>120||
-    num(v.stock)===null||num(v.reserve)===null)throw Error('stock_stores_unverified');
-  return {store:v.name,stock:v.stock,reserve:v.reserve,
-   accountingFree:v.stock-v.reserve};
- });
- return {sku,status:'matched_stock_report',candidates:1,itemId:item.id,
-  itemName:item.name,matchFields:item.matchFields,stores,
-  accountingTotal:stores.reduce((a,v)=>a+v.stock,0)};
+ // Explicit bounded stock read is independent of match evidence.
+ // A rejected stock filter MUST NOT erase the verified article/code match.
+ try{
+  const url=new URL(ROOT+'report/stock/bystore');
+  url.searchParams.set('filter','assortment='+ROOT+'entity/'+item.type+'/'+item.id);
+  url.searchParams.set('limit','2');
+  const stockData=await requestSmall(fetcher,token,url);
+  if(stockData.meta.size>stockData.rows.length||stockData.rows.length>1||
+     stockData.rows.some(row=>extractId(row?.meta?.href)!==item.id))
+   throw Error('stock_filter_unverified');
+  const row=stockData.rows[0];
+  if(!row||!Array.isArray(row.stockByStore))
+   throw Error('stock_stores_unverified');
+  const stores=row.stockByStore.map(v=>{
+   if(typeof v?.name!=='string'||v.name.length>120||
+     num(v.stock)===null||num(v.reserve)===null)
+    throw Error('stock_stores_unverified');
+   return {store:v.name,stock:v.stock,reserve:v.reserve,
+    accountingFree:v.stock-v.reserve};
+  });
+  return {sku,status:'matched_stock_report',candidates:1,
+   itemId:item.id,itemName:item.name,matchFields:item.matchFields,
+   stores,accountingTotal:stores.reduce((n,v)=>n+v.stock,0)};
+ }catch(e){
+  return {sku,status:'matched_stock_unknown',candidates:1,
+   itemId:item.id,itemName:item.name,matchFields:item.matchFields,
+   stores:[],accountingTotal:null,
+   stockReason:e?.message==='rate_limited'?'rate_limited':
+    e?.message==='filter_rejected'?'stock_filter_rejected':
+    'stock_not_verified'};
+ }
 }
-
 export function createOrderStockMatch({fetcher=fetch}={}){
  return async({request,env})=>{
   if(request.method!=='POST')return json(405,{code:'method_not_allowed'});
