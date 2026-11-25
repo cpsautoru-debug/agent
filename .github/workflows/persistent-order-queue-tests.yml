@@ -7,6 +7,7 @@ on:
       - 'functions/api/orders/warehouse-route-approval.js'
       - 'web/office/warehouse-route-approval.mjs'
       - 'web/office/saved-sku-confirmation.mjs'
+      - 'web/office/approved-sku-stock-diagnostic.mjs'
       - 'tests/warehouse-route-approval.test.mjs'
       - 'functions/api/orders/workflow-review.js'
       - 'functions/api/orders/order-stock-precheck.js'
@@ -37,4 +38,4 @@ jobs:
       - name: Validate D1 mirror and trusted-source boundaries
         run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs tests/fulfillment-*.test.mjs tests/warehouse-route-approval.test.mjs
       - name: Check browser queue syntax
-        run: node --check web/office/persistent-order-queue.mjs && node --check web/office/warehouse-route-approval.mjs && node --check web/office/saved-sku-confirmation.mjs
+        run: node --check web/office/persistent-order-queue.mjs && node --check web/office/warehouse-route-approval.mjs && node --check web/office/saved-sku-confirmation.mjs && node --check web/office/approved-sku-stock-diagnostic.mjs
