@@ -136,6 +136,30 @@ function render(root,pnl,sourceNotes={},interim={}){
   sheet.append(row);
  }
  root.append(sheet);
+ // Display three marketplace tax scenarios as evidence only; the canonical
+ // consolidated P&L keeps taxes null until all three sources are complete.
+ if(interim.tax?.code==='marketplace_tax_management_estimate'&&
+    interim.tax.month===pnl.month){
+  const t=interim.tax;
+  const section=el('section','business-pnl-tax-evidence');
+  section.append(el('h3','','АУСН 8% · оценка по данным маркетплейсов'));
+  for(const [name,obj,amount] of [
+   ['Ozon',t.ozon,t.ozon?.taxEstimateKopecks],
+   ['Wildberries',t.wb,t.wb?.savedTaxEstimateKopecks],
+   ['Яндекс Маркет',t.yandex,t.yandex?.taxEstimateKopecks]]){
+   const row=el('p','',''+name+': '+money(amount)+
+    ' · источник '+String(obj?.status||'не определён'));
+   section.append(row);
+  }
+  section.append(el('p','business-pnl-disclaimer',
+   'Это три предварительные оценки одного ИП. Wildberries основан на '+
+   (t.wb?.savedReports??'?')+' XLSX из '+(t.wb?.apiReports??'?')+
+   ' API-отчётов; Яндекс — до подтверждения возвратов; Ozon — до '+
+   'классификации бонусов. Итог АУСН и чистая прибыль не вычитаются '+
+   'из сводного P&L, пока налоговая база не сверена. Комиссии не '+
+   'уменьшают доходы АУСН.'));
+  root.append(section);
+ }
  if(interim.overhead)
   root.append(el('p','business-pnl-subhead',
    'Дополнительные расходы: подтверждённый реестр Ozon Profit D1, версия '+
@@ -204,6 +228,24 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   let error=null,wbError=null;
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
+  const taxRead=(async()=>{
+   try{
+    const r=await fetcher('/api/finance/marketplace-tax-estimate?month='+
+     encodeURIComponent(month),{method:'GET',credentials:'same-origin',
+     cache:'no-store',signal:AbortSignal.timeout(28000)});
+    if(!r.ok)return;
+    const data=await r.json();
+    if(data?.code==='marketplace_tax_management_estimate'&&
+       data.month===month&&data.officialTaxVerified===false&&
+       data.totalTaxKopecks===null&&id===serial){
+     interim.tax=data;
+     if(lastRender?.base===base&&lastRender.month===month){
+      lastRender.pnl=consolidateBusinessPnl(base);
+      render(root,lastRender.pnl,sourceNotes,interim);
+     }
+    }
+   }catch{/* The tax panel remains explicitly incomplete. */}
+  })();
   const overheadRead=(async()=>{
    if(month!=='2026-10')return;
    try{
@@ -238,7 +280,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   if(month==='2026-10'){
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([yandexRead,overheadRead,
+   await Promise.all([yandexRead,overheadRead,taxRead,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
