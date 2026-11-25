@@ -26,7 +26,10 @@ test('reconciles reserve once and subtracts shipped positions from open claims',
    shipped:1,reserve:path.includes(id+'/positions?')?2:0}]);
  };
  assert.deepEqual(await readOccupancy('product',id,store,balance,read),{
-  status:'warehouse_orders_verified',ordersSeen:2,matchingOrders:2,reconciledReserve:2,warehouseAdditional:2
+  status:'warehouse_orders_verified',ordersSeen:2,matchingOrders:2,reconciledReserve:2,warehouseAdditional:2,
+  claims:[{key:'ms:'+id,orderKey:'ms:'+id,identity:'ms:'+id,
+    origin:'moysklad',itemId:id,storeId:store,ordered:4,reserved:2,
+    orderId:id,deadline:null}]
  });
  assert.equal((await readOccupancy('product',id,store,{...balance,reserve:0},read)).reason,'reserve_mismatch');
  assert.equal((await readOccupancy('product',id,store,balance,async()=>{throw Error();})).status,'availability_unverified');
@@ -35,4 +38,5 @@ test('explicit complete empty customer order scope is separate from marketplace 
  const result=await readOccupancy('product',id,store,{status:'accounting_verified',stock:53,reserve:0},async()=>page([]));
  assert.equal(result.status,'warehouse_orders_verified');
  assert.equal(result.warehouseAdditional,0);
+ assert.deepEqual(result.claims,[]);
 });
