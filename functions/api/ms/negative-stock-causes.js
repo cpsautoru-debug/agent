@@ -28,7 +28,7 @@ async function getReport(fetcher,token,item){
  const url=new URL(API+'report/turnover/byoperations');
  url.searchParams.set('limit','100');
  url.searchParams.set('offset','0');
- url.searchParams.set('filter','assortment='+API+'entity/product/'+item.id);
+ url.searchParams.set('filter','product='+API+'entity/product/'+item.id);
  // Include an explicit bounded calendar range; this is diagnostic,
  // not an assertion that the resulting report covers all prior history.
  url.searchParams.set('momentFrom','2026-01-01 00:00:00');
