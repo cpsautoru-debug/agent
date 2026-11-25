@@ -52,6 +52,7 @@
     <a href="#agents" data-page="agents">
       <span>◎</span>ИИ-команда <b>12</b>
     </a>
+    <a href="#orders" data-page="orders"><span>▤</span>Заказы · все каналы</a>
     <a href="#workflow" data-page="workflow">
       <span>⇄</span>Как идёт заказ
     </a>
@@ -1798,6 +1799,41 @@
 
     </section>
 
+    <!-- ЕДИНЫЙ ВХОД ЗАКАЗОВ: подготовка, чтение без документов -->
+    <section class="page" data-section="orders" hidden>
+      <div class="page-heading">
+        <div>
+          <div class="eyebrow">ЗАКАЗЫ · СКВОЗНОЕ ДВИЖЕНИЕ ТОВАРОВ</div>
+          <h1>Заказы всех каналов</h1>
+          <p>Первый этап: проверяем импорт заказов, сопоставление SKU и дубли с МойСклад. Пока не создаём документы, не резервируем и не списываем товар.</p>
+        </div>
+      </div>
+      <section id="ordersIntakeBoard" class="ms-sites" aria-labelledby="ordersIntakeTitle">
+        <h2 id="ordersIntakeTitle">Источники заказов</h2>
+        <p>Кнопки читают ограниченные выборки через существующий защищённый API. Это не полная очередь на пошив или отправку.</p>
+        <div class="ms-sites-grid">
+          <article class="ms-site-card"><strong>Ozon FBS</strong><p id="ordersSource_ozon">Проверка ещё не выполнялась</p><button type="button" class="ms-production-detail-button" data-order-source="ozon">Проверить Ozon FBS</button></article>
+          <article class="ms-site-card"><strong>Ozon FBO</strong><p id="ordersSource_ozon_fbo">Отдельный поток: продажи со склада Ozon, не план завтрашнего пошива</p><button type="button" class="ms-production-detail-button" data-order-source="ozon_fbo">Проверить Ozon FBO</button></article>
+          <article class="ms-site-card"><strong>Wildberries FBS</strong><p id="ordersSource_wb">Проверка ещё не выполнялась</p><button type="button" class="ms-production-detail-button" data-order-source="wb">Проверить WB FBS</button></article>
+          <article class="ms-site-card"><strong>Яндекс Маркет</strong><p>Финансовые данные подключены отдельно; API потока заказов в этой панели пока не проверен. Требуется проверка обоих кабинетов.</p></article>
+          <article class="ms-site-card"><strong>Авито</strong><p>Источник заказов к МойСклад пока не подключён. Требуется подтверждение схемы получения заказов.</p></article>
+          <article class="ms-site-card"><strong>Пламя · розница</strong><p>Требуется связь заказа с выдачей с магазина и документом МойСклад. Автоматическое списание выключено.</p></article>
+          <article class="ms-site-card"><strong>Дилер Руслан</strong><p>Требуется определить продажу либо передачу на реализацию, склад и юрлицо.</p></article>
+          <article class="ms-site-card"><strong>Дилер Ирина</strong><p>Требуется определить продажу либо передачу на реализацию, склад и юрлицо.</p></article>
+        </div>
+        <p class="ms-production-status" id="ordersIntakeStatus" role="status">Проверка по API ещё не запускалась. Документы МойСклад не создаются.</p>
+        <div class="ms-production-scroll">
+          <table id="ordersIntakeTable" class="ms-production-table" hidden>
+            <caption>Предпросмотр заказов: только строки, подтверждённые источником</caption>
+            <thead><tr><th>Канал</th><th>Внешний ID</th><th>Артикул / количество</th><th>Источник: статус</th><th>Назначение</th><th>Дубли МойСклад</th><th>Готовность</th></tr></thead>
+            <tbody id="ordersIntakeRows"></tbody>
+          </table>
+        </div>
+        <p class="ms-production-note">Нет строки в выборке ≠ нет заказа в источнике. Запись выключена, пока не подтверждены SKU, склад, юридическое лицо, схема FBS/FBO и отсутствие дублей. Маркировки и данные покупателей здесь не показываются.</p>
+        <p><a class="ms-production-detail-button" href="#production">Перейти к производственным заданиям и наличию</a></p>
+      </section>
+    </section>
+
     <!-- ПРОИЗВОДСТВО -->
     <section class="page" data-section="production" hidden>
       <div class="page-heading">
@@ -2397,6 +2433,8 @@
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
 <script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
+<script type="module" src="orders-intake-board.mjs?v=20261125-orders-v1"></script>
+
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
 <script type="module" src="ms-stock-bystore.mjs"></script>
