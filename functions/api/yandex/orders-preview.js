@@ -13,7 +13,7 @@ const validId=x=>Number.isSafeInteger(x)&&x>0&&x<=MAX_ID;
 
 export function normalizeYandexOrderPreview(body,allowedCampaignIds){
  const orders=body?.orders;
- if(body?.status!=='OK'||!Array.isArray(orders)||orders.length>LIMIT||
+ if(!body||!['OK',undefined].includes(body.status)||!Array.isArray(orders)||orders.length>LIMIT||
    !Array.isArray(allowedCampaignIds)||allowedCampaignIds.some(x=>!validId(x)))
    throw Error('yandex_orders_response_unverified');
  const seen=new Set();
