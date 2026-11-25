@@ -34,3 +34,30 @@ export function ownerCoverCostFromTitle(title){
   source:OWNER_COST_SOURCE,status:'owner_model_reference',
   skuIdentityVerified:false,validFromVerified:false};
 }
+
+/** Strict title-only review. No date-of-sale or historical bundle certification. */
+export function ownerProductCostFromOfficialTitle(title){
+ const raw=typeof title==='string'?title:'';
+ const s=norm(raw);
+ if(!s)return null;
+ if(/вставк/.test(s)&&/двер|карт/.test(s)&&
+    /экокож|эко кож/.test(s)){
+  return {key:'door_cards',category:OWNER_UNIT_COSTS.door_cards.label,
+   costKopecks:OWNER_UNIT_COSTS.door_cards.costKopecks,
+   source:OWNER_COST_SOURCE,status:'owner_category_reference',
+   historicalCostVerified:false};
+ }
+ if(/коврик/.test(s)&&/ева|eva/.test(s)&&/пресс\s*борт/.test(s)){
+  if(/3\s*d|3д|3\s*д/.test(s))return null; // overlapping 3D and press trim
+  return {key:'eva_press_board',category:'EVA коврики с пресс-бортами',
+   costKopecks:110000,source:'OWNER_CONFIRMED_YANDEX_2026-11-10',
+   status:'owner_category_reference',historicalCostVerified:false};
+ }
+ if(/(?:авто\s*чехл|авточехл|чехл)/.test(s)&&
+    /(?:\bнива\b|\bniva\b)/.test(s)&&
+    !/travel|тревел|шевроле|chevrolet/.test(s))
+  return {key:'niva',category:'Авточехлы Lada Niva',
+   costKopecks:320000,source:'OWNER_CONFIRMED_YANDEX_2026-10-31',
+   status:'owner_category_reference',historicalCostVerified:false};
+ return ownerCoverCostFromTitle(raw);
+}
