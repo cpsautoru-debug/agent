@@ -77,3 +77,22 @@ export function consolidateBusinessPnl({month,channels,sharedExpenses,taxes,
    finalProfitKopecks:after,verified:confirmed,
    note:'Only Ozon, WB and Yandex direct-cost results enter the total; Avito and offline are excluded. Shared expenses and total IP tax are each deducted once. Provisional results never imply certified net profit.'};
 }
+
+// The CEO's one management estimate is derived from the same canonical
+// channel contributions and shared-expense ledger as the core P&L.
+// It is NEVER "verified net profit", and taxes are never double-deducted.
+export function calculateMarketplaceManagementScenario(pnl,taxEstimates){
+ if(!pnl||!Array.isArray(taxEstimates)||taxEstimates.length!==3||
+    pnl.knownChannelCount!==3||
+    !valid(pnl.knownChannelsTotalKopecks)||
+    !valid(pnl.sharedExpenseTotalKopecks)||
+    taxEstimates.some(x=>!valid(x)||x<0))return null;
+ const tax=taxEstimates.reduce((sum,x)=>sum+x,0);
+ const amount=pnl.knownChannelsTotalKopecks-
+  pnl.sharedExpenseTotalKopecks-tax;
+ if(!valid(tax)||!valid(amount))return null;
+ return {taxEstimateKopecks:tax,remainingKopecks:amount,
+  status:'management_estimate',verifiedNetProfit:false,
+  caveats:['tax_recognition_dates_not_reconciled',
+   'unverified_external_expenses_and_returns']};
+}
