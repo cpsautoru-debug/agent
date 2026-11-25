@@ -63,8 +63,19 @@ export function matchOrdersStock(skus,assortment,stock){
   for(const sku of skus){
    if(item.article===sku||item.code===sku){
     const existing=bySku.get(sku).get(id);
-    bySku.get(sku).set(id,{id,
+    let itemType=null;
+    try{const u=new URL(item?.meta?.href||'');
+     const m=/^\/api\/remap\/1\.2\/entity\/(product|variant|bundle)\//.exec(u.pathname);
+     if(u.origin==='https://api.moysklad.ru'&&m)itemType=m[1];}catch{}
+    const characteristics=Array.isArray(item.characteristics)?item.characteristics.slice(0,30)
+     .map(c=>({name:typeof c?.name==='string'?c.name.slice(0,100):null,
+      value:['string','number','boolean'].includes(typeof c?.value)?
+       String(c.value).slice(0,120):null}))
+     .filter(c=>c.name&&c.value!==null):[];
+    bySku.get(sku).set(id,{id,itemType,
      name:typeof item.name==='string'?item.name.slice(0,150):null,
+     article:typeof item.article==='string'?item.article.slice(0,100):null,
+     code:typeof item.code==='string'?item.code.slice(0,100):null,characteristics,
      matchFields:[...new Set([...(existing?.matchFields||[]),
       ...(item.article===sku?['article']:[]),...(item.code===sku?['code']:[])])]});
    }
@@ -89,8 +100,8 @@ export function matchOrdersStock(skus,assortment,stock){
    candidates:candidates.length,stores:[],itemName:null,accountingTotal:null};
   const c=candidates[0],stores=byId.get(c.id);
   return {sku,status:stores?'matched_stock_report':'matched_stock_unknown',
-   candidates:1,matchFields:c.matchFields,itemId:c.id,itemName:c.name,
-   stores:stores||[],accountingTotal:stores?stores.reduce((n,x)=>n+x.stock,0):null};
+   candidates:1,matchFields:c.matchFields,itemId:c.id,itemType:c.itemType,itemName:c.name,article:c.article,
+   code:c.code,characteristics:c.characteristics,stores:stores||[],accountingTotal:stores?stores.reduce((n,x)=>n+x.stock,0):null};
  });
 }
 // Two exact catalogue lookups per SKU instead of downloading the entire
@@ -136,7 +147,15 @@ async function targetedSku(fetcher,token,sku){
   catch{throw Error('snapshot_unverified');}
   if(!type)throw Error('unsupported_item_type');
   const prev=found.get(id);
+  const characteristics=Array.isArray(a.characteristics)?a.characteristics.slice(0,30)
+   .map(c=>({name:typeof c?.name==='string'?c.name.slice(0,100):null,
+    value:['string','number','boolean'].includes(typeof c?.value)?
+      String(c.value).slice(0,120):null}))
+   .filter(c=>c.name&&c.value!==null):[];
   found.set(id,{id,type,name:typeof a.name==='string'?a.name.slice(0,150):null,
+   article:typeof a.article==='string'?a.article.slice(0,100):null,
+   code:typeof a.code==='string'?a.code.slice(0,100):null,
+   characteristics,
    matchFields:[...new Set([...(prev?.matchFields||[]),...fields])]});
  }
  if(found.size!==1){
@@ -201,12 +220,15 @@ async function targetedSku(fetcher,token,sku){
     accountingFree:v.stock-v.reserve};
   });
   return {sku,status:'matched_stock_report',candidates:1,
-   itemId:item.id,itemName:item.name,matchFields:item.matchFields,
+   itemId:item.id,itemType:item.type,itemName:item.name,
+   article:item.article,code:item.code,characteristics:item.characteristics,
+   matchFields:item.matchFields,
    stores,accountingTotal:stores.reduce((n,v)=>n+v.stock,0)};
  }catch(e){
   return {sku,status:'matched_stock_unknown',candidates:1,
-   itemId:item.id,itemName:item.name,matchFields:item.matchFields,
-   stores:[],accountingTotal:null,
+   itemId:item.id,itemType:item.type,itemName:item.name,
+   article:item.article,code:item.code,characteristics:item.characteristics,
+   matchFields:item.matchFields,stores:[],accountingTotal:null,
    stockReason:e?.message==='rate_limited'?'rate_limited':
     e?.message==='filter_rejected'?'stock_filter_rejected':
     'stock_not_verified'};

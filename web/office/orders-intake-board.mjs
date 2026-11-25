@@ -63,6 +63,15 @@
    table.hidden=tbody.children.length===0;
  }
  const buttons=[...root.querySelectorAll('[data-order-source]')];
+ const loadAllButton=el('ordersLoadAll');
+ let loadAllBusy=false;
+ if(loadAllButton)loadAllButton.addEventListener('click',async()=>{
+   if(loadAllBusy||busy)return;
+   loadAllBusy=true;loadAllButton.disabled=true;
+   report.textContent='Последовательно читаем все подключённые кабинеты. Источники, завершившие выборку, появятся в общей таблице.';
+   try{for(const source of Object.keys(sources))await load(source);}
+   finally{loadAllBusy=false;loadAllButton.disabled=false;}
+ });
  async function load(k){
    if(busy||!sources[k]||location.hash.split('/')[0]!=='#orders')return;
    busy=true;buttons.forEach(b=>b.disabled=true);

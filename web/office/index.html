@@ -1810,7 +1810,8 @@
       </div>
       <section id="ordersIntakeBoard" class="ms-sites" aria-labelledby="ordersIntakeTitle">
         <h2 id="ordersIntakeTitle">Источники заказов</h2>
-        <p>Кнопки читают ограниченные выборки через существующий защищённый API. Это не полная очередь на пошив или отправку.</p>
+        <p>Обновите общую очередь: каждый подключённый источник читается отдельно через защищённый API; при ошибке источник помечается как неполный.</p>
+        <button type="button" id="ordersLoadAll" class="ms-production-detail-button">Обновить очередь из всех источников</button>
         <div class="ms-sites-grid">
           <article class="ms-site-card"><strong>Ozon FBS</strong><p id="ordersSource_ozon">Проверка ещё не выполнялась</p><button type="button" class="ms-production-detail-button" data-order-source="ozon">Проверить Ozon FBS</button></article>
           <article class="ms-site-card"><strong>Ozon FBO</strong><p id="ordersSource_ozon_fbo">Отдельный поток: продажи со склада Ozon, не план завтрашнего пошива</p><button type="button" class="ms-production-detail-button" data-order-source="ozon_fbo">Проверить Ozon FBO</button></article>

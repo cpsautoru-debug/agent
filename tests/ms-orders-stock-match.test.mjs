@@ -29,6 +29,15 @@ test('two distinct assortment entities with same SKU remain ambiguous',()=>{
  assert.equal(result[0].status,'ambiguous');
  assert.equal(result[0].stores.length,0);
 });
+test('exact candidate exposes item type and product traits for owner review',()=>{
+ const rows=matchOrdersStock(['vesta-1'],[{
+  id:A,article:'vesta-1',code:'ms-001',name:'Чехлы Vesta',
+  meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/product/'+A},
+  characteristics:[{name:'Цвет',value:'Черный'}]
+ }],stocks);
+ assert.equal(rows[0].itemType,'product');
+ assert.equal(rows[0].itemName,'Чехлы Vesta');
+});
 test('stock source missing and invalid warehouse data never imply availability',()=>{
  assert.equal(matchOrdersStock(['vesta-1'],assorted,[])[0].status,
   'matched_stock_unknown');
