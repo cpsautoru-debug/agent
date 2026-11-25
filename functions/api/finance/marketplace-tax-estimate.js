@@ -1,3 +1,4 @@
+import {calculateProfit} from '../ozon/profit-model.js';
 import {verifySession} from '../auth/session.js';
 const HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','Vary':'Cookie','X-Content-Type-Options':'nosniff'};
 const out=(status,body)=>new Response(JSON.stringify(body),{status,headers:HEADERS});
@@ -40,6 +41,25 @@ export async function onRequestGet({request,env}){
     verifiedByFNS:false,
     exclusions:['marketplace_points_and_bonus_classification',
      'tax_recognition_date','other_channels_same_taxpayer']};
+  }
+  // A management estimate after tax is shown only if the canonical
+  // finance API agrees with the official XLSX AND dated product cost is complete.
+  if(ozon.taxEstimateKopecks!==null&&
+     typeof env.OZON_FINANCE_SYNC.getProfitData==='function'){
+   const canonical=await env.OZON_FINANCE_SYNC.getProfitData(month);
+   if(canonical?.target==='ce9dd331-929d-4c3e-9073-368de3346bc9'&&
+      canonical.configuration?.month?.sourceSha256===profit.value?.sourceSha256){
+    const result=calculateProfit({month,api:canonical.api,
+     documents:canonical.configuration.month,costs:canonical.configuration.costs,
+     expenses:canonical.configuration.expenses,tax:canonical.configuration.tax});
+    const matched=result.report?.totalKopecks===result.api?.totalKopecks&&
+     result.dateCostEvidence?.complete===true&&result.costs?.complete===true;
+    if(matched){
+     const x=result.api.totalKopecks-result.costs.knownKopecks-
+      ozon.taxEstimateKopecks;
+     if(safe(x))ozon.managementAfterTaxBeforeOverheadKopecks=x;
+    }
+   }
   }
   const bounds=month+'-01';
   const wbR=await env.WB_REPORT_SNAPSHOT_DB.prepare(
