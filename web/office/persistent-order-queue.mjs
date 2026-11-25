@@ -89,7 +89,7 @@
      }
      cell(tr,statusLabel);
      if(approval&&line.status==='requires_review'){
-       const actionCell=document.createElement('td');
+       const actionCell=document.createElement('span');
        const addAction=(label,event,detail)=>{
          const button=document.createElement('button');
          button.type='button';
