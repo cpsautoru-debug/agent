@@ -49,6 +49,48 @@
    status.textContent='Не удалось загрузить SKU: '+String(e.message).slice(0,110);
   }finally{busy=false;load.disabled=false;}
  }
+ function showManualCandidates(entry,candidates){
+   const list=candidates.filter(c=>c&&
+     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(c.id||'')&&
+     ['product','variant','bundle'].includes(c.type)&&
+     typeof c.name==='string'&&c.name.trim().length>0).slice(0,3);
+   if(!list.length)return false;
+   const explanation=document.createElement('p');
+   explanation.textContent='Возможные товары МойСклад (найдены по названию, НЕ по артикулу). '+
+     'Это только варианты для ручной сверки модели, цвета и комплектации. Ни один не выбран автоматически.';
+   candidateArea.append(explanation);
+   for(const item of list){
+     const div=document.createElement('div');
+     const p=document.createElement('p');
+     p.textContent=item.name+' · '+item.type+' · UUID '+item.id;
+     const button=document.createElement('button');button.type='button';
+     button.className='ms-production-detail-button';
+     button.textContent='Подтвердить после сверки карточки';
+     button.addEventListener('click',async()=>{
+       if(busy||approved.has(key(entry)))return;
+       if(!confirm('Проверьте соответствие товара в МойСклад.\n'+
+        'SKU маркетплейса: '+entry.sku+'\nВариант МойСклад: '+item.name+
+        '\nUUID: '+item.id+'\n'+
+        'Подтверждаете ИМЕННО эту модель, цвет, комплектацию и посадку?'))return;
+       busy=true;button.disabled=true;check.disabled=true;
+       try{
+         const data=await json('/api/ms/order-sku-links',{method:'POST',
+           body:JSON.stringify({...entry,itemId:item.id,itemType:item.type})});
+         if(data.code!=='sku_link_approved'||data.itemId!==item.id.toLowerCase())
+           throw Error('approval_not_verified');
+         approved.add(key(entry));entries.delete(key(entry));
+         candidateArea.replaceChildren();
+         status.textContent='Утверждённая владельцем связь: '+entry.sku+
+           ' → '+data.itemName+'. UUID повторно проверен сервером в МойСклад. '+
+           'Заказы, остатки и производство не изменены.';
+       }catch(e){
+         status.textContent='Связь не сохранена: '+String(e.message).slice(0,100);
+       }finally{busy=false;button.disabled=false;check.disabled=false;}
+     });
+     div.append(p,button);candidateArea.append(div);
+   }
+   return true;
+ }
  async function inspect(){
   if(busy)return;
   const entry=entries.get(select.value);if(!entry)return;
@@ -65,8 +107,13 @@
     status.textContent='SKU уже утверждён. Обновите список.';return;
    }
    if(found.status!=='matched_stock_report'&&found.status!=='matched_stock_unknown'){
-    status.textContent='Точная привязка не установлена: '+(found.reason||found.status)+
-      '. Предложения по названию не утверждаются автоматически.';
+    const hasCandidates=showManualCandidates(entry,Array.isArray(found.possibleNameCandidates)?
+       found.possibleNameCandidates:[]);
+    status.textContent='Точного совпадения артикула/кода нет ('+
+      (found.reason||found.status)+'). '+
+      (hasCandidates?'Показаны варианты по названию для РУЧНОЙ проверки.':
+       'Подтверждённых кандидатов по названию также нет. Нужна карточка товара МойСклад.')+
+      ' Пока связь не утверждена, расчёт пошива заблокирован.';
     return;
    }
    if(found.candidates!==1||!['product','variant','bundle'].includes(found.itemType)||
