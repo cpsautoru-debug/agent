@@ -48,7 +48,7 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
  try{
   const store=ROOT+'store/'+storeId;
   const filters=new URLSearchParams({filter:'store='+store,expand:'state'});
-  const orders=await readCompletePages(read,'entity/customerorder?'+filters);
+  const orders=await readCompletePages(read,'entity/customerorder?'+filters,{limit:10,maxPages:20});
   let reserve=0, additional=0, matchingOrders=0;
   for(const order of orders){
    stage='order_state';

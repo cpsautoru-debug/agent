@@ -31,7 +31,7 @@ function deadline(value){
 export async function readProduction(itemId,storeId,read){
  if(!ID.test(itemId||'')||!ID.test(storeId||''))return unknown;
  try{
-  const tasks=await readCompletePages(read,'entity/productiontask',{limit:50,maxPages:4});
+  const tasks=await readCompletePages(read,'entity/productiontask',{limit:50,maxPages:16});
   const jobs=[];
   for(const task of tasks){
    const warehouse=idOf(task.productsStore,'store');
