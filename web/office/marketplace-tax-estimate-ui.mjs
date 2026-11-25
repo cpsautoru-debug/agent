@@ -49,6 +49,15 @@ export function attachMarketplaceTaxEstimate(){
     const p=node('p',desc);
     section.append(h,p);list.append(section);
    }
+   if(Number.isSafeInteger(v.ozon?.managementAfterTaxBeforeOverheadKopecks)){
+    const estimate=node('section');
+    estimate.append(node('strong',
+     'Ozon после оценочного АУСН 8%, ДО общих расходов: '+
+     money(v.ozon.managementAfterTaxBeforeOverheadKopecks)));
+    estimate.append(node('p','Это управленческий ориентир по данным начислений, '+
+     'производственной себестоимости и сценарию налога, НЕ окончательная чистая прибыль.'));
+    list.prepend(estimate);
+   }
    status.textContent='Источники прочитаны за '+month+
     '. Налог по всем каналам и чистая прибыль не подтверждены.';
    loaded=month;
