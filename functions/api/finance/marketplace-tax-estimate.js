@@ -83,11 +83,11 @@ export async function onRequestGet({request,env}){
    taxableGrossSalesKopecks:null,
    verifiedByFNS:false,
    note:'Saved WB report tax estimates are ASSUMED. A WB payout / for_pay is not gross taxable revenue.'};
-  // Both Yandex shops belong to one LLC on 6% USN; no derived amount
+  // Owner corrected Yandex tax entity to sole proprietor on AUSN 8%; no derived amount
   // without the delivered and returned gross sales source.
   return out(200,{code:'marketplace_tax_management_estimate',month,readOnly:true,
-   changedRecords:0,entityOzonWb:'ИП Жилина',entityYandex:'ООО',
-   ozon,wb,yandex:{status:'gross_sales_source_not_reconciled',taxRateBps:600,
+   changedRecords:0,entityOzonWb:'ИП Жилина',entityYandex:'ИП Жилина',
+   ozon,wb,yandex:{status:'gross_sales_source_not_reconciled',taxRateBps:800,
     incomeKopecks:null,taxEstimateKopecks:null,verifiedByFNS:false},
    totalTaxKopecks:null,officialTaxVerified:false,
    note:'These are management estimates. Marketplace commissions are not subtracted from taxable gross income. No amount is treated as official tax.'});
