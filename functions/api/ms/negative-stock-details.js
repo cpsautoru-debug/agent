@@ -110,7 +110,13 @@ export function createNegativeStockDetails({fetcher=fetch}={}){
    const lookup=new URL(BASE+'entity/assortment');
    lookup.searchParams.set('limit','10');
    lookup.searchParams.set('filter',batch.map(id=>'id='+id).join(';'));
-   const answer=await get(fetcher,token,lookup.toString().slice(BASE.length));
+   // Units of measure are normally an expanded reference, not embedded.
+   // Fallback only if this API account rejects expand=uom (HTTP 400).
+   const expanded=new URL(lookup);
+   expanded.searchParams.set('expand','uom');
+   let answer=await get(fetcher,token,expanded.toString().slice(BASE.length));
+   if(answer.error==='upstream_http_400')
+    answer=await get(fetcher,token,lookup.toString().slice(BASE.length));
    if(answer.error){
     metadataComplete=false;lookupError=answer.error;break;
    }
