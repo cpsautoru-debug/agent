@@ -85,7 +85,7 @@
 
 ## Исправление ложного service_amount_coverage_incomplete · 25.11.2026
 
-Владелец передал авторизованный `/api/yandex/direct-cost-review?month=2026-10` после добавления `serviceAudit`. Он содержит 7 листов услуг: `placement.json` (36 строк, `servicePrice` 0/36), `boost.json` (2/2), `cpm-boost.json` (24/24), `delivery.json` (35/35), `crossregional_delivery.json` (56/56), `payment_accepting.json` (38/38), `payment_transfer.json` (35/35), `order_processing.json` (11/11), `storage_of_returns.json` (1/1). Внимание: согласно полному JSON со скриншота фактически 9 листов, а не 7, но восемь листов содержат корректное поле `servicePrice`.
+Владелец передал авторизованный `/api/yandex/direct-cost-review?month=2026-10` после добавления `serviceAudit`. Он содержит 9 листов услуг: `placement.json` (36 строк, `servicePrice` 0/36), `boost.json` (2/2), `cpm-boost.json` (24/24), `delivery.json` (35/35), `crossregional_delivery.json` (56/56), `payment_accepting.json` (38/38), `payment_transfer.json` (35/35), `order_processing.json` (11/11), `storage_of_returns.json` (1/1). Восемь листов содержат корректное поле `servicePrice`; в `placement.json` используется другой официальный столбец.
 
 Источник: официальная документация https://yandex.ru/dev/market/partner-api/doc/ru/reference/reports/generateUnitedMarketplaceServicesReport. Для листа `placement.json` официальное денежное поле **`totalAmount`**, тогда как для других использованных листов **`servicePrice`**. Поэтому требование обязательного `servicePrice` для placement ложно. Исправлено:
 - `yandex-report-archive.mjs` теперь отдельно считает `totalAmount`;
