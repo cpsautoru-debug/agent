@@ -66,6 +66,9 @@ export function interpretYandexDirectCostReview(month,data){
  if(data.status==='incomplete_cost_coverage')
   return {month,status:'incomplete_cost_coverage',
    cogsKopecks:null,preliminaryContributionKopecks:null,
+   reviewContributionBeforeReturnsKopecks:
+    int(data.reviewContributionBeforeReturnsKopecks)?
+     data.reviewContributionBeforeReturnsKopecks:null,
    missingCount:data.missing.length,
    missingProducts:data.missing.slice(0,30).map(x=>({
     partnerId:[149082506,149106500].includes(x.partnerId)?x.partnerId:null,
