@@ -120,7 +120,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
     .bind(JSON.stringify(warehouse),checkedAt,key,order.source_checked_at).run();
    warehouseSaved=saved.meta?.changes===1;
   }catch{}
-  if(!warehouseSaved)warehouse={status:'warehouse_unverified'};
+  if(!warehouseSaved)warehouse={status:'warehouse_unverified',reason:'warehouse_check_not_saved'};
   const rows=[];
   const evidenceByItem=new Map();
   for(const [position,item] of items.entries()){
