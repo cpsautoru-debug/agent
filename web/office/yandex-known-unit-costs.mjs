@@ -11,6 +11,19 @@ const cost=(kopecks,category)=>({
 export function knownYandexUnitCost(offer){
  if(!offer||typeof offer!=='object')return null;
  const name=norm(offer.name||offer.offerName);
+ // Owner-confirmed on 2026-11-25 for the exact Priora door-card variant
+ // sold through Yandex shop 149082506. Not a generic door insert price.
+ const exactPrioraCards=Number(offer.partnerId)===149082506&&
+  norm(offer.shopSku)==='карты приора серый квадрат'&&
+  /(?:дверн.*карт|карт.*двер|вставк.*двер)/.test(name)&&
+  /приор|priora/.test(name)&&
+  /(?:сер|grey|gray)/.test(name);
+ if(exactPrioraCards)return {
+  costKopecks:17500,
+  category:'Дверные карты Priora · серый квадрат',
+  source:'OWNER_CONFIRMED_EXACT_YANDEX_SKU_2026-11-25',
+  status:'confirmed_owner_exact_sku'
+ };
  // Require an actual title for category inference. A seller SKU or model
  // code without a verified title can represent another physical product.
  if(!name)return null;
