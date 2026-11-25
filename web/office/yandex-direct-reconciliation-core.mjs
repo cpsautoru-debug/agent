@@ -5,6 +5,7 @@ import {collectYandexRealizationCandidates,
 import {reconcileYandexSharedCosts} from './yandex-cost-crosswalk-core.mjs';
 import {buildYandexPreliminaryContribution} from './yandex-contribution-core.mjs';
 import {buildYandexMonthlyEvidence} from './yandex-month-evidence.mjs';
+import {reconcileYandexDeliveryOrderCohort} from './yandex-delivery-order-cohort.mjs';
 
 // Pure, no customer/order data in the output. Never use Yandex catalog
 // purchasePrice or approximate model-family matches as confirmed COGS.
@@ -79,6 +80,12 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
  const skuAuditMatches=skuAudit.length===ledger.rows.length&&
   Number.isSafeInteger(skuAuditSum)&&
   skuAuditSum===summary.deliveredManufacturingCostKopecks;
+ const matchedCohort=reconcileYandexDeliveryOrderCohort(
+  month,sources,realizations,ledger.rows);
+ const orderRealizationMatched=!archivedActivity&&skuAuditMatches&&
+  matchedCohort.status==='matched_delivery_cohort_before_other_expenses'&&
+  matchedCohort.manufacturingCostKopecks===
+   summary.deliveredManufacturingCostKopecks;
  const complete=!archivedActivity&&skuAuditMatches&&
   summary.status==='preliminary_contribution_ready'&&
   ledger.issues.length===0&&missing.length===0;
@@ -99,8 +106,19 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   }))??[],
   cogsKopecks:summary.deliveredManufacturingCostKopecks,
   indicativeReturnCostKopecks:summary.returnsIndicativeCostKopecks,
-  preliminaryContributionKopecks:complete?
-   summary.preliminaryContributionKopecks:null,
+  // Subtract manufacturing COGS only from the order income belonging to
+  // the same October delivered orders, NOT from all 79 mixed statuses.
+  preliminaryContributionKopecks:complete&&orderRealizationMatched?
+   matchedCohort.preliminaryContributionKopecks:null,
+  cohortIncomeKopecks:orderRealizationMatched?
+   matchedCohort.orderAfterServicesKopecks:null,
+  cohortGrossKopecks:orderRealizationMatched?
+   matchedCohort.orderGrossKopecks:null,
+  cohortOrderCount:orderRealizationMatched?
+   matchedCohort.deliveredOrders:null,
+  cohortExcludedOrderRows:orderRealizationMatched?
+   matchedCohort.excludedOtherOrderRows:null,
+  cohortStatus:matchedCohort.status,
   reviewContributionBeforeReturnsKopecks:!archivedActivity&&
    Number.isSafeInteger(summary.reviewContributionBeforeReturnsKopecks)?
    summary.reviewContributionBeforeReturnsKopecks:null,
@@ -110,12 +128,12 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   skuAuditMatches,
   // Order summary and goods-realization are not joined by orderId/date.
   // Even perfect SKU-cost sums cannot certify matched-period profit.
-  orderRealizationMatched:false,
+  orderRealizationMatched,
   missing,issues:ledger.issues,
   blockers:[...summary.blockers,...(archivedActivity?['archived_campaign_has_order_rows']:[])],
   activeCampaigns:active,archivedCampaigns:[149106500].filter(id=>!active.includes(id)),
   skuCount:ledger.rows.length,netProfitKopecks:null,
-  note:'Промежуточный результат после себестоимости: '+
-   'не чистая прибыль ИП. Возвраты, период услуг, реклама, АУСН '+
-   'и общие расходы требуют независимой проверки.'};
+  note:'Сопоставленный доход по октябрьским доставкам минус их себестоимость. '+
+   'Это не чистая прибыль ИП: скидки и компенсации, возвраты, '+
+   'период услуг, реклама, АУСН и общие расходы требуют отдельной сверки.'};
 }
