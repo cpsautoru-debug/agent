@@ -101,7 +101,11 @@ export function createFirstTwoStepsAudit({fetcher=fetch}={}){
  return async function({request,env}){
   if(request.method!=='GET')return output(405,{code:'method_not_allowed'});
   let u;try{u=new URL(request.url);}catch{return output(400,{code:'invalid_scope'});}
-  if(u.origin!==ORIGIN||u.pathname!==PATH||u.search||u.hash)
+  // Links opened from ChatGPT may carry one harmless attribution key.
+  const keys=[...u.searchParams.keys()];
+  const allowedQuery=keys.every(k=>k==='utm_source')&&
+   u.searchParams.getAll('utm_source').length<=1;
+  if(u.origin!==ORIGIN||u.pathname!==PATH||!allowedQuery||u.hash)
    return output(400,{code:'invalid_scope'});
   if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||
      !env.OZON_FINANCE_DB)return output(503,{code:'auth_unavailable'});
