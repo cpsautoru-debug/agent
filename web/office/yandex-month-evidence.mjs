@@ -46,21 +46,24 @@ export function buildYandexMonthlyEvidence(sources){
  const sheetServices=sources.services.sheets;
  const serviceRows=sheetServices.reduce((a,s)=>a+(s.rows||0),0);
  const serviceTotals=sheetServices.filter(s=>s.rows>0).map(s=>{
-  const reported=amount(s,'servicePrice');
-  const serviceColumn=s.sumFields?.servicePrice;
+  // Exact official JSON report schema: placement.json has totalAmount,
+  // other service sheets have servicePrice. No inferred amount/zero.
+  const amountField=s.sheet==='placement.json'?'totalAmount':'servicePrice';
+  const reported=amount(s,amountField);
+  const serviceColumn=s.sumFields?.[amountField];
   // Source diagnostic: distinguish missing per-row values from invalid
   // numbers without guessing zeros or subtracting charges twice.
   const priceRows=Number.isSafeInteger(serviceColumn?.present)?
    serviceColumn.present:0;
   const invalid=Number.isSafeInteger(serviceColumn?.invalid)?
    serviceColumn.invalid:0;
-  const candidates=['servicePrice','buyerPaymentAmount','billingPrice',
-   'transactionSum','paymentAmount'].filter(field=>
+  const candidates=['totalAmount','servicePrice','buyerPaymentAmount',
+   'billingPrice','transactionSum','paymentAmount'].filter(field=>
     Number.isSafeInteger(s.sumFields?.[field]?.present)&&
     s.sumFields[field].present>0).map(field=>({
      field,present:s.sumFields[field].present,
      invalid:s.sumFields[field].invalid}));
-  return {name:s.sheet,rows:s.rows,amount:reported,
+  return {name:s.sheet,rows:s.rows,amountField,amount:reported,
    uncoveredRows:s.rows-priceRows-invalid,
    invalidRows:invalid,candidates};
  });
@@ -68,7 +71,7 @@ export function buildYandexMonthlyEvidence(sources){
   !s.amount||s.amount.rows!==s.rows||s.amount.invalid>0);
  result.services={rows:serviceRows,sheets:serviceTotals,
   incompleteSheets:serviceMissing.map(s=>s.name),
-  note:'servicePrice coverage is checked by sheet; incomplete is NOT zero. Do not subtract charges already included in summaryCommission.'};
+  note:'Use totalAmount for placement.json, servicePrice for other sheets. Missing is NOT zero; order commission is not deducted twice.'};
  if(serviceMissing.length)result.blocks.push('service_amount_coverage_incomplete');
  const paymentSheet=sources.payments.sheets.find(s=>
   s.sheet===expected.payments);
