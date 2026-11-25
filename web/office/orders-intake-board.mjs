@@ -111,8 +111,10 @@
    if(loadAllBusy||busy)return;
    loadAllBusy=true;loadAllButton.disabled=true;
    report.textContent='Последовательно читаем все подключённые кабинеты. Источники, завершившие выборку, появятся в общей таблице.';
-   try{for(const source of Object.keys(sources))await load(source);}
-   finally{loadAllBusy=false;loadAllButton.disabled=false;}
+   try{
+     for(const source of Object.keys(sources))await load(source);
+     document.dispatchEvent(new Event('as63-load-manual-orders'));
+   }finally{loadAllBusy=false;loadAllButton.disabled=false;}
  });
  async function load(k){
    if(busy||!sources[k]||location.hash.split('/')[0]!=='#orders')return;
