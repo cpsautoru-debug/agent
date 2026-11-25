@@ -34,7 +34,7 @@ export function buildYandexPreliminaryContribution(sources,costAudit,realization
  result.byShop=costs.byShop;
  result.deliveredManufacturingCostKopecks=costs.totalDeliveredCostKopecks;
  result.returnsIndicativeCostKopecks=costs.totalReturnedValueKopecks;
- if(costs.status!=='active_shops_cost_verified')
+ if(!['active_shops_cost_verified','two_shops_cost_verified'].includes(costs.status))
   result.blockers.push('active_shop_delivery_return_cost_incomplete');
  if(result.blockers.length)return result;
  const preliminary=finance.preliminaryOrderAfterServiceKopecks-
