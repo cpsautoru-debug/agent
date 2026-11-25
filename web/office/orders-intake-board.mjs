@@ -189,7 +189,13 @@
             /^[a-f0-9-]{36}$/i.test(candidate.id))continue;
          const btn=document.createElement('button');
          btn.type='button';btn.className='ms-production-detail-button';
-         btn.textContent='Проверить и связать: '+candidate.name;
+         const details=[candidate.type,candidate.name,
+           candidate.article?'артикул '+candidate.article:'',
+           candidate.code?'код '+candidate.code:'',
+           Array.isArray(candidate.characteristics)?candidate.characteristics
+             .map(x=>x.name+': '+x.value).join(', '):''].filter(Boolean).join(' · ');
+         btn.title=details;
+         btn.textContent='Проверить и связать: '+details;
          btn.addEventListener('click',()=>approve(entry,candidate));
          action.append(btn);
        }
