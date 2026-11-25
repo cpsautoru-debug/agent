@@ -47,9 +47,14 @@ test('reserve mismatch prevents allocation',()=>{
   warehouseOccupancy:{...warehouseOccupancy,reconciledReserve:0},claims});
  assert.equal(r.status,'requires_review');assert.equal(r.missing,null);
 });
-test('no due date prohibits counting planned work but still allocates available stock',()=>{
+test('unknown deadline blocks numeric sewing requirement when jobs exist',()=>{
  const next=[claims[0],{...claims[1],deadline:null}];
  const r=calculateFulfillmentCohort({...base,claims:next});
- assert.equal(r.status,'calculated');assert.equal(r.lines[1].plannedCovered,0);
- assert.equal(r.lines[1].missing,2);
+ assert.equal(r.status,'requires_review');assert.equal(r.missing,null);
+});
+test('complete proof of zero production permits calculation without deadlines',()=>{
+ const next=[claims[0],{...claims[1],deadline:null}];
+ const r=calculateFulfillmentCohort({...base,claims:next,
+  production:{status:'production_verified',jobs:[]}});
+ assert.equal(r.status,'calculated');assert.equal(r.lines[1].missing,2);
 });
