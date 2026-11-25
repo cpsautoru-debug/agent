@@ -5,8 +5,8 @@ import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
 import {loadYandexDashboardEvidence,deriveYandexDashboardEvidence}
  from './yandex-dashboard-evidence.mjs';
 import {yandexPnlCardMetric} from './yandex-pnl-card.mjs?v=20261124-margin-first';
-import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs?v=20261125-current-sad-first';
-import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs';
+import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs?v=20261125-sad-cohort-audit';
+import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs?v=20261125-sad-cohort-audit';
 import {readOctoberBusinessOverhead} from './business-overhead-core.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
