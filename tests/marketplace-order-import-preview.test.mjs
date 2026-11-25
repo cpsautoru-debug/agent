@@ -522,6 +522,6 @@ test('Ozon FBO pagination accepts documented root schema and a complete wrapped 
    {rows,hasNext:false,next:''});
  assert.throws(()=>extractOzonOrderPage({result:{postings:rows},has_next:true,cursor:'c2'},'ozon_fbo'),
    /pagination_unverified/);
- assert.throws(()=>extractOzonOrderPage({postings:rows,has_next:true,cursor:'c2'},'ozon'),
-   /pagination_unverified/);
+ assert.deepEqual(extractOzonOrderPage({postings:rows,has_next:true,cursor:'c2'},'ozon'),
+   {rows,hasNext:true,next:'c2'});
 });
