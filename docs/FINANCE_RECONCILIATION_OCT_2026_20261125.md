@@ -82,3 +82,13 @@
 - **Единственный код блокера** `service_amount_coverage_incomplete`. `preliminaryContributionKopecks=null`, `netProfitKopecks=null`; затраты возвратов (3 199 ₽) лишь индикативные, не подтверждённое восстановление COGS.
 - Проверено: валовая база АУСН и внешняя реклама по-прежнему не закрыты. Услуги уже включены в доход после услуг заказа; нельзя вычесть их повторно.
 - Для следующей адресной диагностики дополнен `web/office/yandex-month-evidence.mjs`: отчёт по каждому листу услуг содержит покрытие `servicePrice`, количество строк без цены и альтернативные присутствующие поля суммы. `web/office/yandex-direct-reconciliation-core.mjs` отдаёт безопасное `serviceAudit` через тот же защищённый API без покупательских данных. Это **диагностика, а не автоматическое закрытие пробелов**.
+
+## Исправление ложного service_amount_coverage_incomplete · 25.11.2026
+
+Владелец передал авторизованный `/api/yandex/direct-cost-review?month=2026-10` после добавления `serviceAudit`. Он содержит 7 листов услуг: `placement.json` (36 строк, `servicePrice` 0/36), `boost.json` (2/2), `cpm-boost.json` (24/24), `delivery.json` (35/35), `crossregional_delivery.json` (56/56), `payment_accepting.json` (38/38), `payment_transfer.json` (35/35), `order_processing.json` (11/11), `storage_of_returns.json` (1/1). Внимание: согласно полному JSON со скриншота фактически 9 листов, а не 7, но восемь листов содержат корректное поле `servicePrice`.
+
+Источник: официальная документация https://yandex.ru/dev/market/partner-api/doc/ru/reference/reports/generateUnitedMarketplaceServicesReport. Для листа `placement.json` официальное денежное поле **`totalAmount`**, тогда как для других использованных листов **`servicePrice`**. Поэтому требование обязательного `servicePrice` для placement ложно. Исправлено:
+- `yandex-report-archive.mjs` теперь отдельно считает `totalAmount`;
+- `yandex-month-evidence.mjs` проверяет полное покрытие `totalAmount` в `placement.json` и `servicePrice` в остальных листах;
+- `yandex-direct-reconciliation-core.mjs` отдаёт `amountField`, `amountRows`, `missingAmountRows`, `amountKopecks` для адресной сверки.
+Пустая/невалидная `totalAmount` **не подменяется нулём** и остаётся блокером. Изменение не вычитает услуги второй раз из `incomeWithoutServices`. Чистая прибыль/АУСН до официальной полной сверки остаются `null`.
