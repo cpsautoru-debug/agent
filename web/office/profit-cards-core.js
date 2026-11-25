@@ -87,10 +87,9 @@ function makeOzonCards(result,readiness,ownerAmounts){
  const balanced=verifiedIntermediate&&ok(netSales)&&ok(gross)&&
    ok(totalFees)&&contribution===a.totalKopecks-cost.knownKopecks;
  const valid=!!balanced;
- const stated=month==='2026-10'&&ownerAmounts&&
+ const overheadKnown=month==='2026-10'&&ownerAmounts&&
    ownerAmounts.month==='2026-10'&&
    ownerAmounts.source==='OWNER_STATEMENT_2026-11-23'&&
-   ownerAmounts.taxKopecks===20550700&&
    ownerAmounts.overheadKopecks===5400000;
  const amount=(n,ready)=>ready?n:'Требуется сверка';
  const cards=[
@@ -114,11 +113,11 @@ function makeOzonCards(result,readiness,ownerAmounts){
      'Сальдо Ozon минус себестоимость. До общих затрат и налога ИП.',
      'interim'),
    box('Общие постоянные расходы бизнеса',
-     stated?ownerAmounts.overheadKopecks:'Нет подтверждённой суммы',
+     overheadKnown?ownerAmounts.overheadKopecks:'Нет подтверждённой суммы',
      'Отдельно в сводном P&L бизнеса, не расход только Ozon','separate'),
-   box('Налог ИП за октябрь',
-     stated?ownerAmounts.taxKopecks:'Нет подтверждённой суммы',
-     'Учитывается один раз в сводном P&L ИП, не вычитается из Ozon','separate'),
+   box('Налог ИП · управленческая оценка',
+     'См. расчёт АУСН 8% ниже',
+     'Оценка строится из доходов маркетплейса. Не равно официально начисленному налогу и не вычитается из Ozon повторно','separate'),
    box('Чистая прибыль всего бизнеса','Ожидает закрытия',
      'Не хватает итогов остальных каналов и полного перечня общих расходов и налогов','pending')
  ];
