@@ -146,11 +146,22 @@
        body:JSON.stringify({skus:sku}),signal:AbortSignal.timeout(90000)
      });
      const data=await response.json();
-     if(!response.ok||data?.code!=='ms_orders_stock_match'||
+     if(!response.ok){
+       const allowed=['rate_limited','token_rejected','permission_denied',
+         'upstream_rejected','snapshot_unverified','snapshot_incomplete',
+         'snapshot_limit','stock_duplicate_item','stock_stores_unverified',
+         'response_too_large','stock_match_unavailable'];
+       const stage=['catalog','stock_report','matching'].includes(data?.stage)?
+         data.stage:'unknown';
+       const code=allowed.includes(data?.code)?data.code:'source_unavailable';
+       const http=Number.isSafeInteger(data?.http)?' HTTP '+data.http:'';
+       throw Error('Проверка прервана: '+stage+' / '+code+http);
+     }
+     if(data?.code!=='ms_orders_stock_match'||
        data.readOnly!==true||data.changedRecords!==0||
        data.completeCatalog!==true||data.completeStockReport!==true||
        !Array.isArray(data.matches)||data.matches.length!==sku.length)
-       throw Error('stock_snapshot_unverified');
+       throw Error('Формат или полнота ответа не подтверждены');
      stockResults.clear();
      for(const result of data.matches){
        if(sku.includes(result.sku)&&['not_matched','ambiguous',
@@ -163,9 +174,10 @@
      stockStatus.textContent='Сверено '+sku.length+' SKU; точное соответствие с учётным остатком: '+
        matched+'. Данные неатомарны и не подтверждают физическое наличие или готовность отгрузки. '+
        'Ни одного резерва, задания или отгрузки не создано.';
-   }catch{
+   }catch(error){
      stockResults.clear();refreshStockCells();
-     stockStatus.textContent='Сверка не подтверждена: каталог или остатки неполны/недоступны. Решения о пошиве и отгрузках не принимаем.';
+     stockStatus.textContent='Сверка не подтверждена: '+String(error?.message||'нет данных').slice(0,150)+
+       '. Решения о пошиве и отгрузках не принимаем.';
    }finally{busy=false;stockButton.disabled=false;buttons.forEach(b=>b.disabled=false);}
  });
 })();
