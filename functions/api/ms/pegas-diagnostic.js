@@ -105,26 +105,26 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
         const planMaterials=planId&&plan&&!plan.error?await read('processingplan',planId,'materials'):null;
         output.push({
           number:target.number,verifiedDocument:!!docMatch,verifiedStage:!!stageMatch,
-          documentError:doc.error||null,stageError:stage.error||null,
+          documentError:doc.error||null,documentHttp:doc.http||200,stageError:stage.error||null,stageHttp:stage.http||200,
           productionStageId:target.stage,productionTaskId:taskId,
           linkedProductionRowId:stageRow?.rowId||null,
-          productionRowsStatus:rows?.error|| (rows?'complete':'unavailable'),
+          productionRowsStatus:rows?.error|| (rows?'complete':'unavailable'),productionRowsHttp:rows?.http||null,
           matchedProductionRow:!!matchingRow,
           productionRowQuantity:quantity(matchingRow?.quantity),
           productionRowFields:matchingRow?Object.keys(matchingRow).filter(k=>/plan|product|assort|quantity|volume/i.test(k)):[],
-          productionTaskNumber:short(task?.name),productionTaskError:task?.error||null,
-          processingPlanId:planId,processingPlanName:short(plan?.name),processingPlanError:plan?.error||null,
+          productionTaskNumber:short(task?.name),productionTaskError:task?.error||null,productionTaskHttp:task?.http||null,
+          processingPlanId:planId,processingPlanName:short(plan?.name),processingPlanError:plan?.error||null,processingPlanHttp:plan?.http||null,
           stagePlanned:quantity(stage.totalQuantity),stageCompleted:quantity(stage.completedQuantity),
           productionTaskFields:task&&!task.error?Object.keys(task).filter(x=>/plan|row|quantity|volume/i.test(x)):[],
           consumed:compactLines(materials?.rows),
-          consumedError:materials?.error||null,
+          consumedError:materials?.error||null,consumedHttp:materials?.http||null,
           planMaterials:compactLines(planMaterials?.rows),
-          planMaterialsError:planMaterials?.error||null,
+          planMaterialsError:planMaterials?.error||null,planMaterialsHttp:planMaterials?.http||null,
           needsManualNormMatch:!planId||!Array.isArray(planMaterials?.rows)
         });
       }
       return json(200,{code:'ms_pegas_diagnostic',readOnly:true,changedRecords:0,requests,
-        note:'Do not infer excess without verifying units, production rows and processing-plan quantity',
+        note:'HTTP codes are upstream statuses; no tokens or upstream error bodies disclosed. Do not infer excess without verifying units, production rows and processing-plan quantity',
         results:output});
     }catch{
       return json(502,{code:'ms_pegas_diagnostic_incomplete',readOnly:true,changedRecords:0,requests});
