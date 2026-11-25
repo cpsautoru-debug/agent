@@ -41,7 +41,12 @@ export function attachMarketplaceTaxEstimate(){
      ' XLSX из '+(v.wb?.apiReports??0)+' API-отчётов. В исходных XLSX база отмечена ASSUMED — это не полный налог.'],
     ['Яндекс Маркет · ИП · АУСН 8%',
      money(v.yandex?.taxEstimateKopecks),
-     'По уточнению владельца — ИП, АУСН 8%. До подтверждения дохода и возвратов налог не рассчитывается.']
+     v.yandex?.status==='gross_order_scenario_before_returns'?
+      'Сценарий по валовой стоимости заказов: '+
+      money(v.yandex.grossOrderValueKopecks)+
+      ' · '+v.yandex.orderRows+' строк. До учёта возвратов, бонусов и налоговых дат; НЕ налог к уплате.':
+      'Официальный отчёт заказов не дал полностью подтверждённой валовой суммы ('+
+      String(v.yandex?.status||'нет источника')+'). Налог не подставляется как 0 ₽.']
    ];
    for(const [label,amount,desc] of rows){
     const section=node('section');
