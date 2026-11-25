@@ -28,6 +28,14 @@ test('canceled and FBY orders cannot become sewing assignments',()=>{
  const x=normalizeYandexOrderPreview({...fixture,orders},CAMPAIGNS);
  assert.equal(x.every(a=>a.productionQueue==='not_for_sewing'),true);
 });
+test('DELIVERY is not a sewing candidate even for FBS',()=>{
+ const rows=normalizeYandexOrderPreview({...fixture,orders:[
+  {...fixture.orders[0],status:'DELIVERY'},
+  {...fixture.orders[0],orderId:125,status:'PROCESSING'}
+ ]},CAMPAIGNS);
+ assert.equal(rows[0].productionQueue,'not_for_sewing');
+ assert.equal(rows[1].productionQueue,'candidate_needs_inventory');
+});
 test('invalid business campaign scope, fake order and wrong SKU fail closed',()=>{
  for(const change of [
   {campaignId:5},{fake:true},{items:[]},{items:[{offerId:'X',count:0}]}
