@@ -28,6 +28,7 @@
  thead.append(trh);const tbody=document.createElement('tbody');table.append(thead,tbody);wrap.append(table);section.append(wrap);
  root.append(section);
  const td=(tr,value)=>{const e=document.createElement('td');e.textContent=value==null||value===''?'—':String(value);tr.append(e);};
+ document.addEventListener('as63-load-manual-orders',()=>{if(!button.disabled)button.click();});
  button.addEventListener('click',async()=>{
   if(button.disabled)return;button.disabled=true;status.textContent='Читаем помеченные заказы по страницам. Только GET; записи не создаются.';
   tbody.replaceChildren();coverage.textContent='';
