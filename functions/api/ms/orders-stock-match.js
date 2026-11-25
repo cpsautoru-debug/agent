@@ -168,7 +168,7 @@ async function targetedSku(fetcher,token,sku){
         const kind=parts[parts.indexOf('entity')+1];
         if(parsed.origin==='https://api.moysklad.ru'&&
          ['product','variant','bundle'].includes(kind))type=kind;
-       }}catch{}
+       }catch{}
        if(type)leads.push({id:row.id,name:row.name,type});
       }
      }
