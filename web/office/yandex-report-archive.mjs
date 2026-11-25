@@ -264,6 +264,12 @@ export function describeYandexReportSheets(files){
   // summaryCommission a second time. Do not call this business net profit.
   const marginSheet=/^services_and_orders_margin\.json$/i.test(name);
   const orderKeys=new Set();let duplicateOrderIds=0,ordersWithIds=0;
+  // Owner-protected order-key evidence for matching the actual October
+  // delivered cohort to its own revenue, instead of all order statuses.
+  // The direct finance endpoint returns aggregate totals, never these IDs.
+  const orderIdOf=v=>Number.isSafeInteger(v)&&v>0?String(v):
+   typeof v==='string'&&/^\\d{1,20}$/.test(v)?v:null;
+  const marginOrderLedger=[],deliveryOrderLedger=[];
   if(marginSheet){
    for(const row of rows){
     if(row?.orderId==null)continue;
@@ -272,10 +278,29 @@ export function describeYandexReportSheets(files){
     ordersWithIds++;
     if(orderKeys.has(id))duplicateOrderIds++;
     else orderKeys.add(id);
+    if(rows.length<=2000){
+     const net=toKopecks(row.incomeWithoutServices);
+     const gross=toKopecks(row.sumBillingPriceOfItems);
+     marginOrderLedger.push({orderId:orderIdOf(row.orderId),
+      incomeKopecks:net,grossKopecks:gross});
+    }
+   }
+  }
+  if(realizationKind==='delivered'&&rows.length<=2000){
+   for(const row of rows){
+    const sku=row?.yourSku||row?.shopSku;
+    const id=orderIdOf(row?.orderId);
+    const quantity=row?.deliveredCount;
+    deliveryOrderLedger.push({orderId:id,
+     shopSku:typeof sku==='string'?sku:null,
+     units:Number.isSafeInteger(quantity)&&quantity>=0?quantity:null,
+     deliveryDate:typeof row?.deliveryDate==='string'?
+      row.deliveryDate.slice(0,10):null});
    }
   }
   sheets.push({sheet:name,rows:rows.length,fields:names,
    isOrderMarginSource:marginSheet,ordersWithIds,duplicateOrderIds,
+   marginOrderLedger,deliveryOrderLedger,
    sumFields,quantityTotals,realizationKind,
    realizationSkuSummaries:[...realizationMap.values()],
    realizationSkuCoverage:realizationCoverage,
