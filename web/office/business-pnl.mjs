@@ -360,7 +360,7 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
    'Оценка по отчётам · даты признания дохода не сверены':'Не закрыто';
  const profitEstimateHint=pnl.verified===true?'Подтверждено':
   Number.isSafeInteger(managementRemainder)?
-   'Оценка · возможны дополнительные расходы':'Не закрыто';
+   'Оценка · возвраты, баллы и внешние расходы ещё сверяются':'Не закрыто';
  for(const [label,value,kind,hint] of [
   ['Общие расходы',Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)?
     -pnl.sharedExpenseTotalKopecks:null,'expenses',''],
