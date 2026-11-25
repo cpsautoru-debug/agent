@@ -1888,6 +1888,15 @@
             <div id="savedSkuMatchCandidate"></div>
           </div>
           <button type="button" id="ordersSkuLinksRefresh" class="ms-production-detail-button">Обновить справочник</button>
+          <div class="ms-sites-steps">
+            <h4>Учётные остатки подтверждённой номенклатуры</h4>
+            <p>Независимая проверка товара через API МойСклад. Не требует активного заказа, но не подтверждает физическое наличие или свободное количество для отгрузки.</p>
+            <button type="button" id="approvedSkuStockLoad" class="ms-production-detail-button">Загрузить подтверждённые SKU</button>
+            <select id="approvedSkuStockSelect" aria-label="Подтверждённый SKU для сверки"></select>
+            <button type="button" id="approvedSkuStockCheck" class="ms-production-detail-button" disabled>Проверить остаток и резерв по складам</button>
+            <p role="status" id="approvedSkuStockStatus" class="ms-production-status">Учётный остаток ещё не проверялся.</p>
+            <div id="approvedSkuStockResults"></div>
+          </div>
           <p class="ms-production-status" id="ordersSkuLinksStatus" role="status">Проверка базы соответствий ещё не выполнялась.</p>
           <div class="ms-production-scroll"><table class="ms-production-table" id="ordersSkuLinksTable" hidden>
             <thead><tr><th>Канал / кабинет</th><th>SKU</th><th>Связь с МойСклад</th><th>Действие</th></tr></thead>
@@ -2510,6 +2519,7 @@
 <script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-review"></script>
 <script type="module" src="warehouse-route-approval.mjs?v=20261125-approval"></script>
 <script type="module" src="saved-sku-confirmation.mjs?v=20261125-targeted"></script>
+<script type="module" src="approved-sku-stock-diagnostic.mjs?v=20261125-reserves"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
