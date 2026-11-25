@@ -34,7 +34,9 @@ function renderCloseoutStatus(root,pnl,interim){
  if(yandex?.status==='unknown'){
   const cost=interim.yandexCost;
   const why=cost?.status==='incomplete_cost_coverage'?
-   'нет полной себестоимости доставок и возвратов'+
+   (cost.missingCount===0?
+    'все распознанные товары имеют себестоимость, но не хватает подтверждения полноты реализаций/возвратов':
+    'есть товары с неизвестной себестоимостью')+
     (Number.isSafeInteger(cost.missingCount)?
      ' (неопознанных товаров: '+cost.missingCount+')':'')+
     (Number.isSafeInteger(cost.issues)?
@@ -115,8 +117,10 @@ function render(root,pnl,sourceNotes={},interim={}){
      'Подтверждённая себестоимость доставленных: '+money(x.cogsKopecks)));
    }else if(x.status==='incomplete_cost_coverage'){
     card.append(el('small','business-pnl-interim-warning',
-     'Себестоимость Яндекса не закрыта: товаров без подтверждённой цены '+
-      x.missingCount+', проблем покрытия отчётов '+x.issues+'.'));
+     (x.missingCount===0?
+      'Цены всех распознанных товаров Яндекса подтверждены, но нельзя подтвердить полноту себестоимости без всех отчётов реализации и возвратов.':
+      'Себестоимость Яндекса не закрыта: товаров без подтверждённой цены '+x.missingCount+'.')+
+      ' Проблем покрытия отчётов: '+x.issues+'.'));
     if(Array.isArray(x.missingProducts)&&x.missingProducts.length){
      const fold=el('details','business-pnl-wb-details');
      fold.append(el('summary','','Товары без подтверждённой себестоимости · '+
@@ -137,6 +141,22 @@ function render(root,pnl,sourceNotes={},interim={}){
      'материала и пошива именно этой комплектации. Отсутствующие '+
      'товары не считаются бесплатными.'));
     card.append(fold);
+    }
+    if(Array.isArray(x.blockers)&&x.blockers.length){
+     const hints={
+      service_amount_coverage_incomplete:'Неполное покрытие сумм отчёта услуг',
+      payment_coverage_incomplete:'Не все платежи имеют проверенную сумму',
+      both_shops_delivery_return_cost_incomplete:'Нет подтверждения реализаций и возвратов обоих магазинов',
+      financial_sources_not_verified:'Проверка финансовых архивов не завершена',
+      three_reports_not_verified:'Не совпадают необходимые финансовые отчёты',
+      order_income_not_verified:'Не подтверждён доход по заказам'
+     };
+     const distinct=[...new Set(x.blockers)];
+     const items=el('div','business-pnl-interim-warning');
+     items.append(el('small','','Дополнительные блокеры расчёта:'));
+     for(const key of distinct)
+      items.append(el('small','',hints[key]||key));
+     card.append(items);
     }
     if(Array.isArray(x.issueDetails)&&x.issueDetails.length){
      const names={149082506:'САД',149106500:'автосклад'};
