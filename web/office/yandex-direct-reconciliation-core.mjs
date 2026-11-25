@@ -72,6 +72,9 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   indicativeReturnCostKopecks:summary.returnsIndicativeCostKopecks,
   preliminaryContributionKopecks:complete?
    summary.preliminaryContributionKopecks:null,
+  reviewContributionBeforeReturnsKopecks:!archivedActivity&&
+   Number.isSafeInteger(summary.reviewContributionBeforeReturnsKopecks)?
+   summary.reviewContributionBeforeReturnsKopecks:null,
   missing,issues:ledger.issues,
   blockers:[...summary.blockers,...(archivedActivity?['archived_campaign_has_order_rows']:[])],
   activeCampaigns:active,archivedCampaigns:[149106500].filter(id=>!active.includes(id)),
