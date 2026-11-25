@@ -41,6 +41,15 @@ test('unverified assortment types and invalid quantities are rejected',()=>{
   {...validRow.positions[0],quantity:-1}]}),/manual_order_position_unverified/);
 });
 
+test('Plamya channel has an exact independent marker and MoySklad UUID identity',()=>{
+ const row={...validRow,externalCode:'AS63:manual:plamya:PL-20261125-001'};
+ const order=normalizeManualCustomerOrder(row);
+ assert.equal(order.source,'plamya');
+ assert.equal(order.sourceLabel,'Пламя · точка');
+ assert.equal(order.orderIdentity,'AS63:manual:plamya:'+row.id);
+ assert.equal(order.items[0].itemId,id);
+ assert.equal(manualOrderChannel('AS63:manual:plamya:'),null);
+});
 test('document without a manual marker is excluded',()=>{
  assert.throws(()=>normalizeManualCustomerOrder({...validRow,externalCode:'ordinary-order-123'}),
   /manual_order_schema_unverified/);
