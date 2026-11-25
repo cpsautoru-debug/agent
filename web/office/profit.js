@@ -73,7 +73,7 @@
     if(typeof cards!=='function')throw new Error('Модуль финансовых карточек Ozon недоступен.');
     const view=cards(result,readiness,{
       month:'2026-10',source:'OWNER_STATEMENT_2026-11-23',
-      taxKopecks:20550700,overheadKopecks:5400000
+      overheadKopecks:5400000
     });
     $('profitCards').replaceChildren();
     for(const row of view.cards){
