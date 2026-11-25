@@ -68,6 +68,14 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   status:complete?'preliminary_cost_reconciled':'incomplete_cost_coverage',
   incomeKopecks:finance.preliminaryOrderAfterServiceKopecks,
   orderRows:finance.orderMargin?.rows??null,
+  // Safe source-only diagnosis for the owner: no customer/order details.
+  serviceAudit:finance.services?.sheets?.map(sheet=>({
+   sheet:sheet.name,rows:sheet.rows,
+   servicePriceRows:sheet.amount?.rows??0,
+   servicePriceInvalid:sheet.invalidRows??0,
+   missingServicePriceRows:sheet.uncoveredRows??null,
+   candidateAmountFields:sheet.candidates||[]
+  }))??[],
   cogsKopecks:summary.deliveredManufacturingCostKopecks,
   indicativeReturnCostKopecks:summary.returnsIndicativeCostKopecks,
   preliminaryContributionKopecks:complete?
