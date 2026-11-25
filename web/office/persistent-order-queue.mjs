@@ -37,6 +37,7 @@
    if(!fulfillmentTable)return;
    const active=data.orders.filter(order=>order.queue_bucket==='active');
    const checks=new Map((data.fulfillment||[]).map(check=>[check.orderKey,check]));
+   const readiness=new Map((data.approvalReadiness||[]).map(x=>[x.orderKey,x]));
    const entries=active.flatMap(order=>{
      const check=checks.get(order.order_key);
      return (check?.lines||order.items.map(i=>({item:i.name||i.sku||i.itemId,
@@ -77,6 +78,15 @@
        :line.status==='production_covered'?'Покрыто существующим производством'
        :line.status==='warehouse_covered'?'Учётно обеспечено складом'
        :'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта');
+     const approval=readiness.get(order.order_key);
+     if(line.status!=='sewing_required'&&line.status!=='production_covered'&&
+        line.status!=='warehouse_covered'&&approval){
+       const issues=[];
+       if(!approval.warehouseConfirmed)issues.push('подтвердить склад кабинета');
+       if(approval.unapprovedSkus?.length)
+         issues.push('подтвердить SKU: '+approval.unapprovedSkus.slice(0,3).join(', '));
+       if(issues.length)statusLabel+=' · '+issues.join('; ');
+     }
      cell(tr,statusLabel);
      fulfillmentRows.append(tr);
    }
