@@ -16,8 +16,7 @@ export function knownYandexUnitCost(offer){
  const exactPrioraCards=Number(offer.partnerId)===149082506&&
   norm(offer.shopSku)==='карты приора серый квадрат'&&
   /(?:дверн.*карт|карт.*двер|вставк.*двер)/.test(name)&&
-  /приор|priora/.test(name)&&
-  /(?:сер|grey|gray)/.test(name);
+  /приор|priora/.test(name);
  if(exactPrioraCards)return {
   costKopecks:17500,
   category:'Дверные карты Priora · серый квадрат',
