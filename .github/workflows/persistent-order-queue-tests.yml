@@ -5,6 +5,9 @@ on:
     paths:
       - 'functions/api/orders/persistent-queue.js'
       - 'functions/api/orders/workflow-review.js'
+      - 'functions/api/orders/order-stock-precheck.js'
+      - 'functions/api/orders/order-availability.js'
+      - 'tests/order-stock-precheck.test.mjs'
       - 'migrations/20261125_order_workflow_review.sql'
       - 'tests/order-workflow-review.test.mjs'
       - 'web/office/persistent-order-queue.mjs'
@@ -24,6 +27,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate D1 mirror and trusted-source boundaries
-        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs
+        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs
       - name: Check browser queue syntax
         run: node --check web/office/persistent-order-queue.mjs
