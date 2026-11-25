@@ -42,3 +42,24 @@ test('saves current review once and invalidates changed, cancelled and absent or
  assert.equal((await readReviews(db)).results.length,0);
  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM office_order_fulfillment_history').get().n,2);
 });
+
+test('only complete cohort evidence becomes a numeric sewing requirement',()=>{
+ const warehouse={status:'warehouse_verified'};
+ const row={key:'order:0',item:'SKU',itemId:'item',ordered:5,
+  accounting:{status:'accounting_verified'},
+  occupancy:{status:'warehouse_orders_verified'},
+  production:{status:'production_verified'}};
+ const complete={status:'calculated',lines:[{key:'order:0',itemId:'item',
+  warehouseCovered:2,plannedCovered:1,missing:2,productionTaskIds:['job']}]};
+ const accepted=buildReview(warehouse,[row],complete).lines[0];
+ assert.equal(accepted.status,'sewing_required');
+ assert.equal(accepted.missing,2);
+ assert.equal(accepted.warehouseCovered,2);
+ assert.equal(accepted.plannedCovered,1);
+ for(const proof of [null,{status:'requires_review',lines:complete.lines},
+  {status:'calculated',lines:[{...complete.lines[0],missing:0}]}]){
+  const rejected=buildReview(warehouse,[row],proof).lines[0];
+  assert.equal(rejected.status,'requires_review');
+  assert.equal(rejected.missing,null);
+ }
+});
