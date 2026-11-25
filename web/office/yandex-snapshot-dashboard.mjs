@@ -101,21 +101,28 @@ export async function loadYandexCostSnapshot(month,fetcher=fetch){
   try{
    const options={method:'GET',credentials:'same-origin',
     cache:'no-store',signal:AbortSignal.timeout(30000)};
-   const response=await fetcher('/api/yandex/evidence-snapshot?month='+
-    encodeURIComponent(month),options);
-   if(response.ok){
-    const checked=interpretYandexCostSnapshot(month,await response.json());
-    if(checked.status!=='unavailable')return checked;
-   }
-   // The historical browser-controlled snapshot may never have been saved.
-   // Fetch directly from the five existing official Yandex reports on server.
+   // Prefer fresh authorized API evidence after seller perimeter and SKU
+   // cost changes. A previously persisted browser snapshot can be stale.
    const direct=await fetcher('/api/yandex/direct-cost-review?month='+
     encodeURIComponent(month),options);
-   if(!direct.ok)return unavailable;
-   const result=interpretYandexDirectCostReview(month,await direct.json());
-   if(fetcher===fetch&&result.status!=='unavailable')
-    serverCache.set(cacheKey,{at:Date.now(),value:result});
-   return result;
+   if(direct.ok){
+    const result=interpretYandexDirectCostReview(month,await direct.json());
+    if(result.status!=='unavailable'){
+     if(fetcher===fetch)serverCache.set(cacheKey,{at:Date.now(),value:result});
+     return result;
+    }
+   }
+   // Read the historical snapshot only as a fallback. Never combine
+   // totals from different revisions of the same period.
+   const response=await fetcher('/api/yandex/evidence-snapshot?month='+
+    encodeURIComponent(month),options);
+   if(!response.ok)return unavailable;
+   const checked=interpretYandexCostSnapshot(month,await response.json());
+   if(checked.status!=='unavailable'){
+    if(fetcher===fetch)serverCache.set(cacheKey,{at:Date.now(),value:checked});
+    return checked;
+   }
+   return unavailable;
   }catch{return unavailable;}
   finally{inFlight.delete(cacheKey);}
  })();
