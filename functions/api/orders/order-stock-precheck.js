@@ -94,8 +94,8 @@ export function createStockPrecheck({fetcher=fetch}={}){
     let result;
     try{
      result=await fetcher(ROOT+path,{method:'GET',redirect:'manual',
-      headers:{Authorization:'Bearer '+token,Accept:'application/json'},
-      signal:AbortSignal.timeout(8000)});
+      headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
+      signal:AbortSignal.timeout(12000)});
     }catch{
      if(attempt===0){await new Promise(r=>setTimeout(r,300));continue;}
      throw Error('ms_network_failure');
@@ -108,20 +108,17 @@ export function createStockPrecheck({fetcher=fetch}={}){
      }
      throw Error('ms_http_'+code);
     }
-    const reader=result.body?.getReader();
-    if(!reader)throw Error('ms_body_unavailable');
-    try{
-     let bytes=0,raw='';
-     const decoder=new TextDecoder('utf-8',{fatal:true});
-     for(;;){
-      const {done,value}=await reader.read();
-      if(done)break;
-      bytes+=value.byteLength;
-      if(bytes>512*1024)throw Error('ms_response_too_large');
-      raw+=decoder.decode(value,{stream:true});
-     }
-     return JSON.parse(raw+decoder.decode());
-    }finally{await reader.cancel().catch(()=>{});}
+    const length=Number(result.headers.get('Content-Length'));
+    if(Number.isFinite(length)&&length>512*1024){
+     await result.body?.cancel().catch(()=>{});
+     throw Error('ms_response_too_large');
+    }
+    let raw;
+    try{raw=await result.text();}
+    catch{throw Error('ms_body_read_failed');}
+    if(raw.length>512*1024)throw Error('ms_response_too_large');
+    try{return JSON.parse(raw);}
+    catch{throw Error('ms_invalid_json');}
    }
    throw Error('ms_network_failure');
   };
