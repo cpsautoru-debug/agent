@@ -116,6 +116,12 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
     card.append(el('small','business-pnl-subhead',
      'Подтверждённая себестоимость доставленных: '+money(x.cogsKopecks)));
    }else if(x.status==='incomplete_cost_coverage'){
+    if(Number.isSafeInteger(x.reviewContributionBeforeReturnsKopecks)){
+     card.append(el('small','business-pnl-subhead',
+      'Ориентир Яндекса после себестоимости: '+
+      money(x.reviewContributionBeforeReturnsKopecks)+
+      ' · до проверки возвратов, отдельных услуг, рекламы и АУСН; НЕ чистая прибыль.'));
+    }
     card.append(el('small','business-pnl-interim-warning',
      (x.missingCount===0?
       'Цены всех распознанных товаров Яндекса подтверждены, но нельзя подтвердить полноту себестоимости без всех отчётов реализации и возвратов.':
