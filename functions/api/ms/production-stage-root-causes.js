@@ -30,6 +30,17 @@ const reference=x=>{
   return {type:string(m[1],50),id:m[2]};
  }catch{return null;}
 };
+// Show only safe relative API reference paths, never the auth token or source URL.
+const pathReference=x=>{
+ const href=x?.meta?.href;
+ if(typeof href!=='string'||href.length>420)return null;
+ try{
+  const u=new URL(href);
+  return u.origin==='https://api.moysklad.ru'&&
+   /^\/api\/remap\/1\.2\/(entity|report)\/[a-z0-9\/-]+$/i.test(u.pathname)?
+   u.pathname.replace('/api/remap/1.2/',''):null;
+ }catch{return null;}
+};
 async function get(fetcher,token,path){
  let r;
  try{r=await fetcher(API+path,{method:'GET',redirect:'manual',
@@ -111,9 +122,15 @@ export function createRootCauseHandler({fetcher=fetch}={}){
     result.stageName=string(v.name);
     result.productionTask=reference(v.productionTask);
     result.productionRow=reference(v.productionRow);
+    result.productionRowPath=pathReference(v.productionRow);
+    result.productionRowFields=v.productionRow&&typeof v.productionRow==='object'?
+     Object.keys(v.productionRow).slice(0,20):[];
     result.processingPlan=reference(v.processingPlan);
     result.productionStageDefinition=reference(v.stage);
     result.stageMaterialsReference=reference(v.materials);
+    result.stageMaterialsPath=pathReference(v.materials);
+    result.stageMaterialsFields=v.materials&&typeof v.materials==='object'?
+     Object.keys(v.materials).slice(0,20):[];
     result.totalQuantity=num(v.totalQuantity);
     result.completedQuantity=num(v.completedQuantity);
    }
@@ -125,9 +142,23 @@ export function createRootCauseHandler({fetcher=fetch}={}){
      result.documentMaterials.status==='rate_limited'||
      result.documentProducts.status==='rate_limited')break;
   }
+  // Resolve the one production output seen on stage 00251 and the common
+  // processing-stage definition once, rather than repeat per completion.
+  const output=await get(fetcher,token,
+   'entity/product/d5eba0c7-3845-11f1-0a80-160300017f1a');
+  const definition=await get(fetcher,token,
+   'entity/processingstage/0ff1a8f1-9897-11f0-0a80-0f0b00152526');
   return reply(200,{code:'ms_production_stage_root_causes',
    readOnly:true,changedRecords:0,checkedAt:new Date().toISOString(),
    checked:results.length,expected:4,
+   outputItem:output.error?{status:output.error,http:output.status||null}:{
+    status:'ok',id:uuid(output.value?.id),
+    name:string(output.value?.name,180),code:string(output.value?.code,60),
+    path:string(output.value?.pathName,180)},
+   stageDefinition:definition.error?{status:definition.error,http:definition.status||null}:{
+    status:'ok',id:uuid(definition.value?.id),
+    name:string(definition.value?.name,150),
+    fieldsPresent:Object.keys(definition.value||{}).slice(0,20)},
    results,note:'Read-only document and stage links. 991 identical film/spunbond deductions confirmed via turnover; this report checks what each document contains. Never auto-adjust inventory based on these results.'});
  };
 }
