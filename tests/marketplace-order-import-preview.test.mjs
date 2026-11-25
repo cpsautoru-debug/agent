@@ -447,3 +447,34 @@ test('missing Ozon product title triggers no MoySklad search',async()=>{
   assert.equal(calls,0);
   assert.equal(out.status,'no_product_name');
 });
+
+test('WB FBS uses dedicated read-only orders token without financial-token fallback',async()=>{
+  const {createSession}=await import('../functions/api/auth/session.js');
+  const url='https://autosklad63-office-staging.pages.dev/api/marketplace/order-import-preview?source=wb';
+  const cookie=(await createSession('test-owner','unit-test-session-secret')).split(';')[0];
+  const request=new Request(url,{headers:{Cookie:cookie}});
+  const ownerDb={prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})};
+  const base={OFFICE_SESSION_SECRET:'unit-test-session-secret',
+    OFFICE_ALLOWED_EMAIL:'owner@example.test',OZON_FINANCE_DB:ownerDb,
+    MS_API_TOKEN:'ms-read-token',WB_API_TOKEN:'finance-token-must-not-be-used'};
+  const calls=[];
+  const handler=createMarketplaceOrderPreview({fetcher:async(url,options)=>{
+    calls.push({url,authorization:options.headers?.Authorization});
+    return Response.json({orders:[]});
+  }});
+  const missing=await handler({request,env:base});
+  assert.equal(missing.status,503);
+  assert.equal((await missing.json()).code,'marketplace_credentials_missing');
+  assert.equal(calls.length,0);
+  const response=await handler({request,env:{
+    ...base,WB_ORDERS_API_TOKEN:'dedicated-orders-token'
+  }});
+  assert.equal(response.status,200);
+  const result=await response.json();
+  assert.equal(result.source,'wb');
+  assert.equal(result.readOnly,true);
+  assert.equal(result.changedRecords,0);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,'https://marketplace-api.wildberries.ru/api/v3/orders/new');
+  assert.equal(calls[0].authorization,'dedicated-orders-token');
+});
