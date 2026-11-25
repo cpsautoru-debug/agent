@@ -138,12 +138,39 @@ export function createPersistentQueue({
      }));
      fulfillmentAvailable=true;
     }catch{}
+    // Owner-only actionable readiness; absence of evidence is always unknown.
+    // Failure to load a mapping must never be interpreted as approval.
+    let approvalReadiness=[];
+    try{
+     const current=displayed.filter(o=>o.queue_bucket==='active');
+     for(const order of current.slice(0,30)){
+      const route=await db.prepare(
+       'SELECT store_id FROM office_order_warehouse_routes WHERE source=? AND seller_account=? LIMIT 1')
+       .bind(order.source,order.account).first();
+      const unresolved=[];
+      for(const item of order.items.slice(0,20)){
+       if(order.source==='manual'||manualKinds.includes(order.source)){
+        if(!ID.test(item.itemId||''))unresolved.push(item.name||'itemId');
+        continue;
+       }
+       const link=await db.prepare(
+        'SELECT ms_item_id FROM office_order_sku_links WHERE source=? AND seller_account=? AND marketplace_sku=? LIMIT 1')
+        .bind(order.source,order.account,item.sku).first();
+       if(!link||!ID.test(link.ms_item_id||''))unresolved.push(item.sku);
+      }
+      approvalReadiness.push({orderKey:order.order_key,source:order.source,
+       account:order.account,warehouseConfirmed:!!route?.store_id,
+       unapprovedSkus:unresolved,marketplaceCoverageConfirmed:false});
+     }
+    }catch{
+     approvalReadiness=[]; // never mark an unknown approval as verified
+    }
     const counts={active:0,transit:0,history:0,review:0};
     for(const order of displayed)counts[order.queue_bucket]++;
     return reply(200,{code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
-     orders:displayed,sources:sync.results,
+     orders:displayed,sources:sync.results,approvalReadiness,
      note:'Source-status classification only; no inventory, physical stock, production or dispatch approval.'});
    }catch{return reply(503,{code:'persistent_queue_storage_unavailable',
     migration:'20261125_persistent_order_queue.sql'});}
