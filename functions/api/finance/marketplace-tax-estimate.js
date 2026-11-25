@@ -9,7 +9,7 @@ export async function onRequestGet({request,env}){
  if(request.method!=='GET')return out(405,{code:'method_not_allowed'});
  const url=new URL(request.url),month=url.searchParams.get('month');
  if(url.pathname!=='/api/finance/marketplace-tax-estimate'||url.searchParams.size!==1||
-    !/^20\\d{2}-(0[1-9]|1[0-2])$/.test(month||''))return out(400,{code:'invalid_month'});
+    !/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||''))return out(400,{code:'invalid_month'});
  if(!env?.OZON_FINANCE_DB||!env.OFFICE_SESSION_SECRET||
     !env.OFFICE_ALLOWED_EMAIL||!env.OZON_FINANCE_SYNC||
     !env.WB_REPORT_SNAPSHOT_DB||!env.WB_REPORT_ACCOUNT_ID)
