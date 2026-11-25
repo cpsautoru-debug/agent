@@ -54,12 +54,17 @@ export function attachOzonMissingSkuAutoSync({doc=document,win=window,fetcher=fe
    if(!r.ok)throw Error(data?.code||'source_unavailable');
    if(!validResponse(data))throw Error('unexpected_source');
    body.replaceChildren();
+   let candidates=0,requiresReview=0;
    for(const item of data.items){
     const tr=el('tr');
+    const ready=Number.isSafeInteger(item.referenceCostKopecks)&&
+      item.referenceCostKopecks>0&&item.exactArticleMatch===true&&
+      !/подлокот|премиум|premium/i.test(item.name);
+    if(ready)candidates++;else requiresReview++;
     for(const val of [item.sku,item.ledgerArticle??'—',item.name,
       rub(item.referenceCostKopecks),
       item.referenceCostKopecks===null?'Нет надёжного норматива':
-       item.offerId!==item.ledgerArticle?'Артикул не совпадает':
+       item.exactArticleMatch!==true?'Артикул не совпадает':
        /подлокот|премиум|premium/i.test(item.name)?
         'Особая комплектация — отдельная проверка':
        'Норматив-кандидат; цена на дату продажи не проверена'])
@@ -68,6 +73,8 @@ export function attachOzonMissingSkuAutoSync({doc=document,win=window,fetcher=fe
    }
    state.textContent='Ozon Seller API: получено '+data.foundCount+
     ' карточек из '+data.missingCount+' SKU без цены в основном Ozon Profit. '+
+    'Предварительных кандидатов: '+candidates+
+    '; необходима отдельная проверка: '+requiresReview+'. '+
     'Изменений финансовых данных: '+data.changedRecords+
     '. Не найдено в API: '+data.notFound.length+
     '. Исторические цены и подтверждённая прибыль не изменены.';
