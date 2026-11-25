@@ -67,6 +67,13 @@ export function createStockPrecheck({fetcher=fetch}={}){
    if(!Number.isFinite(stamp)||Date.now()-stamp>86400000||
       stamp>Date.now()+300000)
     return response(409,{code:'source_snapshot_stale',changedRecords:0});
+   // A previously active order is not current if the latest complete source
+   // snapshot no longer contains it. Never use historical rows for allocation.
+   const sync=await db.prepare(
+    'SELECT last_success_at FROM office_order_queue_sync WHERE source=? LIMIT 1')
+    .bind(MANUAL.includes(order.source)?'manual':order.source).first();
+   if(!sync||sync.last_success_at!==order.source_checked_at)
+    return response(409,{code:'order_not_in_latest_snapshot',changedRecords:0});
    items=JSON.parse(order.items_json);
    if(!Array.isArray(items)||items.length<1||items.length>8)throw Error();
   }catch{return response(503,{code:'order_data_unverified',changedRecords:0});}
