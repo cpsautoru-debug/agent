@@ -4,6 +4,9 @@ on:
     branches: [feature/marketplace-agents-staging]
     paths:
       - 'functions/api/orders/persistent-queue.js'
+      - 'functions/api/orders/workflow-review.js'
+      - 'migrations/20261125_order_workflow_review.sql'
+      - 'tests/order-workflow-review.test.mjs'
       - 'web/office/persistent-order-queue.mjs'
       - 'migrations/20261125_persistent_order_queue.sql'
       - 'tests/persistent-order-queue.test.mjs'
@@ -21,6 +24,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate D1 mirror and trusted-source boundaries
-        run: node --test tests/persistent-order-queue.test.mjs
+        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs
       - name: Check browser queue syntax
         run: node --check web/office/persistent-order-queue.mjs
