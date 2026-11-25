@@ -5,7 +5,7 @@ import {verifySession} from '../auth/session.js';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/marketplace/order-import-preview';
 const MS='https://api.moysklad.ru/api/remap/1.2/entity/customerorder';
-const LIMIT=10,MAX_BYTES=256*1024;
+const LIMIT=10,ORDER_PAGE_LIMIT=50,MAX_ORDER_PAGES=4,MAX_IMPORTED_ORDERS=200,MAX_BYTES=256*1024;
 const HEADER={'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store','Vary':'Cookie',
   'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
@@ -32,7 +32,7 @@ export function buildOzonFbsPreviewBody(nowMs){
   // Select new FBS assembly work rather than already shipped postings.
   return {filter:{since:start.toISOString(),to:end.toISOString(),
     statuses:['awaiting_packaging']},
-    limit:LIMIT,sort_dir:'DESC',cursor:''};
+    limit:ORDER_PAGE_LIMIT,sort_dir:'DESC',cursor:''};
 }
 // Dispatch eligibility is intentionally stricter than successful API read.
 // These labels describe FBS shipment lifecycle, NOT confirmed demand to sew.
@@ -54,9 +54,9 @@ export function classifyMarketplaceOrder(source,status){
 export function normalizeMarketplaceOrders(source,body,account){
   const raw=source==='wb'?body?.orders:
     source==='ozon_fbo'?(body?.result?.postings||body?.postings):body?.postings;
-  if(!Array.isArray(raw)||raw.length>100)throw Error('unexpected_order_feed');
+  if(!Array.isArray(raw)||raw.length>MAX_IMPORTED_ORDERS)throw Error('unexpected_order_feed');
   const ids=new Set();
-  const records=raw.slice(0,LIMIT).map(x=>{
+  const records=raw.map(x=>{
     const id=source==='wb'?String(x?.id??''):x?.posting_number;
     const code=externalKey(source,account,id);
     if(ids.has(code))throw Error('duplicate_source_order');ids.add(code);
@@ -143,7 +143,7 @@ export async function lookupMoyskladDuplicate(fetcher,token,key){
 // Positive duplicate identification is by exact externalCode equality ONLY.
 // A partial or changing scan cannot prove a key is absent.
 export async function scanMoyskladOrderKeys(fetcher,token,keys){
-  if(!Array.isArray(keys)||keys.length>LIMIT||
+  if(!Array.isArray(keys)||keys.length>MAX_IMPORTED_ORDERS||
     keys.some(k=>typeof k!=='string'||k.length>180))
     throw Error('invalid_duplicate_scan_keys');
   const PAGE=25,MAX_PAGES=8;
@@ -241,7 +241,7 @@ export async function verifyExactAssortmentSku(fetcher,token,sku){
 }
 
 export async function matchMoyskladArticles(fetcher,token,orders){
-  if(!Array.isArray(orders)||orders.length>LIMIT)
+  if(!Array.isArray(orders)||orders.length>MAX_IMPORTED_ORDERS)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
   const bySku=new Map(skus.map(s=>[s,'unverified']));
@@ -352,7 +352,7 @@ export async function matchMoyskladArticles(fetcher,token,orders){
 // incremental sync, not for a button-driven production check.
 export async function matchMoyskladArticlesBudgeted(fetcher,token,orders,
   skipSkus=new Set()){
-  if(!Array.isArray(orders)||orders.length>LIMIT)
+  if(!Array.isArray(orders)||orders.length>MAX_IMPORTED_ORDERS)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
   const bySku=new Map(skus.map(s=>[s,'unverified']));
@@ -553,25 +553,53 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       !safe(account))return json(503,{code:'marketplace_credentials_missing'});
     let failedStage='marketplace';
     try{
-      let upstream,options;
+      let upstream,options,body;
       if(source==='wb'){
         upstream='https://marketplace-api.wildberries.ru/api/v3/orders/new';
         options={method:'GET',headers:{Authorization:token,Accept:'application/json'}};
-      }else if(source==='ozon_fbo'){
-        upstream='https://api-seller.ozon.ru/v3/posting/fbo/list';
-        const end=new Date(now()),start=new Date(end.getTime()-7*86400000);
-        options={method:'POST',headers:{'Client-Id':account,
-          'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
-          body:JSON.stringify({filter:{since:start.toISOString(),to:end.toISOString()},
-            limit:LIMIT,offset:0,dir:'DESC'})};
+        body=await requestJson(fetcher,upstream,options);
       }else{
-        upstream='https://api-seller.ozon.ru/v4/posting/fbs/list';
-        options={method:'POST',headers:{'Client-Id':account,
-          'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
-          body:JSON.stringify(buildOzonFbsPreviewBody(now()))};
+        upstream=source==='ozon_fbo'?
+          'https://api-seller.ozon.ru/v3/posting/fbo/list':
+          'https://api-seller.ozon.ru/v4/posting/fbs/list';
+        const end=new Date(now()),start=new Date(end.getTime()-7*86400000);
+        let cursor='',complete=false,pages=0;
+        const postings=[],seenCursors=new Set();
+        for(;pages<MAX_ORDER_PAGES;pages++){
+          options={method:'POST',headers:{'Client-Id':account,
+            'Api-Key':token,Accept:'application/json','Content-Type':'application/json'},
+            body:JSON.stringify(source==='ozon_fbo'?
+              {filter:{since:start.toISOString(),to:end.toISOString()},
+               limit:ORDER_PAGE_LIMIT,sort_dir:'DESC',cursor}:
+              {...buildOzonFbsPreviewBody(now()),cursor}),
+            signal:AbortSignal.timeout(20000)};
+          const page=await requestJson(fetcher,upstream,options);
+          const result=source==='ozon_fbo'?page?.result:page;
+          const rows=source==='ozon_fbo'?result?.postings:page?.postings;
+          const hasNext=source==='ozon_fbo'?result?.has_next:page?.has_next;
+          const next=source==='ozon_fbo'?result?.cursor:page?.cursor;
+          if(!Array.isArray(rows)||rows.length>ORDER_PAGE_LIMIT||
+            typeof hasNext!=='boolean')throw Error('order_pagination_unverified');
+          if(postings.length+rows.length>MAX_IMPORTED_ORDERS)
+            throw Error('order_feed_limit_reached');
+          postings.push(...rows);
+          pages++;
+          if(!hasNext){complete=true;break;}
+          if(typeof next!=='string'||!next||next.length>500||
+            seenCursors.has(next))throw Error('order_pagination_unverified');
+          seenCursors.add(next);cursor=next;
+          pages--; // the for-loop increments after a consumed cursor page
+        }
+        if(!complete)return json(503,{code:'order_page_limit_reached',source,
+          stage:'marketplace',readOnly:true,changedRecords:0,
+          approvedForWrite:false,complete:false,pages});
+        body=source==='ozon_fbo'?{result:{postings}}:{postings};
       }
-      const body=await requestJson(fetcher,upstream,options);
       const orders=normalizeMarketplaceOrders(source,body,account);
+      if(source==='wb'&&orders.length>=MAX_IMPORTED_ORDERS)
+        return json(503,{code:'order_feed_limit_reached',source,
+          stage:'marketplace',readOnly:true,changedRecords:0,
+          approvedForWrite:false,complete:false});
       if(source==='ozon'&&orders.some(x=>x.status!=='awaiting_packaging'))
         throw Error('ozon_status_filter_unverified');
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
@@ -643,10 +671,10 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
       }
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
-        coverage:source==='ozon_fbo'?'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE':
-          source==='ozon'?
-          'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
-          'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS',
+        coverage:source==='ozon_fbo'?'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING':
+          source==='ozon'?'FBS_AWAITING_PACKAGING_LAST_7_DAYS_COMPLETE':
+          'WB_NEW_FBS_ORDERS_API_SNAPSHOT',
+        complete:true,
         sampledAt:new Date(now()).toISOString(),
         duplicateLookupMode:scan?.complete?
           'COMPLETE_BOUNDED_LIST_SCAN':'PARTIAL_BOUNDED_LIST_SCAN',
@@ -688,7 +716,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
         'unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
-        'source_error','ozon_status_filter_unverified'].includes(error?.message)?
+        'source_error','ozon_status_filter_unverified','order_pagination_unverified',
+        'order_feed_limit_reached','order_page_limit_reached'].includes(error?.message)?
           error.message:'import_preview_unavailable');
       return json(503,{code,source,stage:failedStage,
         upstreamHttp:Number.isInteger(error?.status)?error.status:null,

@@ -7,9 +7,9 @@
  const el=id=>document.getElementById(id);
  const report=el('ordersIntakeStatus'),tbody=el('ordersIntakeRows'),table=el('ordersIntakeTable');
  const sources={
-   ozon:{label:'Ozon FBS',coverage:'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS'},
-   ozon_fbo:{label:'Ozon FBO',coverage:'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE'},
-   wb:{label:'Wildberries FBS',coverage:'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS'},
+   ozon:{label:'Ozon FBS',coverage:'FBS_AWAITING_PACKAGING_LAST_7_DAYS_COMPLETE'},
+   ozon_fbo:{label:'Ozon FBO',coverage:'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING'},
+   wb:{label:'Wildberries FBS',coverage:'WB_NEW_FBS_ORDERS_API_SNAPSHOT'},
    yandex:{label:'Яндекс Маркет · 2 магазина',coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE'}
  };
  const sourceOrders=new Map(),stockResults=new Map(),approvedLinks=new Map();
@@ -35,7 +35,7 @@
    return d?.code==='marketplace_order_import_preview_ok'&&d.source===k&&
     d.readOnly===true&&d.changedRecords===0&&d.approvedForWrite===false&&
     d.coverage===sources[k].coverage&&Array.isArray(d.orders)&&
-    d.orders.length<=10&&d.counts?.received===d.orders.length&&
+    d.orders.length<=200&&d.complete===true&&d.counts?.received===d.orders.length&&
     d.orders.every(o=>o?.source===k&&typeof o.externalKey==='string'&&
       o.externalKey.startsWith('AS63:')&&Array.isArray(o.items)&&
       o.readyToWrite===false&&o.assortmentVerified===false&&
@@ -102,8 +102,8 @@
      stockResults.clear();
      refreshStockCells();renderMappingCandidates();
      const coverage=k==='yandex'?('оба магазина · полная выборка за 30 дней · '+data.orders.length+' заказов'):
-       k==='ozon_fbo'?'FBO, продажи со склада Ozon, НЕ очередь пошива':
-       k==='ozon'?'FBS: первая страница за 7 дней':'FBS: только первая страница новых заданий';
+       k==='ozon_fbo'?'FBO, продажи со склада Ozon, не очередь пошива':
+       k==='ozon'?'FBS: полная выборка статусов awaiting_packaging за 7 дней':'WB FBS: новые сборочные заказы из API';
      if(badge)badge.textContent=data.orders.length+' строк · '+coverage;
      report.textContent='Получено '+data.orders.length+' заказов '+sources[k].label+
        '. Это ограниченная выборка, не полная очередь. Заказов без подтверждённого соответствия для записи: '+

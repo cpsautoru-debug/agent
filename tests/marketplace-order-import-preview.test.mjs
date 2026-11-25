@@ -56,12 +56,47 @@ test('Ozon FBS v4 request uses documented cursor and sort_dir',()=>{
   assert.equal(payload.sort_dir,'DESC');
   assert.equal(payload.cursor,'');
   assert.deepEqual(payload.filter.statuses,['awaiting_packaging']);
-  assert.equal(payload.limit,10);
+  assert.equal(payload.limit,50);
   assert.equal('dir' in payload,false);
   assert.equal(payload.filter.since,'2026-11-16T10:00:00.000Z');
   assert.equal(payload.filter.to,'2026-11-23T10:00:00.000Z');
 });
 
+test('Ozon FBS intake follows cursor pages and rejects partial page coverage',async()=>{
+ const {createSession}=await import('../functions/api/auth/session.js');
+ const base='https://autosklad63-office-staging.pages.dev/api/marketplace/order-import-preview?source=ozon';
+ const cookie=(await createSession('owner','test-yandex-session')).split(';')[0];
+ const calls=[];
+ const env={OFFICE_SESSION_SECRET:'test-yandex-session',OFFICE_ALLOWED_EMAIL:'owner@example.test',
+  OZON_FINANCE_DB:{prepare:()=>({bind:()=>({first:async()=>({allowed:1})})})},
+  OZON_API_KEY:'test-ozon',OZON_CLIENT_ID:'1001',MS_API_TOKEN:'test-ms'};
+ const handler=createMarketplaceOrderPreview({fetcher:async(url,opts)=>{
+  const u=new URL(url);calls.push({url,method:opts.method,body:opts.body});
+  if(u.hostname==='api-seller.ozon.ru'&&u.pathname==='/v4/posting/fbs/list'){
+   const body=JSON.parse(opts.body);
+   assert.equal(body.limit,50);
+   return Response.json(body.cursor?{postings:[{posting_number:'P2',status:'awaiting_packaging',products:[{offer_id:'SKU2',quantity:1}]}],has_next:false,cursor:''}:
+    {postings:[{posting_number:'P1',status:'awaiting_packaging',products:[{offer_id:'SKU1',quantity:1}]}],has_next:true,cursor:'next'});
+  }
+  if(u.hostname==='api-seller.ozon.ru'&&u.pathname==='/v3/product/info/list')
+   return Response.json({items:[{offer_id:'SKU1',barcodes:[]},{offer_id:'SKU2',barcodes:[]}]});
+  if(u.hostname==='api.moysklad.ru'&&u.pathname.endsWith('/entity/customerorder'))
+   return Response.json({meta:{size:0},rows:[]});
+  if(u.hostname==='api.moysklad.ru'&&u.pathname.endsWith('/entity/assortment'))
+   return Response.json({meta:{size:0},rows:[]});
+  throw Error('unexpected_api_call');
+ }});
+ const res=await handler({request:new Request(base,{headers:{Cookie:cookie}}),env});
+ const data=await res.json();
+ assert.equal(res.status,200);assert.equal(data.complete,true);
+ assert.equal(data.coverage,'FBS_AWAITING_PACKAGING_LAST_7_DAYS_COMPLETE');
+ assert.equal(data.orders.length,2);
+ assert.equal(data.orders[0].externalKey,'AS63:ozon:1001:P1');
+ const fbs=calls.filter(x=>x.url.includes('/v4/posting/fbs/list'));
+ assert.equal(fbs.length,2);
+ assert.equal(JSON.parse(fbs[1].body).cursor,'next');
+ assert.ok(calls.filter(x=>x.url.includes('moysklad.ru')).every(x=>x.method==='GET'));
+});
 test('MoySklad filter 400 falls back without claiming absence of a duplicate',async()=>{
   const urls=[];
   const fetcher=async url=>{
