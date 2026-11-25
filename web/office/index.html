@@ -1879,6 +1879,14 @@
         <section class="ms-sites" aria-labelledby="ordersSkuMapTitle">
           <h3 id="ordersSkuMapTitle">Постоянный справочник соответствий SKU</h3>
           <p>Связь товара маркетплейса с номенклатурой МойСклад сохраняется только после явного подтверждения владельцем. Предложения по названиям не становятся связями автоматически. Склад, остатки и отгрузки не изменяются.</p>
+          <div class="ms-sites-steps">
+            <button type="button" id="savedSkuMatchLoad" class="ms-production-detail-button">Найти товар по SKU из сохранённых заказов</button>
+            <label for="savedSkuMatchSelect">SKU для проверки</label>
+            <select id="savedSkuMatchSelect" aria-label="SKU из сохранённых заказов"></select>
+            <button type="button" id="savedSkuMatchCheck" class="ms-production-detail-button" disabled>Проверить точное соответствие МойСклад</button>
+            <p id="savedSkuMatchStatus" role="status" class="ms-production-status">Поиск SKU ещё не запускался.</p>
+            <div id="savedSkuMatchCandidate"></div>
+          </div>
           <button type="button" id="ordersSkuLinksRefresh" class="ms-production-detail-button">Обновить справочник</button>
           <p class="ms-production-status" id="ordersSkuLinksStatus" role="status">Проверка базы соответствий ещё не выполнялась.</p>
           <div class="ms-production-scroll"><table class="ms-production-table" id="ordersSkuLinksTable" hidden>
@@ -2501,6 +2509,7 @@
 <script type="module" src="manual-moysklad-orders.mjs?v=20261125-manual-order-feed-v1"></script>
 <script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-review"></script>
 <script type="module" src="warehouse-route-approval.mjs?v=20261125-approval"></script>
+<script type="module" src="saved-sku-confirmation.mjs?v=20261125-targeted"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>
