@@ -119,7 +119,10 @@
        const matched=all.get(item.sku);
        if(!matched)return item.sku+': ещё не сверено';
        if(matched.status==='unverified')return item.sku+': проверка не завершена ('+String(matched.reason||'нет данных').slice(0,40)+')';
-       if(matched.status==='not_matched')return item.sku+': точного совпадения нет';
+       if(matched.status==='unmapped_sku')return item.sku+': нет подтверждённой связи SKU с МойСклад'+
+         (matched.possibleNameCandidates?.length?' · кандидаты по названию: '+
+           matched.possibleNameCandidates.map(x=>x.name).join(' / ')+
+           ' (НЕ сопоставлено)':' · подходящих кандидатов не найдено');
        if(matched.status==='ambiguous')return item.sku+': несколько совпадений';
        if(matched.status!=='matched_stock_report')return item.sku+': остаток неизвестен';
        const entries=matched.stores.filter(x=>x.accountingFree>=item.quantity);
@@ -166,7 +169,7 @@
      stockResults.clear();
      for(const result of data.matches){
        if(sku.includes(result.sku)&&['not_matched','ambiguous',
-         'matched_stock_report','matched_stock_unknown','unverified'].includes(result.status))
+         'matched_stock_report','matched_stock_unknown','unverified','unmapped_sku'].includes(result.status))
          stockResults.set(result.sku,result);
      }
      if(stockResults.size!==sku.length)throw Error('stock_items_unverified');
