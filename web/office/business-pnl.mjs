@@ -332,26 +332,43 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  const taxKnown=pnl.taxesComplete===true&&Number.isSafeInteger(pnl.taxTotalKopecks);
  const retailAudit=interim.tax?.wb?.retailReportAudit;
  const wbScenario=retailAudit?.status==='report_retail_amounts_matched'?
-  retailAudit.grossRetailTaxScenarioKopecks:
-  interim.tax?.wb?.savedTaxEstimateKopecks;
+  retailAudit.grossRetailTaxScenarioKopecks:null;
  const estimateParts=[interim.tax?.ozon?.taxEstimateKopecks,
   wbScenario,interim.tax?.yandex?.taxEstimateKopecks];
- const hasEstimate=estimateParts.some(Number.isSafeInteger);
- // Three partial scenarios are visible for planning only: they never
- // become the consolidated tax deduction until the base is reconciled.
- const allEstimatesPresent=estimateParts.every(x=>
+ // Only show a consolidated management estimate if all three official
+ // marketplace evidence sources are present, rather than fallback XLSX
+ // assumptions or Yandex's 79 mixed-status order gross.
+ const trustedEstimateSource=
+  interim.tax?.ozon?.status==='estimate_sales_less_returns_only'&&
+  retailAudit?.status==='report_retail_amounts_matched'&&
+  interim.tax?.yandex?.status===
+   'delivered_orders_gross_scenario_before_cash_recognition';
+ const allEstimatesPresent=trustedEstimateSource&&estimateParts.every(x=>
   Number.isSafeInteger(x)&&x>=0);
  const estimatedTaxTotal=allEstimatesPresent?
   estimateParts.reduce((sum,x)=>sum+x,0):null;
- const estimateHint=Number.isSafeInteger(estimatedTaxTotal)&&!taxKnown?
-  'Оценка: '+executiveMoney(estimatedTaxTotal):
-  hasEstimate?'Оценка неполная':'';
+ const taxForManagement=taxKnown?pnl.taxTotalKopecks:estimatedTaxTotal;
+ const shared=pnl.sharedExpenseTotalKopecks;
+ const known=pnl.knownChannelsTotalKopecks;
+ const managementRemainder=pnl.knownChannelCount===3&&
+  Number.isSafeInteger(known)&&Number.isSafeInteger(shared)&&
+  Number.isSafeInteger(taxForManagement)&&
+  Number.isSafeInteger(known-shared-taxForManagement)?
+   known-shared-taxForManagement:null;
+ const taxHint=taxKnown?'Подтверждено':
+  Number.isSafeInteger(estimatedTaxTotal)?
+   'Оценка по отчётам · даты признания дохода не сверены':'Не закрыто';
+ const profitEstimateHint=pnl.verified===true?'Подтверждено':
+  Number.isSafeInteger(managementRemainder)?
+   'Оценка · возможны дополнительные расходы':'Не закрыто';
  for(const [label,value,kind,hint] of [
   ['Общие расходы',Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)?
     -pnl.sharedExpenseTotalKopecks:null,'expenses',''],
-  ['АУСН 8%',taxKnown?-pnl.taxTotalKopecks:null,'tax',taxKnown?'':estimateHint],
-  ['ЧИСТАЯ ПРИБЫЛЬ',pnl.verified===true?pnl.finalProfitKopecks:null,'profit',
-    pnl.verified===true?'Подтверждено':'Не закрыто']
+  ['АУСН 8%',Number.isSafeInteger(taxForManagement)?
+    -taxForManagement:null,'tax',taxHint],
+  [pnl.verified===true?'ЧИСТАЯ ПРИБЫЛЬ':'РАСЧЁТНАЯ ПРИБЫЛЬ',
+    pnl.verified===true?pnl.finalProfitKopecks:managementRemainder,
+    'profit',profitEstimateHint]
  ]){
   const row=el('div','executive-pnl-row executive-pnl-'+kind);
   row.append(el('span','',label));
