@@ -62,6 +62,48 @@
    }
    table.hidden=tbody.children.length===0;
  }
+ // Manual customer orders are keyed by MoySklad document UUID, not a
+ // marketplace SKU. They share the board but never enter the seller-SKU mapper.
+ // Only a complete conflict-free snapshot from the manual feed is admitted.
+ const manualOrders=new Map();
+ document.addEventListener('as63-manual-orders-ready',event=>{
+   const d=event?.detail;
+   if(d?.readOnly!==true||!Array.isArray(d.orders)||
+     d.orders.length>2000)return;
+   const incoming=new Map();
+   for(const o of d.orders){
+     if(!o||typeof o.documentId!=='string'||!
+       /^[a-f0-9-]{36}$/i.test(o.documentId)||
+       !['avito','dealer_ruslan','dealer_irina','plamya'].includes(o.source)||
+       !Array.isArray(o.items)||!o.items.length||
+       o.items.some(i=>!['product','variant','bundle'].includes(i.itemType)||
+        !/^[a-f0-9-]{36}$/i.test(i.itemId)||!
+        Number.isFinite(i.quantity)||i.quantity<=0)||
+       incoming.has(o.documentId))return;
+     incoming.set(o.documentId,o);
+   }
+   // Atomic replacement of manual rows, preserving marketplace rows.
+   for(const tr of [...tbody.children])if(tr.dataset.source==='manual')tr.remove();
+   manualOrders.clear();
+   for(const [id,o] of incoming){
+     manualOrders.set(id,o);
+     const tr=document.createElement('tr');tr.dataset.source='manual';
+     cell(tr,o.sourceLabel||o.source);
+     cell(tr,o.documentName+' · '+o.manualOrderRef);
+     cell(tr,o.items.map(i=>(i.article||i.code||i.name)+' × '+i.quantity).join('; '));
+     cell(tr,o.status||'Неизвестный статус');
+     cell(tr,o.statusType==='Unsuccessful'?'Отмена по документу МойСклад':
+       'Проверить свободный остаток; затем определить потребность в пошиве');
+     cell(tr,'UUID документа МойСклад · дубль не создаётся');
+     cell(tr,'Связь товара по UUID, склад/юрлицо и резерв ещё не проверены');
+     cell(tr,'Наличие не подтверждено; задание на пошив не создано');
+     tbody.append(tr);
+   }
+   table.hidden=tbody.children.length===0;
+   report.textContent='Добавлено '+incoming.size+
+    ' ручных заказов МойСклад в общую таблицу (Авито, Пламя и дилеры). '+
+    'Это не подтверждение наличия и не разрешение на отгрузку.';
+ });
  const buttons=[...root.querySelectorAll('[data-order-source]')];
  const loadAllButton=el('ordersLoadAll');
  let loadAllBusy=false;
