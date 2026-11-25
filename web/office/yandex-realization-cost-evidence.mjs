@@ -118,7 +118,8 @@ export function reconcileYandexRealizationCosts(costAudit,reportByCampaign){
   auditedCampaign(id,reportByCampaign[id],costAudit.rows));
  return {month:costAudit.month,byShop,
   status:byShop.every(x=>x.status==='cost_verified')?
-   'active_shops_cost_verified':'reconciliation_incomplete',
+   (costAudit.month>='2026-10'?'active_shops_cost_verified':
+    'two_shops_cost_verified'):'reconciliation_incomplete',
   totalDeliveredCostKopecks:byShop.every(x=>
    Number.isSafeInteger(x.deliveredCostKopecks))?
    byShop.reduce((n,x)=>n+x.deliveredCostKopecks,0):null,
