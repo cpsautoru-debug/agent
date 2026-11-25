@@ -1,0 +1,26 @@
+name: Persistent order queue safety checks
+on:
+  push:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'functions/api/orders/persistent-queue.js'
+      - 'web/office/persistent-order-queue.mjs'
+      - 'migrations/20261125_persistent_order_queue.sql'
+      - 'tests/persistent-order-queue.test.mjs'
+      - '.github/workflows/persistent-order-queue-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate D1 mirror and trusted-source boundaries
+        run: node --test tests/persistent-order-queue.test.mjs
+      - name: Check browser queue syntax
+        run: node --check web/office/persistent-order-queue.mjs
