@@ -58,6 +58,42 @@ test('unauthenticated and origin-mismatched requests cannot read MoySklad',async
   body:JSON.stringify({skus:['vesta-1']})}),env:{}});
  assert.equal(crossSite.status,403);assert.equal(calls,0);
 });
+test('saved account-specific SKU link is verified with GET only and used for stock',async()=>{
+ const secret='approved-link-session';
+ const cookie=(await createSession('owner-sub',secret)).split(';')[0];
+ const requests=[];
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return {bind:()=>({first:async()=>({allowed:1})})};
+  if(sql.includes('office_order_sku_links'))return {bind:()=>({first:async()=>({
+   ms_item_type:'product',ms_item_id:A,ms_item_name:'Чехлы Vesta'
+  })})};
+  throw Error('unexpected_sql');
+ }};
+ const handler=createOrderStockMatch({fetcher:async(url,opts)=>{
+  requests.push({url,method:opts.method});
+  const u=new URL(url);
+  if(u.pathname.endsWith('/entity/assortment'))
+   return Response.json({meta:{size:0},rows:[]});
+  if(u.pathname.endsWith('/entity/product/'+A))
+   return Response.json({id:A,name:'Чехлы Vesta',article:'vesta-1',characteristics:[{name:'Цвет',value:'Черный'}]});
+  if(u.pathname.endsWith('/report/stock/bystore'))
+   return Response.json({meta:{size:1},rows:[{meta:{href:'https://api.moysklad.ru/api/remap/1.2/entity/product/'+A},
+    stockByStore:[{name:'Цех',stock:3,reserve:1}]}]});
+  throw Error('unexpected_url');
+ }});
+ const response=await handler({request:new Request(endpoint,{method:'POST',
+  headers:{Origin:ORIGIN,Cookie:cookie,'Content-Type':'application/json'},
+  body:JSON.stringify({entries:[{source:'yandex',sellerAccount:'149082506',sku:'MARKET-SKU-7'}]})}),
+  env:{OFFICE_SESSION_SECRET:secret,OFFICE_ALLOWED_EMAIL:'owner@example.test',
+   OZON_FINANCE_DB:db,MS_API_TOKEN:'test-ms-token'}});
+ const data=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(data.matches[0].status,'mapped_stock_report');
+ assert.equal(data.matches[0].mappingApproved,true);
+ assert.equal(data.matches[0].itemId,A);
+ assert.equal(data.matches[0].stores[0].accountingFree,2);
+ assert.ok(requests.length>0&&requests.every(x=>x.method==='GET'));
+});
 test('authenticated owner can probe exact SKU without full-catalog download',async()=>{
  const token='test-only-owner';
  const cookie=(await createSession('owner',token)).split(';')[0];

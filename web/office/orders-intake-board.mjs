@@ -127,15 +127,18 @@
        td.textContent='Не относится к очереди пошива';continue;
      }
      const findings=order.items.map(item=>{
-       const matched=all.get(item.sku);
+       const parts=order.externalKey.split(':');
+       const account=parts[2]||'';
+       const matched=all.get(mapKey(order.source,account,item.sku));
        if(!matched)return item.sku+': ещё не сверено';
+       if(matched.status==='conflict')return item.sku+': конфликт утверждённой связи ('+String(matched.reason||'проверить товар').slice(0,40)+')';
        if(matched.status==='unverified')return item.sku+': проверка не завершена ('+String(matched.reason||'нет данных').slice(0,40)+')';
        if(matched.status==='unmapped_sku')return item.sku+': нет подтверждённой связи SKU с МойСклад'+
          (matched.possibleNameCandidates?.length?' · кандидаты по названию: '+
            matched.possibleNameCandidates.map(x=>x.name).join(' / ')+
            ' (НЕ сопоставлено)':' · подходящих кандидатов не найдено');
        if(matched.status==='ambiguous')return item.sku+': несколько совпадений';
-       if(matched.status!=='matched_stock_report')return item.sku+': остаток неизвестен';
+       if(!['matched_stock_report','mapped_stock_report'].includes(matched.status))return item.sku+': остаток неизвестен';
        const entries=matched.stores.filter(x=>x.accountingFree>=item.quantity);
        if(entries.length)
          return item.sku+': учётно достаточно на '+entries.map(x=>x.store).join(', ')+
@@ -170,7 +173,7 @@
      cell(tr,entry.source+' · '+entry.account);
      cell(tr,entry.sku);
      const link=approvedLinks.get(mapKey(entry.source,entry.account,entry.sku));
-     const result=stockResults.get(entry.sku);
+     const result=stockResults.get(mapKey(entry.source,entry.account,entry.sku));
      const td=document.createElement('td');
      if(link)td.textContent='Утверждено владельцем: '+link.ms_item_name;
      else if(result?.status==='unmapped_sku')
@@ -256,18 +259,16 @@
  if(mapButton)mapButton.addEventListener('click',refreshLinks);
  if(stockButton)stockButton.addEventListener('click',async()=>{
    if(busy)return;
-   const candidates=[...sourceOrders.values()].flat()
-     .filter(o=>o.productionQueue==='candidate_needs_inventory');
-   const sku=[...new Set(candidates.flatMap(o=>o.items.map(x=>x.sku)))];
-   if(!sku.length){stockStatus.textContent='Нет кандидатов из проверенных выборок. Сначала загрузите FBS-заказы.';return;}
-   if(sku.length>20){stockStatus.textContent='Более 20 артикулов: ограниченный безопасный пакет. Требуется расширенный режим сверки; данные не изменены.';return;}
+   const candidates=mappingEntries();
+   if(!candidates.length){stockStatus.textContent='Нет кандидатов из проверенных выборок. Сначала загрузите FBS-заказы.';return;}
+   if(candidates.length>20){stockStatus.textContent='Более 20 сочетаний кабинет/SKU: ограниченный безопасный пакет. Данные не изменены.';return;}
    busy=true;stockButton.disabled=true;buttons.forEach(b=>b.disabled=true);
    stockStatus.textContent='Получаем полный учётный каталог и остатки по складам МойСклад (только чтение)…';
    try{
      const response=await fetch('/api/ms/orders-stock-match',{
        method:'POST',credentials:'same-origin',cache:'no-store',
        headers:{'Content-Type':'application/json',Accept:'application/json'},
-       body:JSON.stringify({skus:sku}),signal:AbortSignal.timeout(90000)
+       body:JSON.stringify({entries:candidates}),signal:AbortSignal.timeout(90000)
      });
      const data=await response.json();
      if(!response.ok){
@@ -284,18 +285,19 @@
      if(data?.code!=='ms_orders_stock_match'||
        data.readOnly!==true||data.changedRecords!==0||
        data.targetedSkuChecks!==true||
-       !Array.isArray(data.matches)||data.matches.length!==sku.length)
+       !Array.isArray(data.matches)||data.matches.length!==candidates.length)
        throw Error('Формат или полнота ответа не подтверждены');
      stockResults.clear();
      for(const result of data.matches){
-       if(sku.includes(result.sku)&&['not_matched','ambiguous',
-         'matched_stock_report','matched_stock_unknown','unverified','unmapped_sku'].includes(result.status))
-         stockResults.set(result.sku,result);
+       if(candidates.some(x=>x.source===result.source&&x.account===result.sellerAccount&&x.sku===result.sku)&&
+         ['not_matched','ambiguous','matched_stock_report','matched_stock_unknown',
+          'mapped_stock_report','mapped_stock_unknown','conflict','unverified','unmapped_sku'].includes(result.status))
+         stockResults.set(mapKey(result.source,result.sellerAccount,result.sku),result);
      }
-     if(stockResults.size!==sku.length)throw Error('stock_items_unverified');
+     if(stockResults.size!==candidates.length)throw Error('stock_items_unverified');
      refreshStockCells();renderMappingCandidates();
-     const matched=[...stockResults.values()].filter(x=>x.status==='matched_stock_report').length;
-     stockStatus.textContent='Запрошено '+sku.length+' SKU; подтверждённых точных совпадений с учётным остатком: '+
+     const matched=[...stockResults.values()].filter(x=>['matched_stock_report','mapped_stock_report'].includes(x.status)).length;
+     stockStatus.textContent='Запрошено '+candidates.length+' кабинет/SKU; проверено точных или утверждённых соответствий с учётным остатком: '+
        matched+'. Данные неатомарны и не подтверждают физическое наличие или готовность отгрузки. '+
        'Ни одного резерва, задания или отгрузки не создано.';
    }catch(error){

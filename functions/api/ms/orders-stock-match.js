@@ -234,6 +234,49 @@ async function targetedSku(fetcher,token,sku){
     'stock_not_verified'};
  }
 }
+async function inspectApprovedItem(fetcher,token,link){
+ const url=ROOT+'entity/'+link.ms_item_type+'/'+link.ms_item_id;
+ const res=await fetcher(url,{method:'GET',redirect:'manual',
+  headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
+  signal:AbortSignal.timeout(12000)});
+ if(res.status!==200){await res.body?.cancel().catch(()=>{});
+  const e=Error(res.status===429?'rate_limited':res.status===401?'token_rejected':
+   res.status===403?'permission_denied':'upstream_rejected');e.http=res.status;throw e;}
+ const item=await boundedJson(res);
+ if(String(item?.id||'').toLowerCase()!==String(link.ms_item_id).toLowerCase()||
+  typeof item?.name!=='string'||!item.name||item.name.length>200)
+  throw Error('approved_item_unverified');
+ const characteristics=Array.isArray(item.characteristics)?item.characteristics.slice(0,30)
+  .map(c=>({name:typeof c?.name==='string'?c.name.slice(0,100):null,
+   value:['string','number','boolean'].includes(typeof c?.value)?
+    String(c.value).slice(0,120):null}))
+  .filter(c=>c.name&&c.value!==null):[];
+ const stockUrl=new URL(ROOT+'report/stock/bystore');
+ stockUrl.searchParams.set('filter','assortment='+ROOT+'entity/'+link.ms_item_type+'/'+link.ms_item_id);
+ stockUrl.searchParams.set('limit','2');
+ try{
+  const report=await requestSmall(fetcher,token,stockUrl);
+  if(report.meta.size!==1||report.rows.length!==1||
+   extractId(report.rows[0]?.meta?.href)!==String(link.ms_item_id).toLowerCase()||
+   !Array.isArray(report.rows[0].stockByStore))throw Error('stock_filter_unverified');
+  const stores=report.rows[0].stockByStore.map(s=>{
+   if(typeof s?.name!=='string'||s.name.length>120||
+    num(s.stock)===null||num(s.reserve)===null)throw Error('stock_stores_unverified');
+   return {store:s.name,stock:s.stock,reserve:s.reserve,accountingFree:s.stock-s.reserve};
+  });
+  return {status:'mapped_stock_report',itemId:String(item.id).toLowerCase(),
+   itemType:link.ms_item_type,itemName:item.name,article:item.article||null,
+   code:item.code||null,characteristics,stores,
+   accountingTotal:stores.reduce((n,s)=>n+s.stock,0)};
+ }catch(e){
+  return {status:'mapped_stock_unknown',itemId:String(item.id).toLowerCase(),
+   itemType:link.ms_item_type,itemName:item.name,article:item.article||null,
+   code:item.code||null,characteristics,stores:[],accountingTotal:null,
+   stockReason:e?.message==='rate_limited'?'rate_limited':'stock_not_verified'};
+ }
+}
+const LINK_FIND='SELECT ms_item_type,ms_item_id,ms_item_name FROM office_order_sku_links WHERE source=? AND seller_account=? AND marketplace_sku=? LIMIT 1';
+const allowedSource=['ozon','ozon_fbo','wb','yandex'];
 export function createOrderStockMatch({fetcher=fetch}={}){
  return async({request,env})=>{
   if(request.method!=='POST')return json(405,{code:'method_not_allowed'});
@@ -253,18 +296,63 @@ export function createOrderStockMatch({fetcher=fetch}={}){
   catch{return json(503,{code:'owner_auth_unavailable'});}
   if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||/\s/.test(env.MS_API_TOKEN))
    return json(503,{code:'ms_token_unavailable'});
-  let input;
+  let input,targets;
   try{if(Number(request.headers.get('content-length'))>4096)throw Error();
    input=await request.json();
-   if(!input||Object.keys(input).length!==1||!Array.isArray(input.skus)||
-    input.skus.length<1||input.skus.length>MAX_SKUS||
-    input.skus.some(x=>!safeSku(x))||new Set(input.skus).size!==input.skus.length)
-    throw Error();
+   if(!input||typeof input!=='object'||Array.isArray(input))throw Error();
+   if(Array.isArray(input.skus)&&Object.keys(input).length===1){
+    if(input.skus.length<1||input.skus.length>MAX_SKUS||
+      input.skus.some(x=>!safeSku(x))||new Set(input.skus).size!==input.skus.length)throw Error();
+    targets=input.skus.map(sku=>({sku,source:null,sellerAccount:null}));
+   }else if(Array.isArray(input.entries)&&Object.keys(input).length===1){
+    if(input.entries.length<1||input.entries.length>MAX_SKUS)throw Error();
+    const seen=new Set();
+    targets=input.entries.map(x=>{
+     if(!x||Object.keys(x).sort().join(',')!=='sellerAccount,sku,source'||
+      !allowedSource.includes(x.source)||!safeSku(x.sku)||
+      typeof x.sellerAccount!=='string'||! /^[A-Za-z0-9._:-]{1,100}$/.test(x.sellerAccount))
+      throw Error();
+     const k=[x.source,x.sellerAccount,x.sku].join('\\u0001');
+     if(seen.has(k))throw Error();seen.add(k);
+     return {source:x.source,sellerAccount:x.sellerAccount,sku:x.sku};
+    });
+   }else throw Error();
   }catch{return json(400,{code:'invalid_sku_batch'});}
   const matches=[];
-  for(const sku of input.skus){
+  for(const target of targets){
+   const {sku,source,sellerAccount}=target;
    try{
-    matches.push(await targetedSku(fetcher,env.MS_API_TOKEN,sku));
+    let found=await targetedSku(fetcher,env.MS_API_TOKEN,sku);
+    if(source){
+     let link;
+     try{link=await env.OZON_FINANCE_DB.prepare(LINK_FIND)
+      .bind(source,sellerAccount,sku).first();}
+     catch{return json(503,{code:'sku_links_storage_unavailable',stage:'mapping',
+      readOnly:true,changedRecords:0});}
+     if(link){
+      const id=String(link.ms_item_id||'').toLowerCase();
+      if(!UUID.test(id)||!['product','variant','bundle'].includes(link.ms_item_type))
+       found={sku,status:'unverified',reason:'approved_link_unverified',stores:[],accountingTotal:null};
+      else if(found.itemId&&found.itemId!==id)
+       found={...found,status:'conflict',reason:'approved_link_differs_from_exact_sku',
+        mappingApproved:true,approvedItemId:id,stores:[],accountingTotal:null};
+      else if(found.status==='ambiguous')
+       found={...found,status:'conflict',reason:'multiple_exact_sku_candidates',
+        mappingApproved:true,approvedItemId:id,stores:[],accountingTotal:null};
+      else if(found.itemId===id)
+       found={...found,mappingApproved:true,mappingStatus:'owner_approved',
+        mappedItemName:link.ms_item_name};
+      else{
+       try{found={...found,...await inspectApprovedItem(fetcher,env.MS_API_TOKEN,link),
+         sku,mappingApproved:true,mappingStatus:'owner_approved',
+         mappedItemName:link.ms_item_name};}
+       catch(e){found={sku,status:'unverified',reason:'approved_link_unverified',
+        mappingApproved:true,http:Number.isSafeInteger(e?.http)?e.http:null,
+        stores:[],accountingTotal:null};}
+      }
+     }
+    }
+    matches.push({...found,...(source?{source,sellerAccount}: {})});
    }catch(e){
     const allowed=['rate_limited','token_rejected','permission_denied','filter_rejected',
      'upstream_rejected','snapshot_unverified','stock_duplicate_item',
@@ -273,9 +361,9 @@ export function createOrderStockMatch({fetcher=fetch}={}){
     matches.push({sku,status:'unverified',reason:code,
      http:Number.isSafeInteger(e?.http)?e.http:null,stores:[],accountingTotal:null});
     if(['rate_limited','token_rejected','permission_denied'].includes(code)){
-     for(const remaining of input.skus.slice(matches.length))
-      matches.push({sku:remaining,status:'unverified',reason:'source_not_checked',
-       stores:[],accountingTotal:null});
+     for(const remaining of targets.slice(matches.length))
+      matches.push({sku:remaining.sku,source:remaining.source,sellerAccount:remaining.sellerAccount,
+       status:'unverified',reason:'source_not_checked',stores:[],accountingTotal:null});
      break;
     }
    }
@@ -283,7 +371,7 @@ export function createOrderStockMatch({fetcher=fetch}={}){
   return json(200,{code:'ms_orders_stock_match',readOnly:true,changedRecords:0,
    completeCatalog:false,completeStockReport:false,
    targetedSkuChecks:true,atomicSnapshot:false,readAt:new Date().toISOString(),
-   requestedSkus:input.skus.length,matches,
+   requestedSkus:targets.length,matches,
    note:'Exact filters only. Each SKU is independent. Unknown or unavailable stock is not zero. No physical stock or dispatch verified; no writes performed.'});
  };
 }
