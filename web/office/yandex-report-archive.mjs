@@ -268,7 +268,7 @@ export function describeYandexReportSheets(files){
   // delivered cohort to its own revenue, instead of all order statuses.
   // The direct finance endpoint returns aggregate totals, never these IDs.
   const orderIdOf=v=>Number.isSafeInteger(v)&&v>0?String(v):
-   typeof v==='string'&&/^\\d{1,20}$/.test(v)?v:null;
+   typeof v==='string'&&/^\d{1,20}$/.test(v)?v:null;
   const marginOrderLedger=[],deliveryOrderLedger=[];
   if(marginSheet){
    for(const row of rows){
