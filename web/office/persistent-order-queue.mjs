@@ -73,7 +73,7 @@
      cell(tr,line.plannedCovered);
      cell(tr,line.missing);
      cell(tr,check?.checkedAt?new Date(check.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'}):null);
-     const statusLabel=line.status==='sewing_required'
+     let statusLabel=line.status==='sewing_required'
        ?'Требуется пошив · '+line.missing+' шт.'
        :line.status==='production_covered'?'Покрыто существующим производством'
        :line.status==='warehouse_covered'?'Учётно обеспечено складом'
@@ -88,6 +88,29 @@
        if(issues.length)statusLabel+=' · '+issues.join('; ');
      }
      cell(tr,statusLabel);
+     if(approval&&line.status==='requires_review'){
+       const actionCell=document.createElement('td');
+       const addAction=(label,event,detail)=>{
+         const button=document.createElement('button');
+         button.type='button';
+         button.className='ms-production-detail-button';
+         button.textContent=label;
+         button.addEventListener('click',()=>{
+           document.dispatchEvent(new CustomEvent(event,{detail}));
+         });
+         actionCell.append(button);
+       };
+       if(approval.unapprovedSkus?.length)
+         addAction('Подтвердить SKU','as63:focus-sku',{
+           source:order.source,sellerAccount:order.account,sku:approval.unapprovedSkus[0]
+         });
+       if(!approval.warehouseConfirmed&&['ozon','wb','yandex'].includes(order.source))
+         addAction('Подтвердить склад','as63:focus-route',{
+           source:order.source,account:order.account
+         });
+       const statusCell=tr.lastElementChild;
+       if(statusCell&&actionCell.childNodes.length)statusCell.append(actionCell);
+     }
      fulfillmentRows.append(tr);
    }
    fulfillmentTable.hidden=!fulfillmentRows.childNodes.length;
