@@ -12,7 +12,10 @@ export function applyYandexCostToChannels(channels,month,evidence){
   evidence.netProfitKopecks!==null||
   !Number.isSafeInteger(evidence.preliminaryContributionKopecks)||
   !Number.isSafeInteger(evidence.cogsKopecks)||
-  evidence.missingCount!==0)return false;
+  evidence.missingCount!==0||
+  // Income is per order; COGS comes from delivery-realization archives.
+  // Do not call their subtraction a period-matched channel result.
+  evidence.orderRealizationMatched!==true)return false;
  channels.yandex={status:'known_cost_result',
   profitKopecks:evidence.preliminaryContributionKopecks};
  return true;
