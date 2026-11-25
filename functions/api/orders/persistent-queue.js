@@ -159,7 +159,9 @@ export function createPersistentQueue({
        if(!link||!ID.test(link.ms_item_id||''))unresolved.push(item.sku);
       }
       approvalReadiness.push({orderKey:order.order_key,source:order.source,
-       account:order.account,warehouseConfirmed:!!route?.store_id,
+       account:order.account,
+       warehouseConfirmed:manualKinds.includes(order.source)?
+        ID.test(order.ms_customerorder_id||''):!!route?.store_id,
        unapprovedSkus:unresolved,marketplaceCoverageConfirmed:false});
      }
     }catch{
