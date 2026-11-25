@@ -50,7 +50,7 @@ test('owner can only save active reviewed status with optimistic revision',async
  }};
  const result=await createWorkflowReview()({request:await req({orderKey:key,action:'mark_reviewed',expectedRevision:0}),env:env(db)});
  const data=await result.json();
- assert.equal(result.status,200);
+ assert.equal(result.status,200,JSON.stringify({data,statements}));
  assert.equal(data.workflowState,'reviewed');
  assert.equal(data.changedMoySkladRecords,0);
  assert.equal(statements.length,1);
