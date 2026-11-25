@@ -47,7 +47,7 @@ const RUB=n=>new Intl.NumberFormat('ru-RU',
 export function describeOctoberAllocation(summary){
  if(!summary||summary.month!=='2026-10')throw Error('invalid_owner_decisions');
  const overhead=summary.overheadAllocation;
- return 'ОБЩИЙ НАЛОГ ИП · ОКТЯБРЬ 2026: '+RUB(summary.taxKopecks)+
+ return 'НАЛОГ ИП · ОКТЯБРЬ 2026: прежняя фиксированная оценка снята с текущего расчёта. Актуальные налоговые сценарии см. в блоке «Налог по отчётам маркетплейсов» выше.'+
   '\nНалог учитывается ОДИН РАЗ в сводном P&L ИП и НЕ распределяется между Ozon, WB и отдельным ООО.'+
   '\nСводная прибыль ИП после налога: пока неизвестна — не все каналы закрыты.'+
   '\nОбщие расходы бизнеса: '+RUB(summary.overheadKopecks)+' в месяц.'+
