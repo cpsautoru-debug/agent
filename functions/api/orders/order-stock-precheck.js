@@ -2,7 +2,7 @@ import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {projectOrderLine} from './order-availability.js';
 import {readWarehouse} from './fulfillment-warehouse.mjs';
-import {readStock} from './fulfillment-stock.mjs';
+import {readStock,readExpandedStock} from './fulfillment-stock.mjs';
 import {readProduction} from './fulfillment-production.mjs';
 import {buildReview,saveReview} from './fulfillment-review.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
@@ -147,7 +147,9 @@ export function createStockPrecheck({fetcher=fetch}={}){
     stores:[],stockEvidence:'not_verified',projection};
    if(active&&id&&warehouse.status==='warehouse_verified'){
     if(!evidenceByItem.has(id)){
-     const accounting=await readStock(id,warehouse.storeId,read);
+     let accounting=await readStock(id,warehouse.storeId,read);
+     if(accounting.status!=='accounting_verified')
+      accounting=await readExpandedStock(type,id,warehouse.storeId,read);
      const production=await readProduction(id,warehouse.storeId,read);
      evidenceByItem.set(id,{accounting,production});
     }

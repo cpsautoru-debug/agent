@@ -72,11 +72,19 @@ export function createApprovedStockCurrent({fetcher=fetch}={}){
     observation.rows=data.length;
     observation.targetRows=scoped.filter(row=>row.storeId===route.store_id).length;
     observation.unassignedRows=scoped.filter(row=>row.storeId===null).length;
-    observation.fields=Object.keys(scoped.find(row=>row.storeId===route.store_id)||{}).sort();
+    const target=scoped.find(row=>row.storeId===route.store_id);
+    observation.fields=Object.keys(target||{}).sort();
+    if(observation.targetRows===1&&Number.isFinite(target?.[label]))
+     observation.quantity=target[label];
    }else if(Array.isArray(data?.rows)){
     observation.rows=data.rows.length;
     observation.declaredRows=data.meta?.size;
     observation.fields=Object.keys(data.rows[0]||{}).sort();
+    const warehouseRows=data.rows[0]?.stockByStore;
+    if(Array.isArray(warehouseRows)){
+     observation.warehouseRows=warehouseRows.length;
+     observation.warehouseFields=Object.keys(warehouseRows[0]||{}).sort();
+    }
    }
    return data;
   }

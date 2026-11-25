@@ -75,7 +75,7 @@ test('expanded exact filter verifies signed balances and reports the failed lega
   const filter=url.searchParams.get('filter');
   if(filter.startsWith('assortment='))return new Response(null,{status:400});
   assert.equal(filter,'product='+root+'product/'+item+';store='+root+'store/'+store+';stockMode=all');
-  return Response.json({meta:{size:1},rows:[{meta:{href:root+'product/'+item},stockByStore:[
+  return Response.json({meta:{size:1},rows:[{meta:{href:root+'product/'+item+'?expand=supplier'},stockByStore:[
    {meta:{href:root+'store/'+store},stock:-1,reserve:0}
   ]}]});
  }});
