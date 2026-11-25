@@ -55,7 +55,7 @@ export function normalizeManualCustomerOrder(row){
   externalCode:row.externalCode,documentId:row.id.toLowerCase(),documentName:row.name,
   moment:typeof row.moment==='string'&&row.moment.length<=40?row.moment:null,
   status:clean(row?.state?.name,100)?row.state.name:'Статус не подтверждён',
-  statusType,organization:clean(row?.organization?.name,120)?row.organization.name:null,
+  statusType:stateType,organization:clean(row?.organization?.name,120)?row.organization.name:null,
   store:clean(row?.store?.name,120)?row.store.name:null,items
  };
 }
