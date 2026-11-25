@@ -35,3 +35,19 @@ test('manual warehouse follows the exact customer order references', async () =>
  assert.equal(verified.storeId,id);
 });
 
+
+test('diagnostic distinguishes upstream rate limits from missing route without leaking details',async()=>{
+ const failure=await readWarehouse({...order,source:'yandex'},mapping,async path=>{
+  if(path.startsWith('store/'))throw Error('ms_http_429');
+  assert.fail('organization must not be checked after store failure');
+ });
+ assert.deepEqual(failure,{status:'warehouse_unverified',reason:'ms_rate_limited'});
+ const missing=await readWarehouse({...order,source:'yandex'},null,async()=>{
+  assert.fail('no network without approved mapping');
+ });
+ assert.equal(missing.reason,'cabinet_route_missing');
+ const auth=await readWarehouse({...order,source:'yandex'},mapping,async()=>{
+  throw Error('ms_http_401');
+ });
+ assert.equal(auth.reason,'ms_authorization_denied');
+});
