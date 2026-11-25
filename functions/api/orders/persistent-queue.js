@@ -1,4 +1,5 @@
 import {verifySession} from '../auth/session.js';
+import {classifyOrderBucket,bucketCounts} from './order-buckets.js';
 import {onRequestGet as marketplacePreview} from '../marketplace/order-import-preview.js';
 import {onRequestGet as yandexPreview} from '../yandex/orders-preview.js';
 import {onRequestGet as manualPreview} from '../ms/manual-orders-preview.js';
@@ -116,11 +117,17 @@ export function createPersistentQueue({
      db.prepare('SELECT source,last_success_at,coverage,rows_seen,note FROM office_order_queue_sync ORDER BY source').all()
     ]);
     if(!Array.isArray(orders.results)||!Array.isArray(sync.results))throw Error();
+    const displayed=orders.results.map(r=>{
+     const classification=classifyOrderBucket(r);
+     return {...r,items:JSON.parse(r.items_json),items_json:undefined,
+      queue_bucket:classification.bucket,queue_reason:classification.reason,
+      sewing_allowed:false};
+    });
     return reply(200,{code:'persistent_queue_read',readOnly:true,
-     limit:150,orders:orders.results.map(r=>({
-      ...r,items:JSON.parse(r.items_json),items_json:undefined})),
-     sources:sync.results,
-     note:'Operational mirror; no inventory, production, or dispatch approval.'});
+     limit:150,displayedCount:displayed.length,
+     bucketCounts:bucketCounts(displayed),countsScope:'displayed_first_150_only',
+     orders:displayed,sources:sync.results,
+     note:'Source-status classification only; no inventory, physical stock, production or dispatch approval.'});
    }catch{return reply(503,{code:'persistent_queue_storage_unavailable',
     migration:'20261125_persistent_order_queue.sql'});}
   }
