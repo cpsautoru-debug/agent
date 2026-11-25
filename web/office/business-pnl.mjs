@@ -114,7 +114,19 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
    const x=interim.yandexCost;
    if(x.status==='preliminary_cost_reconciled'){
     card.append(el('small','business-pnl-subhead',
-     'Подтверждённая себестоимость доставленных: '+money(x.cogsKopecks)));
+     'Себестоимость доставленных: '+money(x.cogsKopecks)));
+    if(Number.isSafeInteger(x.preliminaryContributionKopecks))
+     card.append(el('small','business-pnl-interim-warning',
+      'Сценарий дохода минус себестоимость: '+
+      money(x.preliminaryContributionKopecks)+
+      '. Не включён в прибыль: доход по заказам и затраты по доставкам '+
+      'не сопоставлены по тем же продажам и датам.'));
+    if(Number.isSafeInteger(x.deliveredUnits))
+     card.append(el('small','business-pnl-subhead',
+      'Доставлено товаров: '+x.deliveredUnits+
+      (Number.isSafeInteger(x.returnedUnits)?
+       '; возвращено: '+x.returnedUnits:'')+
+      '. Количество заказов не равно количеству единиц.'));
    }else if(x.status==='incomplete_cost_coverage'){
     if(Number.isSafeInteger(x.reviewContributionBeforeReturnsKopecks)){
      card.append(el('small','business-pnl-subhead',
