@@ -46,6 +46,7 @@ export async function onRequestGet({request,env}){
   // finance API agrees with the official XLSX AND dated product cost is complete.
   if(ozon.taxEstimateKopecks!==null&&
      typeof env.OZON_FINANCE_SYNC.getProfitData==='function'){
+   try{
    const canonical=await env.OZON_FINANCE_SYNC.getProfitData(month);
    if(canonical?.target==='ce9dd331-929d-4c3e-9073-368de3346bc9'&&
       canonical.configuration?.month?.sourceSha256===profit.value?.sourceSha256){
@@ -60,6 +61,7 @@ export async function onRequestGet({request,env}){
      if(safe(x))ozon.managementAfterTaxBeforeOverheadKopecks=x;
     }
    }
+   }catch{/* A missing contribution must not suppress a valid tax estimate. */}
   }
   const bounds=month+'-01';
   const wbR=await env.WB_REPORT_SNAPSHOT_DB.prepare(
