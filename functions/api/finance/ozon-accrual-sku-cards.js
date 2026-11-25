@@ -98,3 +98,5 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
  };
 }
 export const onRequestGet=createOzonAccrualSkuLookup();
+
+export const onRequestPost=createOzonAccrualSkuLookup();
