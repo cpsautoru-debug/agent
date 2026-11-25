@@ -27,17 +27,22 @@ export async function onRequestGet({ request, env }) {
     );
   }
 
-  const owner = await env.OZON_FINANCE_DB.prepare(
-    `SELECT role
-     FROM office_authorized_users
-     WHERE google_sub = ?
-       AND email = ?
-       AND role = 'owner'
-     LIMIT 1`
-  ).bind(
-    googleSub,
-    env.OFFICE_ALLOWED_EMAIL
-  ).first();
+  let owner;
+  try {
+    owner = await env.OZON_FINANCE_DB.prepare(
+      `SELECT role
+       FROM office_authorized_users
+       WHERE google_sub = ?
+         AND email = ?
+         AND role = 'owner'
+       LIMIT 1`
+    ).bind(googleSub, env.OFFICE_ALLOWED_EMAIL).first();
+  } catch {
+    return new Response(
+      JSON.stringify({ authenticated: false, code: "owner_auth_storage_unavailable" }),
+      { status: 503, headers }
+    );
+  }
 
   if (!owner) {
     return new Response(
