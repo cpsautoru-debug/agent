@@ -18,6 +18,13 @@ const ref=(obj,kind)=>{
   const m=new RegExp('^'+ROOT.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+kind+'/([0-9a-f-]{36})$','i').exec(href);
   return m&&UUID.test(m[1])?m[1].toLowerCase():null;
 };
+const taskFromRow=obj=>{
+  const href=obj?.meta?.href;
+  if(typeof href!=='string')return null;
+  const match=/^https:\/\/api\.moysklad\.ru\/api\/remap\/1\.2\/entity\/productiontask\/([0-9a-f-]{36})\/(?:productionRows|productionrow)\/([0-9a-f-]{36})$/i.exec(href);
+  return match&&UUID.test(match[1])&&UUID.test(match[2])?
+    {taskId:match[1].toLowerCase(),rowId:match[2].toLowerCase()}:null;
+};
 const quantity=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?v:null;
 const short=s=>typeof s==='string'?s.slice(0,110):null;
 async function boundedJson(response){
@@ -82,9 +89,16 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
         const stage=await read('productionstage',target.stage);
         const docMatch=doc.id?.toLowerCase()===target.id&&doc.name===target.number;
         const stageMatch=stage.id?.toLowerCase()===target.stage;
-        const taskId=ref(stage.productionTask,'productiontask')||ref(doc.productionTask,'productiontask');
+        const stageRow=taskFromRow(stage.productionRow);
+        const taskId=ref(stage.productionTask,'productiontask')||
+          ref(doc.productionTask,'productiontask')||stageRow?.taskId||null;
         const task=taskId?await read('productiontask',taskId):null;
-        const planId=ref(stage.processingPlan,'processingplan')||
+        const rows=taskId?await read('productiontask',taskId,'productionRows'):null;
+        const rowRecords=Array.isArray(rows?.rows)?rows.rows:[];
+        const matchingRow=stageRow?rowRecords.find(r=>r.id?.toLowerCase()===stageRow.rowId):null;
+        const planId=ref(matchingRow?.processingPlan,'processingplan')||
+          ref(matchingRow?.processingplan,'processingplan')||
+          ref(stage.processingPlan,'processingplan')||
           ref(task?.processingPlan,'processingplan')||ref(doc.processingPlan,'processingplan');
         const plan=planId?await read('processingplan',planId):null;
         const materials=docMatch?await read('productionstagecompletion',target.id,'materials'):null;
@@ -93,6 +107,11 @@ export function createPegasDiagnosticHandler(fetcher=fetch){
           number:target.number,verifiedDocument:!!docMatch,verifiedStage:!!stageMatch,
           documentError:doc.error||null,stageError:stage.error||null,
           productionStageId:target.stage,productionTaskId:taskId,
+          linkedProductionRowId:stageRow?.rowId||null,
+          productionRowsStatus:rows?.error|| (rows?'complete':'unavailable'),
+          matchedProductionRow:!!matchingRow,
+          productionRowQuantity:quantity(matchingRow?.quantity),
+          productionRowFields:matchingRow?Object.keys(matchingRow).filter(k=>/plan|product|assort|quantity|volume/i.test(k)):[],
           productionTaskNumber:short(task?.name),productionTaskError:task?.error||null,
           processingPlanId:planId,processingPlanName:short(plan?.name),processingPlanError:plan?.error||null,
           stagePlanned:quantity(stage.totalQuantity),stageCompleted:quantity(stage.completedQuantity),
