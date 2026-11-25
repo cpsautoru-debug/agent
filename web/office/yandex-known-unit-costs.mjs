@@ -1,3 +1,4 @@
+import {ownerCoverCostFromTitle} from './owner-unit-costs.mjs';
 // Explicitly owner-confirmed Yandex costs supplied 10 November 2026,
 // plus Lada Niva covers confirmed 31 October 2026.
 // Reuse only when the product type and variant are identifiable from title.
@@ -13,6 +14,8 @@ export function knownYandexUnitCost(offer){
  // Require an actual title for category inference. A seller SKU or model
  // code without a verified title can represent another physical product.
  if(!name)return null;
+ const ownerCover=ownerCoverCostFromTitle(offer.name||offer.offerName);
+ if(ownerCover)return ownerCover;
  const sku=norm(offer.shopSku);
  const s=name+' '+sku;
  if(/задн/.test(name)&&/диск/.test(name)&&
