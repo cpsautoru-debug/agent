@@ -1,4 +1,4 @@
-import {consolidateBusinessPnl} from './consolidated-pnl-core.mjs?v=20261124-three-marketplaces';
+import {consolidateBusinessPnl,calculateMarketplaceManagementScenario} from './consolidated-pnl-core.mjs?v=20261125-accounted-scenario';
 import {summarizeOzonProvisionalProfit} from './ozon-provisional-profit.mjs';
 import {validateDashboardWbMonth} from './wb-month-settlement-ui.mjs';
 import {financeRateBps,displayRate} from './channel-finance-metrics.mjs';
@@ -343,18 +343,12 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
   retailAudit?.status==='report_retail_amounts_matched'&&
   interim.tax?.yandex?.status===
    'delivered_orders_gross_scenario_before_cash_recognition';
- const allEstimatesPresent=trustedEstimateSource&&estimateParts.every(x=>
-  Number.isSafeInteger(x)&&x>=0);
- const estimatedTaxTotal=allEstimatesPresent?
-  estimateParts.reduce((sum,x)=>sum+x,0):null;
+ const estimate=trustedEstimateSource?
+  calculateMarketplaceManagementScenario(pnl,estimateParts):null;
+ const estimatedTaxTotal=estimate?.taxEstimateKopecks??null;
  const taxForManagement=taxKnown?pnl.taxTotalKopecks:estimatedTaxTotal;
- const shared=pnl.sharedExpenseTotalKopecks;
- const known=pnl.knownChannelsTotalKopecks;
- const managementRemainder=pnl.knownChannelCount===3&&
-  Number.isSafeInteger(known)&&Number.isSafeInteger(shared)&&
-  Number.isSafeInteger(taxForManagement)&&
-  Number.isSafeInteger(known-shared-taxForManagement)?
-   known-shared-taxForManagement:null;
+ const managementRemainder=pnl.verified===true?
+  pnl.finalProfitKopecks:estimate?.remainingKopecks??null;
  const taxHint=taxKnown?'Подтверждено':
   Number.isSafeInteger(estimatedTaxTotal)?
    'Оценка по отчётам · даты признания дохода не сверены':'Не закрыто';
