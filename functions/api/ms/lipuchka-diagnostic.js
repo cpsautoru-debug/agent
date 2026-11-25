@@ -26,7 +26,8 @@ const docNumber=row=>typeof row?.operation?.name==='string'?row.operation.name.s
 const position=row=>({
   type:docType(row),number:docNumber(row),
   moment:typeof row?.moment==='string'?row.moment.slice(0,30):null,
-  quantity:typeof row?.quantity==='number'&&Number.isFinite(row.quantity)?row.quantity:null
+  stock:typeof row?.stock==='number'&&Number.isFinite(row.stock)?row.stock:null,
+  storeRef:typeof row?.store?.meta?.href==='string'?row.store.meta.href.split('/').at(-1):null
 });
 export function createLipuchkaHandler(fetcher=fetch){
   return async function({request,env}){
@@ -80,12 +81,10 @@ export function createLipuchkaHandler(fetcher=fetch){
         pages++;
         for(const r of rows){
           const t=docType(r);
-          groups[t]??={count:0,quantitySum:0,hasQuantity:0,positive:0,negative:0};
+          groups[t]??={count:0,stockSum:0,hasStock:0};
           const g=groups[t];g.count++;
-          if(typeof r.quantity==='number'&&Number.isFinite(r.quantity)){
-            g.hasQuantity++;g.quantitySum+=r.quantity;
-            if(r.quantity>0)g.positive+=r.quantity;
-            if(r.quantity<0)g.negative+=r.quantity;
+          if(typeof r.stock==='number'&&Number.isFinite(r.stock)){
+            g.hasStock++;g.stockSum+=r.stock;
           }
           const entry=position(r);
           if(examples.first.length<5)examples.first.push(entry);
@@ -95,11 +94,11 @@ export function createLipuchkaHandler(fetcher=fetch){
         if(read>=total)break;
         if(rows.length===0)throw Error('missing_page');
       }
-      return json(200,{code:read===total?'ms_lipuchka_turnover_complete':'ms_lipuchka_turnover_partial',
+      return json(200,{code:read===total?'ms_lipuchka_stock_report_complete':'ms_lipuchka_stock_report_partial',
         itemCode:'728562180',itemName:'Липучка жесткая 25мм',
         readOnly:true,changedRecords:0,expectedRows:total,rowsRead:read,pages,
-        complete:read===total,groups,examples,
-        sourceReport:'report/byoperations/stock',caution:'Signed report quantity is not validated against individual source documents. Stock baseline, actual receipts and physical count remain unverified.'});
+        complete:read===total,historyReconciled:false,operationCountVerified:false,groups,examples,
+        sourceReport:'report/byoperations/stock',caution:'This report exposes stock balances, NOT operation movement quantities. One report row is NOT evidence of one movement. Historical 831 movements and physical stock remain unverified.'});
     }catch{
       return json(502,{code:'ms_lipuchka_report_unverified',readOnly:true,changedRecords:0,expectedRows:total,rowsRead:read,pages});
     }
