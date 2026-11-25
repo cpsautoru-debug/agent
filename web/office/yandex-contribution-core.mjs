@@ -13,7 +13,8 @@ export function buildYandexPreliminaryContribution(sources,costAudit,realization
  const result={status:'incomplete',preliminaryContributionKopecks:null,
   orderAfterServicesKopecks:finance.preliminaryOrderAfterServiceKopecks,
   deliveredManufacturingCostKopecks:null,
-  returnsIndicativeCostKopecks:null,netProfitKopecks:null,
+  returnsIndicativeCostKopecks:null,
+  reviewContributionBeforeReturnsKopecks:null,netProfitKopecks:null,
   missing:[],blockers:[],note:'Ориентир: доход по заказам после услуг минус себестоимость доставленных. Периоды заказов и реализации могут различаться: сверка по orderId не выполнена. НЕ чистая прибыль; возвраты, налоги и общие расходы требуют отдельного учёта.'};
  if(!verifiedSources)result.blockers.push('financial_sources_not_verified');
  if(!Number.isSafeInteger(finance.preliminaryOrderAfterServiceKopecks)){
@@ -34,8 +35,21 @@ export function buildYandexPreliminaryContribution(sources,costAudit,realization
  result.byShop=costs.byShop;
  result.deliveredManufacturingCostKopecks=costs.totalDeliveredCostKopecks;
  result.returnsIndicativeCostKopecks=costs.totalReturnedValueKopecks;
- if(!['active_shops_cost_verified','two_shops_cost_verified'].includes(costs.status))
+ const costsVerified=['active_shops_cost_verified','two_shops_cost_verified']
+  .includes(costs.status);
+ if(!costsVerified)
   result.blockers.push('active_shop_delivery_return_cost_incomplete');
+ // A separate, explicitly preliminary KPI may be derived from the audited
+ // order-after-services field and all delivered manufacturing COGS.
+ // The independent service file is for cross-check, not a second deduction.
+ // Returned manufacturing costs are NOT credited back without recovery proof.
+ if(costsVerified&&Number.isSafeInteger(finance.preliminaryOrderAfterServiceKopecks)&&
+    Number.isSafeInteger(costs.totalDeliveredCostKopecks)){
+  const review=finance.preliminaryOrderAfterServiceKopecks-
+   costs.totalDeliveredCostKopecks;
+  if(Number.isSafeInteger(review))
+   result.reviewContributionBeforeReturnsKopecks=review;
+ }
  if(result.blockers.length)return result;
  const preliminary=finance.preliminaryOrderAfterServiceKopecks-
   costs.totalDeliveredCostKopecks;
