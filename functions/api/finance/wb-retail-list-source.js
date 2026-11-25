@@ -22,6 +22,7 @@ export async function readWbRetailListSource(env,month,{fetcher=fetch}={}){
  const start=month+'-01',next=new Date(start+'T00:00:00Z');
  next.setUTCMonth(next.getUTCMonth()+1);
  const end=next.toISOString().slice(0,10);
+ const finalDay=new Date(next.getTime()-86400000).toISOString().slice(0,10);
  const db=env.WB_REPORT_SNAPSHOT_DB;
  let expected;
  try{
@@ -58,8 +59,7 @@ export async function readWbRetailListSource(env,month,{fetcher=fetch}={}){
    signal:AbortSignal.timeout(16000),
    headers:{Authorization:env.WB_API_TOKEN,Accept:'application/json',
     'Content-Type':'application/json'},
-   body:JSON.stringify({dateFrom:start,dateTo:end.slice(0,8)+
-    String(Number(end.slice(8,10))-1).padStart(2,'0'),
+   body:JSON.stringify({dateFrom:start,dateTo:finalDay,
     period:'weekly',limit:1000,offset:0})});
  }catch{return simple('retail_api_transport_error');}
  if(response.status!==200){
