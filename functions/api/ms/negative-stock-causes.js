@@ -29,6 +29,10 @@ async function getReport(fetcher,token,item){
  url.searchParams.set('limit','100');
  url.searchParams.set('offset','0');
  url.searchParams.set('filter','assortment='+API+'entity/product/'+item.id);
+ // Include an explicit bounded calendar range; this is diagnostic,
+ // not an assertion that the resulting report covers all prior history.
+ url.searchParams.set('momentFrom','2026-01-01 00:00:00');
+ url.searchParams.set('momentTo','2026-11-25 23:59:59');
  let res;
  try{res=await fetcher(url.toString(),{method:'GET',redirect:'manual',
   headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
@@ -36,8 +40,24 @@ async function getReport(fetcher,token,item){
   return {...item,status:'api_transport_error',documents:[]};
  }
  if(res.status!==200){
-  await res.body?.cancel().catch(()=>{});
-  return {...item,status:res.status===429?'rate_limited':
+  // Retain the upstream validation code and a strictly bounded error
+  // message, but never echo request URL, Authorization, or arbitrary metadata.
+  let upstreamCode=null,upstreamMessage=null;
+  if(res.status===412||res.status===400){
+   try{
+    const raw=(await res.text()).slice(0,5000);
+    const payload=JSON.parse(raw);
+    const err=Array.isArray(payload?.errors)?payload.errors[0]:null;
+    if(Number.isSafeInteger(err?.code))upstreamCode=err.code;
+    const msg=err?.error||err?.message;
+    if(typeof msg==='string'&&msg.length<=200&&
+       !/https?:\/\/|Bearer|token|[\u0000-\u001f]/i.test(msg))
+     upstreamMessage=msg;
+   }catch{}
+  }else await res.body?.cancel().catch(()=>{});
+  return {...item,upstreamCode,upstreamMessage,
+   status:res.status===412?'invalid_turnover_request':
+    res.status===429?'rate_limited':
    res.status===403?'permission_denied':
    res.status===401?'token_rejected':
    res.status===400?'filter_rejected':'upstream_error',
@@ -121,12 +141,19 @@ export function createNegativeCausesAudit({fetcher=fetch}={}){
   if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
    /\s/.test(env.MS_API_TOKEN))return reply(503,{code:'ms_token_unavailable'});
   const findings=[];
-  // Small batches, avoid spiking the API; abort after rate limit.
-  for(let i=0;i<TARGETS.length;i+=2){
-   const pair=await Promise.all(TARGETS.slice(i,i+2).map(item=>
-    getReport(fetcher,env.MS_API_TOKEN,item)));
-   findings.push(...pair);
-   if(pair.some(x=>x.status==='rate_limited'))break;
+  // First validate ONE operation-report request. Do not repeat an
+  // account-wide 412 across eight items.
+  const first=await getReport(fetcher,env.MS_API_TOKEN,TARGETS[0]);
+  findings.push(first);
+  if(!['invalid_turnover_request','filter_rejected','upstream_error',
+    'permission_denied','token_rejected','rate_limited',
+    'api_transport_error','unexpected_api_shape'].includes(first.status)){
+   for(let i=1;i<TARGETS.length;i++){
+    const next=await getReport(fetcher,env.MS_API_TOKEN,TARGETS[i]);
+    findings.push(next);
+    if(next.status==='rate_limited'||next.status==='invalid_turnover_request')
+     break;
+   }
   }
   return reply(200,{
    code:'ms_negative_stock_document_causes',readOnly:true,
