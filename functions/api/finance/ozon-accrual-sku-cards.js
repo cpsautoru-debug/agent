@@ -59,7 +59,7 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
      referenceModel:reference?.category??null,priceStatus:'candidate_not_applied',
      historicalCostVerified:false};
    });
-   return respond(200,{code:'ozon_accrual_sku_cards',readOnly:!saving,changedRecords,skipped,
+   return respond(200,{code:'ozon_accrual_sku_cards',readOnly:true,changedRecords:0,
     source:'OZON_SELLER_API_CURRENT',missingCount:missingRows.length,profitVersion:profit.version,
     foundCount:items.length,items,notFound:normalized.notFound,asOfMs:now(),
     profitVerified:false,
