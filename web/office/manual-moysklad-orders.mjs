@@ -2,7 +2,7 @@
 (()=>{'use strict';
  const root=document.getElementById('ordersIntakeBoard');if(!root)return;
  const section=document.createElement('section');section.className='profit-panel';section.id='manualMoyskladOrders';
- const h=document.createElement('h2');h.textContent='Авито и дилеры · заказы из МойСклад';section.append(h);
+ const h=document.createElement('h2');h.textContent='Ручные каналы · МойСклад';section.append(h);
  const intro=document.createElement('p');intro.textContent='Менеджер создаёт заказ покупателя в МойСклад и выбирает точные товары из каталога. Онлайн-офис только читает отмеченные документы и добавляет их в общую очередь. Остатки, наличие, пошив и отгрузка автоматически не подтверждаются.';section.append(intro);
  const details=document.createElement('details');details.className='wb-cost-hints';
  const summary=document.createElement('summary');summary.textContent='Памятка менеджеру: как добавить ручной заказ';details.append(summary);
@@ -14,7 +14,7 @@
   'Сохрани документ. В офисе нажми «Обновить ручные заказы».'
  ];
  for(const t of steps){const li=document.createElement('li');li.textContent=t;guide.append(li);}details.append(guide);
- const note=document.createElement('p');note.textContent='Внешний код: Авито — AS63:manual:avito:AV-ГГГГММДД-001; дилер Руслан — AS63:manual:dealer_ruslan:RUS-ГГГГММДД-001; дилер Ирина — AS63:manual:dealer_irina:IR-ГГГГММДД-001. Номер после последнего двоеточия менеджер увеличивает вручную, чтобы он не повторялся в пределах канала.';details.append(note);
+ const note=document.createElement('p');note.textContent='Внешний код: Авито — AS63:manual:avito:AV-ГГГГММДД-001; Пламя — AS63:manual:plamya:PL-ГГГГММДД-001; дилер Руслан — AS63:manual:dealer_ruslan:RUS-ГГГГММДД-001; дилер Ирина — AS63:manual:dealer_irina:IR-ГГГГММДД-001. Номер после последнего двоеточия менеджер увеличивает вручную, чтобы он не повторялся в пределах канала.';details.append(note);
  const caution=document.createElement('p');caution.textContent='Офис читает только документы с точным маркером. Повторяющийся внешний код будет помечен как конфликт. Заказ покупателя — не отгрузка и не подтверждение физического остатка. Для торговой точки/дилера перед первой записью менеджеру нужно выбрать в МойСклад правильную схему: продажа, отсрочка или реализация.';details.append(caution);
  section.append(details);
  const row=document.createElement('div');row.className='wb-unit-actions';
@@ -39,6 +39,10 @@
    const channelText=data.channels.map(x=>x.label+': '+(x.complete?'полностью · '+x.received+' заказов':'неполно · '+(x.error||'ошибка пагинации')+' · получено '+x.received)).join(' · ');
    coverage.textContent='Покрытие: '+channelText+'. Общая полнота: '+(data.complete?'да':'нет; проверьте ошибки источников.');
    const seenIds=new Set();
+   if(data.complete&&duplicates.size===0){
+    document.dispatchEvent(new CustomEvent('as63-manual-orders-ready',
+     {detail:{readOnly:true,orders:data.orders,sampledAt:data.sampledAt}}));
+   }
    for(const order of data.orders){
     const tr=document.createElement('tr');const duplicate=duplicates.has(order.externalCode)||seenIds.has(order.documentId);seenIds.add(order.documentId);
     td(tr,order.sourceLabel);td(tr,order.documentName+' · '+order.manualOrderRef);
@@ -49,7 +53,7 @@
     td(tr,duplicate?'КОНФЛИКТ · повтор номера':order.statusType==='Unsuccessful'?'Отменён по статусу МойСклад':'Требуется проверка наличия и назначения');
     tbody.append(tr);
    }
-   status.textContent=data.orders.length?'Показано '+data.orders.length+' ручных заказов. Товары связаны с номенклатурой по точному UUID позиции; складской остаток и готовность к пошиву требуют отдельной проверки.':'Заказов с точным маркером пока нет. Создай заказ покупателя в МойСклад и добавь маркер в поле «Внешний код».';
+   status.textContent=data.orders.length?'Показано '+data.orders.length+' ручных заказов. Подтверждённые полные выборки без дублей переданы в общую очередь по UUID позиции; складской остаток и готовность к пошиву требуют отдельной проверки.':'Заказов с точным маркером пока нет. Создай заказ покупателя в МойСклад и добавь маркер в поле «Внешний код».';
   }catch(error){
    status.textContent='Не удалось загрузить полный снимок: '+String(error?.message||'ошибка').slice(0,80)+'. Данные частичной выборки скрыты, документы не менялись.';
    tbody.replaceChildren();
