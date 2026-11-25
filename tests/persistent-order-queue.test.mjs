@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createSession} from '../functions/api/auth/session.js';
 import {sanitizeSourceOrder,validateSourceSnapshot,createPersistentQueue}
  from '../functions/api/orders/persistent-queue.js';
+import {classifyOrderBucket,bucketCounts} from '../functions/api/orders/order-buckets.js';
 const origin='https://autosklad63-office-staging.pages.dev';
 const route=origin+'/api/orders/persistent-queue';
 const o={source:'yandex',externalKey:'AS63:yandex:149082506:12345',status:'PROCESSING',
@@ -70,4 +71,23 @@ test('invalid source and broken upstream never persist',async()=>{
   body:JSON.stringify({source:'yandex'})}),env:env(db)});
  assert.equal(incomplete.status,503);assert.equal(calls,1);
  assert.equal((await incomplete.json()).changedRecords,0);
+});
+
+test('source-status buckets never authorize sewing for history, delivery or unknown',()=>{
+ const rows=[
+  ...Array.from({length:31},()=>({source:'yandex',source_status:'DELIVERED'})),
+  ...Array.from({length:24},()=>({source:'yandex',source_status:'CANCELLED'})),
+  ...Array.from({length:11},()=>({source:'yandex',source_status:'DELIVERY'})),
+  ...Array.from({length:3},()=>({source:'yandex',source_status:'PICKUP'})),
+  ...Array.from({length:9},()=>({source:'ozon_fbo',source_status:'delivering'})),
+  ...Array.from({length:3},()=>({source:'ozon_fbo',source_status:'delivered'})),
+  ...Array.from({length:3},()=>({source:'ozon_fbo',source_status:'cancelled'}))
+ ];
+ assert.deepEqual(bucketCounts(rows),{active:0,transit:23,history:61,review:0});
+ assert.ok(rows.every(row=>classifyOrderBucket(row).sewingAllowed===false));
+ assert.equal(classifyOrderBucket({source:'yandex',source_status:'PROCESSING'}).bucket,'active');
+ assert.equal(classifyOrderBucket({source:'ozon',source_status:'awaiting_packaging'}).bucket,'active');
+ assert.equal(classifyOrderBucket({source:'ozon_fbo',source_status:'awaiting_packaging'}).bucket,'review');
+ assert.equal(classifyOrderBucket({source:'avito',source_status:'Regular'}).bucket,'review');
+ assert.equal(classifyOrderBucket({source:'yandex',source_status:'UNKNOWN_NEW_STATUS'}).bucket,'review');
 });
