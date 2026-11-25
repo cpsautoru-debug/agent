@@ -50,13 +50,15 @@ test('history order never calls stock or approved SKU lookup',async()=>{
  assert.equal(other,0);
 });
 test('unmapped active order returns blocked per-line plan without external request',async()=>{
+ const sourceStamp=new Date().toISOString();
  let calls=0;
  const db={prepare(sql){
   if(sql.includes('office_authorized_users'))return owner();
   if(sql.includes('FROM office_order_queue WHERE'))return {bind:()=>({
    first:async()=>({order_key:key,source:'yandex',account:'149082506',
-     source_status:'PROCESSING',source_checked_at:new Date().toISOString(),
+     source_status:'PROCESSING',source_checked_at:sourceStamp,
      items_json:JSON.stringify([{sku:'sample',quantity:2}])})})};
+  if(sql.includes('FROM office_order_queue_sync'))return {bind:()=>({first:async()=>({last_success_at:sourceStamp})})};
   if(sql.includes('FROM office_order_sku_links'))return {bind:()=>({first:async()=>null})};
   throw Error('unexpected DB query');
  }};
@@ -82,6 +84,7 @@ test('active FBS check persists exact warehouse evidence but blocks picking and 
    first:async()=>({order_key:key,source:'yandex',account:'149082506',
      source_status:'PROCESSING',source_checked_at:stamp,
      items_json:JSON.stringify([{sku:'sample',quantity:2}])})})};
+  if(sql.includes('FROM office_order_queue_sync'))return {bind:()=>({first:async()=>({last_success_at:stamp})})};
   if(sql.includes('FROM office_order_warehouse_routes'))return {bind:()=>({first:async()=>({
    store_id:id,organization_id:org,store_kind:'retail'
   })})};
@@ -108,4 +111,24 @@ test('active FBS check persists exact warehouse evidence but blocks picking and 
  assert.equal(data.sewingAllowed,false);
  assert.equal(data.rows[0].projection.missing,null);
  assert.equal(data.changedMoySkladRecords,0);
+});
+
+test('historically active but absent from newest source snapshot is blocked',async()=>{
+ let calls=0;
+ const old=new Date(Date.now()-1000).toISOString();
+ const current=new Date().toISOString();
+ const db={prepare(sql){
+  if(sql.includes('office_authorized_users'))return owner();
+  if(sql.includes('FROM office_order_queue WHERE'))return {bind:()=>({
+   first:async()=>({order_key:key,source:'ozon',account:'test',
+    source_status:'awaiting_packaging',source_checked_at:old,
+    items_json:JSON.stringify([{sku:'sample',quantity:1}])})})};
+  if(sql.includes('FROM office_order_queue_sync'))return {bind:()=>({first:async()=>({last_success_at:current})})};
+  calls++;throw Error('should not reach any SKU or MoySklad queries');
+ }};
+ const result=await createStockPrecheck({fetcher:()=>{calls++;throw Error();}})({
+  request:await request(),env:env(db)});
+ assert.equal(result.status,409);
+ assert.equal((await result.json()).code,'order_not_in_latest_snapshot');
+ assert.equal(calls,0);
 });
