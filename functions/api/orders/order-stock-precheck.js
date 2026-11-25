@@ -123,7 +123,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
   if(!warehouseSaved)warehouse={status:'warehouse_unverified'};
   const rows=[];
   const evidenceByItem=new Map();
-  for(const item of items){
+  for(const [position,item] of items.entries()){
    const ordered=item.quantity;
    if(!Number.isFinite(ordered)||ordered<=0)
     return response(503,{code:'invalid_order_quantity',changedRecords:0});
@@ -145,7 +145,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
    const label=item.sku||item.name||item.itemId||'unknown';
    const projection=projectOrderLine({ordered,orderActive:active,itemConfirmed:!!id,
     storeConfirmed:warehouse.status==='warehouse_verified'});
-   const entry={item:label,ordered,itemId:id,itemType:type,
+   const entry={key:key+':line:'+position,item:label,ordered,itemId:id,itemType:type,
     stores:[],stockEvidence:'not_verified',projection};
    if(active&&id&&warehouse.status==='warehouse_verified'){
     if(!evidenceByItem.has(id)){
