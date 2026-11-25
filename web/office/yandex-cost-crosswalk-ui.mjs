@@ -128,7 +128,7 @@ export function attachYandexCostCrosswalk({documentRef=document,fetcher=fetch,
     latestCosts.realizationReports);
    finance=buildYandexMonthlyEvidence(sources);
   }catch{return;}
-  const evidence={ownerEntity:'ИП Жилина Ольга',
+  const evidence={ownerEntity:'ООО',
    status:data.status==='preliminary_contribution_ready'&&
      ledger.issues.length===0&&ledger.missing.length===0?
       'preliminary_contribution_ready':'partial',
