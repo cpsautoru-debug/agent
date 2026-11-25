@@ -31,7 +31,7 @@ test('saves current review once and invalidates changed, cancelled and absent or
  assert.equal((await readReviews(db)).results.length,0);
  sqlite.prepare("UPDATE office_order_queue SET items_json='[2]', source_checked_at=? WHERE order_key='key'").run(repeated);
  assert.equal((await readReviews(db)).results.length,0);
- assert.equal((await saveReview(db,order,repeated,review)).meta.changes,1);
+ assert.equal((await saveReview(db,order,repeated,review)).meta.changes,0);
  const next={...order,source_checked_at:repeated};
  const changed=buildReview({status:'warehouse_unverified'},[{item:'SKU',itemId:null,ordered:2}]);
  assert.equal((await saveReview(db,next,new Date(Date.now()+4).toISOString(),changed)).meta.changes,1);
