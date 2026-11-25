@@ -1,5 +1,6 @@
 import {collectYandexRealizationCandidates,
- reconcileYandexRealizationCosts,buildYandexSafeSkuEvidence}
+ reconcileYandexRealizationCosts,buildYandexSafeSkuEvidence,
+ applicableYandexCampaigns}
  from './yandex-realization-cost-evidence.mjs';
 import {reconcileYandexSharedCosts} from './yandex-cost-crosswalk-core.mjs';
 import {buildYandexPreliminaryContribution} from './yandex-contribution-core.mjs';
@@ -36,7 +37,15 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||'')||
   !sources||!realizations||!costAudit)
   throw Error('yandex_direct_inputs_invalid');
- const candidates=collectYandexRealizationCandidates(realizations);
+ const active=applicableYandexCampaigns(month);
+ // Fail closed if an archived store has actual rows in current order
+ // reports. NO_DATA alone is not proof of zero, but an archived report
+ // need not be mandatory when the owner confirmed SAD as sole seller.
+ const archivedActivity=(sources.orders?.sheets||[]).some(sheet=>
+  (sheet.shops||[]).some(shop=>
+   Number(shop.partnerId)===149106500&&!active.includes(149106500)&&
+   Number.isSafeInteger(shop.rows)&&shop.rows>0));
+ const candidates=collectYandexRealizationCandidates(realizations,month);
  const officialNames=collectYandexVerifiedOfferNames(sources.orders);
  const named=candidates.map(x=>{
   const title=x.offerName||officialNames.get(x.partnerId+':'+x.shopSku)||
@@ -51,7 +60,8 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
  const summary=buildYandexPreliminaryContribution(sources,costs,realizations);
  const finance=buildYandexMonthlyEvidence(sources);
  const missing=ledger.missing;
- const complete=summary.status==='preliminary_contribution_ready'&&
+ const complete=!archivedActivity&&
+  summary.status==='preliminary_contribution_ready'&&
   ledger.issues.length===0&&missing.length===0;
  return {code:'yandex_direct_cost_review',month,readOnly:true,
   ownerEntity:'ИП Жилина Ольга',
@@ -62,7 +72,9 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   indicativeReturnCostKopecks:summary.returnsIndicativeCostKopecks,
   preliminaryContributionKopecks:complete?
    summary.preliminaryContributionKopecks:null,
-  missing,issues:ledger.issues,blockers:summary.blockers,
+  missing,issues:ledger.issues,
+  blockers:[...summary.blockers,...(archivedActivity?['archived_campaign_has_order_rows']:[])],
+  activeCampaigns:active,archivedCampaigns:[149106500].filter(id=>!active.includes(id)),
   skuCount:ledger.rows.length,netProfitKopecks:null,
   note:'Промежуточный результат после себестоимости: '+
    'не чистая прибыль ИП. Возвраты, период услуг, реклама, АУСН '+
