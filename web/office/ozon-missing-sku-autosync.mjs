@@ -1,5 +1,5 @@
 // Owner-only, auto-triggered, limited Ozon Seller API SKU identity check.
-// Only exact offer-id + existing accrual article can enter D1 as preliminary.
+// Current Seller API names are read-only; Profit source is the authority.
 // This does NOT certify transaction-date COGS, refunds or net profit.
 const rub=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('ru-RU',
  {style:'currency',currency:'RUB'}).format(n/100):'Не определена';
@@ -12,8 +12,8 @@ export function attachOzonMissingSkuAutoSync({doc=document,win=window,fetcher=fe
  const box=el('section');box.className='profit-panel';box.id='ozonMissingSkuSync';
  const heading=el('h3','Официальные карточки Ozon · сверка SKU');
  const note=el('p','Один запрос к Ozon Seller API при открытии финансов. '+
-  'Совпадения SKU и артикула с нормативом производителя записываются только '+
-  'как предварительная себестоимость. Чистая прибыль не подтверждается.');
+  'Совпадения SKU и артикула с нормативом производителя показываются только '+
+  'как кандидаты себестоимости. Данные Ozon Profit не изменяются.');
  const state=el('p','Карточки ещё не запрашивались.');
  state.id='ozonMissingSkuSyncStatus';state.setAttribute('role','status');
  const refresh=el('button','Проверить Ozon снова');refresh.type='button';
@@ -46,9 +46,8 @@ export function attachOzonMissingSkuAutoSync({doc=document,win=window,fetcher=fe
   state.textContent='Получаем точные карточки из подключённого кабинета Ozon…';
   try{
    const r=await fetcher('/api/finance/ozon-accrual-sku-cards',{
-    method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'sync_preliminary'}),
+    method:'GET',credentials:'same-origin',cache:'no-store',
+    headers:{Accept:'application/json'},
     signal:AbortSignal.timeout(25000)
    });
    const data=await r.json();
@@ -68,8 +67,8 @@ export function attachOzonMissingSkuAutoSync({doc=document,win=window,fetcher=fe
     body.append(tr);
    }
    state.textContent='Ozon Seller API: получено '+data.foundCount+
-    ' карточек из '+data.missingCount+' отсутствовавших SKU. '+
-    'Новых предварительных записей D1: '+data.changedRecords+
+    ' карточек из '+data.missingCount+' SKU без цены в основном Ozon Profit. '+
+    'Изменений финансовых данных: '+data.changedRecords+
     '. Не найдено в API: '+data.notFound.length+
     '. Исторические цены и подтверждённая прибыль не изменены.';
    loaded=true;
