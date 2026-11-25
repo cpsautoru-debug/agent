@@ -37,7 +37,8 @@ export function reconcileYandexDeliveryOrderCohort(month,sources,realizations,sk
   if(typeof item.shopSku!=='string'||!item.shopSku||
     costBySku.has(item.shopSku)||!safe(item.costKopecks)||
     item.costKopecks<=0||!['matched_exact','matched_owner']
-     .includes(item.status))return unavailable('sku_unit_cost_not_verified');
+     .includes(item.costStatus??item.status))
+   return unavailable('sku_unit_cost_not_verified');
   costBySku.set(item.shopSku,item.costKopecks);
  }
  const seenOrders=new Set();let deliveredUnits=0,cogs=0,
