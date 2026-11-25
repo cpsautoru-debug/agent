@@ -38,9 +38,7 @@ export function saveReview(db,order,checkedAt,review){
  SELECT order_key,source_checked_at,?,? FROM office_order_queue WHERE order_key=? AND source_checked_at=?
  ON CONFLICT(order_key) DO UPDATE SET source_checked_at=excluded.source_checked_at,
   checked_at=excluded.checked_at,result_json=excluded.result_json
- WHERE office_order_fulfillment.checked_at<excluded.checked_at
- AND (office_order_fulfillment.source_checked_at<>excluded.source_checked_at
-   OR office_order_fulfillment.result_json<>excluded.result_json)`)
+ WHERE office_order_fulfillment.checked_at<excluded.checked_at`)
   .bind(checkedAt,JSON.stringify(review),order.order_key,order.source_checked_at).run();
 }
 
