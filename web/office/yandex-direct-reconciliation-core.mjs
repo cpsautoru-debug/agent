@@ -108,6 +108,9 @@ export function reconcileDirectYandexMonth(month,sources,realizations,costAudit,
   deliveredUnits:skuAudit.reduce((n,x)=>n+(x.deliveredUnits??0),0),
   returnedUnits:skuAudit.reduce((n,x)=>n+(x.returnedUnits??0),0),
   skuAuditMatches,
+  // Order summary and goods-realization are not joined by orderId/date.
+  // Even perfect SKU-cost sums cannot certify matched-period profit.
+  orderRealizationMatched:false,
   missing,issues:ledger.issues,
   blockers:[...summary.blockers,...(archivedActivity?['archived_campaign_has_order_rows']:[])],
   activeCampaigns:active,archivedCampaigns:[149106500].filter(id=>!active.includes(id)),
