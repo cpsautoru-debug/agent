@@ -30,7 +30,7 @@ export function buildReview(warehouse,rows,allocation=null){
    missing:valid?verified.missing:null,
    ...(valid?{productionTaskIds:verified.productionTaskIds}: {})
   };
- }))};
+ })};
 }
 
 export function saveReview(db,order,checkedAt,review){
