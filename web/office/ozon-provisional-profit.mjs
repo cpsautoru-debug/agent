@@ -69,10 +69,8 @@ export function summarizeOzonProvisionalProfit(month,data){
  const overheadTotal=overheadRows&&overheadRows.every(x=>
   Number.isSafeInteger(x.amountKopecks)&&x.amountKopecks>=0)?
   overheadRows.reduce((sum,x)=>sum+x.amountKopecks,0):null;
- const taxDoc=data?.configuration?.tax;
- const taxTotal=taxDoc?.complete===true&&
-  Array.isArray(taxDoc.events)&&taxDoc.events.length>0?
-  null:null; // Tax amount is not an audited FNS payment or allocated share.
+ // No owner-wide audited FNS tax amount or Ozon allocation is available.
+ const taxTotal=null;
  return {
   month,source:'OZON_XLSX_API_DAY_PARITY_AND_DATE_COGS',
   status:valid?'provisional_known_cost_result':'insufficient_evidence',
