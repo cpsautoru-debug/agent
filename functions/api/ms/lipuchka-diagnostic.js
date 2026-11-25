@@ -5,7 +5,7 @@ const OFFICE='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/lipuchka-diagnostic';
 const ROOT='https://api.moysklad.ru/api/remap/1.2/';
 const ITEM='cfd25ff1-1ac3-11f1-0a80-16a500223fe0';
-const API=ROOT+'report/turnover/byoperations';
+const API=ROOT+'report/byoperations/stock';
 const HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Vary':'Cookie'};
 const json=(status,p)=>new Response(JSON.stringify(p),{status,headers:HEADERS});
 async function boundedJson(response){
@@ -18,11 +18,11 @@ async function boundedJson(response){
   return JSON.parse(raw);
 }
 const docType=row=>{
-  const href=row?.operation?.meta?.href;
+  const href=row?.operation?.meta?.href||row?.document?.meta?.href;
   const m=typeof href==='string'&&href.match(/\/entity\/([a-z]+)\//);
   return m?m[1]:'unknown';
 };
-const docNumber=row=>typeof row?.operation?.name==='string'?row.operation.name.slice(0,32):null;
+const docNumber=row=>typeof row?.operation?.name==='string'?row.operation.name.slice(0,32):typeof row?.document?.name==='string'?row.document.name.slice(0,32):null;
 const position=row=>({
   type:docType(row),number:docNumber(row),
   moment:typeof row?.moment==='string'?row.moment.slice(0,30):null,
@@ -99,7 +99,7 @@ export function createLipuchkaHandler(fetcher=fetch){
         itemCode:'728562180',itemName:'Липучка жесткая 25мм',
         readOnly:true,changedRecords:0,expectedRows:total,rowsRead:read,pages,
         complete:read===total,groups,examples,
-        caution:'Signed report quantity is not validated against individual source documents. Stock baseline, actual receipts and physical count remain unverified.'});
+        sourceReport:'report/byoperations/stock',caution:'Signed report quantity is not validated against individual source documents. Stock baseline, actual receipts and physical count remain unverified.'});
     }catch{
       return json(502,{code:'ms_lipuchka_report_unverified',readOnly:true,changedRecords:0,expectedRows:total,rowsRead:read,pages});
     }
