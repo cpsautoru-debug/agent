@@ -249,3 +249,12 @@
 .ms-sites-steps span:nth-child(even){color:#71936f;font-weight:700}
 .ms-sites-route p{font-size:11px;line-height:1.7;color:#64766a;margin:0}
 @media(max-width:780px){.ms-sites{padding:16px}.ms-sites-grid{grid-template-columns:1fr}.ms-site-top{align-items:center}}
+
+.ms-negative-reconcile{margin:22px 0;padding:18px 0;border-top:1px solid #dce6dc}
+.ms-negative-reconcile h3{font-size:17px;color:#193f30;margin:0 0 7px}
+.ms-negative-reconcile .ms-production-table{min-width:1250px}
+.ms-negative-evidence{max-width:330px;white-space:normal;line-height:1.55}
+.ms-negative-reconcile details{margin-top:7px}
+.ms-negative-reconcile summary{cursor:pointer;color:#24583a;font-weight:700}
+.ms-negative-reconcile td{vertical-align:top}
+@media(max-width:720px){.ms-negative-reconcile .ms-page-audit-header{align-items:stretch}}

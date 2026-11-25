@@ -1,5 +1,24 @@
 name: MoySklad autonomous cron staging checks
 on:
+  push:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'workers/ms-production-autosync.js'
+      - 'functions/api/ms/production-auto-status.js'
+      - 'web/office/ms-production-auto-status.mjs'
+      - 'tests/ms/ms-production-auto-status.test.mjs'
+      - 'tests/ms/ms-production-auto-status-ui.test.mjs'
+      - 'workers/ms-production-bridge-auth.js'
+      - 'functions/api/ms/production-bridge.js'
+      - 'tests/ms/ms-production-bridge.test.mjs'
+      - 'functions/api/ms/negative-stock-causes.js'
+      - 'web/office/ms-negative-stock-reconciliation.mjs'
+      - 'web/office/index.html'
+      - 'web/office/ms-production.css'
+      - 'tests/ms/ms-negative-stock-causes.test.mjs'
+      - 'migrations/ms/0001_ms_production_autosync_staging.sql'
+      - 'tests/ms/ms-production-autosync.test.mjs'
+      - '.github/workflows/ms-production-autosync-check.yml'
   pull_request:
     branches: [feature/marketplace-agents-staging]
     paths:
@@ -11,6 +30,11 @@ on:
       - 'workers/ms-production-bridge-auth.js'
       - 'functions/api/ms/production-bridge.js'
       - 'tests/ms/ms-production-bridge.test.mjs'
+      - 'functions/api/ms/negative-stock-causes.js'
+      - 'web/office/ms-negative-stock-reconciliation.mjs'
+      - 'web/office/index.html'
+      - 'web/office/ms-production.css'
+      - 'tests/ms/ms-negative-stock-causes.test.mjs'
       - 'migrations/ms/0001_ms_production_autosync_staging.sql'
       - 'tests/ms/ms-production-autosync.test.mjs'
       - '.github/workflows/ms-production-autosync-check.yml'
@@ -28,6 +52,9 @@ jobs:
       - run: node --check workers/ms-production-autosync.js
       - run: node --check workers/ms-production-bridge-auth.js
       - run: node --check functions/api/ms/production-bridge.js
+      - run: node --check functions/api/ms/negative-stock-causes.js
+      - run: node --check web/office/ms-negative-stock-reconciliation.mjs
+      - run: node --test tests/ms/ms-negative-stock-causes.test.mjs
       - run: node --test tests/ms/ms-production-autosync.test.mjs tests/ms/ms-production-bridge.test.mjs tests/ms/ms-production-auto-status.test.mjs tests/ms/ms-production-auto-status-ui.test.mjs
       - name: Verify additive D1 schema isolated from finance
         run: |

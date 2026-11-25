@@ -54,7 +54,7 @@ function fakeDb(){
             }
             if(sql.startsWith('UPDATE ms_production_auto_runtime SET run_status=')){
               runtime.run_status=args[0];runtime.last_error_code=args[1];
-              runtime.lock_until_ms=0;return {success:true};
+              runtime.lock_until_ms=args[2]||0;return {success:true};
             }
             throw Error('unexpected_query');
           }
@@ -190,6 +190,53 @@ test('429 aborts after first stage, keeps cursor unchanged, no partial D1 task w
   assert.equal(db.runtime.run_status,'paused');
   assert.doesNotMatch(JSON.stringify(result),/private sensitive upstream|synthetic-test-token/);
 });
+test('transient upstream failure preserves the saved cursor and defers without burst retry',async()=>{
+  const db=fakeDb(),calls=[];
+  db.runtime.generation=12;db.runtime.next_offset=115;
+  db.runtime.total_first_seen=755;db.runtime.run_status='scanning';
+  const now=1_900_000_000_000;
+  const first=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{
+    nowMs:now,pause:async()=>{},
+    fetcher:async(url)=>{
+      calls.push(url);
+      return calls.length===1?success({meta:{size:755},rows:tasks}):
+        new Response('temporary upstream response',{status:503,headers:{'Retry-After':'360'}});
+    }
+  });
+  assert.equal(first.code,'ms_api_upstream_error');
+  assert.equal(first.retryAfterMs,360000);
+  assert.equal(first.requests,2);
+  assert.equal(calls.length,2);
+  assert.equal(db.runtime.next_offset,115);
+  assert.equal(db.runtime.lock_until_ms,now+360000);
+  assert.equal(db.rows.length,0);
+  const tooSoon=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{nowMs:now+300000,fetcher:async()=>{throw Error('must remain deferred');}});
+  assert.equal(tooSoon.code,'ms_auto_locked_or_recent');
+  assert.equal(tooSoon.requests,0);
+  assert.equal(db.runtime.next_offset,115);
+  const resumed=await runMsProductionTick({
+    MS_PRODUCTION_AUTO_SYNC:'enabled',MS_API_TOKEN:'synthetic-test-token',
+    MS_PRODUCTION_DB:db
+  },{
+    nowMs:now+360000,pause:async()=>{},
+    fetcher:async url=>new URL(url).pathname.endsWith('/productiontask')?
+      success({meta:{size:755},rows:tasks}):
+      success(stage(0))
+  });
+  assert.equal(resumed.code,'ms_auto_batch_committed');
+  assert.equal(resumed.offset,120);
+  assert.equal(resumed.generation,12);
+  assert.equal(db.runtime.next_offset,120);
+  assert.equal(db.rows.length,5);
+  assert.doesNotMatch(JSON.stringify(first),/synthetic-test-token|temporary upstream response/);
+});
+
 test('no token, no binding or disabled flag makes zero external calls',async()=>{
   let calls=0;
   const envs=[{},{

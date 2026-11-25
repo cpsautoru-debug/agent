@@ -1931,6 +1931,22 @@
           <div><span>Склады в загруженных строках</span><strong id="msInventoryStores">—</strong></div>
         </div>
         <p class="ms-production-note" id="msInventoryCoverage">Показатели появятся после проверки API. Пока обход не завершён, не считайте их итогами всего склада.</p>
+        <section class="ms-negative-reconcile" aria-labelledby="msNegativeTitle">
+          <div class="ms-page-audit-header">
+            <div>
+              <h3 id="msNegativeTitle">Сверка отрицательных остатков</h3>
+              <p>Показываем текущий учётный минус отдельно от документальных движений. Полная история оборотов не доказывает фактическое наличие; техкарта и физический пересчёт проверяются отдельно.</p>
+            </div>
+            <button id="msNegativeRefresh" type="button" class="ms-production-button">Проверить минусы</button>
+          </div>
+          <p id="msNegativeStatus" class="ms-production-status" role="status" aria-live="polite">Проверка начнётся только после нажатия. Запросы доступны владельцу и выполняются только GET.</p>
+          <div class="ms-production-scroll">
+            <table id="msNegativeTable" class="ms-production-table" hidden>
+              <thead><tr><th>Материал</th><th>Склад</th><th>Учётный остаток</th><th>Документные движения</th><th>Расход по техкарте</th><th>Не хватает данных</th><th>Статус сверки</th><th>Рекомендуемое действие</th></tr></thead>
+              <tbody id="msNegativeRows"></tbody>
+            </table>
+          </div>
+        </section>
         <div class="ms-inventory-filters">
           <label for="msInventoryStore">Склад
             <select id="msInventoryStore"><option value="all">Все показанные склады</option></select>
@@ -2375,6 +2391,7 @@
 <script src="/orchestrator.js?v=20261121" defer></script>
 <script type="module" src="ms-production.js?v=20261122-recent"></script>
 <script type="module" src="ms-inventory-control.mjs"></script>
+<script type="module" src="ms-negative-stock-reconciliation.mjs?v=20261125-paged-ledger"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>

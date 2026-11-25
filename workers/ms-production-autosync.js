@@ -152,7 +152,7 @@ export function bridgeUrlFor(sourceUrl){
   }
   throw Error('ms_auto_bridge_scope_denied');
 }
-export function makeLimitedReader(env,{fetcher=fetch,pause=sleep}={}){
+export function makeLimitedReader(env,{fetcher=fetch,pause=sleep,now=Date.now}={}){
   let count=0;
   const direct=typeof env.MS_API_TOKEN==='string'&&!!env.MS_API_TOKEN&&
     !/\s/.test(env.MS_API_TOKEN);
@@ -173,26 +173,54 @@ export function makeLimitedReader(env,{fetcher=fetch,pause=sleep}={}){
         headers['X-MS-Bridge-Signature']=await signBridgeRequest(
           env.MS_PRODUCTION_BRIDGE_SECRET,stamp,bridge.pathname+bridge.search);
       }
-      const response=await fetcher(target,{
-        method:'GET',redirect:'manual',headers,
-        signal:AbortSignal.timeout(20000)
-      });
+      let response;
+      try{
+        response=await fetcher(target,{
+          method:'GET',redirect:'manual',headers,
+          signal:AbortSignal.timeout(20000)
+        });
+      }catch{
+        throw codedError('ms_api_upstream_error',60000);
+      }
       if(response.status!==200){
+        const status=response.status;
+        const delay=[408,425,429,500,502,503,504].includes(status)?
+          retryAfterMs(response,now()):0;
         await response.body?.cancel().catch(()=>{});
-        throw Error(response.status===429?'ms_rate_limited':
-          response.status===401?'ms_api_auth_failed':
-          response.status===403?'ms_api_permissions_failed':
-          'ms_api_upstream_error');
+        throw codedError(status===429?'ms_rate_limited':
+          status===401?'ms_api_auth_failed':
+          status===403?'ms_api_permissions_failed':
+          [408,425,500,502,503,504].includes(status)?'ms_api_upstream_error':
+          'ms_api_request_failed',delay);
       }
       return readJson(response,cap);
     },
     get count(){return count;}
   };
 }
-async function unlock(db,status,code=''){
+
+function retryAfterMs(response,now=Date.now()){
+  const lognex=response.headers.get('x-lognex-retry-after');
+  const retry=response.headers.get('retry-after');
+  let ms=null;
+  if(lognex!==null&&/^\d+(?:\.\d+)?$/.test(lognex))ms=Number(lognex);
+  else if(retry!==null){
+    if(/^\d+(?:\.\d+)?$/.test(retry))ms=Number(retry)*1000;
+    else{const date=Date.parse(retry);if(Number.isFinite(date))ms=date-now;}
+  }
+  if(!Number.isFinite(ms)||ms<0)return 60000;
+  return Math.max(5000,Math.min(ms,60*60*1000));
+}
+function codedError(code,delayMs){
+  const error=Error(code);
+  error.code=code;
+  if(Number.isSafeInteger(delayMs)&&delayMs>=0)error.retryAfterMs=delayMs;
+  return error;
+}
+async function unlock(db,status,code='',lockUntilMs=0){
   await db.prepare(
-    'UPDATE ms_production_auto_runtime SET run_status=?,last_error_code=?,lock_until_ms=0,updated_at=CURRENT_TIMESTAMP WHERE id=1'
-  ).bind(status,code).run();
+    'UPDATE ms_production_auto_runtime SET run_status=?,last_error_code=?,lock_until_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1'
+  ).bind(status,code,lockUntilMs).run();
 }
 export async function runMsProductionTick(env,options={}){
   if(env?.MS_PRODUCTION_AUTO_SYNC!=='enabled')return {code:'ms_auto_disabled',requests:0};
@@ -208,7 +236,7 @@ export async function runMsProductionTick(env,options={}){
     'UPDATE ms_production_auto_runtime SET lock_until_ms=?,last_request_ms=?,updated_at=CURRENT_TIMESTAMP WHERE id=1 AND lock_until_ms<=? AND last_request_ms<=? RETURNING generation,next_offset,total_first_seen,run_status,last_error_code'
   ).bind(now+180000,now,now,now-240000).first();
   if(!locked)return {code:'ms_auto_locked_or_recent',requests:0};
-  const request=makeLimitedReader(env,options);
+  const request=makeLimitedReader(env,{...options,now:()=>now});
   try{
     let generation=locked.generation;
     let offset=locked.next_offset;
@@ -248,9 +276,11 @@ export async function runMsProductionTick(env,options={}){
       processed:items.length,offset:nextOffset,totalAtStart:expected,
       generation,coverage:'BOUNDED_HISTORICAL_PASS_NOT_ALL_ACTIVE',status};
   }catch(error){
-    try{await unlock(db,'paused',safeCode(error));}catch{}
+    const delay=Number.isSafeInteger(error?.retryAfterMs)?Math.max(0,Math.min(error.retryAfterMs,60*60*1000)):0;
+    try{await unlock(db,'paused',safeCode(error),delay?now+delay:0);}catch{}
     return {code:safeCode(error),requests:request.count,
-      coverage:'UNVERIFIED_STOPPED',changedRecordsInMoySklad:0};
+      retryAfterMs:delay||null,coverage:'UNVERIFIED_STOPPED',
+      changedRecordsInMoySklad:0};
   }
 }
 export default {
