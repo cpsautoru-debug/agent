@@ -88,7 +88,7 @@
        if(issues.length)statusLabel+=' · '+issues.join('; ');
      }
      cell(tr,statusLabel);
-     if(approval&&line.status==='requires_review'){
+     if(approval&&!['sewing_required','production_covered','warehouse_covered'].includes(line.status)){
        const actionCell=document.createElement('span');
        const addAction=(label,event,detail)=>{
          const button=document.createElement('button');
