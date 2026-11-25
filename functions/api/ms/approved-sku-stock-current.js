@@ -1,5 +1,5 @@
 import {verifySession} from '../auth/session.js';
-import {readStock} from '../orders/fulfillment-stock.mjs';
+import {readStock,readExpandedStock} from '../orders/fulfillment-stock.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/approved-sku-stock-current';
 const ROOT='https://api.moysklad.ru/api/remap/1.2/';
@@ -53,44 +53,75 @@ export function createApprovedStockCurrent({fetcher=fetch}={}){
   if(!uuid.test(approved.ms_item_id)||!uuid.test(route.store_id)||
     !['product','variant','bundle'].includes(approved.ms_item_type))
    return response(409,{code:'unverified_mapping_uuid'});
-  async function boundedFetch(path){
+  const diagnostics=[];
+  async function boundedFetch(path,label){
+   const observation={request:label,httpStatus:null};
+   diagnostics.push(observation);
    const res=await fetcher(ROOT+path,{method:'GET',redirect:'manual',
     headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
      Accept:'application/json;charset=utf-8'},
     signal:AbortSignal.timeout(12000)});
+   observation.httpStatus=res.status;
    if(res.status!==200){await res.body?.cancel().catch(()=>{});
     throw Error(res.status===429?'rate_limited':'upstream_'+res.status);}
    const raw=await res.text();if(raw.length>250000)throw Error('response_too_large');
-   return JSON.parse(raw);
+   const data=JSON.parse(raw);
+   observation.shape=Array.isArray(data)?'array':typeof data;
+   if(Array.isArray(data)){
+    const scoped=data.filter(row=>row?.assortmentId===approved.ms_item_id);
+    observation.rows=data.length;
+    observation.targetRows=scoped.filter(row=>row.storeId===route.store_id).length;
+    observation.unassignedRows=scoped.filter(row=>row.storeId===null).length;
+    observation.fields=Object.keys(scoped.find(row=>row.storeId===route.store_id)||{}).sort();
+   }else if(Array.isArray(data?.rows)){
+    observation.rows=data.rows.length;
+    observation.declaredRows=data.meta?.size;
+    observation.fields=Object.keys(data.rows[0]||{}).sort();
+   }
+   return data;
   }
+  let storeName;
   try{
    const [item,store]=await Promise.all([
-    boundedFetch('entity/'+approved.ms_item_type+'/'+approved.ms_item_id),
-    boundedFetch('entity/store/'+route.store_id)
+    boundedFetch('entity/'+approved.ms_item_type+'/'+approved.ms_item_id,'item'),
+    boundedFetch('entity/store/'+route.store_id,'store')
    ]);
    verifiedItem=String(item?.id||'').toLowerCase()===approved.ms_item_id.toLowerCase()&&
      item.archived!==true;
    verifiedStore=String(store?.id||'').toLowerCase()===route.store_id.toLowerCase()&&
      store.archived!==true;
+   storeName=typeof store?.name==='string'?store.name:null;
   }catch{return response(200,{code:'stock_current_unverified',
-   status:'identity_unverified',readOnly:true,changedRecords:0,stock:null,reserve:null});}
+   status:'identity_unverified',readOnly:true,changedRecords:0,stock:null,reserve:null,diagnostics});}
   if(!verifiedItem||!verifiedStore)return response(409,{code:'item_or_store_unverified'});
   let calls=0;
   const read=async path=>{
    if(++calls>3||!path.startsWith('report/stock/bystore/current?'))
     throw Error('read_scope_invalid');
-   return boundedFetch(path);
+   return boundedFetch(path,new URL(ROOT+path).searchParams.get('stockType'));
   };
-  const values=await readStock(approved.ms_item_id.toLowerCase(),
+  let values=await readStock(approved.ms_item_id.toLowerCase(),
     route.store_id.toLowerCase(),read);
+  if(values.status!=='accounting_verified'&&approved.ms_item_type!=='bundle'){
+   const legacy=new URLSearchParams({
+    filter:'assortment='+ROOT+'entity/'+approved.ms_item_type+'/'+approved.ms_item_id,
+    limit:'2'
+   });
+   [values]=await Promise.all([
+    readExpandedStock(approved.ms_item_type,approved.ms_item_id.toLowerCase(),
+     route.store_id.toLowerCase(),path=>boundedFetch(path,'expanded_exact')),
+    boundedFetch('report/stock/bystore?'+legacy,'expanded_legacy').catch(()=>null)
+   ]);
+  }
   if(values.status!=='accounting_verified')
    return response(200,{code:'stock_current_unverified',status:'availability_unverified',
     readOnly:true,changedRecords:0,itemId:approved.ms_item_id,
-    storeId:route.store_id,stock:null,reserve:null,
+    storeId:route.store_id,stock:null,reserve:null,diagnostics,
     note:'Current report missing, filtered or inconsistent; no quantities established.'});
   return response(200,{code:'approved_stock_current',readOnly:true,changedRecords:0,
    source:body.source,sellerAccount:body.sellerAccount,sku:body.sku,
-   itemName:approved.ms_item_name,itemId:approved.ms_item_id,storeId:route.store_id,
+   itemName:approved.ms_item_name,itemId:approved.ms_item_id,storeId:route.store_id,storeName,
+   report:values.report||'current',diagnostics,
    stock:values.stock,reserve:values.reserve,
    accountingFree:values.stock-values.reserve,checkedAt:new Date().toISOString(),
    allocationAllowed:false,sewingAllowed:false,

@@ -1,5 +1,24 @@
 const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const blocked={status:'availability_unverified'};
+const ROOT='https://api.moysklad.ru/api/remap/1.2/';
+
+export async function readExpandedStock(type,itemId,storeId,read){
+ if(!['product','variant'].includes(type)||!ID.test(itemId)||!ID.test(storeId))return blocked;
+ const item=ROOT+'entity/'+type+'/'+itemId;
+ const store=ROOT+'entity/store/'+storeId;
+ const query=new URLSearchParams({filter:type+'='+item+';store='+store+';stockMode=all',limit:'2'});
+ try{
+  const data=await read('report/stock/bystore?'+query);
+  const row=data?.rows?.[0];
+  if(data?.meta?.size!==1||data.meta.nextHref||data.rows.length!==1||
+     row?.meta?.href!==item||!Array.isArray(row.stockByStore))return blocked;
+  const matches=row.stockByStore.filter(value=>value?.meta?.href===store);
+  if(matches.length!==1)return blocked;
+  const {stock,reserve}=matches[0];
+  if(!Number.isFinite(stock)||!Number.isFinite(reserve)||reserve<0)return blocked;
+  return {status:'accounting_verified',stock,reserve,report:'expanded_exact'};
+ }catch{return blocked;}
+}
 
 function quantityAt(rows,itemId,storeId,field){
  if(!Array.isArray(rows)||!rows.length||rows.length>200)throw Error();

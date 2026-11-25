@@ -203,7 +203,8 @@ async function targetedSku(fetcher,token,sku){
  // A rejected stock filter MUST NOT erase the verified article/code match.
  try{
   const url=new URL(ROOT+'report/stock/bystore');
-  url.searchParams.set('filter','assortment='+ROOT+'entity/'+item.type+'/'+item.id);
+  if(!['product','variant'].includes(item.type))throw Error('stock_filter_unverified');
+  url.searchParams.set('filter',item.type+'='+ROOT+'entity/'+item.type+'/'+item.id+';stockMode=all');
   url.searchParams.set('limit','2');
   const stockData=await requestSmall(fetcher,token,url);
   if(stockData.meta.size>stockData.rows.length||stockData.rows.length>1||
@@ -252,9 +253,10 @@ async function inspectApprovedItem(fetcher,token,link){
     String(c.value).slice(0,120):null}))
   .filter(c=>c.name&&c.value!==null):[];
  const stockUrl=new URL(ROOT+'report/stock/bystore');
- stockUrl.searchParams.set('filter','assortment='+ROOT+'entity/'+link.ms_item_type+'/'+link.ms_item_id);
+ stockUrl.searchParams.set('filter',link.ms_item_type+'='+ROOT+'entity/'+link.ms_item_type+'/'+link.ms_item_id+';stockMode=all');
  stockUrl.searchParams.set('limit','2');
  try{
+  if(!['product','variant'].includes(link.ms_item_type))throw Error('stock_filter_unverified');
   const report=await requestSmall(fetcher,token,stockUrl);
   if(report.meta.size!==1||report.rows.length!==1||
    extractId(report.rows[0]?.meta?.href)!==String(link.ms_item_id).toLowerCase()||

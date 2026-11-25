@@ -65,3 +65,25 @@ test('anonymous caller cannot access stock or API token',async()=>{
   request:await request(false),env:env()});
  assert.equal(r.status,401);assert.equal(reads,0);
 });
+test('expanded exact filter verifies signed balances and reports the failed legacy probe',async()=>{
+ const root='https://api.moysklad.ru/api/remap/1.2/entity/';
+ const handler=createApprovedStockCurrent({fetcher:async raw=>{
+  const url=new URL(raw);
+  if(url.pathname.endsWith('/'+item))return Response.json({id:item,name:'Веста'});
+  if(url.pathname.endsWith('/'+store))return Response.json({id:store,name:'Основной склад'});
+  if(url.pathname.endsWith('/current'))return Response.json([]);
+  const filter=url.searchParams.get('filter');
+  if(filter.startsWith('assortment='))return new Response(null,{status:400});
+  assert.equal(filter,'product='+root+'product/'+item+';store='+root+'store/'+store+';stockMode=all');
+  return Response.json({meta:{size:1},rows:[{meta:{href:root+'product/'+item},stockByStore:[
+   {meta:{href:root+'store/'+store},stock:-1,reserve:0}
+  ]}]});
+ }});
+ const result=await (await handler({request:await request(),env:env()})).json();
+ assert.equal(result.code,'approved_stock_current');
+ assert.equal(result.report,'expanded_exact');
+ assert.equal(result.stock,-1);
+ assert.equal(result.reserve,0);
+ assert.equal(result.storeName,'Основной склад');
+ assert.equal(result.diagnostics.find(x=>x.request==='expanded_legacy').httpStatus,400);
+});

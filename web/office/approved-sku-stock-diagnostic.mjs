@@ -42,43 +42,33 @@
   busy=true;check.disabled=true;output.replaceChildren();
   status.textContent='Читаем актуальные учётные данные МойСклад для '+link.marketplace_sku+'…';
   try{
-   const data=await request('/api/ms/orders-stock-match',{method:'POST',
-    body:JSON.stringify({entries:[{
-     source:link.source,sellerAccount:link.seller_account,sku:link.marketplace_sku
-    }]})});
-   if(data.code!=='ms_orders_stock_match'||data.readOnly!==true||
-      data.changedRecords!==0||data.matches?.length!==1)
-    throw Error('stock_response_not_verified');
-   const match=data.matches[0];
-   let stores=match.stores,reportName=match.itemName,reportId=match.itemId;
-   let readMode='расширенный отчёт';
-   if(match.itemId!==link.ms_item_id||match.mappingApproved!==true||
-      !['matched_stock_report','mapped_stock_report'].includes(match.status)||
-      !Array.isArray(match.stores)||match.stores.length===0){
-     // The approved UUID is authoritative; use independent current stock API
-     // when the legacy expanded report is unsupported or inconclusive.
-     const current=await request('/api/ms/approved-sku-stock-current',{
-       method:'POST',body:JSON.stringify({
-         source:link.source,sellerAccount:link.seller_account,sku:link.marketplace_sku
-       })});
-     if(current.code!=='approved_stock_current'||current.readOnly!==true||
-        current.changedRecords!==0||current.itemId!==link.ms_item_id||
-        !Number.isFinite(current.stock)||!Number.isFinite(current.reserve)||
-        !Number.isFinite(current.accountingFree)){
-       status.textContent='Остаток и резерв не подтверждены ('+
-         (current.code||current.status||'current_report_unverified')+
-         '). Отсутствующие сведения не равны нулю.';
-       return;
-     }
-     stores=[{store:'Склад исполнения · '+current.storeId,
-       stock:current.stock,reserve:current.reserve,
-       accountingFree:current.accountingFree}];
-     reportName=current.itemName;reportId=current.itemId;
-     readMode='краткий отчёт stock/reserve/freeStock';
+   const current=await request('/api/ms/approved-sku-stock-current',{
+     method:'POST',body:JSON.stringify({
+       source:link.source,sellerAccount:link.seller_account,sku:link.marketplace_sku
+     })});
+   if(Array.isArray(current.diagnostics)){
+    const detail=document.createElement('details');
+    const summary=document.createElement('summary');
+    summary.textContent='Диагностика запросов МойСклад';
+    const observations=document.createElement('pre');
+    observations.textContent=JSON.stringify(current.diagnostics,null,2);
+    detail.append(summary,observations);
+    output.append(detail);
    }
+   if(current.code!=='approved_stock_current'||current.readOnly!==true||
+      current.changedRecords!==0||current.itemId!==link.ms_item_id||
+      !Number.isFinite(current.stock)||!Number.isFinite(current.reserve)||
+      !Number.isFinite(current.accountingFree)){
+    status.textContent='Остаток и резерв не подтверждены ('+current.code+').';
+    return;
+   }
+   const stores=[{store:current.storeName||current.storeId,stock:current.stock,
+     reserve:current.reserve,accountingFree:current.accountingFree}];
+   const reportName=current.itemName,reportId=current.itemId;
+   const readMode=current.report==='expanded_exact'?'расширенный отчёт по UUID':'краткий отчёт stock/reserve/freeStock';
    const heading=document.createElement('p');
    heading.textContent='Товар: '+reportName+' · UUID '+reportId+
-    ' · проверено: '+(data.readAt||'время не указано')+'.';
+    ' · проверено: '+(current.checkedAt||'время не указано')+'.';
    output.append(heading);
    const table=document.createElement('table');
    table.className='ms-production-table';
