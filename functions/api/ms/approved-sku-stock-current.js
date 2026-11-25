@@ -2,6 +2,7 @@ import {verifySession} from '../auth/session.js';
 import {readStock,readExpandedStock} from '../orders/fulfillment-stock.mjs';
 import {readOccupancy} from '../orders/fulfillment-occupancy.mjs';
 import {readProduction} from '../orders/fulfillment-production.mjs';
+import {resumeScan} from '../orders/fulfillment-checkpoint.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/approved-sku-stock-current';
 const ROOT='https://api.moysklad.ru/api/remap/1.2/';
@@ -140,10 +141,15 @@ export function createApprovedStockCurrent({fetcher=fetch}={}){
   }
   const itemId=approved.ms_item_id.toLowerCase();
   const storeId=route.store_id.toLowerCase();
-  const [occupancy,production]=await Promise.all([
-   readOccupancy(approved.ms_item_type,itemId,storeId,values,evidenceReader()),
-   readProduction(itemId,storeId,evidenceReader())
-  ]);
+  const scope=['sku',itemId,storeId,values.stock,values.reserve].join(':');
+  async function scan(kind,handler){
+   try{
+    return await resumeScan(db,scope+':'+kind,evidenceReader(),handler);
+   }catch{return {status:kind==='orders'?'availability_unverified':'production_unverified',
+    reason:'checkpoint_unavailable'};}
+  }
+  const occupancy=await scan('orders',read=>readOccupancy(approved.ms_item_type,itemId,storeId,values,read));
+  const production=await scan('production',read=>readProduction(itemId,storeId,read));
   return response(200,{code:'approved_stock_current',readOnly:true,changedRecords:0,
    source:body.source,sellerAccount:body.sellerAccount,sku:body.sku,
    itemName:approved.ms_item_name,itemId:approved.ms_item_id,storeId:route.store_id,storeName,

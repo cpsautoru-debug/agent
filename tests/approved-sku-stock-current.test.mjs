@@ -43,7 +43,7 @@ test('approved exact warehouse and SKU reconcile stock, reserve and free stock',
  assert.equal(x.code,'approved_stock_current');
  assert.equal(x.stock,4);assert.equal(x.reserve,2);assert.equal(x.accountingFree,2);
  assert.equal(x.allocationAllowed,false);assert.equal(x.sewingAllowed,false);
- assert.equal(calls,7);
+ assert.equal(calls,5);
 });
 test('inconsistent stock and reserve block accounting numbers',async()=>{
  const fetcher=async url=>{

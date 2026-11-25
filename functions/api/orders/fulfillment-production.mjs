@@ -34,6 +34,8 @@ export async function readProduction(itemId,storeId,read){
   const tasks=await readCompletePages(read,'entity/productiontask',{limit:50,maxPages:16});
   const jobs=[];
   for(const task of tasks){
+   // Closed output belongs to accounting stock. It cannot supply new planned units.
+   if(deadline(task.productionEnd)&&task.awaiting!==true)continue;
    const warehouse=idOf(task.productsStore,'store');
    if(!warehouse)throw Error();
    if(warehouse!==storeId)continue;
@@ -70,7 +72,7 @@ export async function readProduction(itemId,storeId,read){
    }
   }
   return {status:'production_verified',jobs};
- }catch{return unknown;}
+ }catch(error){return error.message==='checkpoint_pending'?{...unknown,reason:'checkpoint_pending'}:unknown;}
 }
 
 export function allocateProduction(jobs,lines){

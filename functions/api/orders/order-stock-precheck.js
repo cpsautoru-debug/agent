@@ -5,6 +5,7 @@ import {readWarehouse} from './fulfillment-warehouse.mjs';
 import {readStock,readExpandedStock} from './fulfillment-stock.mjs';
 import {readProduction} from './fulfillment-production.mjs';
 import {readOccupancy} from './fulfillment-occupancy.mjs';
+import {resumeScan} from './fulfillment-checkpoint.mjs';
 import {buildReview,saveReview} from './fulfillment-review.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
@@ -151,8 +152,15 @@ export function createStockPrecheck({fetcher=fetch}={}){
      let accounting=await readStock(id,warehouse.storeId,read);
      if(accounting.status!=='accounting_verified')
       accounting=await readExpandedStock(type,id,warehouse.storeId,read);
-     const occupancy=await readOccupancy(type,id,warehouse.storeId,accounting,read);
-     const production=await readProduction(id,warehouse.storeId,read);
+     const scope=['order',id,warehouse.storeId,accounting.stock,accounting.reserve,
+      order.source_checked_at].join(':');
+     async function scan(kind,handler){
+      try{return await resumeScan(db,scope+':'+kind,read,handler);}
+      catch{return {status:kind==='orders'?'availability_unverified':'production_unverified',
+       reason:'checkpoint_unavailable'};}
+     }
+     const occupancy=await scan('orders',reader=>readOccupancy(type,id,warehouse.storeId,accounting,reader));
+     const production=await scan('production',reader=>readProduction(id,warehouse.storeId,reader));
      evidenceByItem.set(id,{accounting,occupancy,production});
     }
     Object.assign(entry,evidenceByItem.get(id));

@@ -78,5 +78,6 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
   // promises that have no customerorder document still require reconciliation.
   return {status:'warehouse_orders_verified',ordersSeen:orders.length,matchingOrders,
    reconciledReserve:reserve,warehouseAdditional:additional};
- }catch{return {status:'availability_unverified',reason:stage+'_unverified'};}
+ }catch(error){return {status:'availability_unverified',
+  reason:error.message==='checkpoint_pending'?'checkpoint_pending':stage+'_unverified'};}
 }

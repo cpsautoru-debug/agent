@@ -80,6 +80,11 @@
    evidence.textContent+=' · '+(production?.status==='production_verified'
     ? 'Подтверждённых строк заданий: '+production.jobs.length
     : 'Производство требует уточнения');
+   const orderPages=occupancy?.progress?.pages;
+   const productionPages=production?.progress?.pages;
+   if(Number.isInteger(orderPages)||Number.isInteger(productionPages))
+    evidence.textContent+=' · Сохранено страниц: заказы '+(orderPages??'—')+
+     ', производство '+(productionPages??'—')+'. Повторная проверка продолжит обход.';
    output.append(evidence);
    const table=document.createElement('table');
    table.className='ms-production-table';
