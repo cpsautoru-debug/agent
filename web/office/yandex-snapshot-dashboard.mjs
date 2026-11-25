@@ -76,6 +76,8 @@ export function interpretYandexDirectCostReview(month,data){
     returnedUnits:int(x.returnedUnits)&&x.returnedUnits>=0?
      x.returnedUnits:null})),
    issues:data.issues.length,
+   blockers:Array.isArray(data.blockers)?
+    data.blockers.filter(x=>typeof x==='string').slice(0,20):[],
    issueDetails:data.issues.slice(0,10).map(x=>({
     partnerId:x.partnerId,reason:String(x.reason||'unknown').slice(0,80)})),
    netProfitKopecks:null,
