@@ -109,24 +109,31 @@ function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
    card.append(el('small','business-pnl-interim-warning',metric.note));
   if(Number.isSafeInteger(metric.incomeKopecks))
    card.append(el('small','business-pnl-subhead',
-    'Доход после услуг до себестоимости: '+money(metric.incomeKopecks)));
+    'Доход по всем заказам отчёта, включая отмены и невыкупы (НЕ прибыль): '+
+    money(metric.incomeKopecks)));
   if(ch.id==='yandex'&&interim.yandexCost?.month===pnl.month){
    const x=interim.yandexCost;
    if(x.status==='preliminary_cost_reconciled'){
     card.append(el('small','business-pnl-subhead',
      'Себестоимость доставленных: '+money(x.cogsKopecks)));
-    if(Number.isSafeInteger(x.preliminaryContributionKopecks))
-     card.append(el('small','business-pnl-interim-warning',
-      'Сценарий дохода минус себестоимость: '+
+    if(x.orderRealizationMatched===true&&
+       Number.isSafeInteger(x.cohortIncomeKopecks)&&
+       Number.isSafeInteger(x.preliminaryContributionKopecks))
+     card.append(el('small','business-pnl-subhead',
+      'Доход после услуг только по '+x.cohortOrderCount+
+      ' доставленным в октябре заказам: '+money(x.cohortIncomeKopecks)+
+      '; результат после их себестоимости: '+
       money(x.preliminaryContributionKopecks)+
-      '. Не включён в прибыль: доход по заказам и затраты по доставкам '+
-      'не сопоставлены по тем же продажам и датам.'));
+      ' (ОЦЕНКА, до возвратов, отдельной рекламы и АУСН). '+
+      'Исключено строк других заказов: '+x.cohortExcludedOrderRows+'.'));
+    else card.append(el('small','business-pnl-interim-warning',
+     'Доход по заказам и себестоимость доставок не сопоставлены по одной группе продаж.'));
     if(Number.isSafeInteger(x.deliveredUnits))
      card.append(el('small','business-pnl-subhead',
       'Доставлено товаров: '+x.deliveredUnits+
       (Number.isSafeInteger(x.returnedUnits)?
        '; возвращено: '+x.returnedUnits:'')+
-      '. Количество заказов не равно количеству единиц.'));
+      '. Скидки Маркета и денежные компенсации проверяются отдельно.'));
    }else if(x.status==='incomplete_cost_coverage'){
     if(Number.isSafeInteger(x.reviewContributionBeforeReturnsKopecks)){
      card.append(el('small','business-pnl-subhead',
@@ -449,7 +456,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
    interim.yandexCost=x;
    applyYandexCostToChannels(base.channels,month,x);
    if(x.status==='preliminary_cost_reconciled')
-    sourceNotes.yandex='Сверены доставленные SKU и их себестоимость. Результат до дополнительной рекламы, периода возвратов, услуг и АУСН.';
+    sourceNotes.yandex='Сопоставлены доставленные SKU с заказами октября и их себестоимостью. До возвратов, внешней рекламы, компенсаций скидок и АУСН.';
    else if(x.status==='incomplete_cost_coverage')
     sourceNotes.yandex='Сверка себестоимости Яндекса ещё не завершена. Неизвестные товары не считаются нулевыми затратами.';
    else if(x.status==='unavailable')
