@@ -50,19 +50,34 @@
       data.changedRecords!==0||data.matches?.length!==1)
     throw Error('stock_response_not_verified');
    const match=data.matches[0];
+   let stores=match.stores,reportName=match.itemName,reportId=match.itemId;
+   let readMode='расширенный отчёт';
    if(match.itemId!==link.ms_item_id||match.mappingApproved!==true||
-    !['matched_stock_report','mapped_stock_report'].includes(match.status)){
-    status.textContent='Учётные данные не подтверждены ('+
-      (match.reason||match.status)+'). Не считать отсутствующие сведения нулём.';
-    return;
-   }
-   if(!Array.isArray(match.stores)||match.stores.length===0){
-    status.textContent='Отчёт не вернул подтверждённых строк по складам. '+
-      'Нулевой остаток не установлен.';
-    return;
+      !['matched_stock_report','mapped_stock_report'].includes(match.status)||
+      !Array.isArray(match.stores)||match.stores.length===0){
+     // The approved UUID is authoritative; use independent current stock API
+     // when the legacy expanded report is unsupported or inconclusive.
+     const current=await request('/api/ms/approved-sku-stock-current',{
+       method:'POST',body:JSON.stringify({
+         source:link.source,sellerAccount:link.seller_account,sku:link.marketplace_sku
+       })});
+     if(current.code!=='approved_stock_current'||current.readOnly!==true||
+        current.changedRecords!==0||current.itemId!==link.ms_item_id||
+        !Number.isFinite(current.stock)||!Number.isFinite(current.reserve)||
+        !Number.isFinite(current.accountingFree)){
+       status.textContent='Остаток и резерв не подтверждены ('+
+         (current.code||current.status||'current_report_unverified')+
+         '). Отсутствующие сведения не равны нулю.';
+       return;
+     }
+     stores=[{store:'Склад исполнения · '+current.storeId,
+       stock:current.stock,reserve:current.reserve,
+       accountingFree:current.accountingFree}];
+     reportName=current.itemName;reportId=current.itemId;
+     readMode='краткий отчёт stock/reserve/freeStock';
    }
    const heading=document.createElement('p');
-   heading.textContent='Товар: '+match.itemName+' · UUID '+match.itemId+
+   heading.textContent='Товар: '+reportName+' · UUID '+reportId+
     ' · проверено: '+(data.readAt||'время не указано')+'.';
    output.append(heading);
    const table=document.createElement('table');
@@ -74,7 +89,7 @@
    }
    thead.append(head);table.append(thead);
    const tbody=document.createElement('tbody');
-   for(const store of match.stores){
+   for(const store of stores){
     const tr=document.createElement('tr');
     for(const value of [store.store,store.stock,store.reserve,store.accountingFree]){
      const td=document.createElement('td');td.textContent=String(value??'Не подтверждено');
@@ -83,7 +98,7 @@
     tbody.append(tr);
    }
    table.append(tbody);output.append(table);
-   status.textContent='Получен учётный отчёт по складам. Резерв вычтен только один раз. '+
+   status.textContent='Получен учётный отчёт: '+readMode+'. Резерв вычтен только один раз. '+
     'Дополнительная занятость других заказов, полнота резерва, физический запас и '+
     'потребность в пошиве НЕ подтверждены.';
   }catch(e){
