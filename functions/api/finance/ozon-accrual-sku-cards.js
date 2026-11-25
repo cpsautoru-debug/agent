@@ -25,7 +25,7 @@ export function createOzonAccrualSkuLookup({fetchUpstream=fetch,now=Date.now}={}
    const rows=result?.results;
    if(!Array.isArray(rows)||rows.length>100)return respond(503,{code:'sku_limit_exceeded'});
    const skus=rows.map(x=>String(x.sku));
-   if(skus.some(x=>!/^\\d{1,18}$/.test(x))||new Set(skus).size!==skus.length)
+   if(skus.some(x=>!/^\d{1,18}$/.test(x))||new Set(skus).size!==skus.length)
     return respond(503,{code:'invalid_sku_catalog'});
    if(skus.length===0)return respond(200,{code:'ozon_accrual_sku_cards',readOnly:true,
     changedRecords:0,source:'OZON_SELLER_API_CURRENT',foundCount:0,
