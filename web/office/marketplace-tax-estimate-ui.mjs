@@ -34,11 +34,11 @@ export function attachMarketplaceTaxEstimate(){
     ['Ozon · ИП · АУСН 8%',
      money(v.ozon?.taxEstimateKopecks),
      'База по выручке и возвратам: '+money(v.ozon?.incomeKopecks)+'. '+
-     'Бонусы и дата признания дохода ещё требуют классификации.'],
+     'Промежуточная оценка. Баллы, бонусы и дата признания дохода требуют отдельной классификации.'],
     ['Wildberries · ИП · АУСН 8%',
      money(v.wb?.savedTaxEstimateKopecks),
-     'Предварительная сумма только по '+(v.wb?.savedReports??0)+
-     ' из '+(v.wb?.apiReports??0)+' сохранённых отчётов. Не полная база.'],
+     'Предварительная оценка по '+(v.wb?.savedReports??0)+
+     ' XLSX из '+(v.wb?.apiReports??0)+' API-отчётов. В исходных XLSX база отмечена ASSUMED — это не полный налог.'],
     ['Яндекс Маркет · ООО · УСН 6%',
      money(v.yandex?.taxEstimateKopecks),
      'Оба магазина относятся к ООО. До подтверждения валового дохода сумма не вычисляется.']
