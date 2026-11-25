@@ -44,8 +44,15 @@ export function selectYandexMonthlyReportIds(rows,month){
 export async function onRequestGet({request,env}){
  if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
  const url=new URL(request.url),month=url.searchParams.get('month');
+ // External chat links may append a harmless attribution parameter.
+ // Allow exactly one month, plus only the known tracking parameter;
+ // never accept duplicates or arbitrary finance query arguments.
+ const keys=[...url.searchParams.keys()];
+ const paramsValid=url.searchParams.getAll('month').length===1&&
+  keys.every(k=>k==='month'||k==='utm_source')&&
+  url.searchParams.getAll('utm_source').length<=1;
  if(url.pathname!=='/api/yandex/direct-cost-review'||url.hash||
-    url.searchParams.size!==1||!monthRule.test(month||'')||
+    !paramsValid||!monthRule.test(month||'')||
     Date.UTC(Number(month?.slice(0,4)),
      Number(month?.slice(5,7)),1)>Date.now())
   return json(400,{code:'invalid_month'});
