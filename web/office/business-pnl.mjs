@@ -287,13 +287,23 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  const summary=el('section','executive-pnl-summary');
  summary.setAttribute('aria-label','Итог бизнеса');
  const taxKnown=pnl.taxesComplete===true&&Number.isSafeInteger(pnl.taxTotalKopecks);
- const hasEstimate=[interim.tax?.ozon?.taxEstimateKopecks,
-  interim.tax?.wb?.savedTaxEstimateKopecks,interim.tax?.yandex?.taxEstimateKopecks]
-  .some(Number.isSafeInteger);
+ const estimateParts=[interim.tax?.ozon?.taxEstimateKopecks,
+  interim.tax?.wb?.savedTaxEstimateKopecks,interim.tax?.yandex?.taxEstimateKopecks];
+ const hasEstimate=estimateParts.some(Number.isSafeInteger);
+ // Three partial scenarios are visible for planning only: they never
+ // become the consolidated tax deduction until the base is reconciled.
+ const allEstimatesPresent=estimateParts.every(x=>
+  Number.isSafeInteger(x)&&x>=0);
+ const estimatedTaxTotal=allEstimatesPresent?
+  estimateParts.reduce((sum,x)=>sum+x,0):null;
+ const estimateHint=Number.isSafeInteger(estimatedTaxTotal)&&
+  Number.isSafeInteger(pnl.taxTotalKopecks)===false?
+  'Оценка: '+executiveMoney(estimatedTaxTotal):
+  hasEstimate?'Оценка неполная':'';
  for(const [label,value,kind,hint] of [
   ['Общие расходы',Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)?
     -pnl.sharedExpenseTotalKopecks:null,'expenses',''],
-  ['АУСН 8%',taxKnown?-pnl.taxTotalKopecks:null,'tax',!taxKnown&&hasEstimate?'Есть оценка':''],
+  ['АУСН 8%',taxKnown?-pnl.taxTotalKopecks:null,'tax',taxKnown?'':estimateHint],
   ['ЧИСТАЯ ПРИБЫЛЬ',pnl.verified===true?pnl.finalProfitKopecks:null,'profit',
     pnl.verified===true?'Подтверждено':'Не закрыто']
  ]){
