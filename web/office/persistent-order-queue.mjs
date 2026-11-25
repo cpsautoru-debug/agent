@@ -9,7 +9,8 @@
    refresh=document.getElementById('persistentOrdersRefresh'),
    bucketSelect=document.getElementById('persistentOrdersBucket'),
    bucketSummary=document.getElementById('persistentOrdersBucketCounts'),
-   workflowStatus=document.getElementById('persistentOrdersWorkflowStatus');
+   workflowStatus=document.getElementById('persistentOrdersWorkflowStatus'),
+   precheckStatus=document.getElementById('persistentOrdersStockPrecheckStatus');
  const workflowEndpoint='/api/orders/workflow-review';
  const workflowByKey=new Map();
  let workflowReady=false;
@@ -59,6 +60,13 @@
        }
      }
      tr.append(td);
+     if(order.queue_bucket==='active'){
+       const button=document.createElement('button');
+       button.type='button';button.className='ms-production-detail-button';
+       button.textContent='Проверить учётные остатки';
+       button.addEventListener('click',()=>precheck(order,button));
+       td.append(button);
+     }
      tbody.append(tr);
    }
    table.hidden=!matching.length;
@@ -71,6 +79,37 @@
      '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.';
  }
  if(bucketSelect)bucketSelect.addEventListener('change',()=>{if(latest)render(latest);});
+ async function precheck(order,button){
+   if(working)return;
+   working=true;button.disabled=true;
+   precheckStatus.textContent='Проверяем товар и отчёт МойСклад для заказа '+order.external_id+'…';
+   try{
+     const r=await fetch('/api/orders/order-stock-precheck',{
+       method:'POST',credentials:'same-origin',cache:'no-store',
+       headers:{'Content-Type':'application/json',Accept:'application/json'},
+       body:JSON.stringify({orderKey:order.order_key}),
+       signal:AbortSignal.timeout(110000)});
+     const data=await r.json();
+     if(!r.ok||data?.code!=='order_stock_precheck'||!Array.isArray(data.rows))
+       throw Error(data?.code||'precheck_unavailable');
+     const notes=data.rows.map(item=>{
+       const status=item.itemId?
+         (item.stockEvidence==='report_by_store'?
+           'учётные остатки по складам получены, склад заказа не подтверждён':
+           'сведения об остатке не подтверждены'):
+         'нет утверждённого соответствия SKU';
+       const stores=(item.stores||[]).map(s=>s.store+': '+
+         s.accountingStock+' учётно, '+s.reserve+' резерв').join(', ');
+       return item.item+' × '+item.ordered+' — '+status+
+         (stores?'; '+stores:'');
+     });
+     precheckStatus.textContent='Заказ '+order.external_id+': '+notes.join(' | ')+
+       '. Потребность в пошиве и доступность к отбору НЕ подтверждены. Документы не изменены.';
+   }catch(e){
+     precheckStatus.textContent='Проверка не завершена: '+String(e.message).slice(0,110)+
+       '. Заказ не распределён в пошив.';
+   }finally{working=false;button.disabled=false;}
+ }
  async function loadWorkflow(){
    const r=await fetch(workflowEndpoint,{credentials:'same-origin',cache:'no-store',
      headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});
