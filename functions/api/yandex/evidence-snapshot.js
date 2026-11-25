@@ -32,7 +32,7 @@ export function validateYandexEvidenceSnapshot(body){
   !EXPECTED.every(([, ,k])=>ID.test(body.reportIds[k]||'')))
   throw Error('invalid_report_ids');
  const e=body.evidence;
- if(e.ownerEntity!=='ООО'||
+ if(e.ownerEntity!=='ИП Жилина Ольга'||
     e.netProfitKopecks!==null||
     !['partial','preliminary_contribution_ready'].includes(e.status)||
     ![e.orderAfterServiceKopecks,e.deliveredCostKopecks,
