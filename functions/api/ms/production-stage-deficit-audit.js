@@ -23,7 +23,7 @@ const ref=x=>{
   return match&&uuid(match[2])?{type:safe(match[1],50),id:match[2]}:null;
  }catch{return null;}
 };
-async function read(fetcher,token,path){
+async function read(fetcher,token,path,expectsCollection){
  let r;try{r=await fetcher(BASE+path,{method:'GET',redirect:'manual',
   headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},
   signal:AbortSignal.timeout(17000)})}catch{return {error:'transport_or_timeout'};}
@@ -41,12 +41,24 @@ async function read(fetcher,token,path){
  }
  try{
   const text=await r.text();
-  if(text.length>250000)return {error:'response_too_large'};
+  if(text.length>300000)return {error:'response_too_large'};
   const val=JSON.parse(text);
-  if(!Array.isArray(val?.rows)||!Number.isSafeInteger(val.meta?.size))
-   return {error:'unexpected_shape'};
+  if(expectsCollection&&(!Array.isArray(val?.rows)||
+   !Number.isSafeInteger(val.meta?.size)))return {error:'unexpected_shape'};
+  if(!expectsCollection&&(!val||typeof val!=='object'||
+   typeof val.id!=='string'))return {error:'unexpected_document_shape'};
   return {val};
  }catch{return {error:'bad_json'};}
+}
+function operationPath(row){
+ const href=row?.operation?.meta?.href;
+ if(typeof href!=='string')return null;
+ try{
+  const u=new URL(href);
+  const m=u.pathname.match(/^\/api\/remap\/1\.2\/entity\/productionstagecompletion\/([a-f0-9-]{36})$/i);
+  return u.origin==='https://api.moysklad.ru'&&m&&uuid(m[1])?
+   'entity/productionstagecompletion/'+m[1]:null;
+ }catch{return null;}
 }
 export function createDeficitAudit({fetcher=fetch}={}){
  return async function({request,env}){
@@ -69,33 +81,61 @@ export function createDeficitAudit({fetcher=fetch}={}){
   }catch{return json(503,{code:'owner_auth_unavailable'});}
   if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
    /\s/.test(env.MS_API_TOKEN))return json(503,{code:'ms_token_unavailable'});
+  const report=new URL(BASE+'report/turnover/byoperations');
+  report.searchParams.set('filter','product='+BASE+
+   'entity/product/f3974a16-3845-11f1-0a80-1d900001798c');
+  report.searchParams.set('momentFrom','2026-01-01 00:00:00');
+  report.searchParams.set('momentTo','2026-11-25 23:59:59');
+  const source=await read(fetcher,env.MS_API_TOKEN,
+   report.toString().slice(BASE.length),true);
+  if(source.error)return json(200,{
+   code:'ms_production_stage_deficit_audit',source:'TURNOVER_OPERATION_LINKS',
+   readOnly:true,changedRecords:0,queryCount:1,expected:4,
+   results:[],problem:source.error,http:source.http||null,
+   msCode:source.msCode||null
+  });
+  const rows=source.val.rows;
+  const grouped=new Map(NUMBERS.map(n=>[n,[]]));
+  for(const row of rows){
+   const n=row?.operation?.name;
+   if(grouped.has(n))grouped.get(n).push({
+    path:operationPath(row),date:safe(row?.operation?.moment,40),
+    quantity:typeof row?.quantity==='number'?row.quantity:null,
+    store:safe(row?.store?.name,120),
+    type:safe(row?.operation?.meta?.type,50)
+   });
+  }
   const found=[];
-  for(const n of NUMBERS){
-   const u=new URL(BASE+'entity/productionstagecompletion');
-   u.searchParams.set('limit','5');
-   u.searchParams.set('filter','name='+n);
-   const res=await read(fetcher,env.MS_API_TOKEN,
-    u.toString().slice(BASE.length));
-   if(res.error){
-    found.push({number:n,status:res.error,http:res.http||null,
-     msCode:res.msCode||null});break;
+  for(const number of NUMBERS){
+   const candidates=grouped.get(number);
+   if(candidates.length!==1||!candidates[0].path){
+    found.push({number,status:'unique_operation_not_verified',
+     matches:candidates.length,types:candidates.map(x=>x.type)});
+    continue;
    }
-   const rows=res.val.rows;
-   const matches=rows.filter(row=>row.name===n);
-   found.push({number:n,status:matches.length===1&&res.val.meta.size===1?
-     'unique_document':'unverified_match',
-     totalFound:res.val.meta.size,matches:matches.map(r=>({
-      id:uuid(r.id),number:safe(r.name,50),date:safe(r.moment,40),
-      productionTask:ref(r.productionTask),
-      productionStage:ref(r.productionStage),
-      store:ref(r.store),updated:safe(r.updated,40),
-      fieldsPresent:Object.keys(r).slice(0,30)
-     }))});
+   const c=candidates[0];
+   const detail=await read(fetcher,env.MS_API_TOKEN,c.path,false);
+   if(detail.error){
+    found.push({number,status:detail.error,http:detail.http||null,
+     msCode:detail.msCode||null,operationQuantity:c.quantity,
+     operationDate:c.date,documentId:c.path.split('/').at(-1)});
+    if(detail.error==='rate_limited')break;
+    continue;
+   }
+   const x=detail.val;
+   found.push({number,status:'document_read_ok',
+    documentId:uuid(x.id),documentNumber:safe(x.name,60),
+    date:safe(x.moment,40),operationDate:c.date,
+    operationQuantity:c.quantity,store:ref(x.store),
+    productionTask:ref(x.productionTask),productionStage:ref(x.productionStage),
+    processingPlan:ref(x.processingPlan),
+    fieldsPresent:Object.keys(x).slice(0,35)
+   });
   }
   return json(200,{code:'ms_production_stage_deficit_audit',
    readOnly:true,changedRecords:0,checkedAt:new Date().toISOString(),
-   source:'DIRECT_PRODUCTION_STAGE_COMPLETION_LOOKUP',
-   queryCount:found.length,expected:4,results:found,
+   source:'TURNOVER_OPERATION_LINKS',
+   queryCount:1+found.filter(x=>x.status==='document_read_ok'||x.documentId).length,expected:4,results:found,
    note:'The four named documents collectively deducted 991 units EACH of film and spunbond in the turnover report. Finding metadata here does not itself prove technical-card errors.'});
  };
 }
