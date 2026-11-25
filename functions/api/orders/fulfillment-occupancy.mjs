@@ -50,6 +50,7 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
   const filters=new URLSearchParams({filter:'store='+store,expand:'state'});
   const orders=await readCompletePages(read,'entity/customerorder?'+filters,{limit:10,maxPages:20});
   let reserve=0, additional=0, matchingOrders=0;
+  const claims=[];
   for(const order of orders){
    stage='order_state';
    if(order.store?.meta?.href!==store||typeof order.applicable!=='boolean')throw Error();
@@ -60,6 +61,7 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
    const positions=await readCompletePages(read,'entity/customerorder/'+order.id+'/positions');
    const matches=positions.filter(position=>matchItem(position,type,itemId));
    if(matches.length)matchingOrders++;
+   let claimOrdered=0,claimReserved=0;
    for(const position of matches){
     const {quantity:ordered,shipped,reserve:reserved}=position;
     if(!quantity(ordered)||!quantity(shipped)||!quantity(reserved)||shipped>ordered||
@@ -70,6 +72,18 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
     }
     reserve+=reserved;
     additional+=ordered-shipped-reserved;
+    claimOrdered+=ordered-shipped;
+    claimReserved+=reserved;
+   }
+   if(claimOrdered>0){
+    const rawDue=order.deliveryPlannedMoment;
+    const due=typeof rawDue==='string'&&
+     /^\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3})?$/.test(rawDue)
+      ?new Date(rawDue.replace(' ','T')+'+03:00').toISOString():null;
+    claims.push({key:'ms:'+order.id,orderKey:'ms:'+order.id,
+     identity:'ms:'+order.id,origin:'moysklad',
+     itemId,storeId,ordered:claimOrdered,reserved:claimReserved,
+     orderId:order.id,deadline:due});
    }
   }
   if(reserve!==balance.reserve)return {status:'availability_unverified',reason:'reserve_mismatch',
@@ -77,7 +91,7 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
   // This proves the scope of the warehouse customer orders only. Marketplace
   // promises that have no customerorder document still require reconciliation.
   return {status:'warehouse_orders_verified',ordersSeen:orders.length,matchingOrders,
-   reconciledReserve:reserve,warehouseAdditional:additional};
+   reconciledReserve:reserve,warehouseAdditional:additional,claims};
  }catch(error){return {status:'availability_unverified',
   reason:error.message==='checkpoint_pending'?'checkpoint_pending':stage+'_unverified'};}
 }
