@@ -93,6 +93,75 @@ export function matchOrdersStock(skus,assortment,stock){
    stores:stores||[],accountingTotal:stores?stores.reduce((n,x)=>n+x.stock,0):null};
  });
 }
+// Two exact catalogue lookups per SKU instead of downloading the entire
+// assortment (which can exceed the response cap because of embedded stocks).
+// Stock report is also filtered to the uniquely resolved product/variant.
+async function requestSmall(fetcher,token,url){
+ const res=await fetcher(url.toString(),{method:'GET',redirect:'manual',
+  headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8',
+   'X-Lognex-Remap-Beta-Feature':'assortmentWithoutStock'},
+  signal:AbortSignal.timeout(12000)});
+ if(res.status!==200){
+  await res.body?.cancel().catch(()=>{});
+  const err=Error(res.status===429?'rate_limited':res.status===401?'token_rejected':
+   res.status===403?'permission_denied':res.status===400||res.status===412?
+   'filter_rejected':'upstream_rejected');err.http=res.status;throw err;
+ }
+ const body=await boundedJson(res);
+ if(!Array.isArray(body?.rows)||!Number.isSafeInteger(body.meta?.size)||
+   body.meta.size<0||body.rows.length>2)throw Error('snapshot_unverified');
+ return body;
+}
+async function targetedSku(fetcher,token,sku){
+ const found=new Map();
+ for(const field of ['article','code']){
+  const url=new URL(ROOT+'entity/assortment');
+  url.searchParams.set('filter',field+'='+sku);
+  url.searchParams.set('limit','2');
+  const data=await requestSmall(fetcher,token,url);
+  if(data.meta.size>data.rows.length)
+   return {sku,status:'ambiguous',candidates:data.meta.size,stores:[],
+    accountingTotal:null,itemName:null};
+  for(const a of data.rows){
+   if(a?.[field]!==sku||typeof a?.id!=='string'||!UUID.test(a.id))
+    throw Error('snapshot_unverified');
+   const id=a.id.toLowerCase();
+   const name=typeof a.name==='string'?a.name.slice(0,150):null;
+   const entityType=typeof a?.meta?.href==='string'?
+    new URL(a.meta.href).pathname.match(/\/entity\/(product|variant)\//)?.[1]:null;
+   if(!entityType)throw Error('unsupported_item_type');
+   const earlier=found.get(id);
+   found.set(id,{id,name,type:entityType,matchFields:[
+    ...(earlier?.matchFields||[]),field]});
+  }
+ }
+ if(found.size!==1)return {sku,status:found.size?'ambiguous':'not_matched',
+  candidates:found.size,stores:[],accountingTotal:null,itemName:null};
+ const item=[...found.values()][0];
+ const url=new URL(ROOT+'report/stock/bystore');
+ url.searchParams.set('filter',item.type+'='+ROOT+'entity/'+item.type+'/'+item.id);
+ url.searchParams.set('limit','2');
+ const data=await requestSmall(fetcher,token,url);
+ const strictRows=data.rows.filter(row=>extractId(row?.meta?.href)===item.id);
+ if(data.meta.size>2||strictRows.length>1)throw Error('stock_duplicate_item');
+ if(data.rows.some(row=>extractId(row?.meta?.href)!==item.id))
+  throw Error('stock_filter_unverified');
+ const row=strictRows[0];
+ if(!row||!Array.isArray(row.stockByStore))
+  return {sku,status:'matched_stock_unknown',candidates:1,stores:[],
+   itemName:item.name,itemId:item.id,accountingTotal:null,
+   matchFields:item.matchFields};
+ const stores=row.stockByStore.map(v=>{
+  if(typeof v?.name!=='string'||v.name.length>120||
+    num(v.stock)===null||num(v.reserve)===null)throw Error('stock_stores_unverified');
+  return {store:v.name,stock:v.stock,reserve:v.reserve,
+   accountingFree:v.stock-v.reserve};
+ });
+ return {sku,status:'matched_stock_report',candidates:1,itemId:item.id,
+  itemName:item.name,matchFields:item.matchFields,stores,
+  accountingTotal:stores.reduce((a,v)=>a+v.stock,0)};
+}
+
 export function createOrderStockMatch({fetcher=fetch}={}){
  return async({request,env})=>{
   if(request.method!=='POST')return json(405,{code:'method_not_allowed'});
@@ -120,26 +189,30 @@ export function createOrderStockMatch({fetcher=fetch}={}){
     input.skus.some(x=>!safeSku(x))||new Set(input.skus).size!==input.skus.length)
     throw Error();
   }catch{return json(400,{code:'invalid_sku_batch'});}
-  let failedStage='catalog';
-  try{
-   const assortment=await pages(fetcher,env.MS_API_TOKEN,'entity/assortment');
-   failedStage='stock_report';
-   const stock=await pages(fetcher,env.MS_API_TOKEN,'report/stock/bystore');
-   failedStage='matching';
-   const matches=matchOrdersStock(input.skus,assortment.rows,stock.rows);
-   return json(200,{code:'ms_orders_stock_match',readOnly:true,changedRecords:0,
-    completeCatalog:true,completeStockReport:true,atomicSnapshot:false,
-    readAt:new Date().toISOString(),catalogRows:assortment.rows.length,
-    stockRows:stock.rows.length,requests:assortment.pages+stock.pages,
-    matches,note:'Accounting stock and reserve by store. Physical availability, finished-goods warehouse, shipment obligations and historical duplicates NOT verified. No allocation or writing.'});
-  }catch(e){
-   const allowed=['rate_limited','token_rejected','permission_denied',
-    'upstream_rejected','snapshot_unverified','snapshot_incomplete','snapshot_limit',
-    'stock_duplicate_item','stock_stores_unverified','response_too_large'];
-   return json(502,{code:allowed.includes(e?.message)?e.message:'stock_match_unavailable',
-    stage:failedStage,http:Number.isSafeInteger(e?.http)?e.http:null,
-    readOnly:true,changedRecords:0,completeCatalog:false,completeStockReport:false});
+  const matches=[];
+  for(const sku of input.skus){
+   try{
+    matches.push(await targetedSku(fetcher,env.MS_API_TOKEN,sku));
+   }catch(e){
+    const allowed=['rate_limited','token_rejected','permission_denied','filter_rejected',
+     'upstream_rejected','snapshot_unverified','stock_duplicate_item',
+     'stock_stores_unverified','response_too_large','unsupported_item_type','stock_filter_unverified'];
+    const code=allowed.includes(e?.message)?e.message:'stock_match_unavailable';
+    matches.push({sku,status:'unverified',reason:code,
+     http:Number.isSafeInteger(e?.http)?e.http:null,stores:[],accountingTotal:null});
+    if(['rate_limited','token_rejected','permission_denied'].includes(code)){
+     for(const remaining of input.skus.slice(matches.length))
+      matches.push({sku:remaining,status:'unverified',reason:'source_not_checked',
+       stores:[],accountingTotal:null});
+     break;
+    }
+   }
   }
+  return json(200,{code:'ms_orders_stock_match',readOnly:true,changedRecords:0,
+   completeCatalog:false,completeStockReport:false,
+   targetedSkuChecks:true,atomicSnapshot:false,readAt:new Date().toISOString(),
+   requestedSkus:input.skus.length,matches,
+   note:'Exact filters only. Each SKU is independent. Unknown or unavailable stock is not zero. No physical stock or dispatch verified; no writes performed.'});
  };
 }
 export const onRequestPost=createOrderStockMatch();
