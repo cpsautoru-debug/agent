@@ -19,7 +19,7 @@
    if(!r.ok)throw Error(data?.code||'source_unavailable');
    return data;
  }
- async function loadSaved(){
+ async function loadSaved(target=null){
   if(busy)return;
   busy=true;load.disabled=true;check.disabled=true;candidateArea.replaceChildren();
   try{
@@ -42,6 +42,9 @@
    select.replaceChildren(...[...entries.values()].map(x=>
     new Option(x.source+' · '+x.sellerAccount+' · '+x.sku,key(x))));
    check.disabled=!entries.size;
+   if(target&&entries.has(target))select.value=target;
+   else if(target&&approved.has(target))
+    status.textContent='Этот SKU уже подтверждён.';
    status.textContent='Неутверждённых SKU в показанных сохранённых заказах: '+
     entries.size+'. Выберите SKU и выполните точную проверку в МойСклад. '+
     'Отсутствие совпадения по артикулу или коду не означает отсутствие товара.';
@@ -151,7 +154,14 @@
    status.textContent='Сверка SKU не завершена: '+String(e.message).slice(0,110);
   }finally{busy=false;check.disabled=false;}
  }
- load.addEventListener('click',loadSaved);
+ document.addEventListener('as63:focus-sku',event=>{
+   const entry=event.detail;
+   if(!entry||!['ozon','ozon_fbo','wb','yandex'].includes(entry.source)||
+      typeof entry.sellerAccount!=='string'||typeof entry.sku!=='string')return;
+   load.scrollIntoView({behavior:'smooth',block:'center'});
+   loadSaved(key(entry));
+ });
+ load.addEventListener('click',()=>loadSaved());
  check.addEventListener('click',inspect);
  select.addEventListener('change',()=>candidateArea.replaceChildren());
 })();
