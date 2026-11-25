@@ -8,6 +8,7 @@ import {yandexPnlCardMetric} from './yandex-pnl-card.mjs?v=20261124-margin-first
 import {loadYandexCostSnapshot} from './yandex-snapshot-dashboard.mjs?v=20261125-order-id-delivery-cohort';
 import {applyYandexCostToChannels} from './marketplace-channel-scope.mjs?v=20261125-order-id-delivery-cohort';
 import {readOctoberBusinessOverhead} from './business-overhead-core.mjs';
+import {ownerFnsTaxReference} from './owner-fns-tax-reference.mjs';
 const labels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет'};
 const money=x=>Number.isSafeInteger(x)?new Intl.NumberFormat('ru-RU',
  {style:'currency',currency:'RUB'}).format(x/100):'Нет данных';
@@ -352,15 +353,29 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  const estimate=trustedEstimateSource?
   calculateMarketplaceManagementScenario(pnl,estimateParts):null;
  const estimatedTaxTotal=estimate?.taxEstimateKopecks??null;
- const taxForManagement=taxKnown?pnl.taxTotalKopecks:estimatedTaxTotal;
+ // October-only owner's FNS payable takes priority over marketplace
+ // proxy scenarios, but remains a planning figure for the whole IP.
+ const ownerFns=ownerFnsTaxReference(pnl.month);
+ const taxForManagement=taxKnown?pnl.taxTotalKopecks:
+  ownerFns?.taxKopecks??estimatedTaxTotal;
+ const completeChannels=pnl.knownChannelCount===3&&
+  pnl.channels.every(ch=>Number.isSafeInteger(ch.profitKopecks));
+ const scopedRemainder=completeChannels&&
+  Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)&&
+  Number.isSafeInteger(taxForManagement)?
+  pnl.knownChannelsTotalKopecks-pnl.sharedExpenseTotalKopecks-
+  taxForManagement:null;
  const managementRemainder=pnl.verified===true?
-  pnl.finalProfitKopecks:estimate?.remainingKopecks??null;
+  pnl.finalProfitKopecks:
+  Number.isSafeInteger(scopedRemainder)?scopedRemainder:null;
  const taxHint=taxKnown?'Подтверждено':
+  ownerFns?'По данным владельца · ФНС, октябрь 2026':
   Number.isSafeInteger(estimatedTaxTotal)?
    'Оценка по отчётам · даты признания дохода не сверены':'Не закрыто';
  const profitEstimateHint=pnl.verified===true?'Подтверждено':
   Number.isSafeInteger(managementRemainder)?
-   'Оценка · возвраты, баллы и внешние расходы ещё сверяются':'Не закрыто';
+   'После АУСН ФНС · управленческий расчёт, возможны другие расходы':
+   'Не закрыто';
  for(const [label,value,kind,hint] of [
   ['Общие расходы',Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)?
     -pnl.sharedExpenseTotalKopecks:null,'expenses',''],
