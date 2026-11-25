@@ -45,13 +45,31 @@ export function buildYandexMonthlyEvidence(sources){
  }
  const sheetServices=sources.services.sheets;
  const serviceRows=sheetServices.reduce((a,s)=>a+(s.rows||0),0);
- const serviceTotals=sheetServices.filter(s=>s.rows>0).map(s=>({
-  name:s.sheet,rows:s.rows,amount:amount(s,'servicePrice')
- }));
+ const serviceTotals=sheetServices.filter(s=>s.rows>0).map(s=>{
+  const reported=amount(s,'servicePrice');
+  const serviceColumn=s.sumFields?.servicePrice;
+  // Source diagnostic: distinguish missing per-row values from invalid
+  // numbers without guessing zeros or subtracting charges twice.
+  const priceRows=Number.isSafeInteger(serviceColumn?.present)?
+   serviceColumn.present:0;
+  const invalid=Number.isSafeInteger(serviceColumn?.invalid)?
+   serviceColumn.invalid:0;
+  const candidates=['servicePrice','buyerPaymentAmount','billingPrice',
+   'transactionSum','paymentAmount'].filter(field=>
+    Number.isSafeInteger(s.sumFields?.[field]?.present)&&
+    s.sumFields[field].present>0).map(field=>({
+     field,present:s.sumFields[field].present,
+     invalid:s.sumFields[field].invalid}));
+  return {name:s.sheet,rows:s.rows,amount:reported,
+   uncoveredRows:s.rows-priceRows-invalid,
+   invalidRows:invalid,candidates};
+ });
+ const serviceMissing=serviceTotals.filter(s=>
+  !s.amount||s.amount.rows!==s.rows||s.amount.invalid>0);
  result.services={rows:serviceRows,sheets:serviceTotals,
-  note:'Do not subtract a service that is included in summaryCommission again.'};
- if(serviceTotals.some(s=>!s.amount||s.amount.rows!==s.rows||
-    s.amount.invalid>0))result.blocks.push('service_amount_coverage_incomplete');
+  incompleteSheets:serviceMissing.map(s=>s.name),
+  note:'servicePrice coverage is checked by sheet; incomplete is NOT zero. Do not subtract charges already included in summaryCommission.'};
+ if(serviceMissing.length)result.blocks.push('service_amount_coverage_incomplete');
  const paymentSheet=sources.payments.sheets.find(s=>
   s.sheet===expected.payments);
  const payments=paymentSheet?amount(paymentSheet,'transactionSum'):null;
