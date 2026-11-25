@@ -160,8 +160,12 @@ async function targetedSku(fetcher,token,sku){
       return tokens.filter(t=>name.includes(t)).length>=Math.min(2,tokens.length);
      });
      for(const row of rows.slice(0,3)){
-      if(typeof row?.id==='string'&&UUID.test(row.id))
-       leads.push({id:row.id,name:row.name});
+      if(typeof row?.id==='string'&&UUID.test(row.id)){
+       let type=null;
+       try{type=new URL(row?.meta?.href||'').pathname.match(
+        /\\/entity\\/(product|variant|bundle)\\//)?.[1]||null;}catch{}
+       if(type)leads.push({id:row.id,name:row.name,type});
+      }
      }
     }catch{} // candidate discovery is optional evidence, never a blocker
    }
