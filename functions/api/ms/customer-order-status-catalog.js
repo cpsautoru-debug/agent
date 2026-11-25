@@ -4,7 +4,7 @@ import {verifySession} from '../auth/session.js';
 // buyers, sales, personal data, or automatic active/closed assumptions.
 const BASE='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/customer-order-status-catalog';
-const URL='https://api.moysklad.ru/api/remap/1.2/entity/customerorder/metadata';
+const METADATA_ENDPOINT='https://api.moysklad.ru/api/remap/1.2/entity/customerorder/metadata';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const HEADERS={'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store','Vary':'Cookie',
@@ -66,7 +66,7 @@ export function createOrderStatusCatalogHandler({fetcher=fetch}={}){
       /\s/.test(env.MS_API_TOKEN))
       return json(503,{code:'ms_token_unavailable'});
     try{
-      const response=await fetcher(URL,{method:'GET',redirect:'manual',
+      const response=await fetcher(METADATA_ENDPOINT,{method:'GET',redirect:'manual',
         headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
           Accept:'application/json;charset=utf-8'},
         signal:AbortSignal.timeout(20000)});
