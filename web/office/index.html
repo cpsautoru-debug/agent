@@ -1846,6 +1846,15 @@
           </table></div>
           <p id="persistentOrdersWorkflowStatus" role="status" class="ms-production-status">Журнал рассмотрения заказов ещё не загружен.</p>
           <p id="persistentOrdersStockPrecheckStatus" role="status" class="ms-production-status">Проверка складских данных активных заказов ещё не выполнялась.</p>
+          <h3>Потребность в пошиве</h3>
+          <p id="orderFulfillmentSummary" role="status"></p>
+          <label>Канал <select id="orderFulfillmentChannel"><option value="">Все</option></select></label>
+          <label>Склад <select id="orderFulfillmentWarehouse"><option value="">Все</option></select></label>
+          <label>Модель или SKU <input id="orderFulfillmentModel" type="search"></label>
+          <div class="ms-production-scroll"><table class="ms-production-table" id="orderFulfillmentTable" hidden>
+            <thead><tr><th>Заказ</th><th>Канал</th><th>Позиция</th><th>Склад</th><th>Заказано</th><th>Учётный остаток</th><th>Резерв</th><th>Задания МойСклад</th><th>Недостаёт</th><th>Статус</th></tr></thead>
+            <tbody id="orderFulfillmentRows"></tbody>
+          </table></div>
         </section>
 
         <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
@@ -2473,7 +2482,7 @@
 <script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
 <script type="module" src="orders-intake-board.mjs?v=20261125-orders-v1"></script>
 <script type="module" src="manual-moysklad-orders.mjs?v=20261125-manual-order-feed-v1"></script>
-<script type="module" src="persistent-order-queue.mjs?v=20261125-d1-queue-v1"></script>
+<script type="module" src="persistent-order-queue.mjs?v=20261125-fulfillment-review"></script>
 
 <script type="module" src="ms-production-priority.mjs"></script>
 <script type="module" src="ms-production-coverage-probe.mjs"></script>

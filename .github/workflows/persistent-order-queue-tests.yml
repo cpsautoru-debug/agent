@@ -7,6 +7,10 @@ on:
       - 'functions/api/orders/workflow-review.js'
       - 'functions/api/orders/order-stock-precheck.js'
       - 'functions/api/orders/order-availability.js'
+      - 'functions/api/orders/fulfillment-*.mjs'
+      - 'tests/fulfillment-*.test.mjs'
+      - 'migrations/20261125_order_warehouse.sql'
+      - 'migrations/20261125_order_fulfillment.sql'
       - 'tests/order-stock-precheck.test.mjs'
       - 'migrations/20261125_order_workflow_review.sql'
       - 'tests/order-workflow-review.test.mjs'
@@ -27,6 +31,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate D1 mirror and trusted-source boundaries
-        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs
+        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs tests/fulfillment-*.test.mjs
       - name: Check browser queue syntax
         run: node --check web/office/persistent-order-queue.mjs

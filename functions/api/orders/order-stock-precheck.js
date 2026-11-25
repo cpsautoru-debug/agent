@@ -2,11 +2,15 @@ import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {projectOrderLine} from './order-availability.js';
 import {readWarehouse} from './fulfillment-warehouse.mjs';
+import {readStock} from './fulfillment-stock.mjs';
+import {readProduction} from './fulfillment-production.mjs';
+import {buildReview,saveReview} from './fulfillment-review.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const ROOT='https://api.moysklad.ru/api/remap/1.2/';
 const TYPES=['product','variant','bundle'];
+const MANUAL=['avito','plamya','dealer_ruslan','dealer_irina'];
 const response=(status,x)=>new Response(JSON.stringify(x),{status,headers:{
  'Content-Type':'application/json; charset=utf-8','Cache-Control':'private, no-store',
  'Vary':'Cookie','X-Content-Type-Options':'nosniff'}});
@@ -49,13 +53,15 @@ export function createStockPrecheck({fetcher=fetch}={}){
     b.orderKey.length>180||!b.orderKey.startsWith('AS63:'))throw Error();
    key=b.orderKey;
   }catch{return response(400,{code:'invalid_order_key'});}
-  let order,items;
+  let order,items,active;
   try{
    order=await db.prepare(
-    'SELECT order_key,source,account,source_status,source_checked_at,items_json,ms_customerorder_id FROM office_order_queue WHERE order_key=? LIMIT 1')
+    'SELECT order_key,source,account,source_status,production_disposition,source_checked_at,items_json,ms_customerorder_id FROM office_order_queue WHERE order_key=? LIMIT 1')
     .bind(key).first();
    if(!order)return response(404,{code:'order_not_found'});
-   if(classifyOrderBucket(order).bucket!=='active')
+   active=classifyOrderBucket(order).bucket==='active';
+   if(!active&&!(MANUAL.includes(order.source)&&order.ms_customerorder_id&&
+      order.production_disposition!=='not_for_sewing'))
     return response(409,{code:'order_not_active',changedRecords:0});
    const stamp=Date.parse(order.source_checked_at);
    if(!Number.isFinite(stamp)||Date.now()-stamp>86400000||
@@ -65,24 +71,37 @@ export function createStockPrecheck({fetcher=fetch}={}){
    if(!Array.isArray(items)||items.length<1||items.length>8)throw Error();
   }catch{return response(503,{code:'order_data_unverified',changedRecords:0});}
   const checkedAt=new Date().toISOString();
+  const token=env.MS_API_TOKEN;
+  let reads=0;
+  const read=async path=>{
+   if(typeof token!=='string'||!token||/\s/.test(token)||++reads>40||
+      Date.now()-Date.parse(checkedAt)>30000)throw Error();
+   const result=await fetcher(ROOT+path,{method:'GET',redirect:'manual',
+    headers:{Authorization:'Bearer '+token,Accept:'application/json'},
+    signal:AbortSignal.timeout(8000)});
+   const reader=result.body?.getReader();
+   if(!reader)throw Error();
+   try{
+    if(result.status!==200)throw Error();
+    let bytes=0,raw='';
+    const decoder=new TextDecoder('utf-8',{fatal:true});
+    for(;;){
+     const {done,value}=await reader.read();
+     if(done)break;
+     bytes+=value.byteLength;
+     if(bytes>512*1024)throw Error();
+     raw+=decoder.decode(value,{stream:true});
+    }
+    return JSON.parse(raw+decoder.decode());
+   }finally{await reader.cancel().catch(()=>{});}
+  };
   let warehouse={status:'warehouse_unverified'};
   let warehouseSaved=false;
   try{
    const mapping=await db.prepare(
     'SELECT store_id,organization_id,store_kind FROM office_order_warehouse_routes WHERE source=? AND seller_account=?')
     .bind(order.source,order.account).first();
-   const token=env.MS_API_TOKEN;
-   warehouse=await readWarehouse(order,mapping,async path=>{
-    if(typeof token!=='string'||!token||/\s/.test(token))throw Error();
-    const result=await fetcher(ROOT+'entity/'+path,{method:'GET',redirect:'manual',
-     headers:{Authorization:'Bearer '+token,Accept:'application/json'},
-     signal:AbortSignal.timeout(8000)});
-    if(result.status!==200){
-     await result.body?.cancel().catch(()=>{});
-     throw Error();
-    }
-    return result.json();
-   });
+   warehouse=await readWarehouse(order,mapping,path=>read('entity/'+path));
    const saved=await db.prepare(`INSERT INTO office_order_warehouse_checks
     (order_key,evidence_json,checked_at)
     SELECT order_key,?,? FROM office_order_queue WHERE order_key=? AND source_checked_at=?
@@ -94,12 +113,13 @@ export function createStockPrecheck({fetcher=fetch}={}){
   }catch{}
   if(!warehouseSaved)warehouse={status:'warehouse_unverified'};
   const rows=[];
+  const evidenceByItem=new Map();
   for(const item of items){
    const ordered=item.quantity;
    if(!Number.isFinite(ordered)||ordered<=0)
     return response(503,{code:'invalid_order_quantity',changedRecords:0});
    let id=null,type=null;
-   if(['avito','plamya','dealer_ruslan','dealer_irina'].includes(order.source)){
+   if(MANUAL.includes(order.source)){
     if(UUID.test(item.itemId||'')&&TYPES.includes(item.itemType)){
      id=item.itemId.toLowerCase();type=item.itemType;
     }
@@ -114,35 +134,36 @@ export function createStockPrecheck({fetcher=fetch}={}){
     }
    }
    const label=item.sku||item.name||item.itemId||'unknown';
-   const projection=projectOrderLine({ordered,orderActive:true,itemConfirmed:!!id,
+   const projection=projectOrderLine({ordered,orderActive:active,itemConfirmed:!!id,
     storeConfirmed:warehouse.status==='warehouse_verified'});
    const entry={item:label,ordered,itemId:id,itemType:type,
     stores:[],stockEvidence:'not_verified',projection};
-   if(id&&typeof env.MS_API_TOKEN==='string'&&env.MS_API_TOKEN&&!/\s/.test(env.MS_API_TOKEN)){
-    try{
-     const u=new URL(ROOT+'report/stock/bystore');
-     u.searchParams.set('filter','assortment='+ROOT+'entity/'+type+'/'+id);
-     u.searchParams.set('limit','2');
-     const r=await fetcher(u.toString(),{method:'GET',redirect:'manual',
-      headers:{Authorization:'Bearer '+env.MS_API_TOKEN,
-       Accept:'application/json;charset=utf-8'},signal:AbortSignal.timeout(15000)});
-     if(r.status===200){
-      const raw=await r.text();
-      if(raw.length>240000)throw Error();
-      const data=JSON.parse(raw);
-      if(data?.meta?.size!==1||data.rows?.length!==1)throw Error();
-      entry.stores=validateStockRow(data.rows[0],type,id);
-      entry.stockEvidence='report_by_store';
-     }else{
-      await r.body?.cancel().catch(()=>{});
-      entry.stockReason=r.status===429?'rate_limited':'stock_report_unavailable';
-     }
-    }catch{entry.stockReason='stock_report_unverified';}
+   if(active&&id&&warehouse.status==='warehouse_verified'){
+    if(!evidenceByItem.has(id)){
+     const accounting=await readStock(id,warehouse.storeId,read);
+     const production=await readProduction(id,warehouse.storeId,read);
+     evidenceByItem.set(id,{accounting,production});
+    }
+    Object.assign(entry,evidenceByItem.get(id));
+    if(entry.accounting.status==='accounting_verified'){
+     const {stock,reserve}=entry.accounting;
+     entry.stores=[{store:warehouse.storeName,accountingStock:stock,reserve,
+      accountingFree:stock-reserve}];
+     entry.stockEvidence='report_by_store';
+    }
    }
    rows.push(entry);
   }
-  return response(200,{code:'order_stock_precheck',readOnly:!warehouseSaved,
-   changedRecords:warehouseSaved?1:0,changedMoySkladRecords:0,orderKey:key,rows,
+  const review=buildReview(warehouse,rows);
+  let reviewChanges=0,reviewStored=false;
+  if(active)try{
+   const result=await saveReview(db,order,checkedAt,review);
+   reviewChanges=result.meta?.changes??0;
+   reviewStored=result.success!==false;
+  }catch{}
+  const changedRecords=Number(warehouseSaved)+reviewChanges;
+  return response(200,{code:'order_stock_precheck',readOnly:changedRecords===0,
+   changedRecords,changedMoySkladRecords:0,orderKey:key,rows,review,reviewStored,
    warehouse:{...warehouse,checkedAt:warehouseSaved?checkedAt:null},
    completeness:'NOT_READY_FOR_ALLOCATION',sewingAllowed:false,
    note:'Stock by store remains informational until complete allocation and production evidence is available.'});

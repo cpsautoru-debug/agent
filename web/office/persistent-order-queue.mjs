@@ -19,8 +19,69 @@
  const endpoint='/api/orders/persistent-queue';
  const sources=['ozon','ozon_fbo','wb','yandex','manual'];
  const cell=(tr,t)=>{const td=document.createElement('td');td.textContent=String(t??'—');tr.append(td);};
+ const fulfillmentTable=document.getElementById('orderFulfillmentTable');
+ const fulfillmentRows=document.getElementById('orderFulfillmentRows');
+ const fulfillmentSummary=document.getElementById('orderFulfillmentSummary');
+ const channelFilter=document.getElementById('orderFulfillmentChannel');
+ const warehouseFilter=document.getElementById('orderFulfillmentWarehouse');
+ const modelFilter=document.getElementById('orderFulfillmentModel');
+ const reasons={
+   item_mapping_unverified:'Связь SKU не подтверждена',
+   warehouse_unverified:'Склад исполнения не подтверждён',
+   availability_unverified:'Остаток или резерв не подтверждён',
+   production_unverified:'Требуется сверка производства',
+   competing_order_coverage_unverified:'Охват конкурирующих заказов не подтверждён'
+ };
+ function renderFulfillment(data){
+   if(!fulfillmentTable)return;
+   const active=data.orders.filter(order=>order.queue_bucket==='active');
+   const checks=new Map((data.fulfillment||[]).map(check=>[check.orderKey,check]));
+   const entries=active.flatMap(order=>{
+     const check=checks.get(order.order_key);
+     return (check?.lines||order.items.map(i=>({item:i.name||i.sku||i.itemId,
+       ordered:i.quantity}))).map(line=>({order,line,store:check?.warehouse?.storeName||'Не подтверждён'}));
+   });
+   for(const [select,values] of [
+     [channelFilter,entries.map(e=>e.order.source)],[warehouseFilter,entries.map(e=>e.store)]
+   ]){
+     const selected=select.value;
+     select.replaceChildren(new Option('Все',''),...[...new Set(values)].sort()
+       .map(value=>new Option(value,value)));
+     select.value=values.includes(selected)?selected:'';
+   }
+   fulfillmentRows.replaceChildren();
+   for(const {order,line,store} of entries){
+     if(channelFilter.value&&channelFilter.value!==order.source||
+        warehouseFilter.value&&warehouseFilter.value!==store||
+        !String(line.item).toLowerCase().includes(modelFilter.value.trim().toLowerCase()))continue;
+     const tr=document.createElement('tr');
+     for(const value of [order.external_id,order.source,line.item,store,line.ordered,
+        line.accounting?.stock,line.accounting?.reserve])cell(tr,value);
+     const jobs=document.createElement('td');
+     for(const job of line.production?.jobs||[]){
+       const a=document.createElement('a');
+       a.href='https://online.moysklad.ru/app/#productiontask/edit?id='+encodeURIComponent(job.id);
+       a.textContent='План '+job.pending+' · выполнено '+job.completed+
+         (job.due?' · '+new Date(job.due).toLocaleDateString('ru-RU',{timeZone:'Europe/Samara'}):'');
+       jobs.append(a,document.createElement('br'));
+     }
+     if(!jobs.childNodes.length)jobs.textContent='—';
+     tr.append(jobs);
+     cell(tr,line.missing);
+     cell(tr,'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта'));
+     fulfillmentRows.append(tr);
+   }
+   fulfillmentTable.hidden=!fulfillmentRows.childNodes.length;
+   fulfillmentSummary.textContent='Активных заказов в выборке: '+active.length+
+     ' · Требуют уточнения: '+active.length+
+     (data.fulfillmentAvailable?'':'. Сохранённые проверки недоступны.');
+ }
+ for(const filter of [channelFilter,warehouseFilter,modelFilter]){
+   filter?.addEventListener('input',()=>{if(latest)renderFulfillment(latest);});
+ }
  function render(data){
    latest=data;
+   renderFulfillment(data);
    const counts=data.bucketCounts||{active:0,transit:0,history:0,review:0};
    const current=bucketSelect?.value||'active';
    const labels={active:'Активен — проверить SKU и остаток',
@@ -60,10 +121,11 @@
        }
      }
      tr.append(td);
-     if(order.queue_bucket==='active'){
+     if(order.queue_bucket==='active'||(order.queue_bucket==='review'&&
+        order.ms_customerorder_id&&order.production_disposition!=='not_for_sewing')){
        const button=document.createElement('button');
        button.type='button';button.className='ms-production-detail-button';
-       button.textContent='Проверить учётные остатки';
+       button.textContent=order.queue_bucket==='active'?'Проверить обеспеченность':'Проверить склад исполнения';
        button.addEventListener('click',()=>precheck(order,button));
        td.append(button);
      }
@@ -95,7 +157,7 @@
      const notes=data.rows.map(item=>{
        const status=item.itemId?
          (item.stockEvidence==='report_by_store'?
-           'учётные остатки по складам получены, склад заказа не подтверждён':
+           'учётный остаток и резерв на складе получены':
            'сведения об остатке не подтверждены'):
          'нет утверждённого соответствия SKU';
        const stores=(item.stores||[]).map(s=>s.store+': '+
@@ -112,6 +174,7 @@
      precheckStatus.textContent='Заказ '+order.external_id+' · '+order.source+' · '+warehouseText+
        ' | '+notes.join(' | ')+
        '. Потребность в пошиве и доступность к отбору НЕ подтверждены. Документы не изменены.';
+     if(data.reviewStored)await reload();
    }catch(e){
      precheckStatus.textContent='Проверка не завершена: '+String(e.message).slice(0,110)+
        '. Заказ не распределён в пошив.';
