@@ -71,7 +71,7 @@ function renderCloseoutStatus(root,pnl,interim){
   'Ожидаемые или неизвестные суммы не приравниваются к 0 ₽.'));
  root.append(section);
 }
-function render(root,pnl,sourceNotes={},interim={}){
+function renderDetailedPnl(root,pnl,sourceNotes={},interim={}){
  root.replaceChildren();
  const summary=el('div','business-pnl-heading');
  summary.append(el('h2','','Финансовые показатели трёх маркетплейсов'),
@@ -259,6 +259,66 @@ function render(root,pnl,sourceNotes={},interim={}){
    'Общие расходы и налог АУСН вычитаются однократно; налог относится ко всему ИП и может включать деятельность вне этих трёх каналов. Неизвестные расходы не заменяются нулями.':
    pnl.verified?'Все источники подтверждены.':'Управленческая оценка: имеются неподтверждённые источники.'));
 }
+// Executive summary reads the canonical P&L; it does not calculate a second profit.
+export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
+ const wasOpen=(root.querySelector?.('#businessPnlDetails')?.open??root._detailsOpen)===true;
+ root._detailsOpen=wasOpen;
+ const legacy=root._technicalDetails||document.getElementById('businessPnlTechnicalDetails');
+ if(legacy)root._technicalDetails=legacy;
+ root.replaceChildren();
+ const cards=el('div','executive-pnl-cards');
+ const statusFor=ch=>ch.status==='verified'?'Подтверждено':
+  ch.status==='known_cost_result'?'Оценка':'Не закрыто';
+ function card(title,amount,caption,status){
+  const node=el('article','executive-pnl-card');
+  node.append(el('h2','',title),el('strong','executive-pnl-amount',executiveMoney(amount)),
+   el('span','executive-pnl-caption',caption));
+  const badge=el('span','executive-pnl-status',status);
+  badge.dataset.status=status==='Подтверждено'?'verified':status==='Оценка'?'estimate':'incomplete';
+  node.append(badge);return node;
+ }
+ for(const ch of pnl.channels)
+  cards.append(card(labels[ch.id],ch.profitKopecks,
+   Number.isSafeInteger(ch.profitKopecks)?'После прямых затрат':'Не закрыто',statusFor(ch)));
+ cards.append(card('Итого',pnl.knownChannelsTotalKopecks,
+  pnl.knownChannelCount+' из 3 каналов',pnl.knownChannelCount===0?'Не закрыто':
+   pnl.channels.every(ch=>ch.status==='verified')?'Подтверждено':'Оценка'));
+ root.append(cards);
+ const summary=el('section','executive-pnl-summary');
+ summary.setAttribute('aria-label','Итог бизнеса');
+ const taxKnown=pnl.taxesComplete===true&&Number.isSafeInteger(pnl.taxTotalKopecks);
+ const hasEstimate=[interim.tax?.ozon?.taxEstimateKopecks,
+  interim.tax?.wb?.savedTaxEstimateKopecks,interim.tax?.yandex?.taxEstimateKopecks]
+  .some(Number.isSafeInteger);
+ for(const [label,value,kind,hint] of [
+  ['Общие расходы',Number.isSafeInteger(pnl.sharedExpenseTotalKopecks)?
+    -pnl.sharedExpenseTotalKopecks:null,'expenses',''],
+  ['АУСН 8%',taxKnown?-pnl.taxTotalKopecks:null,'tax',!taxKnown&&hasEstimate?'Есть оценка':''],
+  ['ЧИСТАЯ ПРИБЫЛЬ',pnl.verified===true?pnl.finalProfitKopecks:null,'profit',
+    pnl.verified===true?'Подтверждено':'Не закрыто']
+ ]){
+  const row=el('div','executive-pnl-row executive-pnl-'+kind);
+  row.append(el('span','',label));
+  const values=el('div','executive-pnl-values');
+  values.append(el('strong','',executiveMoney(value)));
+  if(hint)values.append(el('small','',hint));
+  row.append(values);summary.append(row);
+ }
+ root.append(summary);
+ const details=el('details','executive-pnl-details');
+ details.id='businessPnlDetails';details.open=wasOpen;
+ const toggle=el('summary','executive-pnl-toggle',wasOpen?'Скрыть детали':'Показать детали');
+ details.append(toggle);
+ details.addEventListener('toggle',()=>{toggle.textContent=details.open?'Скрыть детали':'Показать детали';});
+ const content=el('div','executive-pnl-detail-content');
+ renderDetailedPnl(content,pnl,sourceNotes,interim);
+ if(legacy){legacy.hidden=false;content.append(legacy);}
+ details.append(content);root.append(details);
+}
+const executiveMoney=value=>Number.isSafeInteger(value)?
+ new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',
+  minimumFractionDigits:2,maximumFractionDigits:2}).format(value/100):'Н/Д';
+const render=renderExecutivePnl;
 export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
  const root=documentRef.getElementById('businessPnl');
  const monthInput=documentRef.getElementById('ceoMonth');
@@ -285,6 +345,10 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   const id=++serial,month=monthInput.value;
   refresh.disabled=true;
   refresh.textContent='Пересчитываем…';
+  root._detailsOpen=root.querySelector?.('#businessPnlDetails')?.open??root._detailsOpen;
+  root._technicalDetails=root._technicalDetails||documentRef.getElementById('businessPnlTechnicalDetails');
+  root.replaceChildren(el('p','executive-load-status','Загружаем показатели за '+month+'…'));
+  lastRender=null;
   root.setAttribute('aria-busy','true');
   let notice=documentRef.getElementById('businessPnlLoadStatus');
   if(notice)notice.textContent='Обновляем Ozon, Wildberries и Яндекс за '+month+'…';
@@ -296,17 +360,6 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     wb:'Данные прибыли пока не подтверждены.',
     yandex:'Доход после услуг подтверждён отдельно; себестоимость и расходы проверяются.'
   };
-  if(month==='2026-10'){
-   // Known owner-confirmed expenses, but not an audited exhaustive business ledger.
-   base.sharedExpenses=[
-    {id:'shared-waste',label:'Мусор',amountKopecks:900000},
-    {id:'shared-leather-delivery',label:'Доставка кожи',amountKopecks:2000000},
-    {id:'shared-remote-salary',label:'Зарплата Ильи',amountKopecks:2500000}
-   ];
-   // Tax is supplied by marketplace income evidence, not a fixed owner-wide charge.
-   // Until the full IP base is reconciled keep consolidated tax unknown.
-   base.taxes=[];
-  }
   let error=null,wbError=null;
   const yandexRead=loadYandexDashboardEvidence({month,fetcher}).then(
    evidence=>{yandexInterim(evidence,sourceNotes,interim);return evidence;});
@@ -329,7 +382,6 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
    }catch{/* The tax panel remains explicitly incomplete. */}
   })();
   const overheadRead=(async()=>{
-   if(month!=='2026-10')return;
    try{
     const response=await fetcher('/api/finance/cost-audit?month='+
      encodeURIComponent(month),{method:'GET',
@@ -341,7 +393,7 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
      base.sharedExpenses=ledger.items;
      interim.overhead=ledger;
     }
-   }catch{/* Retain known owner amounts as provisional, not unknown zero. */}
+   }catch{/* Missing register remains unknown; never substitute a fixed amount. */}
   })();
   const yandexCosts=loadYandexCostSnapshot(month,fetcher).then(x=>{
    if(serial!==id||monthInput.value!==month)return x;
@@ -359,10 +411,10 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
    }
    return x;
   });
-  if(month==='2026-10'){
+  {
    // Both APIs are independent. Parallel reads eliminate an unnecessary
    // extra wait and keep the refresh visibly responsive.
-   await Promise.all([yandexRead,overheadRead,taxRead,
+   await Promise.all([yandexRead,yandexCosts,overheadRead,taxRead,
     (async()=>{
      try{
       const response=await fetcher('/api/ozon/profit?month='+encodeURIComponent(month),{
@@ -416,7 +468,6 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
     })()
    ]);
   }
-  if(month!=='2026-10')await yandexRead;
   if(serial!==id||monthInput.value!==month)return;
   refresh.disabled=false;
   refresh.textContent='Пересчитать сводку';
@@ -427,9 +478,9 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   catch{root.textContent='Невозможно сформировать сводный отчёт: неверный период или данные.';return;}
   render(root,pnl,sourceNotes,interim);
   lastRender={month,pnl,sourceNotes,interim,base};
-  if(error)root.append(el('p','business-pnl-disclaimer',
+  if(error)root.querySelector('.executive-pnl-detail-content').append(el('p','business-pnl-disclaimer',
    'Источник Ozon недоступен. Показатели не подставляются из предыдущих периодов.'));
-  if(wbError)root.append(el('p','business-pnl-disclaimer',
+  if(wbError)root.querySelector('.executive-pnl-detail-content').append(el('p','business-pnl-disclaimer',
    'Расчётный источник WB недоступен. Выручка и прибыль WB не подставляются из других периодов.'));
  }
  window.addEventListener('yandex-financial-sources-audited',event=>{

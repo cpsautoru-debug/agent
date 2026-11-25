@@ -163,7 +163,7 @@ export function showYandexDashboard(data,month=byId('ceoMonth')?.value){
  set('ceoYandexValue',money(data.incomeKopecks));
  status('ceoYandexState','Доход после учтённых услуг · прибыль отдельно',
    data.serviceAuditComplete&&data.paymentAuditComplete?'success':'warning');
- set('ceoYandexNote','Яндекс · оба магазина одного ООО · '+month+
+ set('ceoYandexNote','Яндекс · оба магазина одного ИП · '+month+
   '. Доход по '+count(data.orders)+' заказам из incomeWithoutServices; '+
   'комиссии, уже включённые в отчёт, повторно не вычитаются. '+
   (data.serviceAuditComplete&&data.paymentAuditComplete?

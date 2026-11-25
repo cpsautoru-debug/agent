@@ -24,3 +24,61 @@
 .business-pnl-wb-line strong{text-align:right;white-space:nowrap;font-size:.8rem!important}
 .business-pnl-evidence{overflow-wrap:anywhere}
 @media(max-width:600px){.business-pnl-interim-value{font-size:1.1rem!important}.business-pnl-wb-line{flex-wrap:wrap}}
+
+/* Executive view: source evidence stays inside the single disclosure. */
+.executive-board{max-width:1440px;margin:0 auto}
+.executive-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px}
+.executive-heading h1{font-size:clamp(1.5rem,2.5vw,2rem);margin:0;color:#17283e}
+.executive-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.executive-controls label{display:flex;align-items:center;gap:8px;font-size:.875rem;color:#536174}
+.executive-controls input{min-width:160px;padding:10px 12px;border:1px solid #dce3eb;border-radius:10px;background:#fff;color:#26384d}
+.executive-load-status{font-size:.75rem;color:#64748b}
+.executive-board>.business-pnl{padding:0;margin:0;border:0;background:none;box-shadow:none}
+.executive-pnl-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.executive-pnl-card{background:#fff;border:1px solid #e6ebf1;border-radius:16px;padding:22px 18px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;box-shadow:0 3px 12px #20324804}
+.executive-pnl-card h2{margin:0;font-size:1rem;font-weight:600;color:#526176}
+.executive-pnl-amount{font-size:clamp(1.2rem,1.65vw,1.9rem);font-weight:750;line-height:1.25;color:#18283e;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.executive-pnl-caption{font-size:.8rem;color:#67758a}
+.executive-pnl-status{font-size:.7rem;padding:3px 8px;border-radius:6px;color:#657287;background:#f1f4f8;margin-top:auto}
+.executive-pnl-status[data-status="estimate"]{background:#fff6e5;color:#825f20}
+.executive-pnl-status[data-status="verified"]{background:#e9f5ef;color:#256344}
+.executive-pnl-summary{margin-top:20px;padding:12px 24px 0;border:1px solid #e6ebf1;border-radius:16px;background:#fff}
+.executive-pnl-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;color:#4c5e73}
+.executive-pnl-values{text-align:right;display:flex;flex-direction:column;gap:4px;min-width:0}
+.executive-pnl-values strong{font-size:1.15rem;font-variant-numeric:tabular-nums;color:#22334a;white-space:nowrap}
+.executive-pnl-values small{font-size:.75rem;color:#8b6b32}
+.executive-pnl-profit{border-top:1px solid #e6ebf1;margin-top:6px;padding:24px 0;font-weight:700;color:#17283e}
+.executive-pnl-profit .executive-pnl-values strong{font-size:clamp(1.7rem,3vw,2.5rem);color:#17283e}
+.executive-pnl-details{margin-top:14px}
+.executive-pnl-toggle{list-style:none;cursor:pointer;text-align:center;padding:12px 18px;font-size:.875rem;font-weight:600;color:#435a78;border-radius:10px;background:#edf2f7}
+.executive-pnl-toggle::-webkit-details-marker{display:none}
+.executive-pnl-toggle:hover{background:#e3ebf5}
+.executive-pnl-toggle:focus-visible{outline:3px solid #8eaee2;outline-offset:3px}
+.executive-pnl-detail-content{margin-top:20px;padding:22px;border-radius:16px;background:#fff;border:1px solid #e6ebf1;overflow-wrap:anywhere}
+.executive-pnl-detail-content .business-pnl-cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.executive-pnl-detail-content .ceo-grid{margin-top:24px}
+@media(max-width:1100px){
+ .executive-pnl-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .executive-pnl-amount{font-size:1.7rem}
+}
+@media(max-width:600px){
+ .executive-heading{gap:14px;margin-bottom:16px}
+ .executive-controls{width:100%;gap:8px}
+ .executive-controls label{flex:1}
+ .executive-controls input{min-width:0;width:100%}
+ .executive-controls .button{padding:10px 14px}
+ .executive-load-status{width:100%}
+ .executive-pnl-cards{grid-template-columns:minmax(0,1fr);gap:10px}
+ .executive-pnl-card{padding:18px 20px;gap:8px}
+ .executive-pnl-amount{font-size:1.85rem}
+ .executive-pnl-summary{padding:8px 18px 0}
+ .executive-pnl-row{font-size:.875rem;gap:8px}
+ .executive-pnl-values strong{font-size:1rem}
+ .executive-pnl-profit{align-items:flex-start}
+ .executive-pnl-profit>span{max-width:48%}
+ .executive-pnl-detail-content{padding:14px}
+}
+
+.executive-board{width:100%;min-width:0;container-type:inline-size}
+@container(max-width:900px){.executive-pnl-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.executive-pnl-amount{font-size:1.5rem}}
+@container(max-width:480px){.executive-pnl-cards{grid-template-columns:minmax(0,1fr)}}

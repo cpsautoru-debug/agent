@@ -602,25 +602,17 @@
 </section>
 <!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
     <section class="page" data-section="dashboard" hidden>
-      <div class="ceo-board" id="ceoBoard">
-        <div class="ceo-heading">
-          <div><div class="eyebrow">АВТОСКЛАД63 · ПУЛЬТ РУКОВОДИТЕЛЯ</div>
-            <h1>Весь бизнес на одном экране</h1>
-            <p>Продажи, финансы, производство и контроль ошибок. Все суммы из действующих источников; неподтверждённые данные не заменяются нулями. Выбранный месяц применяется к Ozon и Яндексу; WB и производство показывают состояние сохранённых мониторов.</p>
-          </div>
-          <div class="ceo-actions">
-            <label>Завершённый отчётный месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей Ozon и Яндекс"></label>
-            <button class="button light" id="ceoRefresh" type="button">Обновить все показатели</button>
-          </div>
-        </div>
-        <div class="ceo-alert">
+<div class="ceo-board executive-board" id="ceoBoard">
+<div class="executive-heading"><h1>Финансы бизнеса</h1><div class="executive-controls"><label>Месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей"></label><button id="businessPnlRefresh" class="button light" type="button">Обновить</button><span id="businessPnlLoadStatus" class="executive-load-status" role="status" aria-live="polite"></span></div></div>
+        <section class="business-pnl" aria-label="Сводный управленческий P&L">
+  
+  <div id="businessPnl" aria-live="polite">Загружаем показатели…</div>
+</section>
+<div id="businessPnlTechnicalDetails" hidden><button class="button light" id="ceoRefresh" type="button">Обновить диагностику</button>        <div class="ceo-alert">
           <strong>Состояние данных: <span id="ceoOverallState" data-state="neutral" role="status">Загрузка не началась</span></strong>
           <p>Расчёт ведём по Ozon, Wildberries и Яндекс Маркету. Авито и магазин «Пламя» в эту финансовую сводку сейчас не включены. Чистая прибыль подтверждается отдельно после прямых затрат, общих расходов и налога ИП.</p>
         </div>
-        <section class="business-pnl" aria-label="Сводный управленческий P&L">
-  <div class="business-pnl-actions"><h2>Финансы маркетплейсов · Ozon, WB, Яндекс</h2><button id="businessPnlRefresh" class="button light" type="button">Пересчитать сводку</button><span id="businessPnlLoadStatus" class="business-pnl-load-status" role="status" aria-live="polite">Готово к пересчёту</span></div>
-  <div id="businessPnl" role="status">Загружаем Ozon, WB и Яндекс. Дополнительные расходы и налог ИП вычитаются после результата трёх маркетплейсов ровно один раз.</div>
-</section>
+
 <div class="ceo-grid">
           <article class="ceo-card">
             <h2>Продажи · Ozon</h2><strong class="ceo-value" id="ceoOzonValue">Нет данных</strong>
@@ -726,8 +718,8 @@
           <a href="#production"><strong>Склад · МойСклад</strong><span>Остатки, отрицательные позиции, контроль этапов</span></a>
           <a href="#orchestrator"><strong>ИИ-Оркестратор</strong><span>Задачи, источники и журнал поручений</span></a>
         </div>
-      </div>
-    </section>
+</div>
+</div></section>
 <!-- ОБЗОР ОФИСА -->
 
     <section class="page" data-section="overview">
@@ -2367,8 +2359,8 @@
 
 <script src="app.js" defer></script>
 <script type="module" src="ceo-dashboard.mjs?v=20261124-finance-closeout-evidence"></script>
-<link rel="stylesheet" href="business-pnl.css?v=20261124-wb-month-finance">
-<script type="module" src="business-pnl.mjs?v=20261125-yandex-source-coverage"></script>
+<link rel="stylesheet" href="business-pnl.css?v=20261125-executive-v1">
+<script type="module" src="business-pnl.mjs?v=20261125-executive-v1"></script>
 <script type="module" src="owner-unit-cost-reference-ui.mjs?v=20261125-owner-costs"></script>
 <script type="module" src="ozon-missing-sku-autosync.mjs?v=20261125-seller-api"></script>
 <script type="module" src="marketplace-tax-estimate-ui.mjs?v=20261125-yandex-order-api-8"></script>
