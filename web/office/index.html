@@ -1825,7 +1825,7 @@
         <p class="ms-production-status" id="ordersIntakeStatus" role="status">Проверка по API ещё не запускалась. Документы МойСклад не создаются.</p>
         <section class="ms-sites" aria-labelledby="persistentOrdersTitle">
           <h3 id="persistentOrdersTitle">Постоянная очередь D1 · предварительные данные</h3>
-          <p>Снимки заказов сохраняются отдельно от МойСклад. Кнопка читает реальные источники повторно через сервер; неполные выборки не записываются. Статусы сотрудников, резервы, реальное наличие и отгрузки пока не подтверждены.</p>
+          <p>Снимки заказов сохраняются отдельно от МойСклад. Кнопка читает реальные источники повторно через сервер; неполные выборки не записываются. Предварительное рассмотрение заказа владельцем сохраняется в D1. Действия сотрудников, резервы, реальное наличие и отгрузки пока не подтверждены.</p>
           <button type="button" class="ms-production-detail-button" id="persistentOrdersSync">Синхронизировать и сохранить источники</button>
           <button type="button" class="ms-production-detail-button" id="persistentOrdersRefresh">Показать сохранённую очередь</button>
           <p class="ms-production-status" role="status" id="persistentOrdersStatus">Данные D1 ещё не загружались.</p>
@@ -1841,9 +1841,10 @@
             <p id="persistentOrdersBucketCounts" class="ms-production-status" role="status">Сначала загрузите сохранённую очередь.</p>
           </div>
           <div class="ms-production-scroll"><table class="ms-production-table" id="persistentOrdersTable" hidden>
-            <thead><tr><th>Источник</th><th>Заказ</th><th>Состав</th><th>Статус источника</th><th>Исполнение</th><th>Последняя проверка</th></tr></thead>
+            <thead><tr><th>Источник</th><th>Заказ</th><th>Состав</th><th>Статус источника</th><th>Исполнение</th><th>Последняя проверка</th><th>Рассмотрение владельцем</th></tr></thead>
             <tbody id="persistentOrdersRows"></tbody>
           </table></div>
+          <p id="persistentOrdersWorkflowStatus" role="status" class="ms-production-status">Журнал рассмотрения заказов ещё не загружен.</p>
         </section>
 
         <div class="ms-sites-steps"><button id="ordersStockCheck" type="button" class="ms-production-detail-button">Сверить SKU и учётное наличие</button></div>
