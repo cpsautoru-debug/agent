@@ -98,7 +98,8 @@
    fulfillmentSummary.textContent='Активных заказов в выборке: '+active.length+
      ' · Подтверждённых позиций: '+confirmed.length+
      ' · Требуют уточнения: '+pending+
-     ' · Подтверждённая потребность: '+sewing+' шт. (только подтверждённые позиции)'+
+     ' · Подтверждённая потребность: '+(confirmed.length?sewing+' шт.':'—')+
+     ' (только подтверждённые позиции)'+
      (data.fulfillmentAvailable?'':'. Сохранённые проверки недоступны.');
  }
  for(const filter of [channelFilter,warehouseFilter,modelFilter]){
