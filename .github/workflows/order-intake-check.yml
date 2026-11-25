@@ -7,12 +7,15 @@ on:
       - 'functions/api/yandex/orders-preview.js'
       - 'functions/api/ms/order-sku-links.js'
       - 'functions/api/ms/orders-stock-match.js'
+      - 'functions/api/ms/manual-orders-preview.js'
       - 'web/office/orders-intake-board.mjs'
+      - 'web/office/manual-moysklad-orders.mjs'
       - 'web/office/index.html'
       - 'tests/marketplace-order-import-preview.test.mjs'
       - 'tests/yandex-orders-preview.test.mjs'
       - 'tests/ms-order-sku-links.test.mjs'
       - 'tests/ms-orders-stock-match.test.mjs'
+      - 'tests/ms-manual-orders-preview.test.mjs'
       - 'migrations/20261125_order_sku_links.sql'
       - '.github/workflows/order-intake-check.yml'
   pull_request:
@@ -22,12 +25,15 @@ on:
       - 'functions/api/yandex/orders-preview.js'
       - 'functions/api/ms/order-sku-links.js'
       - 'functions/api/ms/orders-stock-match.js'
+      - 'functions/api/ms/manual-orders-preview.js'
       - 'web/office/orders-intake-board.mjs'
+      - 'web/office/manual-moysklad-orders.mjs'
       - 'web/office/index.html'
       - 'tests/marketplace-order-import-preview.test.mjs'
       - 'tests/yandex-orders-preview.test.mjs'
       - 'tests/ms-order-sku-links.test.mjs'
       - 'tests/ms-orders-stock-match.test.mjs'
+      - 'tests/ms-manual-orders-preview.test.mjs'
       - 'migrations/20261125_order_sku_links.sql'
       - '.github/workflows/order-intake-check.yml'
   workflow_dispatch:
@@ -43,5 +49,9 @@ jobs:
           node-version: '22'
       - name: Check office queue module syntax
         run: node --check web/office/orders-intake-board.mjs
+      - name: Check manual MoySklad order modules
+        run: node --check functions/api/ms/manual-orders-preview.js && node --check web/office/manual-moysklad-orders.mjs
+      - name: Verify manual MoySklad order marker and exact item linkage
+        run: node --test tests/ms-manual-orders-preview.test.mjs
       - name: Verify order intake, SKU mapping, pagination and read-only boundary
         run: node --test tests/marketplace-order-import-preview.test.mjs tests/yandex-orders-preview.test.mjs tests/ms-order-sku-links.test.mjs tests/ms-orders-stock-match.test.mjs
