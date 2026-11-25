@@ -74,6 +74,11 @@ export function createWorkflowReview(){
    if(!Number.isFinite(checked)||Date.now()-checked>24*60*60*1000||
       checked>Date.now()+5*60*1000)
     return reply(409,{code:'source_status_stale',changedRecords:0});
+   const sync=await db.prepare(
+    'SELECT last_success_at FROM office_order_queue_sync WHERE source=? LIMIT 1')
+    .bind(order.source).first();
+   if(!sync||sync.last_success_at!==order.source_checked_at)
+    return reply(409,{code:'order_not_in_latest_snapshot',changedRecords:0});
    workflow=await db.prepare('SELECT workflow_state,revision FROM office_order_workflow WHERE order_key=? LIMIT 1')
     .bind(data.orderKey).first();
   }catch{return reply(503,{code:'workflow_storage_unavailable',changedRecords:0});}
