@@ -17,12 +17,65 @@ const el=(tag,cls,value)=>{
  if(value!==undefined)node.textContent=value;
  return node;
 };
+function renderCloseoutStatus(root,pnl,interim){
+ const section=el('section','business-pnl-closeout-status');
+ section.id='marketplaceCloseoutStatus';
+ const known=pnl.channels.filter(x=>x.status!=='unknown');
+ const yandex=pnl.channels.find(x=>x.id==='yandex');
+ section.append(el('h3','','Готовность управленческого учёта · '+pnl.month),
+  el('p','','Финансовый результат после прямых затрат подтверждён источниками: '+
+   known.length+' из 3 маркетплейсов. Отсутствующий канал не считается нулевым.'));
+ if(Number.isSafeInteger(pnl.knownChannelsTotalKopecks))
+  section.append(el('p','','Известный промежуточный результат ('+
+   known.map(x=>labels[x.id]).join(' + ')+'): '+
+   money(pnl.knownChannelsTotalKopecks)+
+   ' · до АУСН, общих расходов и неполных источников. НЕ чистая прибыль.'));
+ const blockers=[];
+ if(yandex?.status==='unknown'){
+  const cost=interim.yandexCost;
+  const why=cost?.status==='incomplete_cost_coverage'?
+   'нет полной себестоимости доставок и возвратов'+
+    (Number.isSafeInteger(cost.missingCount)?
+     ' (неопознанных товаров: '+cost.missingCount+')':'')+
+    (Number.isSafeInteger(cost.issues)?
+     ', проблем источников: '+cost.issues:''):
+   cost?.status==='unavailable'?
+    'официальный расчёт прямых затрат пока не получен':
+    'отчёты доходов и датированная себестоимость ещё не сведены';
+  blockers.push('Яндекс: '+why);
+ }
+ if(interim.tax?.code==='marketplace_tax_management_estimate'){
+  if(interim.tax.wb?.complete!==true)
+   blockers.push('АУСН WB: не подтверждена вся налоговая база ('+
+    (interim.tax.wb?.savedReports??'?')+' XLSX / '+
+    (interim.tax.wb?.apiReports??'?')+' API-отчётов)');
+  if(interim.tax.ozon?.status!=='tax_base_reconciled')
+   blockers.push('АУСН Ozon: бонусы, компенсации и даты признания доходов ещё не классифицированы');
+  if(interim.tax.yandex?.status!=='tax_base_reconciled')
+   blockers.push('АУСН Яндекса: оценка валовых заказов не учитывает все возвраты и даты поступлений');
+ }else blockers.push('Единый налог АУСН: источник полной базы ещё не загружен');
+ if(!interim.overhead)
+  blockers.push('Общие расходы: регистр за этот месяц не подтверждён');
+ else if(interim.overhead.freightOverlapPossible)
+  blockers.push('Доставка материалов: возможное пересечение с производственной себестоимостью');
+ if(!blockers.length&&pnl.finalProfitKopecks===null)
+  blockers.push('Финальный статус требует проверки состава расходов и источников доходов');
+ const list=el('ul','business-pnl-open-items');
+ for(const item of blockers)list.append(el('li','',item));
+ section.append(el('p','','Незакрытые источники ('+blockers.length+'):'));
+ section.append(list);
+ section.append(el('p','business-pnl-disclaimer',
+  'Оперативный финансовый экран, а не декларация ФНС. '+
+  'Ожидаемые или неизвестные суммы не приравниваются к 0 ₽.'));
+ root.append(section);
+}
 function render(root,pnl,sourceNotes={},interim={}){
  root.replaceChildren();
  const summary=el('div','business-pnl-heading');
  summary.append(el('h2','','Финансовые показатели трёх маркетплейсов'),
   el('p','','В расчёте только Ozon, Wildberries и Яндекс Маркет. Сначала результат после комиссий и себестоимости каждого канала, затем дополнительные расходы и налог ИП — по одному разу. Авито и «Пламя» исключены.'));
  root.append(summary);
+ renderCloseoutStatus(root,pnl,interim);
  const cards=el('div','business-pnl-cards');
  for(const ch of pnl.channels){
   const card=el('article','business-pnl-card');
