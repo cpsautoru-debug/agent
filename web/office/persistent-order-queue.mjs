@@ -6,29 +6,44 @@
  const tbody=document.getElementById('persistentOrdersRows'),
    status=document.getElementById('persistentOrdersStatus'),
    sync=document.getElementById('persistentOrdersSync'),
-   refresh=document.getElementById('persistentOrdersRefresh');
+   refresh=document.getElementById('persistentOrdersRefresh'),
+   bucketSelect=document.getElementById('persistentOrdersBucket'),
+   bucketSummary=document.getElementById('persistentOrdersBucketCounts');
+ let latest=null;
  let working=false;
  const endpoint='/api/orders/persistent-queue';
  const sources=['ozon','ozon_fbo','wb','yandex','manual'];
  const cell=(tr,t)=>{const td=document.createElement('td');td.textContent=String(t??'—');tr.append(td);};
  function render(data){
+   latest=data;
+   const counts=data.bucketCounts||{active:0,transit:0,history:0,review:0};
+   const current=bucketSelect?.value||'active';
+   const labels={active:'Активен — проверить SKU и остаток',
+     transit:'В доставке — не направлять в пошив',
+     history:'История — не направлять в пошив',
+     review:'Требует уточнения — не направлять в пошив'};
    tbody.replaceChildren();
-   for(const order of data.orders){
+   const matching=data.orders.filter(o=>current==='all'||o.queue_bucket===current);
+   for(const order of matching){
      const tr=document.createElement('tr');
      cell(tr,order.source+' · '+order.account);
      cell(tr,order.external_id);
      cell(tr,order.items.map(i=>(i.sku||i.name||i.itemId)+' × '+i.quantity).join('; '));
      cell(tr,order.source_status);
-     cell(tr,order.workflow_status==='unverified'?'Требует проверки':'Не подтверждено');
+     cell(tr,labels[order.queue_bucket]||labels.review);
      cell(tr,order.source_checked_at);
      tbody.append(tr);
    }
-   table.hidden=!tbody.children.length;
-   const sc=data.sources.map(s=>s.source+': '+s.rows_seen+' ('+s.coverage+')').join(' · ');
+   table.hidden=!matching.length;
+   if(bucketSummary)bucketSummary.textContent='В показанной выборке: активные '+counts.active+
+     ' · доставка '+counts.transit+' · история '+counts.history+
+     ' · уточнение '+counts.review+'. Выбрано: '+matching.length+'.';
+   const sc=data.sources.map(x=>x.source+': '+x.rows_seen+' ('+x.coverage+')').join(' · ');
    status.textContent='В D1 показано '+data.orders.length+
-     ' заказов (первые 150), сохранённые источники: '+sc+
-     '. Это не подтверждение складского остатка или готовности заказа.';
+     ' заказов (не более 150), сохранённые источники: '+sc+
+     '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.';
  }
+ if(bucketSelect)bucketSelect.addEventListener('change',()=>{if(latest)render(latest);});
  async function reload(){
    const r=await fetch(endpoint,{credentials:'same-origin',cache:'no-store',
      headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});
