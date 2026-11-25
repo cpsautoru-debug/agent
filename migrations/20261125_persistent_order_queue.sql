@@ -33,3 +33,14 @@ CREATE TABLE IF NOT EXISTS office_order_queue_events (
  FOREIGN KEY(order_key) REFERENCES office_order_queue(order_key)
 ) STRICT;
 CREATE INDEX IF NOT EXISTS office_order_queue_events_key ON office_order_queue_events(order_key,id);
+CREATE TRIGGER IF NOT EXISTS office_order_queue_first_seen
+AFTER INSERT ON office_order_queue BEGIN
+ INSERT INTO office_order_queue_events(order_key,event_kind,from_status,to_status)
+ VALUES(NEW.order_key,'first_seen',NULL,NEW.source_status);
+END;
+CREATE TRIGGER IF NOT EXISTS office_order_queue_source_status_changed
+AFTER UPDATE OF source_status ON office_order_queue
+WHEN OLD.source_status<>NEW.source_status BEGIN
+ INSERT INTO office_order_queue_events(order_key,event_kind,from_status,to_status)
+ VALUES(NEW.order_key,'source_status_changed',OLD.source_status,NEW.source_status);
+END;
