@@ -53,16 +53,25 @@ export function interpretYandexDirectCostReview(month,data){
   !Array.isArray(data.missing)||!Array.isArray(data.issues))
   return unavailable;
  if(data.status==='preliminary_cost_reconciled'&&
+    data.orderRealizationMatched===true&&
+    data.skuAuditMatches===true&&
     int(data.cogsKopecks)&&int(data.preliminaryContributionKopecks)&&
-    int(data.incomeKopecks)&&
-    data.incomeKopecks-data.cogsKopecks===
+    int(data.cohortIncomeKopecks)&&
+    data.cohortIncomeKopecks-data.cogsKopecks===
      data.preliminaryContributionKopecks&&
     data.missing.length===0&&data.issues.length===0)
   return {month,status:'preliminary_cost_reconciled',
    cogsKopecks:data.cogsKopecks,
    preliminaryContributionKopecks:data.preliminaryContributionKopecks,
    missingCount:0,netProfitKopecks:null,
-   orderRealizationMatched:data.orderRealizationMatched===true,
+   orderRealizationMatched:true,
+   cohortIncomeKopecks:data.cohortIncomeKopecks,
+   cohortGrossKopecks:int(data.cohortGrossKopecks)?
+    data.cohortGrossKopecks:null,
+   cohortOrderCount:int(data.cohortOrderCount)?
+    data.cohortOrderCount:null,
+   cohortExcludedOrderRows:int(data.cohortExcludedOrderRows)?
+    data.cohortExcludedOrderRows:null,
    deliveredUnits:int(data.deliveredUnits)?data.deliveredUnits:null,
    returnedUnits:int(data.returnedUnits)?data.returnedUnits:null,
    skuAuditMatches:data.skuAuditMatches===true,
