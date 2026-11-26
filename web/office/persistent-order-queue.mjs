@@ -224,7 +224,7 @@
      precheckStatus.textContent='Заказ '+order.external_id+' · '+order.source+' · '+warehouseText+
        ' | '+notes.join(' | ')+
        '. Потребность в пошиве и доступность к отбору НЕ подтверждены. Документы не изменены.';
-     if(data.reviewStored)await reload();
+     if(data.reviewStored)await reload(false);
    }catch(e){
      precheckStatus.textContent='Проверка не завершена: '+String(e.message).slice(0,110)+
        '. Заказ не распределён в пошив.';
@@ -266,13 +266,13 @@
      workflowStatus.textContent='Этап не сохранён: '+String(e.message).slice(0,100);
    }finally{working=false;button.disabled=false;}
  }
- async function reload(){
+ async function reload(includeWorkflow=true){
    const r=await fetch(endpoint,{credentials:'same-origin',cache:'no-store',
      headers:{Accept:'application/json'},signal:AbortSignal.timeout(20000)});
    const data=await r.json();
    if(!r.ok||data?.code!=='persistent_queue_read'||!Array.isArray(data.orders)||
       !Array.isArray(data.sources))throw Error(data?.code||'queue_unavailable');
-   try{await loadWorkflow();}catch(e){
+   if(includeWorkflow)try{await loadWorkflow();}catch(e){
      workflowReady=false;
      workflowStatus.textContent='Этапы рассмотрения пока недоступны: '+
        String(e.message).slice(0,100)+'. Необходимо применить миграцию D1.';
@@ -298,7 +298,7 @@
            cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json'},
            body:JSON.stringify({source}),signal:AbortSignal.timeout(150000)});
          const data=await r.json();
-         if(!r.ok||data?.code!=='persistent_queue_source_saved')
+         if(!r.ok||!['persistent_queue_source_saved','persistent_queue_source_reused'].includes(data?.code))
            throw Error(data?.code||'source_unavailable');
          successes++;
        }catch(e){

@@ -42,12 +42,15 @@ export function saveReview(db,order,checkedAt,review){
   .bind(checkedAt,JSON.stringify(review),order.order_key,order.source_checked_at).run();
 }
 
-export function readReviews(db){
+export function readReviews(db,orderKeys=null){
+ if(orderKeys?.length===0)return Promise.resolve({results:[]});
+ const scoped=orderKeys!==null;
  return db.prepare(`SELECT f.order_key,f.source_checked_at,f.checked_at,f.result_json
- FROM office_order_fulfillment f
+ FROM ${scoped?"json_each(?) keys CROSS JOIN office_order_fulfillment f ON f.order_key=keys.value":
+  "office_order_fulfillment f"}
  JOIN office_order_queue q ON q.order_key=f.order_key AND q.source_checked_at=f.source_checked_at
  JOIN office_order_queue_sync s ON s.source=CASE WHEN q.source IN ('avito','plamya','dealer_ruslan','dealer_irina') THEN 'manual' ELSE q.source END AND s.last_success_at=q.source_checked_at
  WHERE q.source_checked_at >= ?
  ORDER BY f.checked_at DESC LIMIT 150`)
-  .bind(new Date(Date.now()-86400000).toISOString()).all();
+  .bind(...(scoped?[JSON.stringify(orderKeys)]:[]),new Date(Date.now()-86400000).toISOString()).all();
 }

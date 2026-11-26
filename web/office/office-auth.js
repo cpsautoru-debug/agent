@@ -53,6 +53,11 @@
         render('Вход не выполнен', 'login');
       } else if (response.status === 403) {
         render('У выбранного Google-аккаунта нет доступа', 'login');
+      } else if (response.status === 503) {
+        const body=await response.json().catch(()=>null);
+        render(body?.code==='owner_auth_d1_quota'
+          ? 'Достигнут лимит D1. Вход владельца временно не проверить.'
+          : 'Сервис проверки входа недоступен','retry');
       } else {
         render('Сервис проверки входа недоступен', 'retry');
       }

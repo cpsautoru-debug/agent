@@ -139,3 +139,18 @@ test('callback with invalid return destination can only redirect to overview',as
   assert.equal(response.status,303);
   assert.equal(response.headers.get('Location'),ORIGIN+'/#overview');
 });
+test('D1 quota remains a service error with a valid owner session',async()=>{
+ const {createSession}=await import('../../functions/api/auth/session.js');
+ const cookie=(await createSession('google-owner-id',env.OFFICE_SESSION_SECRET)).split(';')[0];
+ const request=new Request(ORIGIN+'/api/auth/me',{headers:{Cookie:cookie}});
+ for(const [message,code] of [
+  ['D1_ERROR: exceeded daily rows read limit','owner_auth_d1_quota'],
+  ['D1_ERROR 7500: permission denied','owner_auth_storage_unavailable']
+ ]){
+  const response=await me({request,env:{...env,OZON_FINANCE_DB:{prepare:()=>({
+   bind:()=>({first:async()=>{throw Error(message);}})
+  })}}});
+  assert.equal(response.status,503);
+  assert.deepEqual(await response.json(),{authenticated:false,code});
+ }
+});

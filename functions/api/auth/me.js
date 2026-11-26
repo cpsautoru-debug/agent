@@ -37,9 +37,11 @@ export async function onRequestGet({ request, env }) {
          AND role = 'owner'
        LIMIT 1`
     ).bind(googleSub, env.OFFICE_ALLOWED_EMAIL).first();
-  } catch {
+  } catch (error) {
+    const detail=String(error?.cause?.message||'')+' '+String(error?.message||'');
+    const quota=/exceeded.{0,100}(?:daily|rows read)|(?:daily|rows read).{0,100}(?:limit|quota).{0,40}exceeded/i.test(detail);
     return new Response(
-      JSON.stringify({ authenticated: false, code: "owner_auth_storage_unavailable" }),
+      JSON.stringify({ authenticated: false, code: quota?"owner_auth_d1_quota":"owner_auth_storage_unavailable" }),
       { status: 503, headers }
     );
   }

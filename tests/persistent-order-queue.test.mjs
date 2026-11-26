@@ -33,6 +33,7 @@ test('owner-only server fetch persists source-verified data in D1 batch',async()
  const batch=[];
  const db={prepare(sql){
   if(sql.includes('office_authorized_users'))return {bind:()=>({first:async()=>({allowed:1})})};
+  if(sql.startsWith('SELECT last_success_at'))return {bind:()=>({first:async()=>null})};
   return {bind:(...values)=>({sql,values})};
  },batch:async tasks=>{batch.push(...tasks);return tasks.map(()=>({success:true}));}};
  let calls=0;
@@ -58,6 +59,7 @@ test('invalid source and broken upstream never persist',async()=>{
  let calls=0;
  const db={prepare(sql){
   if(sql.includes('office_authorized_users'))return {bind:()=>({first:async()=>({allowed:1})})};
+  if(sql.startsWith('SELECT last_success_at'))return {bind:()=>({first:async()=>null})};
   throw Error('must never prepare for writing');
  }};
  const handler=createPersistentQueue({yandexHandler:async()=>{

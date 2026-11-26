@@ -131,7 +131,7 @@ export function createPersistentQueue({
     let fulfillment=[];
     let fulfillmentAvailable=false;
     try{
-     const saved=await readReviews(db);
+     const saved=await readReviews(db,displayed.filter(o=>o.queue_bucket==='active').map(o=>o.order_key));
      const active=new Set(displayed.filter(o=>o.queue_bucket==='active').map(o=>o.order_key));
      fulfillment=saved.results.filter(row=>active.has(row.order_key)).map(row=>({
       orderKey:row.order_key,checkedAt:row.checked_at,...JSON.parse(row.result_json)
@@ -142,27 +142,34 @@ export function createPersistentQueue({
     // Failure to load a mapping must never be interpreted as approval.
     let approvalReadiness=[];
     try{
-     const current=displayed.filter(o=>o.queue_bucket==='active');
-     for(const order of current.slice(0,30)){
-      const route=await db.prepare(
-       'SELECT store_id FROM office_order_warehouse_routes WHERE source=? AND seller_account=? LIMIT 1')
-       .bind(order.source,order.account).first();
-      const unresolved=[];
-      for(const item of order.items.slice(0,20)){
-       if(order.source==='manual'||manualKinds.includes(order.source)){
-        if(!ID.test(item.itemId||''))unresolved.push(item.name||'itemId');
-        continue;
-       }
-       const link=await db.prepare(
-        'SELECT ms_item_id FROM office_order_sku_links WHERE source=? AND seller_account=? AND marketplace_sku=? LIMIT 1')
-        .bind(order.source,order.account,item.sku).first();
-       if(!link||!ID.test(link.ms_item_id||''))unresolved.push(item.sku);
+     const current=displayed.filter(o=>o.queue_bucket==='active').slice(0,30);
+     const keys=current.map(order=>order.order_key);
+     if(keys.length){
+      const {results}=await db.prepare(`SELECT q.order_key,route.store_id,
+       line.key AS line_index,link.ms_item_id
+       FROM json_each(?) requested
+       CROSS JOIN office_order_queue q ON q.order_key=requested.value
+       LEFT JOIN office_order_warehouse_routes route
+        ON route.source=q.source AND route.seller_account=q.account
+       LEFT JOIN json_each(q.items_json) line ON line.key<20
+       LEFT JOIN office_order_sku_links link
+        ON link.source=q.source AND link.seller_account=q.account
+        AND link.marketplace_sku=json_extract(line.value,'$.sku')`).bind(JSON.stringify(keys)).all();
+      const byOrder=new Map();
+      for(const row of results){
+       if(!byOrder.has(row.order_key))byOrder.set(row.order_key,new Map());
+       byOrder.get(row.order_key).set(row.line_index,row);
       }
-      approvalReadiness.push({orderKey:order.order_key,source:order.source,
-       account:order.account,
-       warehouseConfirmed:manualKinds.includes(order.source)?
-        ID.test(order.ms_customerorder_id||''):!!route?.store_id,
-       unapprovedSkus:unresolved,marketplaceCoverageConfirmed:false});
+      approvalReadiness=current.map(order=>{
+       const evidence=byOrder.get(order.order_key);
+       const local=manualKinds.includes(order.source);
+       const unapprovedSkus=order.items.slice(0,20).flatMap((item,index)=>
+        ID.test((local?item.itemId:evidence?.get(index)?.ms_item_id)||'')?[]:
+         [local?(item.name||'itemId'):item.sku]);
+       return {orderKey:order.order_key,source:order.source,account:order.account,
+        warehouseConfirmed:local?ID.test(order.ms_customerorder_id||''):
+         ID.test(evidence?.get(0)?.store_id||''),unapprovedSkus,marketplaceCoverageConfirmed:false};
+      });
      }
     }catch{
      approvalReadiness=[]; // never mark an unknown approval as verified
@@ -186,6 +193,14 @@ export function createPersistentQueue({
    if(!body||Object.keys(body).length!==1||!SOURCES.includes(body.source))throw Error();
   }catch{return reply(400,{code:'invalid_refresh_source'});}
   const source=body.source;
+  try{
+   const last=await db.prepare('SELECT last_success_at FROM office_order_queue_sync WHERE source=?')
+    .bind(source).first();
+   const age=Date.now()-Date.parse(last?.last_success_at);
+   if(age>=0&&age<60000)
+    return reply(200,{code:'persistent_queue_source_reused',source,
+     savedSnapshotAt:last.last_success_at,changedRecords:0});
+  }catch{return reply(503,{code:'persistent_queue_storage_unavailable',source,changedRecords:0});}
   const path=source==='manual'?'/api/ms/manual-orders-preview':
    source==='yandex'?'/api/yandex/orders-preview':
     '/api/marketplace/order-import-preview?source='+source;

@@ -14,7 +14,7 @@ test('single owner login is in shared header and is independent from Ozon',()=>{
     assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id);
     assert.ok(html.indexOf('id="'+id+'"')<firstSection);
   }
-  assert.match(html,/src="office-auth\.js\?v=20261121" defer/);
+  assert.match(html,/src="office-auth\.js\?v=20261126-d1" defer/);
   assert.match(styles,/\.office-auth \[hidden\]\{display:none!important\}/);
   assert.match(html,/href="\/api\/auth\/google\/start\?next=ozonFinance"/);
   assert.doesNotMatch(js,/localStorage|sessionStorage|innerHTML|document\.cookie/);

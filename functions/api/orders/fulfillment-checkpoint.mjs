@@ -57,6 +57,12 @@ export function checkpointReader(cache,save,read,budget){
 
 export async function resumeScan(db,scope,read,scan,budget=6){
  const now=Date.now();
+ const finishedKey='!complete';
+ const finished=await db.prepare(`SELECT p.result_json
+  FROM office_fulfillment_scan s JOIN office_fulfillment_scan_page p
+   ON p.scope=s.scope AND p.generation=s.generation AND p.request_key=?
+  WHERE s.scope=? AND s.expires_at>?`).bind(finishedKey,scope,now).first();
+ if(finished)return JSON.parse(finished.result_json);
  const lease=crypto.randomUUID();
  const generation=crypto.randomUUID();
  const started=await db.prepare(`INSERT INTO office_fulfillment_scan
@@ -70,11 +76,13 @@ export async function resumeScan(db,scope,read,scan,budget=6){
   .bind(scope,generation,now+20*60000,lease,now+60000,now,now,now).first();
  if(!started)return {progress:{state:'busy'}};
  try{
-  await db.prepare('DELETE FROM office_fulfillment_scan_page WHERE scope=? AND generation<>?')
-   .bind(scope,started.generation).run();
+  if(started.generation===generation)
+   await db.prepare('DELETE FROM office_fulfillment_scan_page WHERE scope=? AND generation<>?')
+    .bind(scope,started.generation).run();
   const cached=await db.prepare(`SELECT request_key,result_json FROM office_fulfillment_scan_page
    WHERE scope=? AND generation=?`).bind(scope,started.generation).all();
   const cache=new Map(cached.results.map(row=>[row.request_key,JSON.parse(row.result_json)]));
+  if(cache.has(finishedKey))return cache.get(finishedKey);
   const save=async(path,page)=>{
    const json=JSON.stringify(page);
    if(json.length>MAX_PAGE_BYTES)throw Error('checkpoint_page_too_large');
@@ -86,8 +94,11 @@ export async function resumeScan(db,scope,read,scan,budget=6){
    if(result.meta?.changes!==1)throw Error('checkpoint_lease_lost');
   };
   const evidence=await scan(checkpointReader(cache,save,read,budget));
-  return {...evidence,progress:{state:'checkpointed',pages:cache.size,
+  const summary={...evidence,progress:{state:'checkpointed',pages:cache.size,
    expiresAt:new Date(started.expires_at).toISOString()}};
+  if(['warehouse_orders_verified','production_verified'].includes(evidence.status)&&
+     JSON.stringify(summary).length<=MAX_PAGE_BYTES)await save(finishedKey,summary);
+  return summary;
  }finally{
   await db.prepare('UPDATE office_fulfillment_scan SET lease_id=NULL,lease_until=0 WHERE scope=? AND lease_id=?')
    .bind(scope,lease).run();
