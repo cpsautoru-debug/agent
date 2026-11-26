@@ -1,7 +1,7 @@
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {onRequestGet as marketplacePreview} from '../marketplace/order-import-preview.js';
-import {onRequestGet as yandexPreview} from '../yandex/orders-preview.js';
+import {createYandexOrdersPreview} from '../yandex/orders-preview.js';
 import {onRequestGet as manualPreview} from '../ms/manual-orders-preview.js';
 import {readReviews} from './fulfillment-review.mjs';
 import {assessMarketplaceCoverage} from './fulfillment-source-coverage.mjs';
@@ -21,6 +21,8 @@ const clean=(s,n=180)=>typeof s==='string'&&s.length>0&&s.length<=n&&
  !/[\u0000-\u001f\u007f]/.test(s);
 const eligible=x=>['candidate_needs_inventory','not_for_sewing','unverified'].includes(x);
 const manualKinds=['avito','plamya','dealer_ruslan','dealer_irina'];
+// Owner-selected investigation boundary; this is not proof of older absence.
+const yandexPreview=createYandexOrdersPreview({fromDate:'2026-10-01'});
 export function sanitizeSourceOrder(source,order){
  if(source==='manual'){
   if(!order||!manualKinds.includes(order.source)||!ID.test(order.documentId||'')||
@@ -62,9 +64,13 @@ export function validateSourceSnapshot(source,data){
    !Array.isArray(data.channels)||data.channels.length!==4||
    data.channels.some(c=>c.complete!==true))throw Error('manual_snapshot_unverified');
  }else if(source==='yandex'){
+  const history=data.coverage==='BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE'&&
+   data.allOpenVerified===false&&data.scope?.fromDate==='2026-10-01'&&
+   /^20\d{2}-\d{2}-\d{2}$/.test(data.scope?.toDateExclusive||'')&&
+   Number.isSafeInteger(data.scope?.windows)&&data.scope.windows>0&&data.scope.windows<=20;
   if(data.code!=='yandex_orders_preview_ok'||data.approvedForWrite!==false||
    data.hasNextPage!==false||data.received!==data.orders.length||
-   data.coverage!=='BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE')
+   !(data.coverage==='BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE'||history))
    throw Error('marketplace_snapshot_unverified');
  }else if(data.code!=='marketplace_order_import_preview_ok'||
   data.approvedForWrite!==false||data.source!==source||
@@ -250,3 +256,4 @@ export function createPersistentQueue({
  };
 }
 export const onRequest=createPersistentQueue();
+

@@ -29,8 +29,11 @@ export function assessMarketplaceCoverage(syncRows,{now=Date.now(),maxAgeMs=30*6
   return {source,ready:fresh&&full&&valid,
    reason:!row?'source_missing':!fresh?'source_snapshot_stale':
     !valid?'source_count_unverified':full?'all_open_verified':
-    coverage===SCOPED[source]?'time_or_status_scoped_only':'open_obligations_unverified'};
+    (coverage===SCOPED[source]||source==='yandex'&&
+     coverage==='BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE')?
+     'time_or_status_scoped_only':'open_obligations_unverified'};
  });
  return {complete:sources.every(x=>x.ready),reason:sources.every(x=>x.ready)?
   null:'marketplace_coverage_unverified',sources};
 }
+

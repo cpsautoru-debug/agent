@@ -11,6 +11,14 @@ const o={source:'yandex',externalKey:'AS63:yandex:149082506:12345',status:'PROCE
 const payload={code:'yandex_orders_preview_ok',readOnly:true,changedRecords:0,
  approvedForWrite:false,complete:true,hasNextPage:false,
  received:1,coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE',orders:[o]};
+test('October history is accepted only with its bounded scope and no all-open claim',()=>{
+ const history={...payload,coverage:'BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE',
+  allOpenVerified:false,scope:{fromDate:'2026-10-01',toDateExclusive:'2026-11-27',windows:2}};
+ assert.equal(validateSourceSnapshot('yandex',history).length,1);
+ for(const changed of [{allOpenVerified:true},{scope:null},
+  {scope:{...history.scope,fromDate:'2026-11-01'}}])
+  assert.throws(()=>validateSourceSnapshot('yandex',{...history,...changed}),/snapshot/);
+});
 const env=(db)=>({OFFICE_SESSION_SECRET:'test-owner-secret',
  OFFICE_ALLOWED_EMAIL:'owner@example.test',OZON_FINANCE_DB:db});
 const cookie=async()=>(await createSession('owner','test-owner-secret')).split(';')[0];
@@ -95,3 +103,4 @@ test('source-status buckets never authorize sewing for history, delivery or unkn
  assert.equal(classifyOrderBucket({source:'avito',source_status:'Regular'}).bucket,'review');
  assert.equal(classifyOrderBucket({source:'yandex',source_status:'UNKNOWN_NEW_STATUS'}).bucket,'review');
 });
+
