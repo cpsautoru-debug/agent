@@ -83,7 +83,10 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
     claims.push({key:'ms:'+order.id,orderKey:'ms:'+order.id,
      identity:'ms:'+order.id,origin:'moysklad',
      itemId,storeId,ordered:claimOrdered,reserved:claimReserved,
-     orderId:order.id,deadline:due});
+     orderId:order.id,deadline:due,
+     ...(typeof order.externalCode==='string'&&
+      /^AS63:(ozon|wb|yandex):[A-Za-z0-9._-]+:[A-Za-z0-9._-]+$/.test(order.externalCode)?
+       {externalOrderKey:order.externalCode}:{})});
    }
   }
   if(reserve!==balance.reserve)return {status:'availability_unverified',reason:'reserve_mismatch',
