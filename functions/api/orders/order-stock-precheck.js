@@ -184,7 +184,10 @@ export function createStockPrecheck({fetcher=fetch}={}){
      const scope=['order',id,warehouse.storeId,accounting.stock,accounting.reserve,
       order.source_checked_at].join(':');
      async function scan(kind,handler){
-      try{return await resumeScan(db,scope+':'+kind,read,handler);}
+      // Preserve existing production checkpoints; only an explicitly
+      // all-open marketplace proof requires fresh order-origin identifiers.
+      const scoped=scope+(kind==='orders'&&sourceCoverage.complete?':origin-v2':'')+':'+kind;
+      try{return await resumeScan(db,scoped,read,handler);}
       catch{return {status:kind==='orders'?'availability_unverified':'production_unverified',
        reason:'checkpoint_unavailable'};}
      }
