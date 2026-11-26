@@ -1,3 +1,5 @@
+import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
+import {resolveCounterpartyFromApi} from './ms-sales-counterparties.mjs';
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {scanMoyskladOrderKeys} from '../marketplace/order-import-preview.js';
@@ -5,7 +7,7 @@ import {scanMoyskladOrderKeys} from '../marketplace/order-import-preview.js';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const reply=(status,data)=>new Response(JSON.stringify({readOnly:true,approvedForWrite:false,changedMoySkladRecords:0,...data}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','Vary':'Cookie'}});
-export function assessSalesReadiness(order,route,links,latest,duplicate,now=Date.now()){
+export function assessSalesReadiness(order,route,links,latest,duplicate,now=Date.now(),counterparty=null){
  const blockers=[];
  if(!['ozon','wb','yandex'].includes(order.source)||classifyOrderBucket(order).bucket!=='active'||order.production_disposition!=='candidate_needs_inventory')blockers.push('not_confirmed_fbs_candidate');
  const stamp=Date.parse(order.source_checked_at);
@@ -21,9 +23,13 @@ export function assessSalesReadiness(order,route,links,latest,duplicate,now=Date
  }
  if(missingSkus.length)blockers.push('sku_unverified');
  if(duplicate!=='not_found')blockers.push(duplicate==='already_exists'?'existing_document':'duplicate_scan_unverified');
- // Current mirror lacks transaction facts. Never infer the sale price from catalog or finance totals.
- blockers.push('source_transaction_date_price_currency_unverified','counterparty_channel_unverified','cutover_inventory_unverified');
- return {orderKey:order.order_key,source:order.source,account:order.account,missingSkus:[...new Set(missingSkus)],duplicate,blockers:[...new Set(blockers)],readyToWrite:false};
+ const facts=items.map(item=>({order:cleanOrderFacts(item.orderTransaction),line:cleanLineFacts(item.transaction)}));
+ const transactionFactsPresent=facts.every(f=>f.order?.scheme==='FBS'&&f.order.createdAt&&f.line?.currency==='RUB'&&f.line.amountMinor!==null);
+ if(!transactionFactsPresent)blockers.push('source_transaction_date_price_currency_unverified');
+ else blockers.push('accounting_price_basis_unverified');
+ if(!counterparty?.verified)blockers.push('counterparty_channel_unverified');
+ blockers.push('cutover_inventory_unverified');
+ return {orderKey:order.order_key,source:order.source,account:order.account,missingSkus:[...new Set(missingSkus)],duplicate,transactionFactsPresent,counterparty:counterparty?.verified?counterparty:null,blockers:[...new Set(blockers)],readyToWrite:false};
 }
 export function createMsSalesReadiness({fetcher=fetch,now=Date.now}={}){
  return async({request,env})=>{
@@ -53,7 +59,13 @@ export function createMsSalesReadiness({fetcher=fetch,now=Date.now}={}){
      else if(count===0&&scan.complete&&!scan.sourceError)duplicate='not_found';
     }catch{}
    }
-   return reply(200,{code:'ms_sales_readiness',...assessSalesReadiness(order,route,links.results,sync?.last_success_at,duplicate,now())});
+   let counterparty=null;
+   try{
+    const config=JSON.parse(env.MS_SALES_COUNTERPARTY_MAP||'{}');
+    const names=Object.hasOwn(config,order.source+':'+order.account)?config[order.source+':'+order.account]:null;
+    if(names&&env.MS_API_TOKEN)counterparty=await resolveCounterpartyFromApi(env,names,{fetcher});
+   }catch{}
+   return reply(200,{code:'ms_sales_readiness',...assessSalesReadiness(order,route,links.results,sync?.last_success_at,duplicate,now(),counterparty)});
   }catch{return reply(503,{code:'sales_readiness_unavailable'});}
  };
 }
