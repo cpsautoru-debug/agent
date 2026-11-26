@@ -123,6 +123,8 @@
      ' · Требуют уточнения: '+pending+
      ' · Подтверждённая потребность: '+(confirmed.length?sewing+' шт.':'—')+
      ' (только подтверждённые позиции)'+
+     (checks.size&&[...checks.values()].some(c=>c.sourceCoverage?.complete===false)?
+       ' · Охват всех открытых обязательств маркетплейсов НЕ подтверждён.':'')+
      (data.fulfillmentAvailable?'':'. Сохранённые проверки недоступны.');
  }
  for(const filter of [channelFilter,warehouseFilter,modelFilter]){
@@ -221,8 +223,11 @@
           new Date(warehouse.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'})].join(' · ')
        : 'Склад не прошёл серверную проверку ('+(warehouse?.reason||'причина не установлена')+
          '). Подтверждённую связь кабинета повторно сохранять не нужно.';
+     const coverageNote=data.sourceCoverage?.complete===false?
+       ' · Охват обязательств: '+(data.sourceCoverage.sources||[])
+         .filter(x=>!x.ready).map(x=>x.source+' ('+x.reason+')').join(', '):'';
      precheckStatus.textContent='Заказ '+order.external_id+' · '+order.source+' · '+warehouseText+
-       ' | '+notes.join(' | ')+
+       ' | '+notes.join(' | ')+coverageNote+
        '. Потребность в пошиве и доступность к отбору НЕ подтверждены. Документы не изменены.';
      if(data.reviewStored)await reload(false);
    }catch(e){
