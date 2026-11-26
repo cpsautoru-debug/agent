@@ -31,7 +31,10 @@
    availability_unverified:'Остаток или резерв не подтверждён',
    production_unverified:'Требуется сверка производства',
    competing_order_coverage_unverified:'Охват конкурирующих заказов не подтверждён',
-   marketplace_coverage_unverified:'Охват обязательств маркетплейсов не подтверждён'
+   marketplace_coverage_unverified:'Охват обязательств маркетплейсов не подтверждён',
+   marketplace_duplicates_unverified:'Не доказано отсутствие дубля между маркетплейсом и МойСклад',
+   marketplace_claim_unmapped:'Не все обязательства сопоставлены с товаром и складом',
+   target_order_not_in_full_snapshot:'Заказ отсутствует в подтверждённом полном снимке'
  };
  function renderFulfillment(data){
    if(!fulfillmentTable)return;
