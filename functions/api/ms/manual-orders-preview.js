@@ -126,12 +126,12 @@ async function owner(request,env){
   return row?.allowed===1?{sub}:{status:403,code:'owner_only'};
  }catch{return {status:503,code:'owner_auth_unavailable'};}
 }
-export function createManualOrdersPreview({fetcher=fetch}={}){
+export function createManualOrdersPreview({fetcher=fetch,authorizeServer=null}={}){
  return async({request,env})=>{
   if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
   let u;try{u=new URL(request.url);}catch{return json(400,{code:'invalid_scope'});}
   if(u.origin!==ORIGIN||u.pathname!==PATH||u.search||u.hash)return json(400,{code:'invalid_scope'});
-  const auth=await owner(request,env);if(!auth.sub)return json(auth.status,{code:auth.code});
+  const auth=authorizeServer&&await authorizeServer(request,env)?{sub:'server'}:await owner(request,env);if(!auth.sub)return json(auth.status,{code:auth.code});
   if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||/\s/.test(env.MS_API_TOKEN))
    return json(503,{code:'ms_token_unavailable'});
   const channels=[];
