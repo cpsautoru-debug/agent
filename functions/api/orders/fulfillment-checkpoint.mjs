@@ -1,6 +1,6 @@
 const MAX_PAGE_BYTES=90000;
 const SCALAR=['id','updated','applicable','awaiting','productionEnd','deliveryPlannedMoment',
- 'quantity','shipped','reserve','planQuantity','productionVolume','orderingPosition',
+ 'quantity','shipped','reserve','externalCode','planQuantity','productionVolume','orderingPosition',
  'totalQuantity','completedQuantity'];
 const REFS=['store','assortment','productsStore','productionTask','productionRow','processingPlan'];
 
