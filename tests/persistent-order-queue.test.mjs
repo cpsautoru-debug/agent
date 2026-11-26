@@ -88,6 +88,8 @@ test('source-status buckets never authorize sewing for history, delivery or unkn
  assert.deepEqual(bucketCounts(rows),{active:0,transit:23,history:61,review:0});
  assert.ok(rows.every(row=>classifyOrderBucket(row).sewingAllowed===false));
  assert.equal(classifyOrderBucket({source:'yandex',source_status:'PROCESSING'}).bucket,'active');
+ assert.equal(classifyOrderBucket({source:'yandex',source_status:'UNPAID'}).bucket,'review');
+ assert.equal(classifyOrderBucket({source:'yandex',source_status:'UNPAID'}).sewingAllowed,false);
  assert.equal(classifyOrderBucket({source:'ozon',source_status:'awaiting_packaging'}).bucket,'active');
  assert.equal(classifyOrderBucket({source:'ozon_fbo',source_status:'awaiting_packaging'}).bucket,'review');
  assert.equal(classifyOrderBucket({source:'avito',source_status:'Regular'}).bucket,'review');
