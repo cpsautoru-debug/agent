@@ -1,5 +1,5 @@
 import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
-import {resolveCounterpartyFromApi} from './ms-sales-counterparties.mjs';
+import {readSalesDirectories,salesDirectoryEvidence} from './ms-sales-snapshot.mjs';
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {scanMoyskladOrderKeys} from '../marketplace/order-import-preview.js';
@@ -28,8 +28,9 @@ export function assessSalesReadiness(order,route,links,latest,duplicate,now=Date
  if(!transactionFactsPresent)blockers.push('source_transaction_date_price_currency_unverified');
  else blockers.push('accounting_price_basis_unverified');
  if(!counterparty?.verified)blockers.push('counterparty_channel_unverified');
+ if(counterparty&&(!counterparty.storeVerified||!counterparty.organizationVerified))blockers.push('warehouse_directory_unverified');
  blockers.push('cutover_inventory_unverified');
- return {orderKey:order.order_key,source:order.source,account:order.account,missingSkus:[...new Set(missingSkus)],duplicate,transactionFactsPresent,counterparty:counterparty?.verified?counterparty:null,blockers:[...new Set(blockers)],readyToWrite:false};
+ return {orderKey:order.order_key,source:order.source,account:order.account,missingSkus:[...new Set(missingSkus)],duplicate,transactionFactsPresent,counterparty:counterparty||null,blockers:[...new Set(blockers)],readyToWrite:false};
 }
 export function createMsSalesReadiness({fetcher=fetch,now=Date.now}={}){
  return async({request,env})=>{
@@ -63,7 +64,7 @@ export function createMsSalesReadiness({fetcher=fetch,now=Date.now}={}){
    try{
     const config=JSON.parse(env.MS_SALES_COUNTERPARTY_MAP||'{}');
     const names=Object.hasOwn(config,order.source+':'+order.account)?config[order.source+':'+order.account]:null;
-    if(names&&env.MS_API_TOKEN)counterparty=await resolveCounterpartyFromApi(env,names,{fetcher});
+    counterparty=salesDirectoryEvidence(await readSalesDirectories(env.MS_PRODUCTION_DB,now()),names,route);
    }catch{}
    return reply(200,{code:'ms_sales_readiness',...assessSalesReadiness(order,route,links.results,sync?.last_success_at,duplicate,now(),counterparty)});
   }catch{return reply(503,{code:'sales_readiness_unavailable'});}
