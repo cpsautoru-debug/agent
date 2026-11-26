@@ -225,13 +225,22 @@ export function createPersistentQueue({
     source,upstreamStatus:response.status,changedRecords:0});
    upstream=await response.json();
   }catch{return reply(503,{code:'source_not_verified',source,changedRecords:0});}
+  return saveSourceSnapshot(db,source,upstream);
+
+ };
+}
+export const onRequest=createPersistentQueue();
+
+
+// Shared server-side persistence: only validated upstream snapshots, no accounting writes.
+export async function saveSourceSnapshot(db,source,upstream,now=Date.now){
   let orders;
   try{orders=validateSourceSnapshot(source,upstream);}
   catch(e){return reply(503,{code:e.message==='snapshot_incomplete_or_too_large'?
    'snapshot_incomplete_or_too_large':'snapshot_unverified',
    source,changedRecords:0});}
   // D1 batch is transactional. Fail closed if schema has not yet been applied.
-  const stamp=new Date().toISOString();
+  const stamp=new Date(now()).toISOString();
   try{
    const tasks=orders.map(o=>db.prepare(upsertSql()).bind(
     o.key,o.source,o.account,o.externalId,o.sourceStatus,o.disposition,
@@ -254,7 +263,4 @@ export function createPersistentQueue({
     note:'Stored source mirror only. No stock allocation, production task, or shipment.'});
   }catch{return reply(503,{code:'persistent_queue_storage_unavailable',
    source,changedRecords:0,migration:'20261125_persistent_order_queue.sql'});}
- };
 }
-export const onRequest=createPersistentQueue();
-

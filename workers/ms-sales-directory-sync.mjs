@@ -32,9 +32,32 @@ export async function syncDirectoryType({db,secret,type,fetcher=fetch,now=Date.n
  }
  throw Error('sales_sync_page_cap');
 }
+const SOURCES=['ozon','ozon_fbo','wb','yandex','manual'];
+export async function refreshOrderSource({secret,source,fetcher=fetch,now=Date.now}){
+ if(!validBridgeSecret(secret)||!SOURCES.includes(source))throw Error('order_sync_configuration');
+ const path='/api/orders/scheduled-refresh?'+new URLSearchParams({source});
+ const stamp=now();
+ const response=await fetcher(ORIGIN+path,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(90000),headers:{'X-MS-Bridge-Time':String(stamp),'X-MS-Bridge-Signature':await signBridgeRequest(secret,stamp,path)}});
+ if(!response.ok){await response.body?.cancel().catch(()=>{});throw Error('order_sync_http_'+response.status);}
+ const reader=response.body?.getReader();if(!reader)throw Error('order_sync_body');
+ let raw='',bytes=0;const decoder=new TextDecoder('utf-8',{fatal:true});
+ try{for(;;){const {done,value}=await reader.read();if(done){raw+=decoder.decode();break;}bytes+=value.byteLength;if(bytes>8192)throw Error('order_sync_payload');raw+=decoder.decode(value,{stream:true});}}finally{await reader.cancel().catch(()=>{});}
+ const data=JSON.parse(raw);
+ if(data.source!==source||data.changedMoySkladRecords!==0||!['persistent_queue_source_saved','scheduled_refresh_reused'].includes(data.code))throw Error('order_sync_unverified');
+ return {source,code:data.code};
+}
 // No public fetch route. No writes to MoySklad. Disabled until explicitly configured.
 export default {async scheduled(event,env){
  if(env.MS_SALES_DIRECTORY_SYNC!=='enabled')return;
+ const minute=Math.floor(event.scheduledTime/60000);
+ const slot=Math.floor(minute/5);
+ // One operation per tick. With a five-minute Cron, every directory and source
+ // is visited once per 45 minutes. Keep legacy directory-only mode by default.
+ if(env.MS_ORDER_AUTO_SYNC==='enabled'){
+  const index=((slot%9)+9)%9;
+  if(index>=4){await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:SOURCES[index-4]});return;}
+  await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:TYPES[index]});return;
+ }
  const hour=Math.floor(event.scheduledTime/3600000);
  const type=TYPES[((hour%4)+4)%4];
  await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type});
