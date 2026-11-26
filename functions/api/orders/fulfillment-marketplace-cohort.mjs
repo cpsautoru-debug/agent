@@ -56,8 +56,10 @@ export function assembleLiveCohort(lines,msClaims,itemId,storeId,targetOrderKey)
  const marketKeys=new Set(external.map(x=>x.orderKey));
  if([...msExternal].some(key=>!marketKeys.has(key)))
   return blocked('marketplace_duplicates_unverified');
- const claims=external.map(x=>({...x,reconciledWithMoySklad:msExternal.has(x.orderKey)}))
-   .concat(msClaimsForItem);
+ // Existing MoySklad commitments must be registered before their
+ // marketplace mirrors so reconciliation cannot treat a mirror as standalone.
+ const claims=msClaimsForItem.concat(
+  external.map(x=>({...x,reconciledWithMoySklad:msExternal.has(x.orderKey)})));
  return {status:'cohort_verified',claims};
 }
 
