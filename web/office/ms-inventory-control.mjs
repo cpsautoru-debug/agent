@@ -44,7 +44,7 @@ import {
     return cell;
   };
   const isVisible=()=>document.visibilityState==='visible'&&
-    location.hash.split('/')[0]==='#production';
+    ['#production','#warehouse'].includes(location.hash.split('/')[0]);
 
   let items=[],expected=null,offset=0,pending=false,manualPause=false,
     lastStarted=0,pagesThisRun=0,viewLimit=180,loadedAt=null,

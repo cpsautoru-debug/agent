@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
 <link rel="stylesheet" href="/wb-unit-economics.css?v=20261121">
 <link rel="stylesheet" href="office-vibrant-theme.css?v=20261123">
+<link rel="stylesheet" href="/office-2.css?v=1">
 </head>
 <body>
 
@@ -35,37 +36,13 @@
   <div class="navlabel">РАБОЧИЙ СТОЛ</div>
 
   <nav aria-label="Основная навигация">
-    <a href="#dashboard" data-page="dashboard"><span>▣</span>Пульт руководителя</a>
-    <a href="#overview" data-page="overview">
-      <span>◫</span>Обзор офиса
-    </a>
-    <a href="#departments" data-page="departments">
-      <span>▦</span>Отделы <b>7</b>
-    </a>
-    <a href="#wbFinance" data-page="wbFinance"><span>◴</span>Финансы · WB</a>
-    <a href="#yandexFinance" data-page="yandexFinance"><span>◴</span>Финансы · Яндекс</a>
-    <a href="#ozonProfit" data-page="ozonProfit"><span>◴</span>Прибыль Ozon</a>
-    <a href="#ozonFinance" data-page="ozonFinance">
-      <span>◴</span>Финансы · Ozon
-    </a>
-    <a href="#orchestrator" data-page="orchestrator"><span>✳</span>ИИ-Оркестратор</a>
-    <a href="#agents" data-page="agents">
-      <span>◎</span>ИИ-команда <b>12</b>
-    </a>
-    <a href="#orders" data-page="orders"><span>▤</span>Заказы · все каналы</a>
-    <a href="#workflow" data-page="workflow">
-      <span>⇄</span>Как идёт заказ
-    </a>
-    <a href="#studio" data-page="studio">
-      <span>✧</span>Контент-студия
-    </a>
-    <a href="#production" data-page="production">
-      <span>▧</span>Производство и склад
-    </a>
-    <a href="#connections" data-page="connections">
-      <span>⌘</span>Подключения
-    </a>
-  </nav>
+<a href="#dashboard" data-page="dashboard"><span aria-hidden="true">◫</span>Главная</a>
+<a href="#orders" data-page="orders"><span aria-hidden="true">▤</span>Заказы</a>
+<a href="#production" data-page="production"><span aria-hidden="true">▧</span>Производство</a>
+<a href="#finance" data-page="finance"><span aria-hidden="true">◴</span>Финансы</a>
+<a href="#warehouse" data-page="warehouse"><span aria-hidden="true">▦</span>Склад</a>
+<a href="#agents" data-page="agents"><span aria-hidden="true">◎</span>Команда</a>
+</nav>
 
   <div class="navlabel">БЫСТРЫЙ ДОСТУП</div>
 
@@ -132,6 +109,8 @@
   </header>
 
   <div class="content">
+<section class="page" data-section="finance" hidden><div class="page-heading"><h1>Финансы</h1><p>Общая картина и проверенные источники по маркетплейсам. Предварительные расчёты не равны подтверждённой чистой прибыли.</p></div><div id="officeFinanceSummary"><div class="office-summary-links"><a href="#ozonProfit">Ozon · прибыль и начисления</a><a href="#wbFinance">Wildberries · отчёты</a><a href="#yandexFinance">Яндекс Маркет · отчёты</a></div><p>Общая финансовая сводка доступна на <a href="#dashboard">главной</a>. Расходы Авито и «Пламя» не включаются в прибыль маркетплейсов.</p></div></section>
+<section class="page" data-section="warehouse" hidden><div class="page-heading"><h1>Склад</h1><p>Учётное наличие по двум складам. Неизвестные остатки не считаются доступными.</p></div></section>
 
     <section class="page" data-section="ozonProfit" hidden>
       <div class="page-heading"><div><div class="eyebrow">ФИНАНСЫ · ПРОВЕРЯЕМЫЙ РАСЧЁТ</div><h1>Прибыль Ozon</h1><p>Подтверждённые источниками суммы показываются отдельно от управленческого результата. Общий налог ИП и постоянные расходы учитываются в сводном P&amp;L бизнеса.</p></div></div>
@@ -2553,5 +2532,6 @@
 <script type="module" src="/wb-report-month-boundaries-ui.mjs?v=20261122"></script>
 <script type="module" src="/finance-ozon-sku-cards.mjs?v=20261122"></script>
 <script type="module" src="/finance-product-links-ui.mjs?v=20261122-review-buttons-fix"></script>
+<script type="module" src="/office-shell.mjs?v=1"></script>
 </body>
 </html>
