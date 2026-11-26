@@ -56,14 +56,14 @@ async function readJsonBounded(response){
  return JSON.parse(text);
 }
 export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYandexCampaigns,
- now=Date.now,fromDate=null}={}){
+ now=Date.now,fromDate=null,authorizeServer=null}={}){
  return async ({request,env})=>{
    if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
    const url=new URL(request.url);
    if(url.origin!==ORIGIN||url.pathname!=='/api/yandex/orders-preview'||
      url.hash||url.search)
      return json(400,{code:'invalid_scope'});
-   const auth=await verifyYandexOwner(request,env);
+   const auth=authorizeServer&&await authorizeServer(request,env)?null:await verifyYandexOwner(request,env);
    if(auth)return json(auth.status,{code:auth.code});
    try{
      const all=await campaignLoader(env);
