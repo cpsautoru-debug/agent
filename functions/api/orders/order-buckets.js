@@ -1,7 +1,7 @@
 // Conservative order bucket classification from a verified upstream status.
 // Never treats a displayed bucket as proof of physical stock, allocation, or dispatch.
 // Unknown statuses are blocked for human review, never sent into production.
-const ACTIVE_YANDEX=new Set(['PROCESSING','PENDING','RESERVED','UNPAID']);
+const ACTIVE_YANDEX=new Set(['PROCESSING','PENDING','RESERVED']);
 const TRANSIT_YANDEX=new Set(['DELIVERY','PICKUP']);
 const HISTORY_YANDEX=new Set(['DELIVERED','CANCELLED']);
 const HISTORY_OZON=new Set(['delivered','cancelled']);
@@ -15,6 +15,8 @@ export function classifyOrderBucket(order){
  if(source==='manual'||['avito','plamya','dealer_ruslan','dealer_irina'].includes(source))
   return {bucket:'review',reason:'manual_status_requires_verification',sewingAllowed:false};
  if(source==='yandex'){
+  // Unpaid orders are not confirmed customer obligations for sewing.
+  if(status==='UNPAID')return {bucket:'review',reason:'payment_unverified',sewingAllowed:false};
   if(HISTORY_YANDEX.has(status))
    return {bucket:'history',reason:status==='CANCELLED'?'cancelled':'delivered',sewingAllowed:false};
   if(TRANSIT_YANDEX.has(status))
