@@ -4,6 +4,7 @@ import {onRequestGet as marketplacePreview} from '../marketplace/order-import-pr
 import {onRequestGet as yandexPreview} from '../yandex/orders-preview.js';
 import {onRequestGet as manualPreview} from '../ms/manual-orders-preview.js';
 import {readReviews} from './fulfillment-review.mjs';
+import {assessMarketplaceCoverage} from './fulfillment-source-coverage.mjs';
 
 // Staging operational mirror, not MoySklad accounting or a dispatch queue.
 // Each POST re-fetches from authenticated upstream APIs on the SERVER.
@@ -179,7 +180,8 @@ export function createPersistentQueue({
     return reply(200,{code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
-     orders:displayed,sources:sync.results,approvalReadiness,
+     orders:displayed,sources:sync.results,
+     coverageDiagnostics:assessMarketplaceCoverage(sync.results),approvalReadiness,
      note:'Source-status classification only; no inventory, physical stock, production or dispatch approval.'});
    }catch{return reply(503,{code:'persistent_queue_storage_unavailable',
     migration:'20261125_persistent_order_queue.sql'});}
