@@ -136,7 +136,8 @@ export function createStockPrecheck({fetcher=fetch}={}){
      checked_at=excluded.checked_at
     WHERE office_order_warehouse_checks.checked_at<excluded.checked_at`)
     .bind(JSON.stringify(warehouse),checkedAt,key,order.source_checked_at).run();
-   warehouseSaved=saved.meta?.changes===1;
+   // Updating the evidence can also write the previous value through its history trigger.
+   warehouseSaved=(saved.meta?.changes??0)>0;
   }catch{}
   if(!warehouseSaved)warehouse={status:'warehouse_unverified',reason:'warehouse_check_not_saved'};
   const rows=[];

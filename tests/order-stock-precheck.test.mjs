@@ -89,7 +89,7 @@ test('active FBS check persists exact warehouse evidence but blocks picking and 
    store_id:id,organization_id:org,store_kind:'retail'
   })})};
   if(sql.includes('INSERT INTO office_order_warehouse_checks'))return {bind:(...args)=>({
-   run:async()=>{stored=args;return {meta:{changes:1}};}
+   run:async()=>{stored=args;return {meta:{changes:2}};}
   })};
   if(sql.includes('FROM office_order_sku_links'))return {bind:()=>({first:async()=>null})};
   throw Error('unexpected query');
