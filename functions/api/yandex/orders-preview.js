@@ -1,3 +1,4 @@
+import {yandexLineFacts,iso} from '../orders/ms-sales-facts.mjs';
 import {verifyYandexOwner,listYandexCampaigns,selectedBusiness,json,mapSafeYandexError} from './finance-source.js';
 
 // Owner-only, strictly read-only Yandex Market order preview.
@@ -29,7 +30,7 @@ export function normalizeYandexOrderPreview(body,allowedCampaignIds){
    const items=o.items.map(i=>{
      if(!string(i?.offerId)||!Number.isSafeInteger(i?.count)||
        i.count<1||i.count>1000)throw Error('yandex_order_item_unverified');
-     return {sku:i.offerId,quantity:i.count,assortmentMatch:'unverified'};
+     return {sku:i.offerId,quantity:i.count,transaction:yandexLineFacts(i),assortmentMatch:'unverified'};
    });
    const terminal=['DELIVERED','CANCELLED','RETURNED','UNPAID'].includes(o.status);
    const scheme=o.programType;
@@ -38,7 +39,7 @@ export function normalizeYandexOrderPreview(body,allowedCampaignIds){
    const candidate=scheme==='FBS'&&!terminal&&
      o.status==='PROCESSING';
    return {source:'yandex',externalKey,campaignId:o.campaignId,
-     status:o.status,programType:scheme,items,
+     status:o.status,programType:scheme,items,transaction:{scheme,createdAt:iso(o.creationDate),updatedAt:iso(o.updateDate)},
      productionQueue:candidate?'candidate_needs_inventory':'not_for_sewing',
      duplicateStatus:'unverified',assortmentVerified:false,
      legalEntityVerified:false,readyToWrite:false};

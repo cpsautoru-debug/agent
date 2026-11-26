@@ -1,3 +1,4 @@
+import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {onRequestGet as marketplacePreview} from '../marketplace/order-import-preview.js';
@@ -36,7 +37,7 @@ export function sanitizeSourceOrder(source,order){
    sourceStatus:order.status,disposition:order.statusType==='Unsuccessful'?
     'not_for_sewing':'unverified',msId:id,
    items:order.items.map(p=>({itemId:p.itemId.toLowerCase(),
-    itemType:p.itemType,quantity:p.quantity,name:clean(p.name,200)?p.name:null}))};
+    itemType:p.itemType,quantity:p.quantity,name:clean(p.name,200)?p.name:null,...(p.transaction?{transaction:cleanLineFacts(p.transaction)}:{}),...(order.transaction?{orderTransaction:cleanOrderFacts(order.transaction)}:{})}))};
  }
  if(!['ozon','ozon_fbo','wb','yandex'].includes(source)||
    order?.source!==source||!clean(order.externalKey,180)||
@@ -53,7 +54,7 @@ export function sanitizeSourceOrder(source,order){
  return {key:order.externalKey,source,account:parts[2],externalId:parts[3],
   sourceStatus:order.status,
   disposition:source==='ozon_fbo'?'not_for_sewing':order.productionQueue,
-  msId:null,items:order.items.map(p=>({sku:p.sku,quantity:p.quantity}))};
+  msId:null,items:order.items.map(p=>({sku:p.sku,quantity:p.quantity,...(p.transaction?{transaction:cleanLineFacts(p.transaction)}:{}),...(order.transaction?{orderTransaction:cleanOrderFacts(order.transaction)}:{})}))};
 }
 export function validateSourceSnapshot(source,data){
  if(!SOURCES.includes(source)||!data||data.readOnly!==true||

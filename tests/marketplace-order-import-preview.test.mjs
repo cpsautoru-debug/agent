@@ -17,7 +17,7 @@ test('Ozon v4 FBS postings normalize without ready-to-write assumption',()=>{
   assert.equal(rows.length,1);
   assert.equal(rows[0].externalKey,'AS63:ozon:1001:123-1');
   assert.deepEqual(rows[0].items,[{
-    sku:'VESTA-01',quantity:2,assortmentVerified:false}]);
+    sku:'VESTA-01',quantity:2,assortmentVerified:false,transaction:{amountMinor:null,currency:null,basis:'ozon_posting_product_price'}}]);
   assert.equal(rows[0].readyToWrite,false);
   assert.equal(rows[0].legalEntityVerified,false);
 });

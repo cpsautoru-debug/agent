@@ -1,3 +1,4 @@
+import {msRef} from '../orders/ms-sales-facts.mjs';
 import {verifySession} from '../auth/session.js';
 
 // Read-only feed for manual Avito/dealer customer orders entered in MoySklad.
@@ -50,12 +51,13 @@ export function normalizeManualCustomerOrder(row){
     throw Error('manual_order_position_unverified');
   return {itemId:ref.id,itemType:ref.type,name:assortment.name,
    article:clean(assortment.article,100)?assortment.article:null,
-   code:clean(assortment.code,100)?assortment.code:null,quantity:p.quantity};
+   code:clean(assortment.code,100)?assortment.code:null,quantity:p.quantity,transaction:{basis:'ms_position_unit_price',amountMinor:Number.isSafeInteger(p.price)&&p.price>=0?p.price:null,currency:null}};
  });
  if(items.length===0)throw Error('manual_order_positions_missing');
  const stateType=['Regular','Successful','Unsuccessful'].includes(row?.state?.stateType)?row.state.stateType:null;
  return {
   source:channel.key,sourceLabel:channel.label,manualOrderRef:channel.orderRef,
+  transaction:{scheme:'manual',documentMoment:row.moment,agentId:msRef(row.agent,'counterparty'),organizationId:msRef(row.organization,'organization'),storeId:msRef(row.store,'store'),channelId:msRef(row.salesChannel,'saleschannel'),documentId:row.id},
   externalCode:row.externalCode,documentId:row.id.toLowerCase(),documentName:row.name,
   orderIdentity:'AS63:manual:'+channel.key+':'+row.id.toLowerCase(),
   moment:typeof row.moment==='string'&&row.moment.length<=40?row.moment:null,
