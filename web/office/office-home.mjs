@@ -21,7 +21,7 @@ if(typeof document!=='undefined'){
   }
   window.addEventListener('ms:production-inventory-ready',event=>{const n=document.getElementById('officeHomeInventory'),d=event.detail;if(n)n.textContent=d&&Number.isSafeInteger(d.lowMeterRows)?d.lowMeterRows+' строк меньше 40 м · '+(d.complete?'обход завершён':'выборка неполная'):'Требуется проверка остатков'});
   const applyStockFilter=()=>{if(location.hash==='#warehouse/low'){const select=document.getElementById('msInventoryCategory');if(select){select.value='low';select.dispatchEvent(new Event('change',{bubbles:true}))}}};window.addEventListener('hashchange',applyStockFilter);applyStockFilter();
-  render(null);document.addEventListener('office:pnl-rendered',e=>render(e.detail.pnl));
+  render(document.getElementById('businessPnl')?.officePnlSnapshot?.pnl||null);document.addEventListener('office:pnl-rendered',e=>render(e.detail.pnl));
   document.getElementById('ceoMonth')?.addEventListener('change',()=>render(null));
  }
 }

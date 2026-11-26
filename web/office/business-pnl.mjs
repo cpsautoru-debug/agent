@@ -409,6 +409,7 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  renderDetailedPnl(content,pnl,sourceNotes,interim);
  if(legacy){legacy.hidden=false;content.append(legacy);}
  details.append(content);root.append(details);
+ root.officePnlSnapshot={pnl,interim};
  root.dispatchEvent(new CustomEvent('office:pnl-rendered',{bubbles:true,detail:{pnl,interim}}));
 }
 const executiveMoney=value=>Number.isSafeInteger(value)?

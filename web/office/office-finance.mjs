@@ -12,7 +12,7 @@ if(typeof document!=='undefined'){
   const period=document.getElementById('officeFinanceMonth'),canonical=document.getElementById('ceoMonth');
   const sync=()=>{period.value=canonical.value};sync();
   const render=pnl=>{root.replaceChildren(...financeOverview(pnl).map(x=>{const a=document.createElement('article');a.className='office-kpi';for(const [tag,text]of [['span',x.label],['strong',Number.isSafeInteger(x.amount)?new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(x.amount/100):'Нет подтверждения'],['small',x.note]]){const el=document.createElement(tag);el.textContent=text;a.append(el)}return a}))};
-  render(null);document.addEventListener('office:pnl-rendered',e=>{sync();render(e.detail.pnl)});
+  render(document.getElementById('businessPnl')?.officePnlSnapshot?.pnl||null);document.addEventListener('office:pnl-rendered',e=>{sync();render(e.detail.pnl)});
   canonical.addEventListener('change',()=>{sync();render(null)});period.addEventListener('change',()=>{canonical.value=period.value;canonical.dispatchEvent(new Event('change',{bubbles:true}))});
   document.getElementById('officeFinanceRefresh').addEventListener('click',()=>{render(null);document.getElementById('businessPnlRefresh').click()});
   const h=document.querySelector('#ceoBoard h1');if(h){const title=document.createElement('h2');title.textContent='Управленческий расчёт · после известных затрат';h.replaceWith(title)}

@@ -12,7 +12,7 @@ if(typeof document!=='undefined'){
  if(root&&board){
   const detail=document.createElement('details');detail.className='office-panel';detail.id='officeOrderOperations';const summary=document.createElement('summary');summary.textContent='Проверки склада, резервы и действия с заказами';detail.append(summary);board.before(detail);detail.append(board);
   for(const event of ['as63:focus-sku','as63:focus-route'])document.addEventListener(event,()=>{detail.open=true});
-  let latest=null,channel='';const rows=document.getElementById('officeOrderRows'),note=document.getElementById('officeOrdersNote');
+  let latest=document.getElementById('persistentOrdersTable')?.officeOrdersSnapshot||null,channel='';const rows=document.getElementById('officeOrderRows'),note=document.getElementById('officeOrdersNote');
   function render(){
    const entries=compactOrders(latest?.data),filtered=entries.filter(e=>!channel||(channel==='ozon'?['ozon','ozon_fbo'].includes(e.order.source):e.order.source===channel));
    const kpis=[['Новые',latest?.workflowReady?String(entries.filter(e=>!latest.workflow.some(w=>w.order_key===e.order.order_key&&w.workflow_state!=='pending_review')).length):'Нет данных','Не просмотренные владельцем в выборке'],['Нужно произвести',latest?String(entries.filter(e=>e.need).length):'Нет данных','Заказы с подтверждённой потребностью; охват может быть неполным'],['В производстве','Не подтверждено','План задания не доказывает фактическое начало пошива'],['Готово к отгрузке','Не подтверждено','Учётное наличие не заменяет физическую проверку']];

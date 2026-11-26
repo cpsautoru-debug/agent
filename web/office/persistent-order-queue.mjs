@@ -135,6 +135,7 @@
  }
  function render(data){
    latest=data;
+   table.officeOrdersSnapshot={data,workflowReady,workflow:[...workflowByKey.values()]};
    document.dispatchEvent(new CustomEvent('office:orders-rendered',{detail:{data,workflowReady,workflow:[...workflowByKey.values()]}}));
    renderFulfillment(data);
    const counts=data.bucketCounts||{active:0,transit:0,history:0,review:0};
