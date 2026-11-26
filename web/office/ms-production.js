@@ -254,6 +254,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
         tr.append(td);
         stageBody.append(tr);
       }
+      document.dispatchEvent(new CustomEvent('office:production-stages',{detail:{number:item.number,stages:payload.stages}}));
       stageStatus.textContent='Этапы обновлены '+showTime()+
         ' (Самара). Проверено только это задание.';
     }catch(error){

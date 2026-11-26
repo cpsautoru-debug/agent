@@ -1901,11 +1901,12 @@
       <div class="page-heading">
         <div>
           <div class="eyebrow">МОЙСКЛАД · РЕАЛЬНЫЕ ДАННЫЕ</div>
-          <h1>Контроль производства и склада</h1>
+          <h1>Производство</h1>
           <p>Реальные производственные задания, остатки материалов и номенклатуры на складах из «МойСклад». Обзор запасов собирается автоматически постранично; неподтверждённые категории и этапы не подменяются расчётными остатками.</p>
         </div>
       </div>
-      <section class="ms-executive-overview" aria-label="Ключевые показатели производства и склада">
+      <section class="office-panel" id="officeProductionFlow"><h2>Путь заказа в производстве</h2><p>Выберите задание в реестре ниже. Лента показывает только прямо подтверждённые этапы выбранного задания, а не текущую загрузку всех цехов.</p><ol class="office-production-flow" id="officeProductionStages"></ol><p id="officeProductionFlowStatus" role="status">Задание не выбрано. Этапы и сроки не подтверждены.</p><a href="#orders/need-production">Открыть заказы с подтверждённой потребностью →</a> · <a href="#warehouse">Остатки материалов и дефицит →</a></section>
+<section class="ms-executive-overview" aria-label="Ключевые показатели производства и склада">
         <div class="ms-executive-card"><span>Задания в реестре «МойСклад»</span><strong id="msExecutiveTasks">Проверяем…</strong><small>Исторические и текущие; это не число активных заказов</small></div>
         <div class="ms-executive-card"><span>Проверка видимых заданий</span><strong id="msExecutiveAudit">Ещё не выполнена</strong><small>Статусы только проверенной страницы</small></div>
         <div class="ms-executive-card"><span>Остатки по складам</span><strong id="msExecutiveStock">Автообновление при открытии</strong><small>Ручное чтение, без изменений данных</small></div>
@@ -2537,5 +2538,6 @@
 <script type="module" src="/office-shell.mjs?v=1"></script>
 <script type="module" src="/office-home.mjs?v=1"></script>
 <script type="module" src="/office-orders.mjs?v=1"></script>
+<script type="module" src="/office-production.mjs?v=1"></script>
 </body>
 </html>
