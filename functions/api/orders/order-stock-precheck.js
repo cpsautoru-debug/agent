@@ -221,14 +221,17 @@ export function createStockPrecheck({fetcher=fetch}={}){
       const calc=calculateLiveOrder({sourceLines,occupancy:evidence.occupancy,
        accounting:evidence.accounting,production:evidence.production,
        itemId:id,storeId:warehouse.storeId,orderKey:key,sourceCoverage});
-      if(calc.status!=='calculated')throw Error('cohort_unverified');
+      if(calc.status!=='calculated'){
+       allocation={status:'requires_review',reason:calc.reason||'marketplace_coverage_unverified'};
+       throw Error('cohort_unverified');
+      }
       verifiedLines.push(...calc.lines.filter(line=>line.orderKey===key));
      }
      if(verifiedLines.length===rows.length&&
         rows.every(row=>verifiedLines.some(line=>line.key===row.key)))
       allocation={status:'calculated',lines:verifiedLines};
     }
-   }catch{}
+   }catch{if(!allocation)allocation={status:'requires_review',reason:'marketplace_coverage_unverified'};}
   }
   const review=buildReview(warehouse,rows,allocation);
   review.sourceCoverage=sourceCoverage;
