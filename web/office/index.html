@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#252566">
+<meta name="theme-color" content="#f7f8fa">
 <title>АвтоСклад63 · Онлайн-офис</title>
 <link rel="stylesheet" href="style.css?v=20261125-sidebar">
 <link rel="stylesheet" href="ms-production.css">
@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="/wb-import-preview.css">
 <link rel="stylesheet" href="/wb-finance-monitor.css?v=20261121">
 <link rel="stylesheet" href="/wb-unit-economics.css?v=20261121">
-<link rel="stylesheet" href="office-vibrant-theme.css?v=20261123">
+
 <link rel="stylesheet" href="/office-2.css?v=1">
 </head>
 <body>
@@ -30,7 +30,7 @@
   <div class="workspace">
     <span class="presence"></span>
     Рабочее пространство
-    <span class="version">v1</span>
+    <span class="version">2.0</span>
   </div>
 
   <div class="navlabel">РАБОЧИЙ СТОЛ</div>
@@ -583,7 +583,7 @@
 </section>
 <!-- ПУЛЬТ РУКОВОДИТЕЛЯ: только защищённые источники, без записей -->
     <section class="page" data-section="dashboard" hidden>
-<div id="officeHome" aria-live="polite"><header class="office-page-heading"><div><p class="office-eyebrow">АвтоСклад63 · управление</p><h1>Главная</h1><p>Главные показатели и следующие действия.</p></div></header><div id="officeHomeMetrics" class="office-kpis"></div><div class="office-home-grid"><section class="office-panel"><h2>Маркетплейсы</h2><p>Результат после известных прямых затрат. Это не выручка и не чистая прибыль.</p><div id="officeHomeChannels" class="office-channel-grid"></div></section><section class="office-panel"><h2>Сегодня в работе</h2><div class="office-action-grid"><a href="#orders/need-production">Ожидают производства<strong id="officeHomeWaiting">Нужно проверить очередь</strong></a><a href="#production">Загрузка производства<strong>Не подтверждена</strong><small>Исторический реестр не равен загрузке цеха</small></a><a href="#warehouse">Критические остатки<strong>Открыть сверку двух складов</strong></a><a href="#finance">Финансовая сверка<strong id="officeHomeReconciliation">Ожидаем источники</strong></a></div></section></div><details class="office-panel"><summary>Состояние источников и продаж</summary><div id="officeHomeSources" class="ceo-grid"></div></details></div>
+<div id="officeHome" aria-live="polite"><header class="office-page-heading"><div><p class="office-eyebrow">АвтоСклад63 · управление</p><h1>Главная</h1><p>Главные показатели и следующие действия.</p></div></header><div id="officeHomeMetrics" class="office-kpis"></div><div class="office-home-grid"><section class="office-panel"><h2>Маркетплейсы</h2><p>Результат после известных прямых затрат. Это не выручка и не чистая прибыль.</p><div id="officeHomeChannels" class="office-channel-grid"></div></section><section class="office-panel"><h2>Сегодня в работе</h2><div class="office-action-grid"><a href="#orders/need-production">Ожидают производства<strong id="officeHomeWaiting">Нужно проверить очередь</strong></a><a href="#production">Загрузка производства<strong>Не подтверждена</strong><small>Исторический реестр не равен загрузке цеха</small></a><a href="#warehouse/low">Критические остатки<strong id="officeHomeInventory">Открыть сверку двух складов</strong></a><a href="#finance">Финансовая сверка<strong id="officeHomeReconciliation">Ожидаем источники</strong></a></div></section></div><details class="office-panel"><summary>Состояние источников и продаж</summary><div id="officeHomeSources" class="ceo-grid"></div></details></div>
 <div class="ceo-board executive-board" id="ceoBoard">
 <div class="executive-heading"><h1>Финансы бизнеса</h1><div class="executive-controls"><label>Месяц <input id="ceoMonth" type="month" aria-label="Месяц финансовых показателей"></label><button id="businessPnlRefresh" class="button light" type="button">Обновить</button><span id="businessPnlLoadStatus" class="executive-load-status" role="status" aria-live="polite"></span></div></div>
         <section class="business-pnl" aria-label="Сводный управленческий P&L">
