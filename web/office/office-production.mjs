@@ -1,4 +1,4 @@
-const stages=[['Ожидает',null],['Раскрой',/^(раскрой|крой)$/iu],['Пошив',/^пошив$/iu],['ОТК',/^(отк|контроль качества)$/iu],['Готово',null]];
+const stages=[['Ожидает',null],['Раскрой',/^(раскрой|крой|раскрой материала)$/iu],['Пошив',/^пошив$/iu],['ОТК',/^(отк|контроль качества)$/iu],['Готово',/^готово к отгрузке$/iu]];
 export function productionFlow(items){
  return stages.map(([name,pattern])=>{
   const matches=pattern?(items||[]).filter(s=>pattern.test(String(s.name).trim())):[];
