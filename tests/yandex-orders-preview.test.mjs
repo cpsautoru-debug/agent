@@ -112,7 +112,7 @@ test('normalizes orders without buyer private data or write permission',()=>{
  buyer:{name:'SECRET BUYER'},delivery:{address:'SECRET ADDRESS'}}]},CAMPAIGNS);
  assert.equal(x.length,1);
  assert.equal(x[0].externalKey,'AS63:yandex:149082506:123');
- assert.deepEqual(x[0].items,[{sku:'VESTA-01',quantity:2,assortmentMatch:'unverified'}]);
+ assert.deepEqual(x[0].items,[{sku:'VESTA-01',quantity:2,assortmentMatch:'unverified',transaction:{amountMinor:null,currency:null,basis:'yandex_buyer_line_total'}}]);
  assert.equal(x[0].productionQueue,'candidate_needs_inventory');
  assert.equal(x[0].duplicateStatus,'unverified');
  assert.equal(x[0].readyToWrite,false);
