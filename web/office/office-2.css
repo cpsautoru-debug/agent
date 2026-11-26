@@ -20,3 +20,13 @@ html,body{background:var(--bg);color:var(--ink)}body{font-family:-apple-system,B
 @media(max-width:1100px){.office-kpis:has(>:nth-child(5)){grid-template-columns:repeat(2,minmax(0,1fr))}.content{padding:26px}.topbar{padding:0 26px}.executive-controls{flex-wrap:wrap}}
 @media(max-width:760px){main{margin-left:0}.sidebar{width:250px;box-shadow:12px 0 30px #17203315}.content{padding:24px 16px}.topbar{padding:0 16px;gap:4px}.page-heading h1,h1{font-size:28px}.office-page-heading{gap:16px}.office-kpi{padding:18px}.office-kpi>strong{font-size:24px}.office-panel,.ms-sites,.ms-production-monitor,.ms-command-board,.ms-production-audit{padding:18px}.office-tabs{max-width:100%;white-space:nowrap}.office-kpis:has(>:nth-child(5)){grid-template-columns:1fr}.executive-heading{display:block}.executive-heading h2{margin-bottom:14px}.executive-controls{width:100%}.executive-controls label{width:100%}.executive-controls input{min-height:42px}.office-table{min-width:650px}.top-right{min-width:0}.office-auth{flex-wrap:wrap}.office-auth-state{max-width:130px}.office-action-grid strong{font-size:15px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+/* Office 2.1: compact executive home, scoped to the dashboard. */
+#officeHome .office-page-heading{margin-bottom:16px}
+#officeHome .office-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+#officeHome .office-kpi{padding:16px;gap:7px}
+#officeHome .office-home-profit{grid-column:1/-1;background:#f0f6ff;border-color:#c8d9f2}
+#officeHome .office-home-profit>strong{font-size:clamp(30px,4vw,46px);font-variant-numeric:tabular-nums}
+#officeHome .office-panel{padding:18px;margin-bottom:14px}
+#officeHome .office-action-grid a{padding:12px}
+@media(max-width:650px){#officeHome .office-kpis{grid-template-columns:1fr}#officeHome .office-home-profit{grid-column:auto}}
