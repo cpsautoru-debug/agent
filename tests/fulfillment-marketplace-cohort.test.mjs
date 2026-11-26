@@ -31,7 +31,7 @@ test('exact MoySklad external order identity reconciles a duplicate once',()=>{
   externalOrderKey:key};
  const r=calculateLiveOrder({...base,sourceLines:[row],
   occupancy:{...base.occupancy,warehouseAdditional:1,claims:[ms]}});
- assert.equal(r.status,'calculated');assert.equal(r.lines.length,1);
+ assert.equal(r.status,'calculated',JSON.stringify(r));assert.equal(r.lines.length,1);
  assert.equal(r.lines[0].ordered,1);
 });
 test('missing mapping or warehouse and nonactive target cannot become numerical demand',()=>{
