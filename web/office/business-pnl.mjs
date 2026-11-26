@@ -409,8 +409,9 @@ export function renderExecutivePnl(root,pnl,sourceNotes={},interim={}){
  renderDetailedPnl(content,pnl,sourceNotes,interim);
  if(legacy){legacy.hidden=false;content.append(legacy);}
  details.append(content);root.append(details);
- root.officePnlSnapshot={pnl,interim};
- root.dispatchEvent(new CustomEvent('office:pnl-rendered',{bubbles:true,detail:{pnl,interim}}));
+ const management={profitKopecks:managementRemainder,taxKopecks:taxForManagement,taxHint};
+ root.officePnlSnapshot={pnl,interim,management};
+ root.dispatchEvent(new CustomEvent('office:pnl-rendered',{bubbles:true,detail:{pnl,interim,management}}));
 }
 const executiveMoney=value=>Number.isSafeInteger(value)?
  new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',
