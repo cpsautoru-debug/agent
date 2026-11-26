@@ -135,6 +135,7 @@
  }
  function render(data){
    latest=data;
+   document.dispatchEvent(new CustomEvent('office:orders-rendered',{detail:{data,workflowReady,workflow:[...workflowByKey.values()]}}));
    renderFulfillment(data);
    const counts=data.bucketCounts||{active:0,transit:0,history:0,review:0};
    const current=bucketSelect?.value||'active';
@@ -329,5 +330,6 @@
    }finally{working=false;refresh.disabled=false;sync.disabled=false;}
  });
  // Reading the saved mirror is separate from live-source queries.
- if(location.hash.split('/')[0]==='#orders')refresh.click();
+ const readSaved=()=>{if(['#orders','#dashboard',''].includes(location.hash.split('/')[0])&&!working)refresh.click();};
+ window.addEventListener('hashchange',readSaved);readSaved();
 })();

@@ -1788,7 +1788,8 @@
           <p>Первый этап: проверяем импорт заказов, сопоставление SKU и дубли с МойСклад. Пока не создаём документы, не резервируем и не списываем товар.</p>
         </div>
       </div>
-      <section id="ordersIntakeBoard" class="ms-sites" aria-labelledby="ordersIntakeTitle">
+      <div id="officeOrders" class="office-panel"><div id="officeOrderKpis" class="office-kpis"></div><nav id="officeOrderFilters" class="office-tabs" aria-label="Каналы заказов"><button type="button" data-channel="">Все</button><button type="button" data-channel="ozon">Ozon</button><button type="button" data-channel="wb">Wildberries</button><button type="button" data-channel="yandex">Яндекс Маркет</button></nav><p id="officeOrdersNote" role="status">Загружаем сохранённую очередь…</p><div class="ms-production-scroll"><table class="office-table"><thead><tr><th>Заказ / канал</th><th>Товар</th><th>Количество</th><th>Срок</th><th>Статус / следующее действие</th></tr></thead><tbody id="officeOrderRows"></tbody></table></div></div>
+<section id="ordersIntakeBoard" class="ms-sites" aria-labelledby="ordersIntakeTitle">
         <h2 id="ordersIntakeTitle">Источники заказов</h2>
         <p>Обновите общую очередь: каждый подключённый источник читается отдельно через защищённый API; при ошибке источник помечается как неполный.</p>
         <button type="button" id="ordersLoadAll" class="ms-production-detail-button">Обновить очередь из всех источников</button>
@@ -2535,5 +2536,6 @@
 <script type="module" src="/finance-product-links-ui.mjs?v=20261122-review-buttons-fix"></script>
 <script type="module" src="/office-shell.mjs?v=1"></script>
 <script type="module" src="/office-home.mjs?v=1"></script>
+<script type="module" src="/office-orders.mjs?v=1"></script>
 </body>
 </html>
