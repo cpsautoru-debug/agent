@@ -7,6 +7,7 @@ import {readProduction} from './fulfillment-production.mjs';
 import {readOccupancy} from './fulfillment-occupancy.mjs';
 import {resumeScan} from './fulfillment-checkpoint.mjs';
 import {buildReview,saveReview} from './fulfillment-review.mjs';
+import {assessMarketplaceCoverage} from './fulfillment-source-coverage.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -79,6 +80,14 @@ export function createStockPrecheck({fetcher=fetch}={}){
    items=JSON.parse(order.items_json);
    if(!Array.isArray(items)||items.length<1||items.length>8)throw Error();
   }catch{return response(503,{code:'order_data_unverified',changedRecords:0});}
+  // One bounded D1 read, never a secondary marketplace API scan. Success of
+  // each 7/30-day importer does not establish all open commitments.
+  let sourceCoverage={complete:false,reason:'source_evidence_unavailable',sources:[]};
+  try {
+   const scopes=await db.prepare(
+    'SELECT source,last_success_at,coverage,rows_seen FROM office_order_queue_sync WHERE source IN (\'ozon\',\'wb\',\'yandex\',\'manual\')').all();
+   sourceCoverage=assessMarketplaceCoverage(scopes.results);
+  }catch{}
   const checkedAt=new Date().toISOString();
   const token=env.MS_API_TOKEN;
   let reads=0;
@@ -193,6 +202,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
    rows.push(entry);
   }
   const review=buildReview(warehouse,rows);
+  review.sourceCoverage=sourceCoverage;
   let reviewChanges=0,reviewStored=false;
   if(active)try{
    const result=await saveReview(db,order,checkedAt,review);
@@ -203,6 +213,7 @@ export function createStockPrecheck({fetcher=fetch}={}){
   return response(200,{code:'order_stock_precheck',readOnly:changedRecords===0,
    changedRecords,changedMoySkladRecords:0,orderKey:key,rows,review,reviewStored,
    warehouse:{...warehouse,checkedAt:warehouseSaved?checkedAt:null},
+   sourceCoverage,
    completeness:'NOT_READY_FOR_ALLOCATION',sewingAllowed:false,
    note:'Stock by store remains informational until complete allocation and production evidence is available.'});
  };
