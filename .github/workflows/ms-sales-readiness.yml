@@ -4,6 +4,8 @@ on:
     paths:
       - 'functions/api/orders/ms-sales-readiness.js'
       - 'tests/ms-sales-readiness.test.mjs'
+      - 'functions/api/orders/ms-sales-*.mjs'
+      - 'tests/ms-sales-*.test.mjs'
       - '.github/workflows/ms-sales-readiness.yml'
 permissions:
   contents: read
@@ -15,4 +17,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/ms-sales-readiness.test.mjs
+      - run: node --test tests/ms-sales-*.test.mjs
