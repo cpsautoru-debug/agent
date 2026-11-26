@@ -24,7 +24,7 @@ export function buildReview(warehouse,rows,allocation=null){
     row.accounting?.status!=='accounting_verified'?'availability_unverified':
     row.occupancy?.status!=='warehouse_orders_verified'?'competing_order_coverage_unverified':
     row.production?.status!=='production_verified'?'production_unverified':
-    'marketplace_coverage_unverified',
+    allocation?.reason||'marketplace_coverage_unverified',
    warehouseCovered:valid?verified.warehouseCovered:null,
    plannedCovered:valid?verified.plannedCovered:null,
    missing:valid?verified.missing:null,
