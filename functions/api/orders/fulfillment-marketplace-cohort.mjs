@@ -1,7 +1,7 @@
 import {classifyOrderBucket} from './order-buckets.js';
 import {calculateFulfillmentCohort} from './fulfillment-allocation.mjs';
 
-const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+const ID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const ORDER=/^AS63:(ozon|wb|yandex):[A-Za-z0-9._-]{1,100}:[A-Za-z0-9._-]{1,100}$/;
 const blocked=reason=>({status:'requires_review',reason,missing:null});
 
@@ -10,7 +10,7 @@ export function assembleLiveCohort(lines,msClaims,itemId,storeId,targetOrderKey)
   !ID.test(itemId)||!ID.test(storeId)||typeof targetOrderKey!=='string')
   return blocked('marketplace_coverage_unverified');
  const external=[];
- const seen=new Set(),orderStatuses=new Map();
+ const seen=new Set();
  let found=false;
  for(const row of lines){
   if(!ORDER.test(row?.order_key||'')||!Number.isSafeInteger(row.line_index)||
