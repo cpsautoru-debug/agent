@@ -1,3 +1,4 @@
+import {marketplaceLineFacts,iso} from '../orders/ms-sales-facts.mjs';
 import {verifySession} from '../auth/session.js';
 
 // Zero-write reconciliation preview: FBS marketplace orders vs MoySklad.
@@ -80,12 +81,12 @@ export function normalizeMarketplaceOrders(source,body,account){
       const count=source==='wb'?1:p.quantity;
       if(!safe(sku)||!Number.isSafeInteger(count)||count<1||count>1000)
         throw Error('unmapped_order_line');
-      return {sku,quantity:count,assortmentVerified:false};
+      return {sku,quantity:count,transaction:marketplaceLineFacts(source,p),assortmentVerified:false};
     });
     const status=source==='wb'?'new_fbs_assembly_order':
       safe(x.status)?x.status:'unknown';
     const queue=classifyMarketplaceOrder(source,status);
-    return {externalKey:code,source,status,items,
+    return {externalKey:code,source,status,items, transaction:{scheme:source==='ozon_fbo'?'FBO':'FBS',createdAt:iso(source==='wb'?x.createdAt:x.created_at),processingAt:iso(x.in_process_at)},
       supplyScheme:source==='ozon_fbo'?'FBO':'FBS',productionQueue:queue.queue,
       productionQueueReason:queue.reason,
       assortmentVerified:false,legalEntityVerified:false,readyToWrite:false};
