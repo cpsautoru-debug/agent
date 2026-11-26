@@ -187,9 +187,14 @@
      ' · доставка '+counts.transit+' · история '+counts.history+
      ' · уточнение '+counts.review+'. Выбрано: '+matching.length+'.';
    const sc=data.sources.map(x=>x.source+': '+x.rows_seen+' ('+x.coverage+')').join(' · ');
+   const unknownCoverage=data.coverageDiagnostics?.complete===false?
+     ' Полный охват открытых обязательств НЕ доказан для: '+
+      data.coverageDiagnostics.sources.filter(x=>!x.ready)
+       .map(x=>x.source+' ('+x.reason+')').join(', ')+'.':'';
    status.textContent='В D1 показано '+data.orders.length+
      ' заказов (не более 150), сохранённые источники: '+sc+
-     '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.';
+     '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.'+
+     unknownCoverage;
  }
  if(bucketSelect)bucketSelect.addEventListener('change',()=>{if(latest)render(latest);});
  async function precheck(order,button){
