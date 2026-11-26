@@ -54,7 +54,8 @@ async function readJsonBounded(response){
  finally{await reader.cancel().catch(()=>{});}
  return JSON.parse(text);
 }
-export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYandexCampaigns}={}){
+export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYandexCampaigns,
+ now=Date.now,fromDate=null}={}){
  return async ({request,env})=>{
    if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
    const url=new URL(request.url);
@@ -72,22 +73,33 @@ export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYand
        selectedBusiness(selected).campaignIds.length!==2)
        throw Error('yandex_order_campaign_scope_unverified');
      const businessId=selected[0].businessId;
-     const end=new Date();
-     const start=new Date(end.getTime()-29*86400000);
      const dateOnly=d=>d.toISOString().slice(0,10);
-     const allOrders=[],seenOrders=new Set(),seenTokens=new Set();
-     let pageToken=null,pages=0,complete=false;
-     for(;pages<MAX_PAGES;pages++){
+     // creationDateTo is exclusive. Tomorrow includes today's orders.
+     // Capture the clock once so every page uses the same date boundaries.
+     const clock=now();
+     if(!Number.isFinite(clock)||clock<0)throw Error('yandex_orders_clock_invalid');
+     const end=new Date(clock);end.setUTCHours(0,0,0,0);
+     end.setUTCDate(end.getUTCDate()+1);
+     const start=fromDate===null?new Date(end.getTime()-30*86400000):
+       new Date(fromDate+'T00:00:00Z');
+     if(fromDate!==null&&(fromDate!=='2026-10-01'||dateOnly(start)!==fromDate)||
+       start>=end)throw Error('yandex_orders_date_scope_invalid');
+     const allOrders=[],seenOrders=new Set();
+     let pages=0,complete=true,windowStart=start,windows=0;
+     while(windowStart<end){
+      const windowEnd=new Date(Math.min(end.getTime(),windowStart.getTime()+30*86400000));
+      const seenTokens=new Set();
+      let pageToken=null,windowComplete=false;
+      for(;pages<MAX_PAGES;){
        const apiUrl=new URL(ENDPOINT+'/v1/businesses/'+businessId+'/orders');
        apiUrl.searchParams.set('limit',String(LIMIT));
-       apiUrl.searchParams.set('fromDate',dateOnly(start));
-       apiUrl.searchParams.set('toDate',dateOnly(end));
        if(pageToken)apiUrl.searchParams.set('pageToken',pageToken);
        const upstream=await fetcher(apiUrl.toString(),{
          method:'POST',redirect:'manual',
          headers:{'Api-Key':env.YANDEX_MARKET_API_KEY,
            Accept:'application/json','Content-Type':'application/json'},
-         body:JSON.stringify({campaignIds:CAMPAIGNS,fake:false}),
+         body:JSON.stringify({campaignIds:CAMPAIGNS,fake:false,
+           dates:{creationDateFrom:dateOnly(windowStart),creationDateTo:dateOnly(windowEnd)}}),
          signal:AbortSignal.timeout(15000)
        });
        if(upstream.status!==200){
@@ -107,9 +119,13 @@ export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYand
        const next=payload?.paging?.nextPageToken;
        if(next!==undefined&&(typeof next!=='string'||!next||next.length>500))
          throw Error('yandex_orders_paging_unverified');
-       if(!next){complete=true;pages++;break;}
+       pages++;
+       if(!next){windowComplete=true;break;}
        if(seenTokens.has(next))throw Error('yandex_orders_paging_unverified');
        seenTokens.add(next);pageToken=next;
+      }
+      if(!windowComplete){complete=false;break;}
+      windows++;windowStart=windowEnd;
      }
      if(!complete)return json(503,{code:'yandex_orders_page_limit',
        readOnly:true,changedRecords:0,approvedForWrite:false,
@@ -118,7 +134,10 @@ export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYand
        hasNextPage:true,duplicateScan:'NOT_PERFORMED',itemsMapped:false});
      return json(200,{code:'yandex_orders_preview_ok',
        readOnly:true,changedRecords:0,approvedForWrite:false,
-       coverage:'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE',
+       coverage:fromDate===null?'BOTH_CAMPAIGNS_LAST_30_DAYS_COMPLETE':
+         'BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE',
+       allOpenVerified:false,
+       scope:{fromDate:dateOnly(start),toDateExclusive:dateOnly(end),windows},
        businessScope:'one_business_two_campaigns',
        campaignIds:CAMPAIGNS,received:allOrders.length,pages,
        hasNextPage:false,complete:true,duplicateScan:'NOT_PERFORMED',
@@ -133,3 +152,4 @@ export function createYandexOrdersPreview({fetcher=fetch,campaignLoader=listYand
  };
 }
 export const onRequestGet=createYandexOrdersPreview();
+

@@ -1,4 +1,12 @@
 import test from 'node:test';
+
+test('October history remains date scoped even after every window completes',()=>{
+ const history=scope.map(x=>x.source==='yandex'?{...x,coverage:'BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE'}:x);
+ const result=assessMarketplaceCoverage(history,{now});
+ assert.equal(result.complete,false);
+ assert.equal(result.sources.find(x=>x.source==='yandex').reason,'time_or_status_scoped_only');
+});
+
 import assert from 'node:assert/strict';
 import {assessMarketplaceCoverage} from '../functions/api/orders/fulfillment-source-coverage.mjs';
 
@@ -34,3 +42,4 @@ test('an explicitly complete full-open scope is necessary for allocation',()=>{
  assert.equal(assessMarketplaceCoverage(proof,{now}).complete,true);
  assert.equal(assessMarketplaceCoverage(proof.map((x,i)=>i===1?{...x,rows_seen:null}:x),{now}).complete,false);
 });
+
