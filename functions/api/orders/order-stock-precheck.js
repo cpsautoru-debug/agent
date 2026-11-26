@@ -8,6 +8,7 @@ import {readOccupancy} from './fulfillment-occupancy.mjs';
 import {resumeScan} from './fulfillment-checkpoint.mjs';
 import {buildReview,saveReview} from './fulfillment-review.mjs';
 import {assessMarketplaceCoverage} from './fulfillment-source-coverage.mjs';
+import {readLiveMarketplaceLines,calculateLiveOrder} from './fulfillment-marketplace-cohort.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/order-stock-precheck';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -201,7 +202,32 @@ export function createStockPrecheck({fetcher=fetch}={}){
    }
    rows.push(entry);
   }
-  const review=buildReview(warehouse,rows);
+  // Shared allocation is allowed only with proof for EVERY open marketplace
+  // obligation, exact duplicate evidence and a verified production snapshot.
+  // All current 7/30-day source windows fail this gate, without new D1 reads.
+  let allocation=null;
+  if(sourceCoverage.complete&&active&&warehouse.status==='warehouse_verified'&&
+     rows.every(row=>row.itemId&&row.accounting?.status==='accounting_verified'&&
+      row.occupancy?.status==='warehouse_orders_verified'&&
+      row.production?.status==='production_verified')){
+   try{
+    const sourceLines=await readLiveMarketplaceLines(db);
+    if(sourceLines){
+     const verifiedLines=[];
+     for(const [id,evidence] of evidenceByItem){
+      const calc=calculateLiveOrder({sourceLines,occupancy:evidence.occupancy,
+       accounting:evidence.accounting,production:evidence.production,
+       itemId:id,storeId:warehouse.storeId,orderKey:key,sourceCoverage});
+      if(calc.status!=='calculated')throw Error('cohort_unverified');
+      verifiedLines.push(...calc.lines.filter(line=>line.orderKey===key));
+     }
+     if(verifiedLines.length===rows.length&&
+        rows.every(row=>verifiedLines.some(line=>line.key===row.key)))
+      allocation={status:'calculated',lines:verifiedLines};
+    }
+   }catch{}
+  }
+  const review=buildReview(warehouse,rows,allocation);
   review.sourceCoverage=sourceCoverage;
   let reviewChanges=0,reviewStored=false;
   if(active)try{
