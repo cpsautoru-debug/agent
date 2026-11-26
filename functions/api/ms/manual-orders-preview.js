@@ -25,7 +25,7 @@ export function manualOrderChannel(code){
  const channel=CHANNELS.find(x=>code.startsWith(x.marker));
  if(!channel)return null;
  const suffix=code.slice(channel.marker.length);
- return /^[A-Za-z0-9._-]{1,64}$/.test(suffix)?{key:channel.key,label:channel.label,orderRef:suffix}:null;
+ return suffix.length<=64 && /^[A-Za-z0-9._-]+(?: [A-Za-z0-9._-]+)*$/.test(suffix)?{key:channel.key,label:channel.label,orderRef:suffix}:null;
 }
 function assortmentId(item){
  const href=item?.meta?.href;
