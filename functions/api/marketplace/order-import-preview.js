@@ -541,7 +541,7 @@ export async function findMoyskladNameSuggestion(fetcher,token,orders){
   }
 }
 
-export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
+export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,authorizeServer=null}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
     let url;try{url=new URL(request.url);}catch{return json(400,{code:'invalid_scope'});}
@@ -550,6 +550,8 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     if(url.origin!==ORIGIN||url.pathname!==PATH||url.hash||
       keys.length!==1||keys[0]!=='source'||!['ozon','ozon_fbo','wb'].includes(source))
       return json(400,{code:'invalid_scope'});
+    const serverAuthorized=authorizeServer?await authorizeServer(request,env):false;
+    if(!serverAuthorized){
     if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||
       !env.OZON_FINANCE_DB)return json(503,{code:'owner_auth_unavailable'});
     let sub;try{sub=await verifySession(request,env.OFFICE_SESSION_SECRET);}
@@ -560,6 +562,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now}={}){
     ).bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
     if(owner?.allowed!==1)return json(403,{code:'owner_only'});
     }catch{return json(503,{code:'owner_auth_unavailable'});}
+    }
     const token=source==='wb'?env.WB_ORDERS_API_TOKEN:env.OZON_API_KEY;
     const account=source==='wb'?'wb-primary':String(env.OZON_CLIENT_ID||'');
     if(typeof token!=='string'||!token||/\s/.test(token)||
