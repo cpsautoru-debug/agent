@@ -444,6 +444,8 @@ export function attachBusinessPnl({documentRef=document,fetcher=fetch}={}){
   refresh.textContent='Пересчитываем…';
   root._detailsOpen=root.querySelector?.('#businessPnlDetails')?.open??root._detailsOpen;
   root._technicalDetails=root._technicalDetails||documentRef.getElementById('businessPnlTechnicalDetails');
+  root.officePnlSnapshot=null;
+  root.dispatchEvent(new CustomEvent('office:pnl-rendered',{bubbles:true,detail:{pnl:null}}));
   root.replaceChildren(el('p','executive-load-status','Загружаем показатели за '+month+'…'));
   lastRender=null;
   root.setAttribute('aria-busy','true');

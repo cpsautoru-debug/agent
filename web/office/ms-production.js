@@ -212,6 +212,7 @@ import { classifyProductionPlanDate } from './ms-production-plan-date.mjs';
     finished.textContent='—';
     remaining.textContent='—';
     stageBody.replaceChildren();
+    document.dispatchEvent(new CustomEvent('office:production-stages',{detail:null}));
     try{
       const response=await fetch('/api/ms/production-stages?taskId='+encodeURIComponent(item.id),{
         method:'GET',credentials:'same-origin',cache:'no-store',
