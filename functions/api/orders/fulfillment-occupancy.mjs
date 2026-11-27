@@ -41,13 +41,13 @@ function matchItem(position,type,itemId){
  }catch{throw Error('position_identity_unverified');}
 }
 
-export async function readOccupancy(type,itemId,storeId,balance,read){
+export async function readOccupancy(type,itemId,storeId,balance,read,{filtered=false}={}){
  if(!UUID.test(itemId||'')||!UUID.test(storeId||'')||balance?.status!=='accounting_verified')
   return {status:'availability_unverified',reason:'stock_unverified'};
  let stage='warehouse_orders';
  try{
   const store=ROOT+'store/'+storeId;
-  const filters=new URLSearchParams({filter:'store='+store,expand:'state'});
+  const filters=new URLSearchParams({filter:'store='+store+(filtered?';assortment='+ROOT+type+'/'+itemId:''),expand:'state'});
   const orders=await readCompletePages(read,'entity/customerorder?'+filters,{limit:10,maxPages:20});
   let reserve=0, additional=0, matchingOrders=0;
   const claims=[];
@@ -60,6 +60,7 @@ export async function readOccupancy(type,itemId,storeId,balance,read){
    stage='order_positions';
    const positions=await readCompletePages(read,'entity/customerorder/'+order.id+'/positions');
    const matches=positions.filter(position=>matchItem(position,type,itemId));
+   if(filtered&&!matches.length)throw Error('assortment_filter_unverified');
    if(matches.length)matchingOrders++;
    let claimOrdered=0,claimReserved=0;
    for(const position of matches){
