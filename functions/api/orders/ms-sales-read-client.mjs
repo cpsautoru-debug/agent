@@ -15,7 +15,7 @@ export function createMsReadClient({token,fetcher=fetch,sleep=ms=>new Promise(r=
    if(now()-window>=3000){window=now();budget=0;}
    if(budget+weight>10){await sleep(Math.max(0,3000-(now()-window)));window=now();budget=0;}
    budget+=weight;
-   const response=await fetcher(url.toString(),{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8'},signal:AbortSignal.timeout(15000)});
+   const response=await fetcher(url.toString(),{method:'GET',redirect:'manual',headers:{Authorization:'Bearer '+token,Accept:'application/json;charset=utf-8',...(path.startsWith('entity/assortment?')?{'X-Lognex-Remap-Beta-Feature':'assortmentWithoutStock'}:{})},signal:AbortSignal.timeout(15000)});
    if(response.ok){
     const reader=response.body?.getReader();if(!reader)throw Error('ms_missing_body');
     let bytes=0,raw='';const decoder=new TextDecoder();
