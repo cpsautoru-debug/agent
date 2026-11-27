@@ -29,7 +29,7 @@ export async function catalogueCandidates(db,sku,now=Date.now()){
 // Name leads are deliberately separate from exact identity evidence.
 export function catalogueNameLeads(sku,items){
  const norm=x=>String(x||'').toLowerCase().replace(/ё/g,'е').replace(/алькантара|алька/g,'алька').replace(/\bcross\b|кросс/g,'кросс').replace(/vesta|веста/g,'веста').replace(/priora|приора/g,'приора');
- const tokens=x=>new Set(norm(x).split(/[^a-zа-я0-9]+/u).filter(Boolean));
+ const tokens=x=>new Set(norm(x).split(/[^a-zа-я0-9]+/u).filter(Boolean).map(t=>({'сотами':'соты','сотах':'соты','сотовый':'соты','серыми':'серый','серые':'серый','серая':'серый','серой':'серый','черными':'черный','черные':'черный','черная':'черный','черной':'черный','квадратом':'квадрат'}[t]||t)));
  const query=tokens(sku), models=['веста','приора','гранта','нива','creta','rio','solaris','iskra'];
  const model=models.find(m=>query.has(m));if(!model)return [];
  const features=['кросс','алька','соты','квадрат','ромб','перфорация','седан','сд','хб'];
