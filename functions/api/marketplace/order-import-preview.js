@@ -628,6 +628,18 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
  }
  return {orders:[...rows.values()].map(x=>({...x,verifiedStatus:statuses.get(x.id)}))};
 }
+// Optional additional order-only credentials; never use finance bindings as fallback.
+export function resolveOzonOrderAccounts(env){
+ const accounts=[];
+ for(const suffix of ['', '_2', '_3']){
+  const id=env['OZON_CLIENT_ID'+suffix],token=env['OZON_API_KEY'+suffix];
+  if(suffix&&id==null&&token==null)continue;
+  const account=String(id||'');
+  if(!/^[a-zA-Z0-9._-]{1,100}$/.test(account)||typeof token!=='string'||!token||/\s/.test(token)||accounts.some(x=>x.account===account))throw Error('marketplace_credentials_missing');
+  accounts.push({account,token});
+ }
+ return accounts;
+}
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,authorizeServer=null}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -657,11 +669,14 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
     let failedStage='marketplace';
     try{
       let upstream,options,body;
+      const accounts=source==='wb'?[]:resolveOzonOrderAccounts(env);
+      let orders=[];
       if(source==='wb'){
         upstream='https://marketplace-api.wildberries.ru/api/v3/orders/new';
         options={method:'GET',headers:{Authorization:token,Accept:'application/json'}};
         body=await readWbOrderSnapshot(fetcher,token,now());
       }else{
+        for(const {account,token} of accounts){
         upstream=source==='ozon_fbo'?
           'https://api-seller.ozon.ru/v3/posting/fbo/list':
           'https://api-seller.ozon.ru/v4/posting/fbs/list';
@@ -692,8 +707,11 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
           stage:'marketplace',readOnly:true,changedRecords:0,
           approvedForWrite:false,complete:false,pages});
         body=source==='ozon_fbo'?{result:{postings}}:{postings};
+        orders.push(...normalizeMarketplaceOrders(source,body,account));
+        if(orders.length>150)throw Error('order_feed_limit_reached');
+        }
       }
-      const orders=normalizeMarketplaceOrders(source,body,account);
+      if(source==='wb')orders=normalizeMarketplaceOrders(source,body,account);
       if(source==='wb'&&orders.length>WB_MAX_ORDERS)
         return json(503,{code:'order_feed_limit_reached',source,
           stage:'marketplace',readOnly:true,changedRecords:0,
@@ -725,41 +743,41 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
       }
       // Independent seller catalogue evidence, one Ozon request per preview.
       // Barcode presence alone never authorizes MoySklad matching/writes.
-      const ozonEvidence=source==='wb'?null:
-        await fetchOzonProductEvidence(fetcher,account,token,orders);
+      const ozonEvidence=source==='wb'?null:{code:'ok',count:0,byAccount:new Map()};
       if(ozonEvidence){
-        for(const order of orders)for(const item of order.items){
-          item.ozonCatalog=ozonEvidence.byOffer.get(item.sku)||{
-            status:'not_confirmed',offerId:item.sku,
-            barcodes:[],productId:null
-          };
+        for(const {account,token} of accounts){
+          const scoped=orders.filter(o=>o.externalKey.split(':')[2]===account);
+          const evidence=await fetchOzonProductEvidence(fetcher,account,token,scoped);
+          ozonEvidence.byAccount.set(account,evidence.byOffer);
+          ozonEvidence.count+=evidence.count;
+          if(!['ok','empty'].includes(evidence.code))ozonEvidence.code='partial';
+          for(const order of scoped)for(const item of order.items){
+            item.ozonCatalog=evidence.byOffer.get(item.sku)||{status:'not_confirmed',offerId:item.sku,barcodes:[],productId:null};
+          }
         }
       }
       // Article comparison is informative only. It can never authorize a
       // write or production dispatch, even for an exact single match.
       let articleScan={bySku:new Map(),requests:0,
         coverage:{pages:0,checkedRows:0,complete:false,sourceError:false,failureCode:null}};
-      const barcodeCandidates=new Set(orders.flatMap(o=>o.items)
+      const barcodeCandidates=new Set((accounts.length>1?[]:orders).flatMap(o=>o.items)
         .filter(p=>p.ozonCatalog?.status==='seller_product_with_barcode')
         .map(p=>p.sku));
       const barcodeScan=barcodeCandidates.size?
         await matchMoyskladOzonBarcodes(fetcher,env.MS_API_TOKEN,orders):
         {bySku:new Map(),requests:0,diagnostics:[],rateLimited:false};
-      if(orders.length&&!barcodeScan.rateLimited)
+      if(orders.length&&accounts.length<=1&&!barcodeScan.rateLimited)
         articleScan=await matchMoyskladArticlesBudgeted(
           fetcher,env.MS_API_TOKEN,orders,barcodeCandidates);
       // Name-only matches are disabled: unrelated products can rank highly.
       const nameSuggestion=null;
       for(const order of orders){
         for(const item of order.items){
-          item.assortmentMatch=
+          item.assortmentMatch=accounts.length>1?'unverified':
             barcodeScan.bySku.get(item.sku)==='matched_exact_barcode'?
               'matched_exact_barcode':
               articleScan.bySku.get(item.sku)||'unverified';
-          if(ozonEvidence)item.ozonCatalog=
-            ozonEvidence.byOffer.get(item.sku)||{
-              status:'not_confirmed',offerId:item.sku,
-              barcodes:[],productId:null};
+
         }
         const matches=scan?.matches?.get(order.externalKey)||0;
         order.duplicateStatus=matches===1?'already_exists':
@@ -773,6 +791,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
           source==='ozon'?'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
           'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT',
         complete:true,
+        accountCoverage:source==='wb'?null:{configured:accounts.length,expected:3,allConfiguredRead:true,allExpectedConfigured:accounts.length===3},
         sampledAt:new Date(now()).toISOString(),
         duplicateLookupMode:scan?.complete?
           'COMPLETE_BOUNDED_LIST_SCAN':'PARTIAL_BOUNDED_LIST_SCAN',
@@ -782,7 +801,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         ozonProductLookup:ozonEvidence?{
           status:ozonEvidence.code,
           productsConfirmed:ozonEvidence.count,
-          requestCount:orders.length?1:0}:null,
+          requestCount:accounts.filter(a=>orders.some(o=>o.externalKey.split(':')[2]===a.account)).length}:null,
         barcodeLookup:{requests:barcodeScan.requests,
           diagnostics:barcodeScan.diagnostics,
           rateLimited:barcodeScan.rateLimited},
@@ -811,7 +830,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         error?.message==='missing_body'?'upstream_body_missing':null;
       const code=parserIssue||(
         ['token_rejected','permission_denied','rate_limited',
-        'unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
+        'marketplace_credentials_missing','unexpected_order_feed','unexpected_order_lines','unmapped_order_line',
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
         'source_error','ozon_status_filter_unverified','order_pagination_unverified',

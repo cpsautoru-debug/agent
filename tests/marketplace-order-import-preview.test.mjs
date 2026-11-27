@@ -540,3 +540,39 @@ test('WB distinguishes malformed cursor, repeated cursor, duplicates and status 
 test('WB cursor preserves exact int64 or fails closed if runtime cannot expose token',async()=>{const {parseWbHistoryPage,wbCursor,readWbOrderSnapshot}=await import('../functions/api/marketplace/order-import-preview.js');assert.equal(wbCursor(parseWbHistoryPage('{"next":0,"orders":[]}')),'0');let exact;try{exact=wbCursor(parseWbHistoryPage('{"next":9223372036854775807,"orders":[]}'));}catch(e){assert.equal(e.message,'wb_cursor_precision_unavailable');}if(exact!==undefined){assert.equal(exact,'9223372036854775807');let calls=0;await readWbOrderSnapshot(async u=>{if(u.endsWith('/new'))return Response.json({orders:[]});const next=new URL(u).searchParams.get('next');assert.equal(next,calls++===0?'0':'9223372036854775807');return new Response(next==='0'?'{"next":9223372036854775807,"orders":[]}':'{"next":0,"orders":[]}');},'token',Date.now());assert.equal(calls,2);}for(const [p,code] of [[{},'wb_cursor_missing'],[{next:'123'},'wb_cursor_string'],[{next:null},'wb_cursor_type_invalid'],[{next:9223372036854775808n},'wb_cursor_out_of_range']])assert.throws(()=>wbCursor(p),new RegExp(code));});
 
 test('WB 300-order history uses complete 100-ID status batches and rejects an incomplete final batch',async()=>{const {readWbOrderSnapshot}=await import('../functions/api/marketplace/order-import-preview.js');for(const broken of [false,true]){let pages=0,batches=0;const fetcher=async(u,o)=>{if(u.endsWith('/new'))return Response.json({orders:[]});if(u.endsWith('/status')){const ids=JSON.parse(o.body).orders;assert.equal(ids.length,100);batches++;return Response.json({orders:ids.slice(0,broken&&batches===3?99:100).map(id=>({id,supplierStatus:'new',wbStatus:'waiting'}))});}const n=pages++;return Response.json({orders:Array.from({length:50},(_,i)=>({id:n*50+i+1,article:'sku'})),next:pages===6?0:pages});};if(broken)await assert.rejects(readWbOrderSnapshot(fetcher,'token',Date.now()),/wb_status_count_mismatch/);else assert.equal((await readWbOrderSnapshot(fetcher,'token',Date.now())).orders.length,300);assert.equal(pages,6);assert.equal(batches,3);}});
+
+test('Ozon three accounts isolate posting and product identities and reject partial account reads',async()=>{
+ const env={OZON_CLIENT_ID:'1001',OZON_API_KEY:'key1',OZON_CLIENT_ID_2:'1002',OZON_API_KEY_2:'key2',OZON_CLIENT_ID_3:'1003',OZON_API_KEY_3:'key3',MS_API_TOKEN:'ms'};
+ for(const source of ['ozon','ozon_fbo'])for(const failed of [false,true]){
+ const calls=[];
+ const handler=createMarketplaceOrderPreview({authorizeServer:async()=>true,fetcher:async(url,opts)=>{
+ const u=new URL(url),account=opts.headers['Client-Id'];
+ if(u.hostname==='api-seller.ozon.ru'){
+ assert.equal(opts.headers['Api-Key'],'key'+account.slice(-1));
+ if(u.pathname.endsWith('/list')&&u.pathname.includes('/posting/')){
+ calls.push(account);
+ if(failed&&account==='1002')return Response.json({}, {status:403});
+ return Response.json({postings:[{posting_number:'same-posting',status:'awaiting_packaging',products:[{offer_id:'same-sku',quantity:1}]}],has_next:false,cursor:''});
+ }
+ if(u.pathname==='/v3/product/info/list')return Response.json({items:[{offer_id:'same-sku',id:Number(account),barcodes:['barcode-'+account]}]});
+ }
+ if(u.hostname==='api.moysklad.ru'&&u.pathname.endsWith('/customerorder'))return Response.json({meta:{size:0},rows:[]});
+ throw Error('unexpected_api_call');
+ }});
+ const r=await handler({request:new Request('https://autosklad63-office-staging.pages.dev/api/marketplace/order-import-preview?source='+source),env});
+ const data=await r.json();
+ if(failed){assert.equal(r.status,503);assert.equal(data.code,'permission_denied');assert.equal(data.orders,undefined);continue;}
+ assert.equal(r.status,200);assert.deepEqual(calls,['1001','1002','1003']);
+ assert.equal(data.accountCoverage.allExpectedConfigured,true);
+ assert.deepEqual(data.orders.map(o=>o.externalKey),['1001','1002','1003'].map(a=>'AS63:'+source+':'+a+':same-posting'));
+ assert.deepEqual(data.orders.map(o=>o.items[0].ozonCatalog.productId),[1001,1002,1003]);
+ assert.ok(data.orders.every(o=>o.items[0].assortmentMatch==='unverified'));
+ }
+});
+test('Ozon missing or duplicate credentials fail closed; primary only is supported',async()=>{
+ const {resolveOzonOrderAccounts}=await import('../functions/api/marketplace/order-import-preview.js');
+ const env={OZON_CLIENT_ID:'1001',OZON_API_KEY:'key1'};
+ assert.equal(resolveOzonOrderAccounts(env).length,1);
+ assert.throws(()=>resolveOzonOrderAccounts({...env,OZON_CLIENT_ID_2:'1002'}),/marketplace_credentials_missing/);
+ assert.throws(()=>resolveOzonOrderAccounts({...env,OZON_CLIENT_ID_2:'1001',OZON_API_KEY_2:'key2'}),/marketplace_credentials_missing/);
+});
