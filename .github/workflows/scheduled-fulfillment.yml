@@ -1,0 +1,16 @@
+name: Scheduled fulfillment safety checks
+on:
+  push:
+    branches: [office-21-fulfillment-resume, feature/marketplace-agents-staging]
+    paths: ['functions/api/orders/scheduled-fulfillment.js', 'functions/api/orders/order-stock-precheck.js', 'workers/ms-sales-directory-sync.mjs', 'tests/scheduled-fulfillment.test.mjs', '.github/workflows/scheduled-fulfillment.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/scheduled-fulfillment.test.mjs tests/order-stock-precheck.test.mjs tests/ms-sales-scheduled-refresh.test.mjs && node --check workers/ms-sales-directory-sync.mjs
