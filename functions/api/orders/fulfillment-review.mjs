@@ -7,7 +7,7 @@ export function buildReview(warehouse,rows,allocation=null){
   rows.every(row=>typeof row.key==='string'&&allocations.has(row.key));
  return {warehouse,lines:rows.map(row=>{
   const verified=complete?allocations.get(row.key):null;
-  const valid=verified&&verified.itemId===row.itemId&&
+  const valid=!row.manualReason&&verified&&verified.itemId===row.itemId&&
     Number.isSafeInteger(verified.warehouseCovered)&&verified.warehouseCovered>=0&&
     Number.isSafeInteger(verified.plannedCovered)&&verified.plannedCovered>=0&&
     Number.isSafeInteger(verified.missing)&&verified.missing>=0&&
@@ -18,13 +18,13 @@ export function buildReview(warehouse,rows,allocation=null){
    occupancy:row.occupancy??null,
    status:valid?(verified.missing>0?'sewing_required':
      verified.plannedCovered>0?'production_covered':'warehouse_covered'):'requires_review',
-   reason:valid?null:
+   reason:row.manualReason|| (valid?null:
     !row.itemId?'item_mapping_unverified':
     warehouse.status!=='warehouse_verified'?'warehouse_unverified':
     row.accounting?.status!=='accounting_verified'?'availability_unverified':
     row.occupancy?.status!=='warehouse_orders_verified'?'competing_order_coverage_unverified':
     row.production?.status!=='production_verified'?'production_unverified':
-    allocation?.reason||'marketplace_coverage_unverified',
+    allocation?.reason||'marketplace_coverage_unverified'),
    warehouseCovered:valid?verified.warehouseCovered:null,
    plannedCovered:valid?verified.plannedCovered:null,
    missing:valid?verified.missing:null,

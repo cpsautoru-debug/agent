@@ -144,6 +144,14 @@ export function createPersistentQueue({
       queue_bucket:classification.bucket,queue_reason:classification.reason,
       sewing_allowed:false};
     });
+    // Keep the owner's manual WB exception visible even beyond the main 150-row page.
+    let manualExceptions=[],manualExceptionsComplete=false;
+    try{
+     const result=await db.prepare("SELECT order_key,source,account,external_id,source_status,production_disposition,items_json,ms_customerorder_id,source_checked_at,last_seen_at FROM office_order_queue WHERE source='wb' AND EXISTS (SELECT 1 FROM json_each(items_json) item WHERE json_extract(item.value,'$.sku') IN ('Пламя1','пламя1')) ORDER BY last_seen_at DESC,order_key LIMIT 21").all();
+     if(!Array.isArray(result.results))throw Error();
+     manualExceptionsComplete=result.results.length<=20;
+     manualExceptions=result.results.slice(0,20).map(r=>{const c=classifyCurrentOrder(r,latestSync);return {...r,items:JSON.parse(r.items_json),items_json:undefined,queue_bucket:c.bucket,queue_reason:c.reason,sewing_allowed:false,manualReason:'wb_plamya1_manual'}});
+    }catch{} // Caller shows unavailable/partial; it never assumes there is no exception.
     let fulfillment=[];
     let fulfillmentAvailable=false;
     try{
@@ -197,7 +205,7 @@ export function createPersistentQueue({
     return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
-     orders:displayed,sources:sync.results,
+     orders:displayed,sources:sync.results,manualExceptions,manualExceptionsComplete,
      coverageDiagnostics,approvalReadiness,
      note:'Source-status classification only; no inventory, physical stock, production or dispatch approval.'});
    }catch{return reply(503,{code:'persistent_queue_storage_unavailable',

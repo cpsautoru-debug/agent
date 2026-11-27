@@ -26,6 +26,7 @@
  const warehouseFilter=document.getElementById('orderFulfillmentWarehouse');
  const modelFilter=document.getElementById('orderFulfillmentModel');
  const reasons={
+   wb_plamya1_manual:'Пламя1: ручная обработка, без заданий и списаний',
    item_mapping_unverified:'Связь SKU не подтверждена',
    warehouse_unverified:'Склад исполнения не подтверждён',
    availability_unverified:'Остаток или резерв не подтверждён',

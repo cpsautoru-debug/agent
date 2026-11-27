@@ -1,10 +1,12 @@
+import {manualItemReason} from './manual-item-policy.mjs';
 export function compactOrders(data){
  const checks=new Map((data?.fulfillment||[]).map(c=>[c.orderKey,c]));
  return (data?.orders||[]).filter(o=>o.queue_bucket==='active'||o.queue_bucket==='review').map(o=>{
   const check=checks.get(o.order_key),lines=check?.lines||[],known=lines.length===o.items.length&&lines.length>0;
-  const need=known&&lines.some(l=>l.status==='sewing_required');
+  const manual=o.items.some(i=>manualItemReason(o.source,i.sku));
+  const need=!manual&&known&&lines.some(l=>l.status==='sewing_required');
   const planned=known&&lines.every(l=>['production_covered','warehouse_covered'].includes(l.status));
-  return {order:o,check,need,status:need?'Требуется пошив':planned?'Обеспеченность учётно проверена':'Требует уточнения',action:need?'Открыть потребность и проверить распределение':planned?'Проверить физическую готовность к отгрузке':'Подтвердить SKU, склад, остаток и резерв'};
+  return {order:o,check,need,status:manual?'Ручная обработка':need?'Требуется пошив':planned?'Обеспеченность учётно проверена':'Требует уточнения',action:manual?'Пламя1: обработать вручную, без задания и списания':need?'Открыть потребность и проверить распределение':planned?'Проверить физическую готовность к отгрузке':'Подтвердить SKU, склад, остаток и резерв'};
  });
 }
 if(typeof document!=='undefined'){
@@ -12,11 +14,15 @@ if(typeof document!=='undefined'){
  if(root&&board){
   const detail=document.createElement('details');detail.className='office-panel';detail.id='officeOrderOperations';const summary=document.createElement('summary');summary.textContent='Проверки склада, резервы и действия с заказами';detail.append(summary);board.before(detail);detail.append(board);
   for(const event of ['as63:focus-sku','as63:focus-route'])document.addEventListener(event,()=>{detail.open=true});
+  const manualPanel=document.createElement('section');manualPanel.className='office-panel';const manualTitle=document.createElement('h2');manualTitle.textContent='Wildberries · ручная обработка';const manualNote=document.createElement('p');const manualList=document.createElement('ul');manualPanel.append(manualTitle,manualNote,manualList);root.after(manualPanel);
   let latest=document.getElementById('persistentOrdersTable')?.officeOrdersSnapshot||null,channel='';const rows=document.getElementById('officeOrderRows'),note=document.getElementById('officeOrdersNote');
   function render(){
    const entries=compactOrders(latest?.data),filtered=entries.filter(e=>!channel||(channel==='ozon'?['ozon','ozon_fbo'].includes(e.order.source):e.order.source===channel));
    const kpis=[['Новые',latest?.workflowReady?String(entries.filter(e=>!latest.workflow.some(w=>w.order_key===e.order.order_key&&w.workflow_state!=='pending_review')).length):'Нет данных','Не просмотренные владельцем в выборке'],['Нужно произвести',latest?String(entries.filter(e=>e.need).length):'Нет данных','Заказы с подтверждённой потребностью; охват может быть неполным'],['В производстве','Не подтверждено','План задания не доказывает фактическое начало пошива'],['Готово к отгрузке','Не подтверждено','Учётное наличие не заменяет физическую проверку']];
    document.getElementById('officeOrderKpis').replaceChildren(...kpis.map(([title,value,caption])=>{const a=document.createElement('a');a.href='#orders/'+(title==='Нужно произвести'?'need-production':'all');a.className='office-kpi';for(const [tag,text]of [['span',title],['strong',value],['small',caption]]){const el=document.createElement(tag);el.textContent=text;a.append(el)}return a}));
+   const manualByKey=new Map([...(latest?.data?.manualExceptions||[]),...(latest?.data?.orders||[])].filter(o=>o.source==='wb'&&o.items.some(i=>manualItemReason(o.source,i.sku))).map(o=>[o.order_key,o]));
+   manualList.replaceChildren(...[...manualByKey.values()].map(o=>{const li=document.createElement('li');li.textContent=o.external_id+' · '+o.items.filter(i=>manualItemReason(o.source,i.sku)).map(i=>i.sku+' × '+i.quantity).join('; ')+' · статус источника '+o.source_status+' · '+({history:'история',transit:'доставка',active:'активный',review:'уточнение'}[o.queue_bucket]||'статус не подтверждён')+' · без производственного задания и списания';return li}));
+   manualNote.textContent=latest?.data?.manualExceptionsComplete===true?'Пламя1 отсутствует в МойСклад. Обработать вручную; исторический заказ не считается новым.':'Выборка ручных исключений ещё не подтверждена или неполная; отсутствие строк не означает отсутствие заказа.';
    rows.replaceChildren();const needOnly=location.hash.split('/')[1]==='need-production';
    for(const e of filtered.filter(e=>!needOnly||e.need)){const o=e.order,tr=document.createElement('tr');for(const value of [o.external_id+' · '+({ozon:'Ozon',ozon_fbo:'Ozon FBO',wb:'WB',yandex:'Яндекс'}[o.source]||o.source),o.items.map(i=>i.name||i.sku||i.itemId).join('; '),o.items.map(i=>i.quantity).join('; '),'Не указан']){const td=document.createElement('td');td.textContent=value;tr.append(td)}const td=document.createElement('td'),d=document.createElement('details'),s=document.createElement('summary');s.textContent=e.status;d.append(s);for(const text of [e.action,'Статус источника: '+o.source_status,'Снимок: '+o.source_checked_at]){const p=document.createElement('p');p.textContent=text;d.append(p)}const b=document.createElement('button');b.type='button';b.textContent='Открыть проверки и действия';b.addEventListener('click',()=>{detail.open=true;document.getElementById('persistentOrdersRefresh')?.scrollIntoView({block:'center'})});d.append(b);td.append(d);tr.append(td);rows.append(tr)}
    note.textContent=latest?'Показано '+rows.children.length+' заказов из сохранённой выборки (до 150). Полнота источников: '+(latest.data.coverageDiagnostics?.complete===true?'подтверждена':'не доказана')+'. История и доставка остаются в подробных проверках.':'Нет загруженных данных. Откройте проверки и нажмите «Показать сохранённую очередь»; доступность не считается нулевой.';

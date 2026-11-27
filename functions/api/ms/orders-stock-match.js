@@ -299,10 +299,14 @@ export function createOrderStockMatch({fetcher=fetch}={}){
   catch{return json(503,{code:'owner_auth_unavailable'});}
   if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||/\s/.test(env.MS_API_TOKEN))
    return json(503,{code:'ms_token_unavailable'});
-  let input,targets;
+  let input,targets,nameQuery=null;
   try{if(Number(request.headers.get('content-length'))>4096)throw Error();
    input=await request.json();
    if(!input||typeof input!=='object'||Array.isArray(input))throw Error();
+   if(Object.hasOwn(input,'nameQuery')){
+    if(Object.keys(input).sort().join(',')!=='entries,nameQuery'||!Array.isArray(input.entries)||input.entries.length!==1||!safeSku(input.nameQuery)||input.nameQuery.length<3)throw Error();
+    nameQuery=input.nameQuery;input={entries:input.entries};
+   }
    if(Array.isArray(input.skus)&&Object.keys(input).length===1){
     if(input.skus.length<1||input.skus.length>MAX_SKUS||
       input.skus.some(x=>!safeSku(x))||new Set(input.skus).size!==input.skus.length)throw Error();
@@ -325,6 +329,17 @@ export function createOrderStockMatch({fetcher=fetch}={}){
   for(const target of targets){
    const {sku,source,sellerAccount}=target;
    try{
+    if(nameQuery){
+     const query=new URL(ROOT+'entity/assortment');query.searchParams.set('search',nameQuery);query.searchParams.set('limit','20');
+     const data=await requestSmall(fetcher,env.MS_API_TOKEN,query);
+     const candidates=data.rows.filter(x=>x.archived!==true&&UUID.test(x.id||'')&&typeof x.name==='string'&&x.name.length>0&&x.name.length<=200).flatMap(x=>{
+      try{const u=new URL(x.meta?.href);const m=/^\/api\/remap\/1\.2\/entity\/(product|variant|bundle)\/([a-f0-9-]{36})$/i.exec(u.pathname);
+       if(u.origin!=='https://api.moysklad.ru'||!m||m[2].toLowerCase()!==x.id.toLowerCase())return [];
+       return [{id:x.id.toLowerCase(),type:m[1],name:x.name,code:typeof x.code==='string'?x.code.slice(0,100):null,automaticApproval:false}];
+      }catch{return []}
+     });
+     matches.push({sku,source,sellerAccount,status:'unmapped_sku',reason:'live_name_search_not_identity',mappingApproved:false,possibleNameCandidates:candidates,liveSearch:{checkedAt:new Date().toISOString(),complete:data.meta.size===data.rows.length,total:data.meta.size},stores:[],accountingTotal:null});continue;
+    }
     let catalog=null;
     try{catalog=await catalogueCandidates(env.MS_PRODUCTION_DB,sku);}catch{}
     // Catalogue is evidence for review, not a replacement for live stock or approved identity.

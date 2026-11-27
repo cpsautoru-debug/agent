@@ -1,3 +1,4 @@
+import {manualItemReason} from '../../../web/office/manual-item-policy.mjs';
 import {verifySession} from '../auth/session.js';
 
 // Owner-only SKU crosswalk. Writes ONLY the separate office D1 mapping table.
@@ -64,6 +65,7 @@ export function createSkuLinkHandler({fetcher=fetch}={}){
    if(Number(request.headers.get('content-length'))>1800)throw Error();
    payload=await request.json();if(!validSkuLink(payload))throw Error();
   }catch{return json(400,{code:'invalid_link'});}
+  if(manualItemReason(payload.source,payload.sku))return json(409,{code:'manual_processing_required'});
   // Never silently replace an existing owner-approved mapping.
   try{
    const old=await db.prepare(SQL_FIND)

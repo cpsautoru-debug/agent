@@ -1,3 +1,4 @@
+import {manualItemReason} from './manual-item-policy.mjs';
 // Explicit owner-reviewed SKU mapping from saved D1 orders.
 // Never approves name-only candidates or modifies MoySklad.
 export function prioritizeUnmappedSkus(orders,approved){
@@ -5,6 +6,7 @@ export function prioritizeUnmappedSkus(orders,approved){
  for(const order of orders||[]){
   if(!['ozon','wb','yandex'].includes(order.source)||order.queue_bucket!=='active')continue;
   for(const item of order.items||[]){
+   if(manualItemReason(order.source,item.sku))continue;
    if(typeof item.sku!=='string'||!item.sku||item.sku.length>100||item.sku.trim()!==item.sku)continue;
    const x={source:order.source,sellerAccount:order.account,sku:item.sku};
    const key=JSON.stringify([x.source,x.sellerAccount,x.sku]);
@@ -47,6 +49,11 @@ if(typeof document!=='undefined')(()=>{
     JSON.stringify([x.source,x.seller_account,x.marketplace_sku])));
    batchEntries=prioritizeUnmappedSkus(queue.orders,approved);
    for(const x of batchEntries)entries.set(key(x),x);
+   for(const o of queue.orders.filter(o=>o.queue_bucket==='review'&&['ozon','wb','yandex'].includes(o.source)))for(const item of o.items||[]){
+    if(typeof item.sku!=='string'||!item.sku||manualItemReason(o.source,item.sku))continue;
+    if(o.source==='ozon'&&o.account!=='171189')continue;
+    const x={source:o.source,sellerAccount:o.account,sku:item.sku};if(!approved.has(key(x)))entries.set(key(x),x);
+   }
    batch.disabled=!batchEntries.length;
    // Keep explicit deep links for review/history; never include them in the active batch.
    if(target&&!entries.has(target)&&!approved.has(target)){
@@ -81,7 +88,7 @@ if(typeof document!=='undefined')(()=>{
    for(const item of list){
      const div=document.createElement('div');
      const p=document.createElement('p');
-     p.textContent=item.name+' · '+item.type+' · UUID '+item.id;
+     p.textContent=item.name+(item.code?' · код '+item.code:'')+' · '+item.type+' · UUID '+item.id;
      const button=document.createElement('button');button.type='button';
      button.className='ms-production-detail-button';
      button.textContent='Подтвердить после сверки карточки';
@@ -198,6 +205,27 @@ if(typeof document!=='undefined')(()=>{
   }catch(e){status.textContent='Пакетная проверка не завершена: '+String(e.message).slice(0,100);}
   finally{busy=false;batch.disabled=false;check.disabled=false;load.disabled=false;}
  }
+ const tools=document.createElement('div');tools.className='ms-sites-steps';
+ const qLabel=document.createElement('label');qLabel.textContent='Поиск свежей карточки по названию или коду';const query=document.createElement('input');query.type='search';query.id='savedSkuLiveQuery';query.maxLength=100;qLabel.append(query);
+ const live=document.createElement('button');live.type='button';live.id='savedSkuLiveSearch';live.className='ms-production-detail-button';live.textContent='Найти в актуальном API МойСклад';
+ const uLabel=document.createElement('label');uLabel.textContent='Утверждённый UUID товара МойСклад';const uuid=document.createElement('input');uuid.id='savedSkuApprovedUuid';uuid.maxLength=36;uLabel.append(uuid);
+ const exact=document.createElement('button');exact.type='button';exact.id='savedSkuApproveUuid';exact.className='ms-production-detail-button';exact.textContent='Сохранить утверждённый UUID';
+ tools.append(qLabel,live,uLabel,exact);candidateArea.before(tools);
+ live.addEventListener('click',async()=>{
+  const entry=entries.get(select.value);if(busy||!entry||query.value.trim().length<3)return;
+  busy=true;live.disabled=true;candidateArea.replaceChildren();status.textContent='Ищем свежие карточки напрямую в API, без перезагрузки каталога…';
+  try{const data=await json('/api/ms/orders-stock-match',{method:'POST',body:JSON.stringify({entries:[entry],nameQuery:query.value.trim()})});const found=data.matches?.[0];
+   if(data.code!=='ms_orders_stock_match'||data.readOnly!==true||data.changedRecords!==0||!found?.liveSearch)throw Error(found?.reason||'live_search_unverified');
+   showManualCandidates(entry,found.possibleNameCandidates||[]);status.textContent='Живой поиск: '+found.liveSearch.total+' карточек; '+(found.liveSearch.complete?'выборка полная.':'показана ограниченная часть.')+' Название не подтверждает соответствие автоматически.';
+  }catch(e){status.textContent='Живой поиск не завершён: '+String(e.message).slice(0,100)}finally{busy=false;live.disabled=false}
+ });
+ exact.addEventListener('click',async()=>{
+  const entry=entries.get(select.value),itemId=uuid.value.trim().toLowerCase();if(busy||!entry||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(itemId))return;
+  if(!confirm('Сохранить уже утверждённую связь '+entry.source+' / '+entry.sellerAccount+' / '+entry.sku+' → UUID '+itemId+'? Сервер проверит карточку. Запись только в справочник офиса.'))return;
+  busy=true;exact.disabled=true;
+  try{const data=await json('/api/ms/order-sku-links',{method:'POST',body:JSON.stringify({...entry,itemId,itemType:'product'})});if(data.code!=='sku_link_approved'||data.itemId!==itemId)throw Error('approval_not_verified');approved.add(key(entry));entries.delete(key(entry));status.textContent='Сохранена утверждённая связь: '+entry.sku+' → '+data.itemName+' · UUID '+data.itemId+'. МойСклад не изменён.';candidateArea.replaceChildren();}
+  catch(e){status.textContent='Связь не сохранена: '+String(e.message).slice(0,100)}finally{busy=false;exact.disabled=false}
+ });
  batch.addEventListener('click',inspectBatch);
  load.addEventListener('click',()=>loadSaved());
  check.addEventListener('click',inspect);

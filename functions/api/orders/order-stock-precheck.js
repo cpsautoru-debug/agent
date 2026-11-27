@@ -1,3 +1,4 @@
+import {manualItemReason} from '../../../web/office/manual-item-policy.mjs';
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
 import {projectOrderLine} from './order-availability.js';
@@ -156,6 +157,8 @@ export function createStockPrecheck({fetcher=fetch}={}){
    const ordered=item.quantity;
    if(!Number.isFinite(ordered)||ordered<=0)
     return response(503,{code:'invalid_order_quantity',changedRecords:0});
+   const manualReason=manualItemReason(order.source,item.sku);
+   if(manualReason){rows.push({key:key+':line:'+position,item:item.sku,ordered,itemId:null,itemType:null,stores:[],stockEvidence:'not_verified',manualReason});continue;}
    let id=null,type=null;
    if(MANUAL.includes(order.source)){
     if(UUID.test(item.itemId||'')&&TYPES.includes(item.itemType)){
