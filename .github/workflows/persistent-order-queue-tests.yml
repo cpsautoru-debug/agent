@@ -1,7 +1,7 @@
 name: Persistent order queue safety checks
 on:
   push:
-    branches: [office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
+    branches: [office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
     paths:
       - 'functions/api/orders/persistent-queue.js'
       - 'functions/api/orders/warehouse-route-approval.js'
