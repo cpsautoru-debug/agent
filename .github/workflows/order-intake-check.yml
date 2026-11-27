@@ -1,12 +1,15 @@
 name: Marketplace order intake focused checks
 on:
   push:
-    branches: [feature/marketplace-agents-staging, office-21-stage9-ozon-scope, office-21-stage9-wb-scope]
+    branches: [feature/marketplace-agents-staging, office-21-stage9-ozon-scope, office-21-stage9-wb-scope, office-21-catalog-match]
     paths:
       - 'functions/api/marketplace/order-import-preview.js'
       - 'functions/api/yandex/orders-preview.js'
       - 'functions/api/ms/order-sku-links.js'
       - 'functions/api/ms/orders-stock-match.js'
+      - 'functions/api/ms/catalog-match.mjs'
+      - 'tests/catalog-match.test.mjs'
+      - 'web/office/saved-sku-confirmation.mjs'
       - 'functions/api/ms/manual-orders-preview.js'
       - 'web/office/orders-intake-board.mjs'
       - 'web/office/manual-moysklad-orders.mjs'
@@ -25,6 +28,9 @@ on:
       - 'functions/api/yandex/orders-preview.js'
       - 'functions/api/ms/order-sku-links.js'
       - 'functions/api/ms/orders-stock-match.js'
+      - 'functions/api/ms/catalog-match.mjs'
+      - 'tests/catalog-match.test.mjs'
+      - 'web/office/saved-sku-confirmation.mjs'
       - 'functions/api/ms/manual-orders-preview.js'
       - 'web/office/orders-intake-board.mjs'
       - 'web/office/manual-moysklad-orders.mjs'
@@ -54,4 +60,4 @@ jobs:
       - name: Verify manual MoySklad order marker and exact item linkage
         run: node --test tests/ms-manual-orders-preview.test.mjs
       - name: Verify order intake, SKU mapping, pagination and read-only boundary
-        run: node --test tests/marketplace-order-import-preview.test.mjs tests/yandex-orders-preview.test.mjs tests/ms-order-sku-links.test.mjs tests/ms-orders-stock-match.test.mjs
+        run: node --test tests/marketplace-order-import-preview.test.mjs tests/yandex-orders-preview.test.mjs tests/ms-order-sku-links.test.mjs tests/ms-orders-stock-match.test.mjs tests/catalog-match.test.mjs
