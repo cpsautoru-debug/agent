@@ -2,7 +2,7 @@ name: Catalogue name leads safety checks
 on:
   push:
     branches: [office-21-catalog-name-leads, feature/marketplace-agents-staging]
-    paths: ['functions/api/ms/catalog-match.mjs', 'tests/catalog-name-leads.test.mjs', '.github/workflows/catalog-name-leads.yml']
+    paths: ['web/office/saved-sku-confirmation.mjs', 'functions/api/ms/catalog-match.mjs', 'tests/catalog-name-leads.test.mjs', '.github/workflows/catalog-name-leads.yml']
 permissions:
   contents: read
 jobs:
@@ -13,4 +13,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/catalog-name-leads.test.mjs
+      - run: node --test tests/catalog-name-leads.test.mjs && node --check web/office/saved-sku-confirmation.mjs
