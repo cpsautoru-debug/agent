@@ -42,6 +42,8 @@ export function classifyMarketplaceOrder(source,status){
   if(source==='ozon_fbo')return {queue:'not_for_sewing',reason:'OZON_FBO_ALREADY_SUPPLIED_TO_MARKETPLACE'};
   if(source==='wb'&&status==='new_fbs_assembly_order')
     return {queue:'candidate_needs_inventory',reason:'WB_NEW_FBS_REQUIRES_STOCK_CHECK'};
+  if(source==='wb'&&status==='wb_status_unverified')return {queue:'unverified',reason:'WB_STATUS_UNVERIFIED'};
+  if(source==='wb'&&status==='wb_confirmed_assembly')return {queue:'unverified',reason:'WB_ASSEMBLY_REQUIRES_REVIEW'};
   if(source!=='ozon')return {queue:'not_for_sewing',reason:'UNKNOWN_SOURCE'};
   if(status==='awaiting_packaging')
     return {queue:'candidate_needs_inventory',reason:'OZON_AWAITING_PACKAGING'};
@@ -83,7 +85,7 @@ export function normalizeMarketplaceOrders(source,body,account){
         throw Error('unmapped_order_line');
       return {sku,quantity:count,transaction:marketplaceLineFacts(source,p),assortmentVerified:false};
     });
-    const status=source==='wb'?'new_fbs_assembly_order':
+    const status=source==='wb'?(x.verifiedStatus||'new_fbs_assembly_order'):
       safe(x.status)?x.status:'unknown';
     const queue=classifyMarketplaceOrder(source,status);
     return {externalKey:code,source,status,items, transaction:{scheme:source==='ozon_fbo'?'FBO':'FBS',createdAt:iso(source==='wb'?x.createdAt:x.created_at),processingAt:iso(x.in_process_at)},
@@ -541,6 +543,60 @@ export async function findMoyskladNameSuggestion(fetcher,token,orders){
   }
 }
 
+// Read-only, bounded snapshot. Historical rows do not carry current status.
+export function classifyWbStatus(s){
+ const a=s?.supplierStatus,b=s?.wbStatus;
+ if(['cancel','cancel_carrier'].includes(a)||['canceled','canceled_by_client','declined_by_client','defect','canceled_by_carrier'].includes(b))return 'cancelled';
+ if(b==='sold')return 'delivered';
+ if(a==='complete'&&['waiting','sorted','ready_for_pickup','postponed_delivery','delivering_by_carrier','accepted_by_carrier','sent_to_carrier'].includes(b))return 'wb_in_delivery';
+ if(a==='new'&&b==='waiting')return 'new_fbs_assembly_order';
+ if(a==='confirm'&&b==='waiting')return 'wb_confirmed_assembly';
+ return 'wb_status_unverified';
+}
+export async function readWbOrderSnapshot(fetcher,token,nowMs){
+ const base='https://marketplace-api.wildberries.ru/api/v3/orders';
+ const headers={Authorization:token,Accept:'application/json'};
+ const read=url=>requestJson(fetcher,url,{method:'GET',headers});
+ const fresh=await read(base+'/new');
+ const rows=new Map();
+ const validId=x=>Number.isSafeInteger(x?.id)&&x.id>0;
+ function add(list,allowOverlap){
+  if(!Array.isArray(list)||list.length>MAX_IMPORTED_ORDERS)throw Error('order_feed_limit_reached');
+  const local=new Set();
+  for(const x of list){
+   if(!validId(x)||local.has(x.id))throw Error('order_pagination_unverified');
+   local.add(x.id);
+   if(rows.has(x.id)){
+    const old=rows.get(x.id);
+    if(!allowOverlap||(old.article||old.supplierArticle)!==(x.article||x.supplierArticle))throw Error('order_pagination_unverified');
+   }else rows.set(x.id,x);
+  }
+  if(rows.size>150)throw Error('order_feed_limit_reached');
+ }
+ let next=0,complete=false;
+ const seen=new Set();
+ const end=Math.floor(nowMs/1000),start=end-30*86400;
+ for(let p=0;p<MAX_ORDER_PAGES;p++){
+  const q=new URLSearchParams({limit:'50',next:String(next),dateFrom:String(start),dateTo:String(end)});
+  const result=await read(base+'?'+q);
+  if(!Array.isArray(result?.orders)||result.orders.length>50||!Number.isSafeInteger(result.next)||result.next<0)throw Error('order_pagination_unverified');
+  add(result.orders,false);
+  if(result.next===0){complete=true;break;}
+  if(seen.has(result.next))throw Error('order_pagination_unverified');
+  seen.add(result.next);next=result.next;
+ }
+ if(!complete)throw Error('order_page_limit_reached');
+ add(fresh.orders,true);
+ if(!rows.size)return {orders:[]};
+ const status=await requestJson(fetcher,base+'/status',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({orders:[...rows.keys()]})});
+ if(!Array.isArray(status?.orders)||status.orders.length!==rows.size)throw Error('order_pagination_unverified');
+ const statuses=new Map();
+ for(const x of status.orders){
+  if(!validId(x)||!rows.has(x.id)||statuses.has(x.id))throw Error('order_pagination_unverified');
+  statuses.set(x.id,classifyWbStatus(x));
+ }
+ return {orders:[...rows.values()].map(x=>({...x,verifiedStatus:statuses.get(x.id)}))};
+}
 export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,authorizeServer=null}={}){
   return async({request,env})=>{
     if(request.method!=='GET')return json(405,{code:'method_not_allowed'});
@@ -573,7 +629,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
       if(source==='wb'){
         upstream='https://marketplace-api.wildberries.ru/api/v3/orders/new';
         options={method:'GET',headers:{Authorization:token,Accept:'application/json'}};
-        body=await requestJson(fetcher,upstream,options);
+        body=await readWbOrderSnapshot(fetcher,token,now());
       }else{
         upstream=source==='ozon_fbo'?
           'https://api-seller.ozon.ru/v3/posting/fbo/list':
@@ -684,7 +740,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
         coverage:source==='ozon_fbo'?'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING':
           source==='ozon'?'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
-          'WB_NEW_FBS_ORDERS_API_SNAPSHOT',
+          'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT',
         complete:true,
         sampledAt:new Date(now()).toISOString(),
         duplicateLookupMode:scan?.complete?

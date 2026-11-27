@@ -36,7 +36,7 @@
       'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING':
       d.source==='ozon'?
       'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
-      'WB_NEW_FBS_ORDERS_API_SNAPSHOT')&&
+      'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT')&&
     d.complete===true&&Array.isArray(d.orders)&&d.orders.length<=200&&
     Number.isSafeInteger(d.counts?.received)&&
     d.counts.received===d.orders.length&&
