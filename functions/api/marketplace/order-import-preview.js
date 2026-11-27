@@ -28,11 +28,11 @@ export function externalKey(source,account,id){
 }
 export function buildOzonFbsPreviewBody(nowMs){
   if(!Number.isFinite(nowMs)||nowMs<0)throw Error('invalid_preview_clock');
-  const end=new Date(nowMs),start=new Date(nowMs-7*86400000);
+  const end=new Date(nowMs),start=new Date(nowMs-30*86400000);
   // v4 takes statuses[] (not the deprecated v3 filter.status).
   // Select new FBS assembly work rather than already shipped postings.
   return {filter:{since:start.toISOString(),to:end.toISOString(),
-    statuses:['awaiting_packaging']},
+    statuses:['awaiting_packaging','awaiting_deliver']},
     limit:ORDER_PAGE_LIMIT,sort_dir:'DESC',cursor:''};
 }
 // Dispatch eligibility is intentionally stricter than successful API read.
@@ -587,7 +587,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
             body:JSON.stringify(source==='ozon_fbo'?
               {filter:{since:start.toISOString(),to:end.toISOString()},
                limit:ORDER_PAGE_LIMIT,sort_dir:'DESC',cursor}:
-              {...buildOzonFbsPreviewBody(now()),cursor}),
+              {...buildOzonFbsPreviewBody(end.getTime()),cursor}),
             signal:AbortSignal.timeout(20000)};
           const page=await requestJson(fetcher,upstream,options);
           // v3 FBO normally returns pagination fields at the root. Accept the
@@ -611,7 +611,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         return json(503,{code:'order_feed_limit_reached',source,
           stage:'marketplace',readOnly:true,changedRecords:0,
           approvedForWrite:false,complete:false});
-      if(source==='ozon'&&orders.some(x=>x.status!=='awaiting_packaging'))
+      if(source==='ozon'&&orders.some(x=>!['awaiting_packaging','awaiting_deliver'].includes(x.status)))
         throw Error('ozon_status_filter_unverified');
       if(typeof env.MS_API_TOKEN!=='string'||!env.MS_API_TOKEN||
         /\s/.test(env.MS_API_TOKEN))
@@ -683,7 +683,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
       return json(200,{code:'marketplace_order_import_preview_ok',
         source,readOnly:true,changedRecords:0,approvedForWrite:false,
         coverage:source==='ozon_fbo'?'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING':
-          source==='ozon'?'FBS_AWAITING_PACKAGING_LAST_7_DAYS_COMPLETE':
+          source==='ozon'?'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
           'WB_NEW_FBS_ORDERS_API_SNAPSHOT',
         complete:true,
         sampledAt:new Date(now()).toISOString(),
