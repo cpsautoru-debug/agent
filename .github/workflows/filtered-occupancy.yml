@@ -1,8 +1,8 @@
 name: Filtered occupancy checks
 on:
   push:
-    branches: [office-22-filtered-occupancy, feature/marketplace-agents-staging]
-    paths: ['functions/api/orders/fulfillment-occupancy.mjs', 'functions/api/orders/order-stock-precheck.js', 'tests/fulfillment-occupancy.test.mjs', '.github/workflows/filtered-occupancy.yml']
+    branches: [office-25-first-review-fairness, office-22-filtered-occupancy, feature/marketplace-agents-staging]
+    paths: ['functions/api/orders/scheduled-fulfillment.js', 'tests/scheduled-fulfillment.test.mjs', 'functions/api/orders/fulfillment-occupancy.mjs', 'functions/api/orders/order-stock-precheck.js', 'tests/fulfillment-occupancy.test.mjs', '.github/workflows/filtered-occupancy.yml']
 permissions:
   contents: read
 jobs:
