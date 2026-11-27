@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSession} from '../functions/api/auth/session.js';
-import {sanitizeSourceOrder,validateSourceSnapshot,createPersistentQueue}
+import {sanitizeSourceOrder,validateSourceSnapshot,createPersistentQueue,classifyCurrentOrder}
  from '../functions/api/orders/persistent-queue.js';
 import {classifyOrderBucket,bucketCounts} from '../functions/api/orders/order-buckets.js';
 const origin='https://autosklad63-office-staging.pages.dev';
@@ -104,3 +104,18 @@ test('source-status buckets never authorize sewing for history, delivery or unkn
  assert.equal(classifyOrderBucket({source:'yandex',source_status:'UNKNOWN_NEW_STATUS'}).bucket,'review');
 });
 
+
+test('current snapshot classification uses shared manual source and fails closed on missing evidence',()=>{
+ const stamp='2026-11-27T03:00:00.000Z',older='2026-11-26T03:00:00.000Z';
+ const sync=new Map([['manual',stamp],['ozon',stamp]]);
+ for(const source of ['avito','plamya','dealer_ruslan','dealer_irina']){
+  const row={source,source_status:'Regular',source_checked_at:older};
+  assert.equal(classifyCurrentOrder(row,sync).reason,'not_in_latest_source_snapshot');
+  assert.equal(classifyCurrentOrder({...row,source_checked_at:stamp},sync).reason,'manual_status_requires_verification');
+ }
+ const row={source:'ozon',source_status:'awaiting_packaging',source_checked_at:stamp};
+ assert.equal(classifyCurrentOrder(row,sync).bucket,'active');
+ assert.equal(classifyCurrentOrder(row,new Map()).reason,'source_snapshot_missing');
+ assert.equal(classifyCurrentOrder({...row,source_checked_at:older},sync).bucket,'review');
+ assert.equal(classifyCurrentOrder({...row,source_status:'delivered'},new Map()).bucket,'history');
+});
