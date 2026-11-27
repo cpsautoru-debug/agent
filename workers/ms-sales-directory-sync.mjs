@@ -48,6 +48,15 @@ export async function refreshOrderSource({secret,source,fetcher=fetch,now=Date.n
  if(data.source!==source||data.changedMoySkladRecords!==0||!['persistent_queue_source_saved','scheduled_refresh_reused'].includes(data.code))throw Error('order_sync_unverified');
  return {source,code:data.code};
 }
+export async function resumeFulfillment({secret,fetcher=fetch,now=Date.now}){
+ if(!validBridgeSecret(secret))throw Error('fulfillment_sync_configuration');
+ const path='/api/orders/scheduled-fulfillment',stamp=now();
+ const res=await fetcher(ORIGIN+path,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(90000),headers:{'X-MS-Bridge-Time':String(stamp),'X-MS-Bridge-Signature':await signBridgeRequest(secret,stamp,path)}});
+ if(!res.ok){await res.body?.cancel().catch(()=>{});throw Error('fulfillment_sync_http_'+res.status);}
+ const data=await res.json();
+ if(data.changedMoySkladRecords!==0||!['scheduled_fulfillment_idle','scheduled_fulfillment_checked'].includes(data.code))throw Error('fulfillment_sync_unverified');
+ return data.code;
+}
 // No public fetch route. No writes to MoySklad. Disabled until explicitly configured.
 export default {async scheduled(event,env){
  if(env.MS_SALES_DIRECTORY_SYNC!=='enabled')return;
@@ -67,6 +76,10 @@ export default {async scheduled(event,env){
   catch(error){const message=String(error?.message||'');console.warn('order_sync_failed',rotation.source,/^order_sync_[a-z0-9_]{1,110}$/.test(message)?message:'order_sync_transport_or_runtime_failure');throw error;}
   finally{
    if(rotation.directory)await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:rotation.directory});
+  }
+  if(env.MS_FULFILLMENT_AUTO_SCAN==='enabled'){
+   try{await resumeFulfillment({secret:env.MS_SALES_BRIDGE_SECRET});}
+   catch{console.warn('scheduled_fulfillment_failed');}
   }
   return;
  }
