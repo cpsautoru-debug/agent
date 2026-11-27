@@ -29,3 +29,11 @@ test('WB manual exception cannot be mapped or converted to a numeric allocation'
  let calls=0;const h=createSkuLinkHandler({fetcher:async()=>{calls++;throw Error('no upstream')}});const r=await h({request:new Request(origin+'/api/ms/order-sku-links',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',Cookie:(await createSession('synthetic-owner',secret)).split(';')[0]},body:JSON.stringify({source:'wb',sellerAccount:'synthetic-wb',sku:'Пламя1',itemId:id,itemType:'product'})}),env});assert.equal(r.status,409);assert.equal((await r.json()).code,'manual_processing_required');assert.equal(calls,0);
  const row={key:'SYNTHETIC:1',item:'Пламя1',itemId:id,ordered:1,manualReason:'wb_plamya1_manual'};const review=buildReview({status:'warehouse_verified'},[row],{status:'calculated',lines:[{...row,warehouseCovered:0,plannedCovered:0,missing:1}]});assert.equal(review.lines[0].reason,'wb_plamya1_manual');assert.equal(review.lines[0].missing,null);
 });
+import {DatabaseSync} from 'node:sqlite';
+import {ORDER_QUEUE_READ_SQL} from '../functions/api/orders/persistent-queue.js';
+test('current order candidates survive more than 150 newer historical WB rows',()=>{
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE office_order_queue(order_key TEXT,source TEXT,account TEXT,external_id TEXT,source_status TEXT,production_disposition TEXT,items_json TEXT,ms_customerorder_id TEXT,workflow_status TEXT,source_checked_at TEXT,last_seen_at TEXT)');
+ const insert=db.prepare('INSERT INTO office_order_queue VALUES (?,?,?,?,?,?,?,?,?,?,?)');for(let i=0;i<160;i++)insert.run('synthetic-history-'+i,'wb','synthetic','h'+i,'delivered','not_for_sewing','[]',null,null,'2026-11-27','2026-11-27');
+ for(const [key,source,account,status] of [['synthetic-ozon','ozon','171189','awaiting_deliver'],['synthetic-yandex','yandex','149082506','PROCESSING']])insert.run(key,source,account,key,status,'unverified','[]',null,null,'2026-11-26','2026-11-26');
+ const rows=db.prepare(ORDER_QUEUE_READ_SQL).all();assert.equal(rows.length,150);assert.ok(rows.slice(0,2).some(x=>x.order_key==='synthetic-ozon'));assert.ok(rows.slice(0,2).some(x=>x.order_key==='synthetic-yandex'));db.close();
+});

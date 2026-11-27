@@ -1,3 +1,5 @@
+// Display priority only. Current-snapshot classification and completeness gates stay authoritative.
+export const ORDER_QUEUE_READ_SQL="SELECT order_key,source,account,external_id,source_status,production_disposition,items_json,ms_customerorder_id,workflow_status,source_checked_at,last_seen_at FROM office_order_queue ORDER BY CASE WHEN source='ozon' AND account='171189' AND source_status IN ('awaiting_packaging','awaiting_deliver') THEN 0 WHEN source='yandex' AND account='149082506' AND source_status IN ('PROCESSING','PENDING','RESERVED') THEN 0 WHEN source='wb' AND source_status IN ('new_fbs_assembly_order','wb_confirmed_assembly') THEN 0 WHEN source IN ('avito','plamya','dealer_ruslan','dealer_irina') AND production_disposition!='not_for_sewing' THEN 0 ELSE 1 END,last_seen_at DESC,order_key LIMIT 150";
 import {buildPickingPreview} from './fulfillment-picking.mjs';
 import {buildDemand} from './fulfillment-demand.mjs';
 import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
@@ -133,7 +135,7 @@ export function createPersistentQueue({
    if(url.search)return reply(400,{code:'invalid_scope'});
    try{
     const [orders,sync]=await Promise.all([
-     db.prepare('SELECT order_key,source,account,external_id,source_status,production_disposition,items_json,ms_customerorder_id,workflow_status,source_checked_at,last_seen_at FROM office_order_queue ORDER BY last_seen_at DESC,order_key LIMIT 150').all(),
+     db.prepare(ORDER_QUEUE_READ_SQL).all(),
      db.prepare('SELECT source,last_success_at,coverage,rows_seen,note FROM office_order_queue_sync ORDER BY source').all()
     ]);
     if(!Array.isArray(orders.results)||!Array.isArray(sync.results))throw Error();
