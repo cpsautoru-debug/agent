@@ -1,3 +1,4 @@
+import {manualItemReason} from './manual-item-policy.mjs';
 // Staging owner-only D1 mirror. Never writes to MoySklad.
 (()=>{
  'use strict';
@@ -77,13 +78,14 @@
      cell(tr,line.plannedCovered);
      cell(tr,line.missing);
      cell(tr,check?.checkedAt?new Date(check.checkedAt).toLocaleString('ru-RU',{timeZone:'Europe/Samara'}):null);
-     let statusLabel=line.status==='sewing_required'
+     const manual=manualItemReason(order.source,line.item);
+     let statusLabel=manual?'Ручная обработка · Пламя1, без задания и списания':line.status==='sewing_required'
        ?'Требуется пошив · '+line.missing+' шт.'
        :line.status==='production_covered'?'Покрыто существующим производством'
        :line.status==='warehouse_covered'?'Учётно обеспечено складом'
        :'Требует уточнения · '+(reasons[line.reason]||'Нет актуального расчёта');
      const approval=readiness.get(order.order_key);
-     if(line.status!=='sewing_required'&&line.status!=='production_covered'&&
+     if(!manual&&line.status!=='sewing_required'&&line.status!=='production_covered'&&
         line.status!=='warehouse_covered'&&approval){
        const issues=[];
        if(!approval.warehouseConfirmed)issues.push('подтвердить склад кабинета');
@@ -92,7 +94,7 @@
        if(issues.length)statusLabel+=' · '+issues.join('; ');
      }
      cell(tr,statusLabel);
-     if(approval&&!['sewing_required','production_covered','warehouse_covered'].includes(line.status)){
+     if(!manual&&approval&&!['sewing_required','production_covered','warehouse_covered'].includes(line.status)){
        const actionCell=document.createElement('span');
        const addAction=(label,event,detail)=>{
          const button=document.createElement('button');
