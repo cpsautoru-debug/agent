@@ -1,3 +1,4 @@
+import {syncAssortmentPage} from './ms-assortment-sync.mjs';
 import {signBridgeRequest,validBridgeSecret} from './ms-production-bridge-auth.js';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const TYPES=['counterparty','saleschannel','organization','store'];
@@ -51,6 +52,12 @@ export default {async scheduled(event,env){
  if(env.MS_SALES_DIRECTORY_SYNC!=='enabled')return;
  const minute=Math.floor(event.scheduledTime/60000);
  const slot=Math.floor(minute/5);
+ // Opt-in catalogue read, independent of existing nine-slot rotation.
+ // At most one additional page per 15 minutes; errors never block order sync.
+ if(env.MS_ASSORTMENT_SYNC==='enabled'&&slot%3===0){
+  try{await syncAssortmentPage({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET});}
+  catch(error){console.warn('assortment_sync_failed',String(error?.message||'unknown').slice(0,100));}
+ }
  // One operation per tick. With a five-minute Cron, every directory and source
  // is visited once per 45 minutes. Keep legacy directory-only mode by default.
  if(env.MS_ORDER_AUTO_SYNC==='enabled'){
