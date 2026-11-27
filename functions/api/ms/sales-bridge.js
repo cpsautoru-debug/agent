@@ -3,7 +3,7 @@ import {directoryPage} from '../orders/ms-sales-directory.js';
 import {createMsReadClient} from '../orders/ms-sales-read-client.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/ms/sales-bridge';
-const TYPES=['counterparty','saleschannel','organization','store'];
+const TYPES=['counterparty','saleschannel','organization','store','assortment'];
 const reply=(status,data)=>new Response(JSON.stringify({readOnly:true,changedRecords:0,...data}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
 export function createSalesBridge({fetcher=fetch,now=Date.now}={}){
  return async({request,env})=>{
