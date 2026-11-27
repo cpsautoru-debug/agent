@@ -1,3 +1,4 @@
+import {manualItemReason} from '../../../web/office/manual-item-policy.mjs';
 import {classifyOrderBucket} from './order-buckets.js';
 import {calculateFulfillmentCohort} from './fulfillment-allocation.mjs';
 
@@ -24,6 +25,14 @@ export function assembleLiveCohort(lines,msClaims,itemId,storeId,targetOrderKey)
   const bucket=classifyOrderBucket({source:row.source,source_status:row.source_status}).bucket;
   if(bucket==='review')return blocked('marketplace_coverage_unverified');
   if(bucket!=='active')continue;
+  // Owner confirmed WB Plamya1 uses independent stock on 2026-11-27.
+  // Only exclude the exact approved cabinet/SKU, with no conflicting mapping.
+  if(manualItemReason(row.source,row.sku)){
+   if(row.order_key.split(':')[2]!=='wb-primary'||row.ms_item_id!=null||
+      !Number.isSafeInteger(row.quantity)||row.quantity<=0)
+    return blocked('manual_stock_scope_unverified');
+   continue;
+  }
   if(!Number.isSafeInteger(row.quantity)||row.quantity<=0||
      !ID.test(row.ms_item_id||'')||!ID.test(row.store_id||''))
    return blocked('marketplace_claim_unmapped');
@@ -69,6 +78,7 @@ export async function readLiveMarketplaceLines(db){
  const result=await db.prepare(`SELECT q.order_key,q.source,q.source_status,
   CAST(j.key AS INTEGER) AS line_index,
   json_extract(j.value,'$.quantity') AS quantity,
+  json_extract(j.value,'$.sku') AS sku,
   l.ms_item_id,r.store_id
  FROM office_order_queue q
  JOIN office_order_queue_sync s ON s.source=q.source AND s.last_success_at=q.source_checked_at
