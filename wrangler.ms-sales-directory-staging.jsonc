@@ -20,5 +20,13 @@
     "MS_ASSORTMENT_SYNC": "enabled",
     "MS_ORDER_AUTO_SYNC": "enabled",
     "MS_SALES_DIRECTORY_SYNC": "enabled"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false
+    }
   }
 }
