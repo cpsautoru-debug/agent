@@ -44,7 +44,10 @@ import {manualItemReason} from './manual-item-policy.mjs';
    const checks=new Map((data.fulfillment||[]).map(check=>[check.orderKey,check]));
    const readiness=new Map((data.approvalReadiness||[]).map(x=>[x.orderKey,x]));
    const entries=active.flatMap(order=>{
-     const check=checks.get(order.order_key);
+     const saved=checks.get(order.order_key);
+     const age=Date.now()-Date.parse(saved?.checkedAt||'');
+     const verified=data.coverageDiagnostics?.complete===true&&data.operationalQueueTruncated===false&&age>=0&&age<=1800000&&saved?.sourceCoverage?.complete===true;
+     const check=saved?{...saved,lines:(saved.lines||[]).map(line=>verified?line:{...line,status:'requires_review',warehouseCovered:null,plannedCovered:null,missing:null,reason:'marketplace_coverage_unverified'})}:null;
      return (check?.lines||order.items.map(i=>({item:i.name||i.sku||i.itemId,
        ordered:i.quantity}))).map(line=>({order,line,check,store:check?.warehouse?.storeName||'Не подтверждён'}));
    });
@@ -148,14 +151,16 @@ import {manualItemReason} from './manual-item-policy.mjs';
      history:'История — не направлять в пошив',
      review:'Требует уточнения — не направлять в пошив'};
    tbody.replaceChildren();
-   const matching=data.orders.filter(o=>current==='all'||o.queue_bucket===current);
+   const dispatch=o=>o.queue_bucket==='review'&&o.queue_reason==='awaiting_dispatch_no_sewing';
+   const matching=data.orders.filter(o=>current==='all'||(current==='dispatch'?dispatch(o):o.queue_bucket===current&&!dispatch(o)));
+   const dispatchCount=data.orders.filter(dispatch).length;
    for(const order of matching){
      const tr=document.createElement('tr');
      cell(tr,order.source+' · '+order.account);
      cell(tr,order.external_id);
      cell(tr,order.items.map(i=>(i.sku||i.name||i.itemId)+' × '+i.quantity).join('; '));
      cell(tr,order.source_status);
-     cell(tr,labels[order.queue_bucket]||labels.review);
+     cell(tr,dispatch(order)?'Ожидает отгрузки по данным Ozon — без пошива':labels[order.queue_bucket]||labels.review);
      cell(tr,order.source_checked_at);
      const td=document.createElement('td');
      const entry=workflowByKey.get(order.order_key);
@@ -193,7 +198,7 @@ import {manualItemReason} from './manual-item-policy.mjs';
    table.hidden=!matching.length;
    if(bucketSummary)bucketSummary.textContent='В показанной выборке: активные '+counts.active+
      ' · доставка '+counts.transit+' · история '+counts.history+
-     ' · уточнение '+counts.review+'. Выбрано: '+matching.length+'.';
+     ' · ожидают отгрузки '+dispatchCount+' · уточнение '+Math.max(0,counts.review-dispatchCount)+'. Выбрано: '+matching.length+'.';
    const sc=data.sources.map(x=>x.source+': '+x.rows_seen+' ('+x.coverage+')').join(' · ');
    const unknownCoverage=data.coverageDiagnostics?.complete===false?
      ' Полный охват открытых обязательств НЕ доказан для: '+
@@ -204,6 +209,7 @@ import {manualItemReason} from './manual-item-policy.mjs';
      '. Категории отражают только статус источника; готовность, склад и отгрузка не подтверждены.'+
      unknownCoverage;
  }
+ if(bucketSelect&&!Array.from(bucketSelect.options).some(o=>o.value==='dispatch'))bucketSelect.add(new Option('Ожидают отгрузки','dispatch'));
  if(bucketSelect)bucketSelect.addEventListener('change',()=>{if(latest)render(latest);});
  async function precheck(order,button){
    if(working)return;

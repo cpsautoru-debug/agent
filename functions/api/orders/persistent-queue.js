@@ -1,3 +1,10 @@
+export function maskUnverifiedFulfillment(fulfillment,coverageDiagnostics,operationalQueueTruncated,now=Date.now()){
+ return fulfillment.map(review=>{
+  const age=now-Date.parse(review.checkedAt||'');
+  const valid=coverageDiagnostics?.complete===true&&operationalQueueTruncated===false&&age>=0&&age<=1800000&&review.sourceCoverage?.complete===true;
+  return valid?review:{...review,lines:(review.lines||[]).map(line=>({...line,status:'requires_review',warehouseCovered:null,plannedCovered:null,missing:null,productionTaskIds:[],reason:'marketplace_coverage_unverified'}))};
+ });
+}
 // Display priority only. Current-snapshot classification and completeness gates stay authoritative.
 export const ORDER_QUEUE_READ_SQL="SELECT order_key,source,account,external_id,source_status,production_disposition,items_json,ms_customerorder_id,workflow_status,source_checked_at,last_seen_at FROM office_order_queue ORDER BY CASE WHEN source='ozon' AND account='171189' AND source_status IN ('awaiting_packaging','awaiting_deliver') THEN 0 WHEN source='yandex' AND account='149082506' AND source_status IN ('PROCESSING','PENDING','RESERVED') THEN 0 WHEN source='wb' AND source_status IN ('new_fbs_assembly_order','wb_confirmed_assembly') THEN 0 WHEN source IN ('avito','plamya','dealer_ruslan','dealer_irina') AND production_disposition!='not_for_sewing' THEN 0 ELSE 1 END,last_seen_at DESC,order_key LIMIT 150";
 // Conservative SQL superset of active/review: exclude only known terminal/transit statuses.
@@ -212,8 +219,10 @@ export function createPersistentQueue({
     let operationalCount=null;
     try{operationalCount=(await db.prepare(OPERATIONAL_COUNT_SQL).first())?.n??null;}catch{}
     const operationalQueueTruncated=operationalTruncated(displayed,operationalCount);
-    const demand=buildDemand(displayed,fulfillment,coverageDiagnostics,{truncated:operationalQueueTruncated});
-    return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
+    // Do not expose a stale or globally unverified allocation as actionable evidence.
+    const safeFulfillment=maskUnverifiedFulfillment(fulfillment,coverageDiagnostics,operationalQueueTruncated);
+    const demand=buildDemand(displayed,safeFulfillment,coverageDiagnostics,{truncated:operationalQueueTruncated});
+    return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment:safeFulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,operationalCount,operationalQueueTruncated,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
      orders:displayed,sources:sync.results,manualExceptions,manualExceptionsComplete,
