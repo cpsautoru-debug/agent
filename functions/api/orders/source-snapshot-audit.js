@@ -1,14 +1,15 @@
 import {verifySession} from '../auth/session.js';
 import {readWbOrderSnapshot,normalizeMarketplaceOrders} from '../marketplace/order-import-preview.js';
+import {createManualOrdersPreview} from '../ms/manual-orders-preview.js';
 import {createYandexOrdersPreview} from '../yandex/orders-preview.js';
 import {sanitizeSourceOrder,validateSourceSnapshot} from './persistent-queue.js';
 const ORIGIN='https://autosklad63-office-staging.pages.dev',PATH='/api/orders/source-snapshot-audit';
-const COVERAGE={wb:'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT',yandex:'BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE'};
+const COVERAGE={manual:'MANUAL_MARKED_CUSTOMERORDERS_COMPLETE',wb:'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT',yandex:'BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE'};
 const reply=(status,data)=>new Response(JSON.stringify({...data,readOnly:true,allOpenVerified:false}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','Vary':'Cookie'}});
 function itemSignature(items){
  if(!Array.isArray(items)||!items.length)throw Error('invalid_items');
  const totals=new Map();
- for(const x of items){if(typeof x.sku!=='string'||!x.sku||!Number.isSafeInteger(x.quantity)||x.quantity<1)throw Error('invalid_item');totals.set(x.sku,(totals.get(x.sku)||0)+x.quantity);}
+ for(const x of items){const manual=typeof x.itemId==='string';const key=manual?JSON.stringify([x.itemType,x.itemId.toLowerCase()]):x.sku;if(typeof key!=='string'||!key||!Number.isFinite(x.quantity)||x.quantity<=0||(!manual&&!Number.isSafeInteger(x.quantity))||(manual&&!['product','variant','bundle'].includes(x.itemType)))throw Error('invalid_item');totals.set(key,(totals.get(key)||0)+x.quantity);}
  return JSON.stringify([...totals].sort(([a],[b])=>a<b?-1:a>b?1:0));
 }
 export function compareSnapshots(baseline,live){
@@ -22,6 +23,13 @@ async function liveRead(source,env,clock){
  if(source==='wb'){
   if(!env.WB_ORDERS_API_TOKEN)throw Error('missing_token');
   return normalizeMarketplaceOrders('wb',await readWbOrderSnapshot(fetch,env.WB_ORDERS_API_TOKEN,clock),'wb-primary').map(o=>sanitizeSourceOrder('wb',o));
+ }
+ if(source==='manual'){
+  const internal=new Request(ORIGIN+'/api/ms/manual-orders-preview');
+  const handler=createManualOrdersPreview({authorizeServer:async r=>r===internal});
+  const response=await handler({request:internal,env});
+  if(!response.ok)throw Error('upstream_unverified');
+  return validateSourceSnapshot('manual',await response.json());
  }
  const internal=new Request(ORIGIN+'/api/yandex/orders-preview');
  const handler=createYandexOrdersPreview({now:()=>clock,fromDate:'2026-10-01',authorizeServer:async r=>r===internal});
@@ -46,7 +54,8 @@ export function createSourceSnapshotAudit({verify=verifySession,now=Date.now,rea
    const clock=now(),sync=await db.prepare('SELECT last_success_at,coverage,rows_seen FROM office_order_queue_sync WHERE source=?').bind(source).first();
    const age=clock-Date.parse(sync?.last_success_at||'');
    if(!(age>=0&&age<=1800000)||sync.coverage!==COVERAGE[source]||!Number.isSafeInteger(sync.rows_seen)||sync.rows_seen<0||sync.rows_seen>300)return reply(409,{code:'baseline_unverified',source});
-   const {results}=await db.prepare('SELECT order_key,source_status,items_json FROM office_order_queue WHERE source=? AND source_checked_at=? LIMIT 301').bind(source,sync.last_success_at).all();
+   const query=source==='manual'?db.prepare("SELECT order_key,source_status,items_json FROM office_order_queue WHERE source IN ('avito','plamya','dealer_ruslan','dealer_irina') AND source_checked_at=? LIMIT 301").bind(sync.last_success_at):db.prepare('SELECT order_key,source_status,items_json FROM office_order_queue WHERE source=? AND source_checked_at=? LIMIT 301').bind(source,sync.last_success_at);
+   const {results}=await query.all();
    if(!Array.isArray(results)||results.length!==sync.rows_seen)return reply(409,{code:'baseline_unverified',source});
    const baseline=results.map(r=>({key:r.order_key,sourceStatus:r.source_status,items:JSON.parse(r.items_json)}));
    const live=await read(source,env,clock);
