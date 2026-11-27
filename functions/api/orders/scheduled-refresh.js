@@ -32,8 +32,12 @@ export function createScheduledRefresh({now=Date.now,fetcher=fetch,makeMarketpla
     return reply(503,{code:'scheduled_source_unverified',source,reason,upstreamStatus:response.status});
    }
    const upstream=await response.json();
-   return await save(db,source,upstream,now);
-  }catch{return reply(503,{code:'scheduled_refresh_failed',source});}
+   const saved=await save(db,source,upstream,now);
+   if(saved.ok)return saved;
+   let reason='snapshot_save_failed';
+   try{const data=await saved.json();if(['snapshot_incomplete_or_too_large','snapshot_unverified','persistent_queue_storage_unavailable'].includes(data.code))reason=data.code;}catch{}
+   return reply(503,{code:'scheduled_save_failed',source,reason});
+  }catch{return reply(503,{code:'scheduled_refresh_failed',source,reason:'scheduled_refresh_failed'});}
  };
 }
 export const onRequest=createScheduledRefresh();
