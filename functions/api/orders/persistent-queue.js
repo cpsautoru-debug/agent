@@ -212,8 +212,14 @@ export function createPersistentQueue({
     let operationalCount=null;
     try{operationalCount=(await db.prepare(OPERATIONAL_COUNT_SQL).first())?.n??null;}catch{}
     const operationalQueueTruncated=operationalTruncated(displayed,operationalCount);
-    const demand=buildDemand(displayed,fulfillment,coverageDiagnostics,{truncated:operationalQueueTruncated});
-    return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
+    // Do not expose a stale or globally unverified allocation as actionable evidence.
+    const safeFulfillment=fulfillment.map(review=>{
+     const age=Date.now()-Date.parse(review.checkedAt||'');
+     const valid=coverageDiagnostics.complete===true&&!operationalQueueTruncated&&age>=0&&age<=1800000&&review.sourceCoverage?.complete===true;
+     return valid?review:{...review,lines:(review.lines||[]).map(line=>({...line,status:'requires_review',warehouseCovered:null,plannedCovered:null,missing:null,productionTaskIds:[],reason:'marketplace_coverage_unverified'}))};
+    });
+    const demand=buildDemand(displayed,safeFulfillment,coverageDiagnostics,{truncated:operationalQueueTruncated});
+    return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment:safeFulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,operationalCount,operationalQueueTruncated,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
      orders:displayed,sources:sync.results,manualExceptions,manualExceptionsComplete,
