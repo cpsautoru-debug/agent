@@ -19,3 +19,5 @@ test('independent WB manual SKU does not block production demand but other accou
  assert.equal(buildDemand([o,manual],[r],{complete:false},{now}).complete,false);
  assert.equal(buildDemand([o,manual],[r],c,{now,truncated:true}).complete,false);
 });
+
+test('packed Ozon orders are not sewing or picking tasks even with stale reviews',()=>{const packed={...o,source:'ozon',source_status:'awaiting_deliver',queue_bucket:'review'};const d=buildDemand([packed],[r],{complete:false},{now});assert.equal(d.rows.length,0);assert.equal(d.complete,false);assert.equal(d.approvedForDispatch,false);});

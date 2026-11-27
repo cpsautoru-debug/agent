@@ -5,6 +5,8 @@ export function buildDemand(orders,reviews,coverage,{now=Date.now(),truncated=fa
  const rows=[];
  for(const o of orders){
   if(o.source==='ozon_fbo'||!['active','review'].includes(o.queue_bucket))continue;
+  // Already packed Ozon shipments remain visible in Orders, not in sewing/picking demand.
+  if(o.source==='ozon'&&o.source_status==='awaiting_deliver')continue;
   const r=byOrder.get(o.order_key),age=now-Date.parse(r?.checkedAt||'');
   const valid=coverage?.complete===true&&!truncated&&o.queue_bucket==='active'&&age>=0&&age<=30*60000&&r?.warehouse?.status==='warehouse_verified'&&Array.isArray(r.lines)&&r.lines.length===o.items.length&&r.lines.every((l,i)=>l.key===o.order_key+':line:'+i&&l.ordered===o.items[i].quantity&&['warehouse_covered','production_covered','sewing_required'].includes(l.status)&&[l.warehouseCovered,l.plannedCovered,l.missing].every(n=>Number.isSafeInteger(n)&&n>=0)&&l.warehouseCovered+l.plannedCovered+l.missing===l.ordered);
   for(const [i,item] of o.items.entries()){

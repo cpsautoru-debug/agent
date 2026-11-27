@@ -20,3 +20,11 @@ test('owner only, fresh complete bounded baseline, no writes or certification',a
  if(expected===200)assert.equal(data.itemMismatch,0);
  }
 });
+
+test('manual reconciliation compares assortment UUID, type and quantity',()=>{
+ const id='12345678-1234-1234-1234-123456789abc';
+ const a=[row('manual','new',[{itemId:id,itemType:'variant',quantity:1}])];
+ assert.equal(compareSnapshots(a,[row('manual','new',[{itemId:id.toUpperCase(),itemType:'variant',quantity:1}])]).itemMismatch,0);
+ assert.equal(compareSnapshots(a,[row('manual','new',[{itemId:id,itemType:'product',quantity:1}])]).itemMismatch,1);
+ assert.equal(compareSnapshots(a,[row('manual','new',[{itemId:id,itemType:'variant',quantity:2}])]).itemMismatch,1);
+});
