@@ -1,3 +1,4 @@
+import {catalogueCandidates} from './catalog-match.mjs';
 import {verifySession} from '../auth/session.js';
 
 // Read-only owner-triggered SKU crosswalk and accounting stock evidence.
@@ -324,7 +325,16 @@ export function createOrderStockMatch({fetcher=fetch}={}){
   for(const target of targets){
    const {sku,source,sellerAccount}=target;
    try{
-    let found=await targetedSku(fetcher,env.MS_API_TOKEN,sku);
+    let catalog=null;
+    try{catalog=await catalogueCandidates(env.MS_PRODUCTION_DB,sku);}catch{}
+    // Catalogue is evidence for review, not a replacement for live stock or approved identity.
+    let found;
+    if(catalog?.status==='review'){
+     found={sku,status:'ambiguous',reason:'catalogue_identity_review',candidates:catalog.candidates.length,stores:[],accountingTotal:null};
+    }else if(catalog?.status==='unique_candidate'){
+     const c=catalog.candidates[0];
+     found={sku,status:'catalogue_candidate',candidates:1,itemId:c.id,itemType:c.type,itemName:c.name,matchFields:c.matchFields,characteristics:c.characteristics,stores:[],accountingTotal:null,mappingApproved:false};
+    }else found=await targetedSku(fetcher,env.MS_API_TOKEN,sku);
     if(source){
      let link;
      try{link=await env.OZON_FINANCE_DB.prepare(LINK_FIND)
@@ -341,7 +351,7 @@ export function createOrderStockMatch({fetcher=fetch}={}){
       else if(found.status==='ambiguous')
        found={...found,status:'conflict',reason:'multiple_exact_sku_candidates',
         mappingApproved:true,approvedItemId:id,stores:[],accountingTotal:null};
-      else if(found.itemId===id)
+      else if(found.itemId===id&&found.status!=='catalogue_candidate')
        found={...found,mappingApproved:true,mappingStatus:'owner_approved',
         mappedItemName:link.ms_item_name};
       else{
@@ -354,7 +364,7 @@ export function createOrderStockMatch({fetcher=fetch}={}){
       }
      }
     }
-    matches.push({...found,...(source?{source,sellerAccount}: {})});
+    matches.push({...found,...(catalog?{catalogueEvidence:catalog}:{}),...(source?{source,sellerAccount}: {})});
    }catch(e){
     const allowed=['rate_limited','token_rejected','permission_denied','filter_rejected',
      'upstream_rejected','snapshot_unverified','stock_duplicate_item',
