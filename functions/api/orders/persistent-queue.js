@@ -1,3 +1,4 @@
+import {buildDemand} from './fulfillment-demand.mjs';
 import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
 import {verifySession} from '../auth/session.js';
 import {classifyOrderBucket} from './order-buckets.js';
@@ -190,11 +191,13 @@ export function createPersistentQueue({
     }
     const counts={active:0,transit:0,history:0,review:0};
     for(const order of displayed)counts[order.queue_bucket]++;
-    return reply(200,{code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
+    const coverageDiagnostics=assessMarketplaceCoverage(sync.results);
+    const demand=buildDemand(displayed,fulfillment,coverageDiagnostics,{truncated:displayed.length>=150});
+    return reply(200,{demand,code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
      orders:displayed,sources:sync.results,
-     coverageDiagnostics:assessMarketplaceCoverage(sync.results),approvalReadiness,
+     coverageDiagnostics,approvalReadiness,
      note:'Source-status classification only; no inventory, physical stock, production or dispatch approval.'});
    }catch{return reply(503,{code:'persistent_queue_storage_unavailable',
     migration:'20261125_persistent_order_queue.sql'});}
