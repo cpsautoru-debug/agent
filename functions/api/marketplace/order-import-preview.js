@@ -564,11 +564,13 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
   if(!Array.isArray(list)||list.length>MAX_IMPORTED_ORDERS)throw Error('order_feed_limit_reached');
   const local=new Set();
   for(const x of list){
-   if(!validId(x)||local.has(x.id))throw Error('order_pagination_unverified');
+   if(!validId(x))throw Error('wb_order_id_invalid');
+   if(local.has(x.id))throw Error('wb_page_duplicate_id');
    local.add(x.id);
    if(rows.has(x.id)){
     const old=rows.get(x.id);
-    if(!allowOverlap||(old.article||old.supplierArticle)!==(x.article||x.supplierArticle))throw Error('order_pagination_unverified');
+    if(!allowOverlap)throw Error('wb_cross_page_duplicate_id');
+    if((old.article||old.supplierArticle)!==(x.article||x.supplierArticle))throw Error('wb_fresh_article_mismatch');
    }else rows.set(x.id,x);
   }
   if(rows.size>150)throw Error('order_feed_limit_reached');
@@ -579,20 +581,24 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
  for(let p=0;p<MAX_ORDER_PAGES;p++){
   const q=new URLSearchParams({limit:'50',next:String(next),dateFrom:String(start),dateTo:String(end)});
   const result=await read(base+'?'+q);
-  if(!Array.isArray(result?.orders)||result.orders.length>50||!Number.isSafeInteger(result.next)||result.next<0)throw Error('order_pagination_unverified');
+  if(!Array.isArray(result?.orders)||result.orders.length>50)throw Error('wb_page_shape_invalid');
+  if(!Number.isSafeInteger(result.next)||result.next<0)throw Error('wb_cursor_invalid');
   add(result.orders,false);
   if(result.next===0){complete=true;break;}
-  if(seen.has(result.next))throw Error('order_pagination_unverified');
+  if(seen.has(result.next))throw Error('wb_cursor_repeated');
   seen.add(result.next);next=result.next;
  }
  if(!complete)throw Error('order_page_limit_reached');
  add(fresh.orders,true);
  if(!rows.size)return {orders:[]};
  const status=await requestJson(fetcher,base+'/status',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({orders:[...rows.keys()]})});
- if(!Array.isArray(status?.orders)||status.orders.length!==rows.size)throw Error('order_pagination_unverified');
+ if(!Array.isArray(status?.orders))throw Error('wb_status_shape_invalid');
+ if(status.orders.length!==rows.size)throw Error('wb_status_count_mismatch');
  const statuses=new Map();
  for(const x of status.orders){
-  if(!validId(x)||!rows.has(x.id)||statuses.has(x.id))throw Error('order_pagination_unverified');
+  if(!validId(x))throw Error('wb_status_id_invalid');
+  if(!rows.has(x.id))throw Error('wb_status_id_unexpected');
+  if(statuses.has(x.id))throw Error('wb_status_id_duplicate');
   statuses.set(x.id,classifyWbStatus(x));
  }
  return {orders:[...rows.values()].map(x=>({...x,verifiedStatus:statuses.get(x.id)}))};
@@ -784,7 +790,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
         'source_error','ozon_status_filter_unverified','order_pagination_unverified',
-        'order_feed_limit_reached','order_page_limit_reached'].includes(error?.message)?
+        'wb_order_id_invalid','wb_page_duplicate_id','wb_cross_page_duplicate_id','wb_fresh_article_mismatch','wb_page_shape_invalid','wb_cursor_invalid','wb_cursor_repeated','wb_status_shape_invalid','wb_status_count_mismatch','wb_status_id_invalid','wb_status_id_unexpected','wb_status_id_duplicate','order_feed_limit_reached','order_page_limit_reached'].includes(error?.message)?
           error.message:'import_preview_unavailable');
       return json(503,{code,source,stage:failedStage,
         upstreamHttp:Number.isInteger(error?.status)?error.status:null,
