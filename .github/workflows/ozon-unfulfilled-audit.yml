@@ -1,0 +1,16 @@
+name: Ozon unfulfilled audit checks
+on:
+  push:
+    branches: [office-28-ozon-unfulfilled-audit, feature/marketplace-agents-staging]
+    paths: ['functions/api/marketplace/ozon-unfulfilled-audit.mjs','tests/ozon-unfulfilled-audit.test.mjs','.github/workflows/ozon-unfulfilled-audit.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/ozon-unfulfilled-audit.test.mjs
