@@ -2,7 +2,7 @@ import {verifySession} from '../auth/session.js';
 import {createMsReadClient} from './ms-sales-read-client.mjs';
 const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/orders/ms-sales-directory';
-const TYPES=['counterparty','saleschannel','organization','store'];
+const TYPES=['counterparty','saleschannel','organization','store','assortment'];
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const reply=(status,data)=>new Response(JSON.stringify({readOnly:true,changedRecords:0,...data}),{status,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store','Vary':'Cookie'}});
 export async function directoryPage(read,type,offset=0){
@@ -11,6 +11,13 @@ export async function directoryPage(read,type,offset=0){
  const rows=data?.rows,size=data?.meta?.size;
  if(!Array.isArray(rows)||!Number.isSafeInteger(size)||size<0||rows.length!==Math.min(25,Math.max(0,size-offset)))throw Error('directory_page_unverified');
  const items=rows.map(row=>{
+  if(type==='assortment'){
+   const kind=row?.meta?.type;
+   if(!UUID.test(row?.id||'')||!['product','variant','bundle','service'].includes(kind)||row.meta.href!=='https://api.moysklad.ru/api/remap/1.2/entity/'+kind+'/'+row.id||typeof row.name!=='string'||row.name.length>250)throw Error('directory_entity_unverified');
+   const field=v=>typeof v==='string'&&v.length<=250?v:null;
+   const barcodes=Array.isArray(row.barcodes)?[...new Set(row.barcodes.flatMap(b=>typeof b==='string'?[b]:['ean13','ean8','code128','upc','gtin','code39'].map(k=>b?.[k])).filter(v=>typeof v==='string'&&v.length<=100))]:[];
+   return {id:row.id.toLowerCase(),name:row.name,archived:row.archived===true,itemType:kind,article:field(row.article),code:field(row.code),barcodes,updated:field(row.updated),characteristics:Array.isArray(row.characteristics)?row.characteristics.map(c=>({name:field(c?.name),value:field(c?.value)})).filter(c=>c.name&&c.value!==null):[]};
+  }
   if(!UUID.test(row?.id||'')||typeof row.name!=='string'||row.name.length>250||row.meta?.href!=='https://api.moysklad.ru/api/remap/1.2/entity/'+type+'/'+row.id)throw Error('directory_entity_unverified');
   return {id:row.id,name:row.name,archived:row.archived===true};
  });
