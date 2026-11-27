@@ -1,11 +1,18 @@
 name: MoySklad sales preflight
 on:
+  push:
+    branches: [office-21-stage9-catalog]
   pull_request:
     paths:
       - 'functions/api/orders/ms-sales-readiness.js'
       - 'tests/ms-sales-readiness.test.mjs'
       - 'functions/api/orders/ms-sales-*.mjs'
       - 'tests/ms-sales-*.test.mjs'
+      - 'workers/ms-assortment-sync.mjs'
+      - 'workers/ms-sales-directory-sync.mjs'
+      - 'functions/api/ms/sales-bridge.js'
+      - 'functions/api/orders/ms-sales-directory.js'
+      - 'migrations/ms/0003_ms_assortment_catalog.sql'
       - '.github/workflows/ms-sales-readiness.yml'
 permissions:
   contents: read
