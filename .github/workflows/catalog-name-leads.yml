@@ -1,0 +1,16 @@
+name: Catalogue name leads safety checks
+on:
+  push:
+    branches: [office-21-catalog-name-leads, feature/marketplace-agents-staging]
+    paths: ['functions/api/ms/catalog-match.mjs', 'tests/catalog-name-leads.test.mjs', '.github/workflows/catalog-name-leads.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/catalog-name-leads.test.mjs
