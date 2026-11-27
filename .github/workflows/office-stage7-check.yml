@@ -1,10 +1,12 @@
 name: Office stage 7 targeted checks
 on:
   push:
-    branches: [office-21-stage7-dashboard, feature/marketplace-agents-staging]
+    branches: [office-21-stage7-dashboard, office-21-stage8-finance, feature/marketplace-agents-staging]
   pull_request:
     paths:
       - 'web/office/office-home.mjs'
+      - 'web/office/office-finance.mjs'
+      - 'tests/office/office-2.test.mjs'
       - 'web/office/business-pnl.mjs'
       - 'tests/office/office-stage7.test.mjs'
       - '.github/workflows/office-stage7-check.yml'
@@ -18,5 +20,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check web/office/office-home.mjs && node --check web/office/business-pnl.mjs
+      - run: node --check web/office/office-home.mjs && node --check web/office/business-pnl.mjs && node --check web/office/office-finance.mjs
       - run: node --test tests/office/office-stage7.test.mjs tests/office/office-2.test.mjs tests/finance/consolidated-pnl.test.mjs
