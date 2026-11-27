@@ -64,6 +64,7 @@ export default {async scheduled(event,env){
  if(env.MS_ORDER_AUTO_SYNC==='enabled'){
   const rotation=orderRotation(slot);
   try{await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:rotation.source});}
+  catch(error){const message=String(error?.message||'');console.warn('order_sync_failed',rotation.source,/^order_sync_[a-z0-9_]{1,110}$/.test(message)?message:'order_sync_transport_or_runtime_failure');throw error;}
   finally{
    if(rotation.directory)await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:rotation.directory});
   }
