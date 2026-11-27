@@ -141,3 +141,14 @@ test('history display cap does not imply operational truncation; unknown or miss
  test('packed Ozon orders remain review-only and cannot authorize sewing',()=>{
  assert.deepEqual(classifyOrderBucket({source:'ozon',source_status:'awaiting_deliver'}),{bucket:'review',reason:'awaiting_dispatch_no_sewing',sewingAllowed:false});
  });
+
+test('server masks unsafe fulfillment while retaining accounting evidence',async()=>{
+ const {maskUnverifiedFulfillment}=await import('../functions/api/orders/persistent-queue.js');
+ const now=Date.parse('2026-11-27T18:00:00Z'),review={checkedAt:new Date(now).toISOString(),sourceCoverage:{complete:true},lines:[{status:'sewing_required',warehouseCovered:1,plannedCovered:1,missing:2,productionTaskIds:['task'],accounting:{stock:3,reserve:1}}]};
+ assert.deepEqual(maskUnverifiedFulfillment([review],{complete:true},false,now),[review]);
+ for(const [v,c,t,n] of [[review,{complete:false},false,now],[review,{complete:true},true,now],[review,{complete:true},false,now+1800001],[{...review,sourceCoverage:null},{complete:true},false,now],[review,{complete:true},false,now-1]]){
+ const line=maskUnverifiedFulfillment([v],c,t,n)[0].lines[0];
+ assert.equal(line.status,'requires_review');assert.equal(line.missing,null);assert.equal(line.warehouseCovered,null);assert.equal(line.plannedCovered,null);assert.deepEqual(line.productionTaskIds,[]);assert.deepEqual(line.accounting,review.lines[0].accounting);
+ }
+ assert.equal(review.lines[0].missing,2);
+});
