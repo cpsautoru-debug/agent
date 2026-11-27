@@ -25,8 +25,14 @@ export function assembleLiveCohort(lines,msClaims,itemId,storeId,targetOrderKey)
   const bucket=classifyOrderBucket({source:row.source,source_status:row.source_status}).bucket;
   if(bucket==='review')return blocked('marketplace_coverage_unverified');
   if(bucket!=='active')continue;
-  // Manual handling is not proof that the obligation uses independent stock.
-  if(manualItemReason(row.source,row.sku))return blocked('manual_stock_scope_unverified');
+  // Owner confirmed WB Plamya1 uses independent stock on 2026-11-27.
+  // Only exclude the exact approved cabinet/SKU, with no conflicting mapping.
+  if(manualItemReason(row.source,row.sku)){
+   if(row.order_key.split(':')[2]!=='wb-primary'||row.ms_item_id!=null||
+      !Number.isSafeInteger(row.quantity)||row.quantity<=0)
+    return blocked('manual_stock_scope_unverified');
+   continue;
+  }
   if(!Number.isSafeInteger(row.quantity)||row.quantity<=0||
      !ID.test(row.ms_item_id||'')||!ID.test(row.store_id||''))
    return blocked('marketplace_claim_unmapped');
