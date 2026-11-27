@@ -34,6 +34,7 @@ export async function syncDirectoryType({db,secret,type,fetcher=fetch,now=Date.n
  throw Error('sales_sync_page_cap');
 }
 const SOURCES=['ozon','ozon_fbo','wb','yandex','manual'];
+export function orderRotation(slot){return {source:SOURCES[((slot%5)+5)%5],directory:slot%3===1?TYPES[((Math.floor(slot/3)%4)+4)%4]:null};}
 export async function refreshOrderSource({secret,source,fetcher=fetch,now=Date.now}){
  if(!validBridgeSecret(secret)||!SOURCES.includes(source))throw Error('order_sync_configuration');
  const path='/api/orders/scheduled-refresh?'+new URLSearchParams({source});
@@ -61,11 +62,10 @@ export default {async scheduled(event,env){
  // One existing rotation operation per tick, plus the opt-in catalogue page above.
  // Orders rotate every 25 minutes; directories every 60 minutes. Keep legacy directory-only mode by default.
  if(env.MS_ORDER_AUTO_SYNC==='enabled'){
-  const index=((slot%5)+5)%5;
-  try{await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:SOURCES[index]});}
+  const rotation=orderRotation(slot);
+  try{await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:rotation.source});}
   finally{
-   if(slot%3===1){const directoryIndex=((Math.floor(slot/3)%4)+4)%4;
-    await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:TYPES[directoryIndex]});}
+   if(rotation.directory)await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:rotation.directory});
   }
   return;
  }
