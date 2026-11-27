@@ -16,6 +16,10 @@ jobs:
           - 'tests/office/ceo-dashboard.test.mjs tests/office/office-source-registry.test.mjs tests/office/vibrant-theme.test.mjs'
           - 'tests/wb/unified-cost-audit-api.test.mjs'
           - 'tests/ozon/profit-closeout-evidence.test.mjs tests/ozon/profit-model.test.mjs tests/ozon/profit-ui.test.mjs tests/ozon/profit-date-cost-evidence.test.mjs tests/ozon/profit-ad-overlap.test.mjs tests/ozon/sku-cost-evidence.test.mjs'
+          - 'tests/ms/ms-production-feed.test.mjs tests/ms/ms-production-stages.test.mjs tests/ms/ms-production-date.test.mjs tests/ms/ms-production-plan-date.test.mjs tests/ms/ms-production-interface.test.mjs tests/ms/ms-production-audit.test.mjs tests/ms/ms-production-audit-ui.test.mjs tests/ms/ms-production-board.test.mjs tests/ms/ms-production-board-ui.test.mjs tests/ms/ms-production-auto-status.test.mjs tests/ms/ms-production-auto-status-ui.test.mjs tests/ms/ms-production-priority.test.mjs tests/ms/ms-production-priority-ui.test.mjs tests/ms/ms-catalog-quality-export.test.mjs tests/ms/ms-production-coverage-probe.test.mjs tests/ms/ms-production-coverage-probe-ui.test.mjs tests/ms/ms-production-scan-budget.test.mjs tests/ms/ms-preview-smoke.test.mjs tests/ms/ms-stock-bystore.test.mjs tests/ms/ms-stock-bystore-ui.test.mjs tests/ms/ms-inventory-control-view.test.mjs tests/ms/ms-inventory-control-ui.test.mjs tests/ms/ms-inventory-production-filter.test.mjs tests/ms/ms-stock-page-view.test.mjs tests/ms/ms-warehouse-availability.test.mjs tests/ms/ms-warehouse-availability-ui.test.mjs tests/ms/ms-materials-by-catalog.test.mjs tests/ms/ms-warehouse-snapshot.test.mjs tests/ms/ms-warehouse-snapshot-ui.test.mjs tests/ms/ms-warehouse-snapshot-view.test.mjs'
+          - 'tests/office/ceo-dashboard.test.mjs'
+          - 'tests/ozon/ozon-ads-office-bridge.test.mjs tests/ozon/profit-ui.test.mjs'
+          - 'tests/ozon/profit-ad-overlap.test.mjs tests/ozon/profit-model.test.mjs tests/ozon/profit-ui.test.mjs tests/ozon/profit-date-cost-evidence.test.mjs'
     steps:
       - uses: actions/checkout@v4
         with:
