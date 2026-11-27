@@ -1,7 +1,7 @@
 name: Marketplace order intake focused checks
 on:
   push:
-    branches: [feature/marketplace-agents-staging, office-21-stage9-ozon-scope]
+    branches: [feature/marketplace-agents-staging, office-21-stage9-ozon-scope, office-21-stage9-wb-scope]
     paths:
       - 'functions/api/marketplace/order-import-preview.js'
       - 'functions/api/yandex/orders-preview.js'
