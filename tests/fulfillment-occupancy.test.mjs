@@ -40,3 +40,25 @@ test('explicit complete empty customer order scope is separate from marketplace 
  assert.equal(result.warehouseAdditional,0);
  assert.deepEqual(result.claims,[]);
 });
+
+test('filtered occupancy requests exact SKU, preserves claims and detects unrelated results',async()=>{
+ const balance={status:'accounting_verified',stock:3,reserve:0};
+ const order={id:other,applicable:true,state:{stateType:'Regular'},store:ref('store/'+store)};
+ const line={id:store,assortment:ref('product/'+id),quantity:2,shipped:1,reserve:0};
+ const paths=[];
+ const result=await readOccupancy('product',id,store,balance,async path=>{
+  paths.push(path);
+  if(path.includes('/positions?'))return page([line]);
+  assert.equal(new URL(path,'https://local.invalid').searchParams.get('filter'),'store='+root+'store/'+store+';assortment='+root+'product/'+id);
+  return page([order]);
+ },{filtered:true});
+ assert.equal(result.status,'warehouse_orders_verified');
+ assert.equal(result.warehouseAdditional,1);
+ assert.equal(paths.length,2);
+ const full=await readOccupancy('product',id,store,balance,async path=>path.includes('/positions?')?page([line]):page([order]));
+ assert.deepEqual(result,full);
+ const invalid=await readOccupancy('product',id,store,balance,async path=>path.includes('/positions?')?page([{...line,assortment:ref('product/'+other)}]):page([order]),{filtered:true});
+ assert.equal(invalid.status,'availability_unverified');
+ const mismatch=await readOccupancy('product',id,store,{...balance,reserve:1},async path=>path.includes('/positions?')?page([line]):page([order]),{filtered:true});
+ assert.equal(mismatch.reason,'reserve_mismatch');
+});
