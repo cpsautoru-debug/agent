@@ -129,3 +129,11 @@ test('SKU batch prioritizes current active orders and preserves account identity
 });
 
 test('WB capacity allows 300 orders in a single atomic snapshot but not 301',async()=>{const {saveSourceSnapshot}=await import('../functions/api/orders/persistent-queue.js');const orders=Array.from({length:300},(_,i)=>({...o,source:'wb',externalKey:'AS63:wb:wb-primary:'+(i+1)}));const snapshot={...payload,code:'marketplace_order_import_preview_ok',source:'wb',orders,counts:{received:300}};assert.equal(validateSourceSnapshot('wb',snapshot).length,300);let batches=0;const db={prepare:sql=>({bind:(...args)=>({sql,args})}),batch:async tasks=>{batches++;assert.equal(tasks.length,301);return tasks.map(()=>({success:true}));}};assert.equal((await saveSourceSnapshot(db,'wb',snapshot)).status,200);assert.equal((await saveSourceSnapshot(db,'wb',{...snapshot,orders:[...orders,{...orders[0],externalKey:'AS63:wb:wb-primary:301'}],counts:{received:301}})).status,503);assert.equal(batches,1);});
+
+test('history display cap does not imply operational truncation; unknown or missing rows block',async()=>{
+ const {operationalTruncated}=await import('../functions/api/orders/persistent-queue.js');
+ const rows=[{source:'ozon',queue_bucket:'active'},{source:'wb',queue_bucket:'review'},...Array.from({length:148},()=>({source:'yandex',queue_bucket:'history'}))];
+ assert.equal(operationalTruncated(rows,2),false);
+ for(const n of [null,1,3,-1,2.5])assert.equal(operationalTruncated(rows,n),true);
+ assert.equal(operationalTruncated([...rows,{source:'ozon_fbo',queue_bucket:'review'}],2),false);
+});
