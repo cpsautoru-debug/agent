@@ -32,10 +32,12 @@ export function catalogueNameLeads(sku,items){
  const tokens=x=>new Set(norm(x).split(/[^a-zа-я0-9]+/u).filter(Boolean).map(t=>({'сотами':'соты','сотах':'соты','сотовый':'соты','серыми':'серый','серые':'серый','серая':'серый','серой':'серый','черными':'черный','черные':'черный','черная':'черный','черной':'черный','квадратом':'квадрат'}[t]||t)));
  const query=tokens(sku), models=['веста','приора','гранта','нива','creta','rio','solaris','iskra'];
  const model=models.find(m=>query.has(m));if(!model)return [];
- const features=['кросс','алька','соты','квадрат','ромб','перфорация','седан','сд','хб'];
+ const features=['кросс','алька','соты','квадрат','ромб','перфорация','седан','сд','хб','серый','черный','белый','красный','синий','коричневый'];
  const requested=features.filter(t=>query.has(t));
  return items.filter(x=>x.archived===false&&['product','variant','bundle'].includes(x.itemType)&&typeof x.name==='string'&&/чехл/i.test(x.name)&&!/крой|центра|лекал|материал|образец/i.test(x.name)).map(x=>{
  const t=tokens(x.name);if(!t.has(model)||requested.some(k=>!t.has(k)))return null;
+ // A name cannot establish which component has which colour; never approve it.
+ if(!query.has('кросс')&&t.has('кросс')&&model==='веста')return null;
  const matched=[...query].filter(k=>t.has(k));
  if(matched.length<2)return null;
  return {id:x.id,type:x.itemType,name:x.name,code:x.code,matchedTokens:matched,automaticApproval:false};
