@@ -10,10 +10,10 @@ if(status&&rows&&button){
    const d=(await r.json()).demand;
    if(d?.readOnly!==true||d.approvedForDispatch!==false||!Array.isArray(d.rows))throw Error();
    status.textContent=(d.complete?'Проверенная выборка. ':'Данные неполные. Не является заданием на пошив. ')+
-    'Из наличия: '+d.counts.stock+'; уже в производстве: '+d.counts.production+'; в пошив: '+d.counts.sewing+'; требует уточнения (строк): '+d.counts.review+'. Показана ограниченная выборка заказов.';
+    'Из наличия: '+d.counts.stock+'; уже в производстве: '+d.counts.production+'; в пошив: '+d.counts.sewing+'; требует уточнения (строк): '+d.counts.review+'. Порядок по категориям, сроки отгрузки не подтверждены. Показана ограниченная выборка заказов.';
    for(const x of d.rows){
     const tr=document.createElement('tr');
-    for(const value of [x.orderKey,x.sku,labels[x.category]||labels.review,x.quantity??'Н/Д']){
+    for(const value of [x.orderKey,x.sku,(x.priority?x.priority+'. ':'')+(labels[x.category]||labels.review),x.quantity??'Н/Д']){
      const td=document.createElement('td');td.textContent=String(value??'Н/Д');tr.append(td);
     }
     rows.append(tr);

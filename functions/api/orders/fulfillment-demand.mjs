@@ -13,6 +13,11 @@ export function buildDemand(orders,reviews,coverage,{now=Date.now(),truncated=fa
    for(const [category,quantity] of [['stock',l.warehouseCovered],['production',l.plannedCovered],['sewing',l.missing]])if(quantity>0)rows.push({...base,category,quantity,reason:null});
   }
  }
+ // Presentation priority only; never change the underlying allocation.
+ const priority={stock:1,production:2,sewing:3,review:4};
+ rows.sort((a,b)=>priority[a.category]-priority[b.category]||
+  a.orderKey.localeCompare(b.orderKey)||a.lineIndex-b.lineIndex);
+ for(const row of rows){row.priority=priority[row.category];row.deadline=null;}
  const counts={stock:0,production:0,sewing:0,review:0};
  for(const r of rows)counts[r.category]+=r.category==='review'?1:r.quantity;
  return {rows,counts,complete:coverage?.complete===true&&!truncated&&!rows.some(r=>r.category==='review'),readOnly:true,approvedForDispatch:false,scope:'displayed_order_snapshot_only'};
