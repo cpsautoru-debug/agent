@@ -15,5 +15,29 @@ export async function catalogueCandidates(db,sku,now=Date.now()){
   if(!fields.length)return null;
   candidates.push({id:x.id,type:x.itemType,name:x.name,archived:x.archived,matchFields:fields,characteristics:x.characteristics});
  }
- return {status:candidates.length===1&&!candidates[0].archived&&['product','variant','bundle'].includes(candidates[0].type)?'unique_candidate':candidates.length?'review':'no_exact_candidate',candidates,completedAt:current.completed_at,automaticApproval:false};
+ let nameLeads=[];
+ if(!candidates.length){
+  const r=(await db.prepare("SELECT item_id,item_type,item_json FROM ms_assortment_items WHERE generation=? AND item_type IN ('product','variant','bundle') AND json_extract(item_json,'$.archived')=0 AND (instr(json_extract(item_json,'$.name'),'Чехл')>0 OR instr(json_extract(item_json,'$.name'),'чехл')>0) LIMIT 1001").bind(current.generation).all()).results;
+  if(Array.isArray(r)&&r.length<=1000){
+   const parsed=r.map(row=>JSON.parse(row.item_json));
+   nameLeads=catalogueNameLeads(sku,parsed);
+  }
+ }
+ return {nameLeads,status:candidates.length===1&&!candidates[0].archived&&['product','variant','bundle'].includes(candidates[0].type)?'unique_candidate':candidates.length?'review':'no_exact_candidate',candidates,completedAt:current.completed_at,automaticApproval:false};
+}
+
+// Name leads are deliberately separate from exact identity evidence.
+export function catalogueNameLeads(sku,items){
+ const norm=x=>String(x||'').toLowerCase().replace(/ё/g,'е').replace(/алькантара|алька/g,'алька').replace(/\bcross\b|кросс/g,'кросс').replace(/vesta|веста/g,'веста').replace(/priora|приора/g,'приора');
+ const tokens=x=>new Set(norm(x).split(/[^a-zа-я0-9]+/u).filter(Boolean));
+ const query=tokens(sku), models=['веста','приора','гранта','нива','creta','rio','solaris','iskra'];
+ const model=models.find(m=>query.has(m));if(!model)return [];
+ const features=['кросс','алька','соты','квадрат','ромб','перфорация','седан','сд','хб'];
+ const requested=features.filter(t=>query.has(t));
+ return items.filter(x=>x.archived===false&&['product','variant','bundle'].includes(x.itemType)&&typeof x.name==='string'&&/чехл/i.test(x.name)&&!/крой|центра|лекал|материал|образец/i.test(x.name)).map(x=>{
+ const t=tokens(x.name);if(!t.has(model)||requested.some(k=>!t.has(k)))return null;
+ const matched=[...query].filter(k=>t.has(k));
+ if(matched.length<2)return null;
+ return {id:x.id,type:x.itemType,name:x.name,code:x.code,matchedTokens:matched,automaticApproval:false};
+ }).filter(Boolean).sort((a,b)=>b.matchedTokens.length-a.matchedTokens.length||a.name.localeCompare(b.name,'ru')).slice(0,5);
 }
