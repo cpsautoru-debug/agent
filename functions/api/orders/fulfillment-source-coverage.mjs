@@ -29,7 +29,7 @@ export function assessMarketplaceCoverage(syncRows,{now=Date.now(),maxAgeMs=30*6
   return {source,ready:fresh&&full&&valid,
    reason:!row?'source_missing':!fresh?'source_snapshot_stale':
     !valid?'source_count_unverified':full?'all_open_verified':
-    (coverage===SCOPED[source]||source==='yandex'&&
+    (coverage===SCOPED[source]||source==='ozon'&&coverage==='FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE'||source==='yandex'&&
      coverage==='BOTH_CAMPAIGNS_SINCE_2026_10_01_COMPLETE')?
      'time_or_status_scoped_only':'open_obligations_unverified'};
  });

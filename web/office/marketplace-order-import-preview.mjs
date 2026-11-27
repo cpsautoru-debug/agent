@@ -33,11 +33,11 @@
     ['ozon','ozon_fbo','wb'].includes(d.source)&&d.readOnly===true&&
     d.changedRecords===0&&d.approvedForWrite===false&&
     d.coverage===(d.source==='ozon_fbo'?
-      'FBO_FIRST_PAGE_LAST_7_DAYS_NOT_PRODUCTION_QUEUE':
+      'FBO_LAST_7_DAYS_COMPLETE_NOT_FOR_SEWING':
       d.source==='ozon'?
-      'FBS_AWAITING_PACKAGING_FIRST_PAGE_LAST_7_DAYS':
-      'FBS_NEW_FIRST_PAGE_ONLY_NOT_ALL_MARKETPLACE_ORDERS')&&
-    Array.isArray(d.orders)&&d.orders.length<=10&&
+      'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
+      'WB_NEW_FBS_ORDERS_API_SNAPSHOT')&&
+    d.complete===true&&Array.isArray(d.orders)&&d.orders.length<=200&&
     Number.isSafeInteger(d.counts?.received)&&
     d.counts.received===d.orders.length&&
     Number.isSafeInteger(d.counts.candidateNeedsInventory)&&
