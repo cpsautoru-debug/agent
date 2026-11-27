@@ -563,7 +563,7 @@ test('Ozon three accounts isolate posting and product identities and reject part
  const data=await r.json();
  if(failed){assert.equal(r.status,503);assert.equal(data.code,'permission_denied');assert.equal(data.orders,undefined);continue;}
  assert.equal(r.status,200);assert.deepEqual(calls,['1001','1002','1003']);
- assert.equal(data.accountCoverage.allExpectedConfigured,true);
+ assert.equal(data.accountCoverage.allExpectedConfigured,false);
  assert.deepEqual(data.orders.map(o=>o.externalKey),['1001','1002','1003'].map(a=>'AS63:'+source+':'+a+':same-posting'));
  assert.deepEqual(data.orders.map(o=>o.items[0].ozonCatalog.productId),[1001,1002,1003]);
  assert.ok(data.orders.every(o=>o.items[0].assortmentMatch==='unverified'));
@@ -575,4 +575,12 @@ test('Ozon missing or duplicate credentials fail closed; primary only is support
  assert.equal(resolveOzonOrderAccounts(env).length,1);
  assert.throws(()=>resolveOzonOrderAccounts({...env,OZON_CLIENT_ID_2:'1002'}),/marketplace_credentials_missing/);
  assert.throws(()=>resolveOzonOrderAccounts({...env,OZON_CLIENT_ID_2:'1001',OZON_API_KEY_2:'key2'}),/marketplace_credentials_missing/);
+});
+
+test('owner-approved Ozon account scope is exactly 171189, not a date coverage certificate',async()=>{
+ const {ozonAccountCoverage}=await import('../functions/api/marketplace/order-import-preview.js');
+ assert.deepEqual(ozonAccountCoverage([{account:'171189'}]),{configured:1,expected:1,allConfiguredRead:true,allExpectedConfigured:true});
+ assert.equal(ozonAccountCoverage([{account:'1001'}]).allExpectedConfigured,false);
+ assert.equal(ozonAccountCoverage([{account:'171189'},{account:'1002'}]).allExpectedConfigured,false);
+ assert.equal(ozonAccountCoverage([]).allExpectedConfigured,false);
 });
