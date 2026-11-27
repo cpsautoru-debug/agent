@@ -24,6 +24,15 @@ const eligible=x=>['candidate_needs_inventory','not_for_sewing','unverified'].in
 const manualKinds=['avito','plamya','dealer_ruslan','dealer_irina'];
 // Owner-selected investigation boundary; this is not proof of older absence.
 const yandexPreview=createYandexOrdersPreview({fromDate:'2026-10-01'});
+export function classifyCurrentOrder(order,latestSync){
+ const classification=classifyOrderBucket(order);
+ if(!['active','review'].includes(classification.bucket))return classification;
+ const source=manualKinds.includes(order.source)?'manual':order.source;
+ const latest=latestSync.get(source);
+ if(!latest||latest!==order.source_checked_at)
+  return {bucket:'review',reason:latest?'not_in_latest_source_snapshot':'source_snapshot_missing',sewingAllowed:false};
+ return classification;
+}
 export function sanitizeSourceOrder(source,order){
  if(source==='manual'){
   if(!order||!manualKinds.includes(order.source)||!ID.test(order.documentId||'')||
@@ -128,10 +137,7 @@ export function createPersistentQueue({
     if(!Array.isArray(orders.results)||!Array.isArray(sync.results))throw Error();
     const latestSync=new Map(sync.results.map(row=>[row.source,row.last_success_at]));
     const displayed=orders.results.map(r=>{
-     let classification=classifyOrderBucket(r);
-     const latest=latestSync.get(r.source);
-     if(classification.bucket==='active'&&latest&&latest!==r.source_checked_at)
-      classification={bucket:'review',reason:'not_in_latest_source_snapshot'};
+     const classification=classifyCurrentOrder(r,latestSync);
      return {...r,items:JSON.parse(r.items_json),items_json:undefined,
       queue_bucket:classification.bucket,queue_reason:classification.reason,
       sewing_allowed:false};
