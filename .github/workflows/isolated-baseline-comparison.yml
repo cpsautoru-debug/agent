@@ -1,0 +1,26 @@
+name: Isolated baseline comparison
+on:
+  push:
+    branches: [office-36-ci-baseline]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - 'tests/ozon/profit-date-cost-evidence.test.mjs tests/ozon/profit-model.test.mjs tests/ozon/profit-ui.test.mjs'
+          - 'tests/ms/ms-production-recent-updates.test.mjs tests/ms/ms-production-feed.test.mjs'
+          - 'tests/office/ceo-dashboard.test.mjs tests/office/office-source-registry.test.mjs tests/office/vibrant-theme.test.mjs'
+          - 'tests/wb/unified-cost-audit-api.test.mjs'
+          - 'tests/ozon/profit-closeout-evidence.test.mjs tests/ozon/profit-model.test.mjs tests/ozon/profit-ui.test.mjs tests/ozon/profit-date-cost-evidence.test.mjs tests/ozon/profit-ad-overlap.test.mjs tests/ozon/sku-cost-evidence.test.mjs'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 052caa86b90160eb1db343b1303ed89418138ecb
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test ${{ matrix.suite }}
