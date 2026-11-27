@@ -70,7 +70,7 @@ export function sanitizeSourceOrder(source,order){
 export function validateSourceSnapshot(source,data){
  if(!SOURCES.includes(source)||!data||data.readOnly!==true||
    data.changedRecords!==0||data.complete!==true||!Array.isArray(data.orders)||
-   data.orders.length>MAX_SAVE)throw Error('snapshot_incomplete_or_too_large');
+   data.orders.length>(source==='wb'?300:MAX_SAVE))throw Error('snapshot_incomplete_or_too_large');
  if(source==='manual'){
   if(data.code!=='manual_orders_preview_ok'||data.duplicateCount!==0||
    !Array.isArray(data.channels)||data.channels.length!==4||

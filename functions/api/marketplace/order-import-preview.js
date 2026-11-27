@@ -7,6 +7,7 @@ const ORIGIN='https://autosklad63-office-staging.pages.dev';
 const PATH='/api/marketplace/order-import-preview';
 const MS='https://api.moysklad.ru/api/remap/1.2/entity/customerorder';
 const LIMIT=10,ORDER_PAGE_LIMIT=50,MAX_ORDER_PAGES=4,MAX_IMPORTED_ORDERS=200,MAX_BYTES=256*1024;
+const WB_MAX_ORDERS=300,WB_MAX_PAGES=8,WB_STATUS_BATCH=100;
 const HEADER={'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store','Vary':'Cookie',
   'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
@@ -69,7 +70,7 @@ export function extractOzonOrderPage(page,source){
 export function normalizeMarketplaceOrders(source,body,account){
   const raw=source==='wb'?body?.orders:
     source==='ozon_fbo'?(body?.result?.postings||body?.postings):body?.postings;
-  if(!Array.isArray(raw)||raw.length>MAX_IMPORTED_ORDERS)throw Error('unexpected_order_feed');
+  if(!Array.isArray(raw)||raw.length>(source==='wb'?WB_MAX_ORDERS:MAX_IMPORTED_ORDERS))throw Error('unexpected_order_feed');
   const ids=new Set();
   const records=raw.map(x=>{
     const id=source==='wb'?String(x?.id??''):x?.posting_number;
@@ -158,7 +159,7 @@ export async function lookupMoyskladDuplicate(fetcher,token,key){
 // Positive duplicate identification is by exact externalCode equality ONLY.
 // A partial or changing scan cannot prove a key is absent.
 export async function scanMoyskladOrderKeys(fetcher,token,keys){
-  if(!Array.isArray(keys)||keys.length>MAX_IMPORTED_ORDERS||
+  if(!Array.isArray(keys)||keys.length>WB_MAX_ORDERS||
     keys.some(k=>typeof k!=='string'||k.length>180))
     throw Error('invalid_duplicate_scan_keys');
   const PAGE=25,MAX_PAGES=8;
@@ -256,7 +257,7 @@ export async function verifyExactAssortmentSku(fetcher,token,sku){
 }
 
 export async function matchMoyskladArticles(fetcher,token,orders){
-  if(!Array.isArray(orders)||orders.length>MAX_IMPORTED_ORDERS)
+  if(!Array.isArray(orders)||orders.length>WB_MAX_ORDERS)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
   const bySku=new Map(skus.map(s=>[s,'unverified']));
@@ -367,7 +368,7 @@ export async function matchMoyskladArticles(fetcher,token,orders){
 // incremental sync, not for a button-driven production check.
 export async function matchMoyskladArticlesBudgeted(fetcher,token,orders,
   skipSkus=new Set()){
-  if(!Array.isArray(orders)||orders.length>MAX_IMPORTED_ORDERS)
+  if(!Array.isArray(orders)||orders.length>WB_MAX_ORDERS)
     throw Error('invalid_article_lookup');
   const skus=[...new Set(orders.flatMap(o=>o.items.map(p=>p.sku)))];
   const bySku=new Map(skus.map(s=>[s,'unverified']));
@@ -582,7 +583,7 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
  const rows=new Map();
  const validId=x=>Number.isSafeInteger(x?.id)&&x.id>0;
  function add(list,allowOverlap){
-  if(!Array.isArray(list)||list.length>MAX_IMPORTED_ORDERS)throw Error('order_feed_limit_reached');
+  if(!Array.isArray(list)||list.length>WB_MAX_ORDERS)throw Error('order_feed_limit_reached');
   const local=new Set();
   for(const x of list){
    if(!validId(x))throw Error('wb_order_id_invalid');
@@ -594,12 +595,12 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
     if((old.article||old.supplierArticle)!==(x.article||x.supplierArticle))throw Error('wb_fresh_article_mismatch');
    }else rows.set(x.id,x);
   }
-  if(rows.size>150)throw Error('order_feed_limit_reached');
+  if(rows.size>WB_MAX_ORDERS)throw Error('order_feed_limit_reached');
  }
  let next='0',complete=false;
  const seen=new Set();
  const end=Math.floor(nowMs/1000),start=end-30*86400;
- for(let p=0;p<MAX_ORDER_PAGES;p++){
+ for(let p=0;p<WB_MAX_PAGES;p++){
   const q=new URLSearchParams({limit:'50',next:String(next),dateFrom:String(start),dateTo:String(end)});
   const result=await requestJson(fetcher,base+'?'+q,{method:'GET',headers},parseWbHistoryPage);
   if(!Array.isArray(result?.orders)||result.orders.length>50)throw Error('wb_page_shape_invalid');
@@ -612,15 +613,18 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
  if(!complete)throw Error('order_page_limit_reached');
  add(fresh.orders,true);
  if(!rows.size)return {orders:[]};
- const status=await requestJson(fetcher,base+'/status',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({orders:[...rows.keys()]})});
- if(!Array.isArray(status?.orders))throw Error('wb_status_shape_invalid');
- if(status.orders.length!==rows.size)throw Error('wb_status_count_mismatch');
- const statuses=new Map();
- for(const x of status.orders){
-  if(!validId(x))throw Error('wb_status_id_invalid');
-  if(!rows.has(x.id))throw Error('wb_status_id_unexpected');
-  if(statuses.has(x.id))throw Error('wb_status_id_duplicate');
-  statuses.set(x.id,classifyWbStatus(x));
+ const statuses=new Map(),ids=[...rows.keys()];
+ for(let offset=0;offset<ids.length;offset+=WB_STATUS_BATCH){
+  const batch=ids.slice(offset,offset+WB_STATUS_BATCH),expected=new Set(batch);
+  const status=await requestJson(fetcher,base+'/status',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({orders:batch})});
+  if(!Array.isArray(status?.orders))throw Error('wb_status_shape_invalid');
+  if(status.orders.length!==batch.length)throw Error('wb_status_count_mismatch');
+  for(const x of status.orders){
+   if(!validId(x))throw Error('wb_status_id_invalid');
+   if(!expected.has(x.id))throw Error('wb_status_id_unexpected');
+   if(statuses.has(x.id))throw Error('wb_status_id_duplicate');
+   statuses.set(x.id,classifyWbStatus(x));
+  }
  }
  return {orders:[...rows.values()].map(x=>({...x,verifiedStatus:statuses.get(x.id)}))};
 }
@@ -690,7 +694,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         body=source==='ozon_fbo'?{result:{postings}}:{postings};
       }
       const orders=normalizeMarketplaceOrders(source,body,account);
-      if(source==='wb'&&orders.length>=MAX_IMPORTED_ORDERS)
+      if(source==='wb'&&orders.length>WB_MAX_ORDERS)
         return json(503,{code:'order_feed_limit_reached',source,
           stage:'marketplace',readOnly:true,changedRecords:0,
           approvedForWrite:false,complete:false});
