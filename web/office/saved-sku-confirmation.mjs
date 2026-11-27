@@ -1,6 +1,19 @@
 // Explicit owner-reviewed SKU mapping from saved D1 orders.
 // Never approves name-only candidates or modifies MoySklad.
-(()=>{
+export function prioritizeUnmappedSkus(orders,approved){
+ const entries=new Map();
+ for(const order of orders||[]){
+  if(!['ozon','wb','yandex'].includes(order.source)||order.queue_bucket!=='active')continue;
+  for(const item of order.items||[]){
+   if(typeof item.sku!=='string'||!item.sku||item.sku.length>100||item.sku.trim()!==item.sku)continue;
+   const x={source:order.source,sellerAccount:order.account,sku:item.sku};
+   const key=JSON.stringify([x.source,x.sellerAccount,x.sku]);
+   if(!approved.has(key))entries.set(key,x);
+  }
+ }
+ return [...entries.values()];
+}
+if(typeof document!=='undefined')(()=>{
  'use strict';
  const load=document.getElementById('savedSkuMatchLoad');
  if(!load)return;
@@ -9,8 +22,9 @@
  const status=document.getElementById('savedSkuMatchStatus');
  const candidateArea=document.getElementById('savedSkuMatchCandidate');
  const entries=new Map();
- let approved=new Set(),busy=false;
- const key=x=>[x.source,x.sellerAccount,x.sku].join('|');
+ let approved=new Set(),busy=false,batchEntries=[];
+ const batch=document.createElement('button');batch.type='button';batch.textContent='Проверить до 5 актуальных SKU';batch.disabled=true;check.after(batch);
+ const key=x=>JSON.stringify([x.source,x.sellerAccount,x.sku]);
  async function json(url,options={}){
    const r=await fetch(url,{credentials:'same-origin',cache:'no-store',
     headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},
@@ -21,7 +35,7 @@
  }
  async function loadSaved(target=null){
   if(busy)return;
-  busy=true;load.disabled=true;check.disabled=true;candidateArea.replaceChildren();
+  busy=true;load.disabled=true;check.disabled=true;batch.disabled=true;batchEntries=[];candidateArea.replaceChildren();
   try{
    const [queue,links]=await Promise.all([
     json('/api/orders/persistent-queue'),json('/api/ms/order-sku-links')
@@ -30,13 +44,15 @@
     !Array.isArray(queue.orders)||!Array.isArray(links.approvedLinks))throw Error('data_unverified');
    entries.clear();
    approved=new Set(links.approvedLinks.map(x=>
-    [x.source,x.seller_account,x.marketplace_sku].join('|')));
-   for(const order of queue.orders){
-    if(!['ozon','ozon_fbo','wb','yandex'].includes(order.source))continue;
-    for(const item of order.items||[]){
-     if(typeof item.sku!=='string'||!item.sku||item.sku.length>100)continue;
+    JSON.stringify([x.source,x.seller_account,x.marketplace_sku])));
+   batchEntries=prioritizeUnmappedSkus(queue.orders,approved);
+   for(const x of batchEntries)entries.set(key(x),x);
+   batch.disabled=!batchEntries.length;
+   // Keep explicit deep links for review/history; never include them in the active batch.
+   if(target&&!entries.has(target)&&!approved.has(target)){
+    for(const order of queue.orders)for(const item of order.items||[]){
      const x={source:order.source,sellerAccount:order.account,sku:item.sku};
-     if(!approved.has(key(x)))entries.set(key(x),x);
+     if(key(x)===target)entries.set(target,x);
     }
    }
    select.replaceChildren(...[...entries.values()].map(x=>
@@ -45,7 +61,7 @@
    if(target&&entries.has(target))select.value=target;
    else if(target&&approved.has(target))
     status.textContent='Этот SKU уже подтверждён.';
-   status.textContent='Неутверждённых SKU в показанных сохранённых заказах: '+
+   status.textContent='Неутверждённых SKU в актуальной выборке: '+
     entries.size+'. Выберите SKU и выполните точную проверку в МойСклад. '+
     'Отсутствие совпадения по артикулу или коду не означает отсутствие товара.';
   }catch(e){
@@ -161,6 +177,28 @@
    load.scrollIntoView({behavior:'smooth',block:'center'});
    loadSaved(key(entry));
  });
+ async function inspectBatch(){
+  if(busy)return;
+  const targets=batchEntries.filter(x=>!approved.has(key(x))).slice(0,5);
+  if(!targets.length)return;
+  busy=true;batch.disabled=true;check.disabled=true;load.disabled=true;candidateArea.replaceChildren();
+  try{
+   const data=await json('/api/ms/orders-stock-match',{method:'POST',body:JSON.stringify({entries:targets})});
+   if(data.code!=='ms_orders_stock_match'||data.readOnly!==true||data.changedRecords!==0||!Array.isArray(data.matches)||data.matches.length!==targets.length)throw Error('incomplete_lookup');
+   let exact=0;
+   for(const entry of targets){
+    const matches=data.matches.filter(x=>x.source===entry.source&&x.sellerAccount===entry.sellerAccount&&x.sku===entry.sku);
+    const found=matches.length===1?matches[0]:null;
+    const verified=found&&['matched_stock_report','matched_stock_unknown'].includes(found.status)&&found.candidates===1&&['product','variant','bundle'].includes(found.itemType)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(found.itemId||'')&&Array.isArray(found.matchFields)&&found.matchFields.some(x=>['article','code'].includes(x));
+    if(verified)exact++;
+    const p=document.createElement('p');p.textContent=entry.source+' · '+entry.sku+' — '+(verified?'Точное совпадение: '+found.itemName:'Требует уточнения');
+    const b=document.createElement('button');b.type='button';b.textContent='Открыть индивидуальную сверку';b.addEventListener('click',()=>{if(busy)return;select.value=key(entry);inspect();});candidateArea.append(p,b);
+   }
+   status.textContent='Проверено '+targets.length+' SKU, точных кандидатов '+exact+'. Связи не записаны. Подтвердите карточки отдельно.';
+  }catch(e){status.textContent='Пакетная проверка не завершена: '+String(e.message).slice(0,100);}
+  finally{busy=false;batch.disabled=false;check.disabled=false;load.disabled=false;}
+ }
+ batch.addEventListener('click',inspectBatch);
  load.addEventListener('click',()=>loadSaved());
  check.addEventListener('click',inspect);
  select.addEventListener('change',()=>candidateArea.replaceChildren());

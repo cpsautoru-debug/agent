@@ -119,3 +119,11 @@ test('current snapshot classification uses shared manual source and fails closed
  assert.equal(classifyCurrentOrder({...row,source_checked_at:older},sync).bucket,'review');
  assert.equal(classifyCurrentOrder({...row,source_status:'delivered'},new Map()).bucket,'history');
 });
+
+import {prioritizeUnmappedSkus} from '../web/office/saved-sku-confirmation.mjs';
+test('SKU batch prioritizes current active orders and preserves account identity',()=>{
+ const row={source:'yandex',account:'149082506',queue_bucket:'active',items:[{sku:'a'},{sku:'b'},{sku:'a'}]};
+ const rows=[row,{...row,queue_bucket:'history',items:[{sku:'old'}]},{...row,queue_bucket:'review',items:[{sku:'stale'}]},{...row,source:'ozon_fbo',items:[{sku:'fbo'}]},{...row,account:'149106500'}];
+ const result=prioritizeUnmappedSkus(rows,new Set([JSON.stringify(['yandex','149082506','a'])]));
+ assert.deepEqual(result.map(x=>[x.sellerAccount,x.sku]),[['149082506','b'],['149106500','a'],['149106500','b']]);
+});
