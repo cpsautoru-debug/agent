@@ -193,12 +193,12 @@ export function createStockPrecheck({fetcher=fetch,authorizeServer=null}={}){
      async function scan(kind,handler){
       // Preserve existing production checkpoints; only an explicitly
       // all-open marketplace proof requires fresh order-origin identifiers.
-      const scoped=scope+(kind==='orders'&&sourceCoverage.complete?':origin-v2':'')+':'+kind;
+      const scoped=scope+(kind==='orders'&&sourceCoverage.complete?':origin-v2':'')+(kind==='orders'&&env.MS_FULFILLMENT_FILTERED_OCCUPANCY==='enabled'?':assortment-v1':'')+':'+kind;
       try{return await resumeScan(db,scoped,read,handler);}
       catch{return {status:kind==='orders'?'availability_unverified':'production_unverified',
        reason:'checkpoint_unavailable'};}
      }
-     const occupancy=await scan('orders',reader=>readOccupancy(type,id,warehouse.storeId,accounting,reader));
+     const occupancy=await scan('orders',reader=>readOccupancy(type,id,warehouse.storeId,accounting,reader,{filtered:env.MS_FULFILLMENT_FILTERED_OCCUPANCY==='enabled'}));
      const production=await scan('production',reader=>readProduction(id,warehouse.storeId,reader));
      evidenceByItem.set(id,{accounting,occupancy,production});
     }
