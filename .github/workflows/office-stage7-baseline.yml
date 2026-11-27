@@ -1,0 +1,44 @@
+name: Office stage 7 baseline comparison
+on:
+  push:
+    branches: [office-21-stage7-dashboard]
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare failing test identities against deployed baseline
+        shell: bash
+        run: |
+          git worktree add --detach /tmp/office-baseline 472dcb6fca7e90d146869f5926f01837444d074f
+          cat >/tmp/compare-office.py <<'PY'
+          import pathlib,re,subprocess
+          workflows=['ceo-dashboard','ms-production-monitor','ms-production-recent-check','wb-finance-queued-sync-check','ozon-ad-overlap-audit','ozon-ads-office-bridge','ozon-date-cost-evidence-check','ozon-profit-closeout-truth']
+          commands=set()
+          for name in workflows:
+              text=pathlib.Path('/tmp/office-baseline/.github/workflows/'+name+'.yml').read_text()
+              commands.update(re.findall(r'run: (node --test [^\n]+)',text))
+          def run(cwd):
+              failures=set()
+              for cmd in sorted(commands):
+                  p=subprocess.run(cmd.split(),cwd=cwd,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+                  names=re.findall(r'^not ok \d+ - (.+)$',p.stdout,re.M)
+                  if p.returncode and not names: raise RuntimeError(cmd+'\n'+p.stdout)
+                  failures.update(names)
+              return failures
+          old=run('/tmp/office-baseline')
+          new=run('.')
+          print('BASELINE FAILURES:',len(old))
+          print('CANDIDATE FAILURES:',len(new))
+          print('NEW FAILURES:',sorted(new-old))
+          print('RESOLVED FAILURES:',sorted(old-new))
+          assert not new-old, 'New regressions found'
+          PY
+          python /tmp/compare-office.py

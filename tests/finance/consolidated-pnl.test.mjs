@@ -90,12 +90,20 @@ test('known unit-cost Yandex evidence may enter provisional but never verified p
  assert.equal(applyYandexCostToChannels(channels,month,{
   month,status:'preliminary_cost_reconciled',
   preliminaryContributionKopecks:20000000,cogsKopecks:40000000,
-  missingCount:0,netProfitKopecks:null}),true);
+  missingCount:0,netProfitKopecks:null,orderRealizationMatched:true}),true);
  assert.equal(channels.yandex.status,'known_cost_result');
  const r=consolidateBusinessPnl({month,channels,sharedExpenses,taxes});
  assert.equal(r.channelsTotalKopecks,103986255);
  assert.equal(r.provisionalAfterExpensesKopecks,78035555);
  assert.equal(r.finalProfitKopecks,null);
+ for(const matched of [undefined,false]){
+  channels.yandex={status:'known_cost_result',profitKopecks:20000000};
+  assert.equal(applyYandexCostToChannels(channels,month,{
+   month,status:'preliminary_cost_reconciled',preliminaryContributionKopecks:20000000,
+   cogsKopecks:40000000,missingCount:0,netProfitKopecks:null,
+   orderRealizationMatched:matched}),false);
+  assert.equal(channels.yandex,undefined);
+ }
  assert.equal(applyYandexCostToChannels(channels,month,{
   month,status:'incomplete_cost_coverage',missingCount:2,
   preliminaryContributionKopecks:null,netProfitKopecks:null}),false);
