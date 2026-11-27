@@ -37,6 +37,8 @@ export function classifyOrderBucket(order){
    return {bucket:'history',reason:status,sewingAllowed:false};
   if(TRANSIT_OZON.has(status))
    return {bucket:'transit',reason:'in_delivery',sewingAllowed:false};
+  if(status==='awaiting_deliver')
+   return {bucket:'review',reason:'awaiting_dispatch_no_sewing',sewingAllowed:false};
   if(status==='awaiting_packaging')
    return {bucket:'active',reason:'needs_stock_and_sku_check',sewingAllowed:false};
  }

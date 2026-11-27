@@ -1,9 +1,12 @@
 name: Persistent order queue safety checks
 on:
   push:
-    branches: [office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
+    branches: [office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
     paths:
       - 'functions/api/orders/persistent-queue.js'
+      - 'functions/api/orders/order-buckets.js'
+      - 'functions/api/orders/ozon-open-audit.js'
+      - 'tests/ozon-open-audit.test.mjs'
       - 'functions/api/orders/warehouse-route-approval.js'
       - 'web/office/warehouse-route-approval.mjs'
       - 'web/office/saved-sku-confirmation.mjs'
@@ -39,6 +42,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate D1 mirror and trusted-source boundaries
-        run: node --test tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs tests/fulfillment-*.test.mjs tests/warehouse-route-approval.test.mjs
+        run: node --test tests/ozon-open-audit.test.mjs tests/ozon-unfulfilled-audit.test.mjs tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs tests/fulfillment-*.test.mjs tests/warehouse-route-approval.test.mjs
       - name: Check browser queue syntax
         run: node --check web/office/sewing-demand.mjs && node --check web/office/persistent-order-queue.mjs && node --check web/office/warehouse-route-approval.mjs && node --check web/office/saved-sku-confirmation.mjs && node --check web/office/approved-sku-stock-diagnostic.mjs
