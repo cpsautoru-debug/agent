@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {auditOzonUnfulfilled} from '../functions/api/marketplace/ozon-unfulfilled-audit.mjs';
+const opts={account:'171189',token:'synthetic',now:Date.parse('2026-11-27T17:45:00Z')};
+const row=(id,status='awaiting_packaging')=>({posting_number:id,status});
+test('bounded comparison reads pages and never claims all open',async()=>{let n=0;const r=await auditOzonUnfulfilled({...opts,baseline:[row('a'),row('c')],fetcher:async(u,o)=>{const b=JSON.parse(o.body);assert.equal(b.cursor,n?'next':'');return Response.json(n++?{postings:[row('b')],has_next:false}:{postings:[row('a')],has_next:true,cursor:'next'});}});assert.equal(r.received,2);assert.equal(r.onlyUnfulfilled,1);assert.equal(r.onlyBaseline,1);assert.equal(r.allOpenVerified,false);});
+test('invalid pages and repeated cursors fail closed',async()=>{for(const data of [{postings:[],has_next:true,cursor:'x'},{postings:[row('a'),row('a')],has_next:false},{postings:[]}])await assert.rejects(auditOzonUnfulfilled({...opts,fetcher:async()=>Response.json(data)}),/audit_/);});
