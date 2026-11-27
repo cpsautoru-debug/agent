@@ -629,6 +629,11 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
  return {orders:[...rows.values()].map(x=>({...x,verifiedStatus:statuses.get(x.id)}))};
 }
 // Optional additional order-only credentials; never use finance bindings as fallback.
+export function ozonAccountCoverage(accounts){
+ const expected=['171189'];
+ return {configured:accounts.length,expected:expected.length,allConfiguredRead:true,
+  allExpectedConfigured:accounts.length===expected.length&&accounts.every(a=>expected.includes(a.account))};
+}
 export function resolveOzonOrderAccounts(env){
  const accounts=[];
  for(const suffix of ['', '_2', '_3']){
@@ -791,7 +796,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
           source==='ozon'?'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE':
           'WB_NEW_AND_30_DAY_FBS_STATUS_SNAPSHOT',
         complete:true,
-        accountCoverage:source==='wb'?null:{configured:accounts.length,expected:3,allConfiguredRead:true,allExpectedConfigured:accounts.length===3},
+        accountCoverage:source==='wb'?null:ozonAccountCoverage(accounts),
         sampledAt:new Date(now()).toISOString(),
         duplicateLookupMode:scan?.complete?
           'COMPLETE_BOUNDED_LIST_SCAN':'PARTIAL_BOUNDED_LIST_SCAN',
