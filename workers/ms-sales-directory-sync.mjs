@@ -58,7 +58,8 @@ export default {async scheduled(event,env){
   try{await syncAssortmentPage({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET});}
   catch(error){console.warn('assortment_sync_failed',String(error?.message||'unknown').slice(0,100));}
  }
- // One operation per tick. With a five-minute Cron, every directory and source
+ // One existing rotation operation per tick, plus the opt-in catalogue page above.
+ // With a five-minute Cron, every directory and source
  // is visited once per 45 minutes. Keep legacy directory-only mode by default.
  if(env.MS_ORDER_AUTO_SYNC==='enabled'){
   const index=((slot%9)+9)%9;
