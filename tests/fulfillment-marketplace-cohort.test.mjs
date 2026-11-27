@@ -44,3 +44,9 @@ test('unique line identities are mandatory across a complete cohort',()=>{
  const x=assembleLiveCohort([row,row],[],item,store,key);
  assert.equal(x.status,'requires_review');
 });
+
+test('manual WB exception cannot silently release shared stock',()=>{
+ const manual={...row,order_key:'AS63:wb:wb-primary:123',source:'wb',source_status:'wb_confirmed_assembly',sku:'Пламя1',ms_item_id:null};
+ const r=calculateLiveOrder({...base,sourceLines:[row,manual]});
+ assert.equal(r.reason,'manual_stock_scope_unverified');assert.equal(r.missing,null);
+});
