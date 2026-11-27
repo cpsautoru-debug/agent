@@ -496,7 +496,7 @@ test('WB FBS uses dedicated read-only orders token without financial-token fallb
   const calls=[];
   const handler=createMarketplaceOrderPreview({fetcher:async(url,options)=>{
     calls.push({url,authorization:options.headers?.Authorization});
-    return Response.json({orders:[]});
+    return Response.json({orders:[],next:0});
   }});
   const missing=await handler({request,env:base});
   assert.equal(missing.status,503);
@@ -510,7 +510,7 @@ test('WB FBS uses dedicated read-only orders token without financial-token fallb
   assert.equal(result.source,'wb');
   assert.equal(result.readOnly,true);
   assert.equal(result.changedRecords,0);
-  assert.equal(calls.length,1);
+  assert.equal(calls.length,2);
   assert.equal(calls[0].url,'https://marketplace-api.wildberries.ru/api/v3/orders/new');
   assert.equal(calls[0].authorization,'dedicated-orders-token');
 });
@@ -525,4 +525,12 @@ test('Ozon FBO pagination accepts documented root schema and a complete wrapped 
    /pagination_unverified/);
  assert.deepEqual(extractOzonOrderPage({postings:rows,has_next:true,cursor:'c2'},'ozon'),
    {rows,hasNext:true,next:'c2'});
+});
+
+test('WB history and new orders are deduplicated and classified using complete status evidence',async()=>{
+ const {readWbOrderSnapshot,classifyWbStatus}=await import('../functions/api/marketplace/order-import-preview.js');
+ const row=id=>({id,article:'SKU'+id});
+ const fetcher=async(url,options)=>{const u=new URL(url);if(u.pathname.endsWith('/new'))return Response.json({orders:[row(1)]});if(u.pathname.endsWith('/status')){assert.deepEqual(JSON.parse(options.body).orders,[1,2]);return Response.json({orders:[{id:1,supplierStatus:'new',wbStatus:'waiting'},{id:2,supplierStatus:'confirm',wbStatus:'waiting'}]});}return Response.json(u.searchParams.get('next')==='0'?{orders:[row(1)],next:1}:{orders:[row(2)],next:0});};
+ const snapshot=await readWbOrderSnapshot(fetcher,'token',Date.now());assert.equal(snapshot.orders.length,2);assert.equal(snapshot.orders[1].verifiedStatus,'wb_confirmed_assembly');assert.equal(classifyWbStatus({supplierStatus:'complete',wbStatus:'sold'}),'delivered');assert.equal(classifyWbStatus({supplierStatus:'confirm',wbStatus:'canceled'}),'cancelled');assert.equal(classifyWbStatus({supplierStatus:'new',wbStatus:'unknown'}),'wb_status_unverified');
+ await assert.rejects(()=>readWbOrderSnapshot(async(url)=>Response.json(url.endsWith('/new')?{orders:[row(1)]}:url.endsWith('/status')?{orders:[]}:{orders:[],next:0}),'token',Date.now()),/pagination_unverified/);
 });
