@@ -16,7 +16,7 @@ async function keyFor(secret){
 export async function signBridgeRequest(secret,stamp,pathAndQuery){
   if(!validBridgeSecret(secret)||!Number.isSafeInteger(Number(stamp))||
     !/^\d{13}$/.test(String(stamp))||
-    typeof pathAndQuery!=='string'||!['/api/ms/production-bridge?','/api/ms/sales-bridge?','/api/orders/scheduled-refresh?'].some(prefix=>pathAndQuery.startsWith(prefix)))
+    typeof pathAndQuery!=='string'||(pathAndQuery!=='/api/orders/scheduled-fulfillment'&&!['/api/ms/production-bridge?','/api/ms/sales-bridge?','/api/orders/scheduled-refresh?'].some(prefix=>pathAndQuery.startsWith(prefix))))
     throw Error('invalid_ms_bridge_signature_input');
   const bytes=new Uint8Array(await crypto.subtle.sign('HMAC',await keyFor(secret),
     encoder.encode(message(String(stamp),pathAndQuery))));
@@ -26,7 +26,7 @@ export async function verifyBridgeRequest(secret,stamp,signature,pathAndQuery,no
   if(!validBridgeSecret(secret)||!/^\d{13}$/.test(String(stamp))||
     typeof signature!=='string'||!HEX.test(signature)||
     !Number.isSafeInteger(nowMs)||Math.abs(Number(stamp)-nowMs)>MAX_SKEW_MS||
-    typeof pathAndQuery!=='string'||!['/api/ms/production-bridge?','/api/ms/sales-bridge?','/api/orders/scheduled-refresh?'].some(prefix=>pathAndQuery.startsWith(prefix)))
+    typeof pathAndQuery!=='string'||(pathAndQuery!=='/api/orders/scheduled-fulfillment'&&!['/api/ms/production-bridge?','/api/ms/sales-bridge?','/api/orders/scheduled-refresh?'].some(prefix=>pathAndQuery.startsWith(prefix))))
     return false;
   const bytes=Uint8Array.from(signature.match(/../g),pair=>parseInt(pair,16));
   return crypto.subtle.verify('HMAC',await keyFor(secret),bytes,
