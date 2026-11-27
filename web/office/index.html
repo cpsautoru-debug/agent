@@ -2172,6 +2172,11 @@
         <p id="sewingDemandStatus" class="ms-production-status" role="status">Данные пока не загружены.</p>
         <div class="ms-production-scroll"><table class="ms-production-table"><thead><tr><th>Заказ</th><th>Товар</th><th>Категория</th><th>Количество</th></tr></thead><tbody id="sewingDemandRows"></tbody></table></div>
       </section>
+      <section class="ms-command-board" id="pickingPreview">
+        <div class="ms-production-header"><div><h2>Лист подбора и упаковки</h2><p>Предварительный список полностью обеспеченных заказов. Не разрешение на отгрузку.</p></div><button type="button" class="ms-production-button" id="pickingPrint" disabled>Печать списка</button></div>
+        <p id="pickingStatus" role="status">Данные не загружены.</p>
+        <div class="ms-production-scroll"><table class="ms-production-table"><thead><tr><th>Заказ</th><th>Товар</th><th>Количество</th></tr></thead><tbody id="pickingRows"></tbody></table></div>
+      </section>
       <section class="ms-command-board" id="msAutoQueue" aria-labelledby="msAutoQueueTitle">
         <div class="ms-production-header">
           <div>
@@ -2500,7 +2505,7 @@
 <script type="module" src="ms-negative-stock-reconciliation.mjs?v=20261125-paged-ledger"></script>
 <script type="module" src="ms-production-command-board.mjs"></script>
 <script type="module" src="ms-production-auto-status.mjs"></script>
-<script type="module" src="sewing-demand.mjs?v=20261127-supervisor"></script>
+<script type="module" src="sewing-demand.mjs?v=20261127-picking"></script>
 <script type="module" src="ms-production-auto-queue.mjs?v=20261123-orders"></script>
 <script type="module" src="ms-customer-order-states.mjs?v=20261123"></script>
 <script type="module" src="marketplace-order-import-preview.mjs?v=20261123-no-false-matches"></script>
