@@ -95,7 +95,7 @@ export function normalizeMarketplaceOrders(source,body,account){
   });
   return records;
 }
-async function readJson(response){
+async function readJson(response,parse=JSON.parse){
   const r=response.body?.getReader();if(!r)throw Error('missing_body');
   let size=0,text='';const decoder=new TextDecoder('utf-8',{fatal:true});
   try{while(true){const {value,done}=await r.read();
@@ -103,9 +103,9 @@ async function readJson(response){
     size+=value.byteLength;if(size>MAX_BYTES)throw Error('source_response_too_large');
     text+=decoder.decode(value,{stream:true});}
   }finally{await r.cancel().catch(()=>{});}
-  return JSON.parse(text);
+  return parse(text);
 }
-async function requestJson(fetcher,url,options){
+async function requestJson(fetcher,url,options,parse=JSON.parse){
   const response=await fetcher(url,{redirect:'manual',
     signal:AbortSignal.timeout(20000),...options});
   if(response.status!==200){
@@ -121,7 +121,7 @@ async function requestJson(fetcher,url,options){
     const e=Error(sourceError(response.status));
     e.status=response.status;e.upstreamCode=upstreamCode;throw e;
   }
-  return readJson(response);
+  return readJson(response,parse);
 }
 // Some MoySklad installations reject externalCode as a filter (HTTP 400).
 // A full-text search can establish a duplicate only when an exact externalCode
@@ -553,6 +553,27 @@ export function classifyWbStatus(s){
  if(a==='confirm'&&b==='waiting')return 'wb_confirmed_assembly';
  return 'wb_status_unverified';
 }
+// Preserve the exact numeric token before JS Number rounding. Only the WB
+// historical page uses this parser; order IDs and other fields remain strict.
+export function parseWbHistoryPage(text){
+ return JSON.parse(text,(key,value,context)=>{
+  if(key==='next'&&typeof value==='number'&&typeof context?.source==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(context.source))return BigInt(context.source);
+  return value;
+ });
+}
+export function wbCursor(page){
+ if(!Object.hasOwn(page,'next'))throw Error('wb_cursor_missing');
+ const x=page.next;
+ if(typeof x==='string')throw Error('wb_cursor_string');
+ if(typeof x!=='number'&&typeof x!=='bigint')throw Error('wb_cursor_type_invalid');
+ if(typeof x==='number'){
+  if(!Number.isInteger(x)||x<0)throw Error('wb_cursor_invalid');
+  if(!Number.isSafeInteger(x))throw Error('wb_cursor_precision_unavailable');
+ }
+ const n=BigInt(x);
+ if(n<0n||n>9223372036854775807n)throw Error('wb_cursor_out_of_range');
+ return n.toString();
+}
 export async function readWbOrderSnapshot(fetcher,token,nowMs){
  const base='https://marketplace-api.wildberries.ru/api/v3/orders';
  const headers={Authorization:token,Accept:'application/json'};
@@ -575,18 +596,18 @@ export async function readWbOrderSnapshot(fetcher,token,nowMs){
   }
   if(rows.size>150)throw Error('order_feed_limit_reached');
  }
- let next=0,complete=false;
+ let next='0',complete=false;
  const seen=new Set();
  const end=Math.floor(nowMs/1000),start=end-30*86400;
  for(let p=0;p<MAX_ORDER_PAGES;p++){
   const q=new URLSearchParams({limit:'50',next:String(next),dateFrom:String(start),dateTo:String(end)});
-  const result=await read(base+'?'+q);
+  const result=await requestJson(fetcher,base+'?'+q,{method:'GET',headers},parseWbHistoryPage);
   if(!Array.isArray(result?.orders)||result.orders.length>50)throw Error('wb_page_shape_invalid');
-  if(!Number.isSafeInteger(result.next)||result.next<0)throw Error('wb_cursor_invalid');
+  const cursor=wbCursor(result);
   add(result.orders,false);
-  if(result.next===0){complete=true;break;}
-  if(seen.has(result.next))throw Error('wb_cursor_repeated');
-  seen.add(result.next);next=result.next;
+  if(cursor==='0'){complete=true;break;}
+  if(seen.has(cursor))throw Error('wb_cursor_repeated');
+  seen.add(cursor);next=cursor;
  }
  if(!complete)throw Error('order_page_limit_reached');
  add(fresh.orders,true);
@@ -790,7 +811,7 @@ export function createMarketplaceOrderPreview({fetcher=fetch,now=Date.now,author
         'duplicate_source_order','invalid_external_order_identity',
         'moysklad_lookup_unverified','external_order_key_too_long',
         'source_error','ozon_status_filter_unverified','order_pagination_unverified',
-        'wb_order_id_invalid','wb_page_duplicate_id','wb_cross_page_duplicate_id','wb_fresh_article_mismatch','wb_page_shape_invalid','wb_cursor_invalid','wb_cursor_repeated','wb_status_shape_invalid','wb_status_count_mismatch','wb_status_id_invalid','wb_status_id_unexpected','wb_status_id_duplicate','order_feed_limit_reached','order_page_limit_reached'].includes(error?.message)?
+        'wb_order_id_invalid','wb_page_duplicate_id','wb_cross_page_duplicate_id','wb_fresh_article_mismatch','wb_page_shape_invalid','wb_cursor_invalid','wb_cursor_missing','wb_cursor_string','wb_cursor_type_invalid','wb_cursor_out_of_range','wb_cursor_precision_unavailable','wb_cursor_repeated','wb_status_shape_invalid','wb_status_count_mismatch','wb_status_id_invalid','wb_status_id_unexpected','wb_status_id_duplicate','order_feed_limit_reached','order_page_limit_reached'].includes(error?.message)?
           error.message:'import_preview_unavailable');
       return json(503,{code,source,stage:failedStage,
         upstreamHttp:Number.isInteger(error?.status)?error.status:null,
