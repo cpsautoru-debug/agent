@@ -1,3 +1,4 @@
+import {buildPickingPreview} from './fulfillment-picking.mjs';
 import {buildDemand} from './fulfillment-demand.mjs';
 import {cleanOrderFacts,cleanLineFacts} from './ms-sales-facts.mjs';
 import {verifySession} from '../auth/session.js';
@@ -193,7 +194,7 @@ export function createPersistentQueue({
     for(const order of displayed)counts[order.queue_bucket]++;
     const coverageDiagnostics=assessMarketplaceCoverage(sync.results);
     const demand=buildDemand(displayed,fulfillment,coverageDiagnostics,{truncated:displayed.length>=150});
-    return reply(200,{demand,code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
+    return reply(200,{demand,picking:buildPickingPreview(demand),code:'persistent_queue_read',readOnly:true,fulfillment,fulfillmentAvailable,
      limit:150,displayedCount:displayed.length,
      bucketCounts:counts,countsScope:'displayed_first_150_only',
      orders:displayed,sources:sync.results,
