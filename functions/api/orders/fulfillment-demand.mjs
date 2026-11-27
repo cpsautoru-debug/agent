@@ -1,3 +1,4 @@
+import {manualItemReason} from '../../../web/office/manual-item-policy.mjs';
 // Read-only projection of saved reviews. Never issue production tasks.
 export function buildDemand(orders,reviews,coverage,{now=Date.now(),truncated=false}={}){
  const byOrder=new Map(reviews.map(r=>[r.orderKey,r]));
@@ -7,6 +8,8 @@ export function buildDemand(orders,reviews,coverage,{now=Date.now(),truncated=fa
   const r=byOrder.get(o.order_key),age=now-Date.parse(r?.checkedAt||'');
   const valid=coverage?.complete===true&&!truncated&&o.queue_bucket==='active'&&age>=0&&age<=30*60000&&r?.warehouse?.status==='warehouse_verified'&&Array.isArray(r.lines)&&r.lines.length===o.items.length&&r.lines.every((l,i)=>l.key===o.order_key+':line:'+i&&l.ordered===o.items[i].quantity&&['warehouse_covered','production_covered','sewing_required'].includes(l.status)&&[l.warehouseCovered,l.plannedCovered,l.missing].every(n=>Number.isSafeInteger(n)&&n>=0)&&l.warehouseCovered+l.plannedCovered+l.missing===l.ordered);
   for(const [i,item] of o.items.entries()){
+   // Owner-confirmed independent stock; manual orders remain visible in Orders.
+   if(o.account==='wb-primary'&&manualItemReason(o.source,item.sku))continue;
    const base={orderKey:o.order_key,source:o.source,lineIndex:i,sku:item.sku||item.name||item.itemId,ordered:item.quantity};
    if(!valid){rows.push({...base,category:'review',quantity:null,reason:o.queue_bucket==='review'?o.queue_reason:coverage?.complete!==true?'marketplace_coverage_unverified':'allocation_unverified'});continue;}
    const l=r.lines[i];

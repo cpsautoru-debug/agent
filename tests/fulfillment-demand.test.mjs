@@ -11,3 +11,11 @@ test('inconsistent quantities or order identity fail closed',()=>{for(const l of
 test('FBO and historical orders excluded',()=>{assert.equal(buildDemand([{...o,source:'ozon_fbo'},{...o,queue_bucket:'history'},{...o,queue_bucket:'transit'}],[r],c,{now}).rows.length,0);});
 
 test('operational priority orders categories before stable order identity; no invented deadline',()=>{const unknown={...o,order_key:'AS63:yandex:123:001',queue_bucket:'review'};const d=buildDemand([unknown,o],[r],c,{now});assert.deepEqual(d.rows.map(x=>x.category),['stock','production','sewing','review']);assert.deepEqual(d.rows.map(x=>x.priority),[1,2,3,4]);assert.ok(d.rows.every(x=>x.deadline===null));assert.equal(d.approvedForDispatch,false);});
+
+test('independent WB manual SKU does not block production demand but other accounts and incomplete coverage do',()=>{
+ const manual={...o,source:'wb',account:'wb-primary',order_key:'AS63:wb:wb-primary:1',items:[{sku:'Пламя1',quantity:1}]};
+ const d=buildDemand([o,manual],[r],c,{now});assert.equal(d.complete,true);assert.equal(d.rows.length,3);
+ assert.equal(buildDemand([o,{...manual,account:'other'}],[r],c,{now}).complete,false);
+ assert.equal(buildDemand([o,manual],[r],{complete:false},{now}).complete,false);
+ assert.equal(buildDemand([o,manual],[r],c,{now,truncated:true}).complete,false);
+});
