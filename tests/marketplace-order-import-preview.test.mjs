@@ -55,10 +55,10 @@ test('Ozon FBS v4 request uses documented cursor and sort_dir',()=>{
   const payload=buildOzonFbsPreviewBody(Date.parse('2026-11-23T10:00:00.000Z'));
   assert.equal(payload.sort_dir,'DESC');
   assert.equal(payload.cursor,'');
-  assert.deepEqual(payload.filter.statuses,['awaiting_packaging']);
+  assert.deepEqual(payload.filter.statuses,['awaiting_packaging','awaiting_deliver']);
   assert.equal(payload.limit,50);
   assert.equal('dir' in payload,false);
-  assert.equal(payload.filter.since,'2026-11-16T10:00:00.000Z');
+  assert.equal(payload.filter.since,'2026-10-24T10:00:00.000Z');
   assert.equal(payload.filter.to,'2026-11-23T10:00:00.000Z');
 });
 
@@ -75,7 +75,7 @@ test('Ozon FBS intake follows cursor pages and rejects partial page coverage',as
   if(u.hostname==='api-seller.ozon.ru'&&u.pathname==='/v4/posting/fbs/list'){
    const body=JSON.parse(opts.body);
    assert.equal(body.limit,50);
-   return Response.json(body.cursor?{postings:[{posting_number:'P2',status:'awaiting_packaging',products:[{offer_id:'SKU2',quantity:1}]}],has_next:false,cursor:''}:
+   return Response.json(body.cursor?{postings:[{posting_number:'P2',status:'awaiting_deliver',products:[{offer_id:'SKU2',quantity:1}]}],has_next:false,cursor:''}:
     {postings:[{posting_number:'P1',status:'awaiting_packaging',products:[{offer_id:'SKU1',quantity:1}]}],has_next:true,cursor:'next'});
   }
   if(u.hostname==='api-seller.ozon.ru'&&u.pathname==='/v3/product/info/list')
@@ -89,8 +89,9 @@ test('Ozon FBS intake follows cursor pages and rejects partial page coverage',as
  const res=await handler({request:new Request(base,{headers:{Cookie:cookie}}),env});
  const data=await res.json();
  assert.equal(res.status,200);assert.equal(data.complete,true);
- assert.equal(data.coverage,'FBS_AWAITING_PACKAGING_LAST_7_DAYS_COMPLETE');
+ assert.equal(data.coverage,'FBS_PACKAGING_AND_AWAITING_DELIVER_LAST_30_DAYS_COMPLETE');
  assert.equal(data.orders.length,2);
+ assert.equal(data.orders[1].productionQueue,'not_for_sewing');
  assert.equal(data.orders[0].externalKey,'AS63:ozon:1001:P1');
  const fbs=calls.filter(x=>x.url.includes('/v4/posting/fbs/list'));
  assert.equal(fbs.length,2);
