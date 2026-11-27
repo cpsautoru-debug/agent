@@ -125,7 +125,7 @@ if(typeof document!=='undefined')(()=>{
    if(approved.has(key(entry))){
     status.textContent='SKU уже утверждён. Обновите список.';return;
    }
-   if(found.status!=='matched_stock_report'&&found.status!=='matched_stock_unknown'){
+   if(!['matched_stock_report','matched_stock_unknown','catalogue_candidate'].includes(found.status)){
     const hasCandidates=showManualCandidates(entry,Array.isArray(found.possibleNameCandidates)?
        found.possibleNameCandidates:[]);
     status.textContent='Точного совпадения артикула/кода нет ('+
@@ -137,12 +137,12 @@ if(typeof document!=='undefined')(()=>{
    }
    if(found.candidates!==1||!['product','variant','bundle'].includes(found.itemType)||
     !/^[0-9a-f-]{36}$/i.test(found.itemId||'')||
-    !Array.isArray(found.matchFields)||!found.matchFields.some(x=>x==='article'||x==='code')){
+    !Array.isArray(found.matchFields)||!found.matchFields.some(x=>x==='article'||x==='code'||x==='barcode')){
     status.textContent='Нет однозначного соответствия по артикулу/коду. Запись запрещена.';
     return;
    }
    const p=document.createElement('p');
-   p.textContent='Найдено точное совпадение: '+(found.itemName||'Без имени')+
+   p.textContent='Найден кандидат по точному идентификатору: '+(found.itemName||'Без имени')+
     ' · '+found.itemType+' · '+found.itemId+' · совпало поле: '+
     found.matchFields.join(', ')+'. Проверьте модель, цвет, комплектацию.';
    const button=document.createElement('button');
@@ -165,7 +165,7 @@ if(typeof document!=='undefined')(()=>{
     finally{busy=false;button.disabled=false;check.disabled=false;}
    });
    candidateArea.append(p,button);
-   status.textContent='Карточка найдена по точному совпадению. Требуется подтверждение владельца.';
+   status.textContent='Найден кандидат по точному идентификатору. Требуется подтверждение владельца; остаток проверяется отдельно.';
   }catch(e){
    status.textContent='Сверка SKU не завершена: '+String(e.message).slice(0,110);
   }finally{busy=false;check.disabled=false;}
@@ -189,7 +189,7 @@ if(typeof document!=='undefined')(()=>{
    for(const entry of targets){
     const matches=data.matches.filter(x=>x.source===entry.source&&x.sellerAccount===entry.sellerAccount&&x.sku===entry.sku);
     const found=matches.length===1?matches[0]:null;
-    const verified=found&&['matched_stock_report','matched_stock_unknown'].includes(found.status)&&found.candidates===1&&['product','variant','bundle'].includes(found.itemType)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(found.itemId||'')&&Array.isArray(found.matchFields)&&found.matchFields.some(x=>['article','code'].includes(x));
+    const verified=found&&['matched_stock_report','matched_stock_unknown','catalogue_candidate'].includes(found.status)&&found.candidates===1&&['product','variant','bundle'].includes(found.itemType)&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(found.itemId||'')&&Array.isArray(found.matchFields)&&found.matchFields.some(x=>['article','code','barcode'].includes(x));
     if(verified)exact++;
     const p=document.createElement('p');p.textContent=entry.source+' · '+entry.sku+' — '+(verified?'Точное совпадение: '+found.itemName:'Требует уточнения');
     const b=document.createElement('button');b.type='button';b.textContent='Открыть индивидуальную сверку';b.addEventListener('click',()=>{if(busy)return;select.value=key(entry);inspect();});candidateArea.append(p,b);
