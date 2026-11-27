@@ -13,7 +13,7 @@ export const NEXT_SQL=`SELECT q.order_key FROM office_order_queue q
  AND json_array_length(q.items_json)=1
  AND EXISTS(SELECT 1 FROM json_each(q.items_json) i JOIN office_order_sku_links l ON l.source=q.source AND l.seller_account=q.account AND l.marketplace_sku=json_extract(i.value,'$.sku') WHERE NOT(q.source='wb' AND json_extract(i.value,'$.sku') IN ('Пламя1','пламя1')))
  AND (f.order_key IS NULL OR f.source_checked_at<>q.source_checked_at OR f.checked_at<? OR EXISTS(SELECT 1 FROM json_each(f.result_json,'$.lines') line WHERE json_extract(line.value,'$.occupancy.reason')='checkpoint_pending' OR json_extract(line.value,'$.production.reason')='checkpoint_pending'))
- ORDER BY CASE WHEN f.source_checked_at=q.source_checked_at AND f.checked_at>=? AND EXISTS(SELECT 1 FROM json_each(f.result_json,'$.lines') line WHERE json_extract(line.value,'$.occupancy.reason')='checkpoint_pending' OR json_extract(line.value,'$.production.reason')='checkpoint_pending') THEN 0 ELSE 1 END, f.checked_at ASC,q.order_key LIMIT 1`;
+ ORDER BY CASE WHEN f.order_key IS NULL THEN -1 WHEN f.source_checked_at=q.source_checked_at AND f.checked_at>=? AND EXISTS(SELECT 1 FROM json_each(f.result_json,'$.lines') line WHERE json_extract(line.value,'$.occupancy.reason')='checkpoint_pending' OR json_extract(line.value,'$.production.reason')='checkpoint_pending') THEN 0 ELSE 1 END, f.checked_at ASC,q.order_key LIMIT 1`;
 export function createScheduledFulfillment({now=Date.now,makePrecheck=createStockPrecheck}={}){
  return async({request,env})=>{
   if(request.method!=='POST')return reply(405,{code:'method_not_allowed'});
