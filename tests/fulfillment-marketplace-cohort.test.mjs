@@ -45,8 +45,14 @@ test('unique line identities are mandatory across a complete cohort',()=>{
  assert.equal(x.status,'requires_review');
 });
 
-test('manual WB exception cannot silently release shared stock',()=>{
+test('owner-confirmed independent WB exception excludes only exact unmapped SKU',()=>{
  const manual={...row,order_key:'AS63:wb:wb-primary:123',source:'wb',source_status:'wb_confirmed_assembly',sku:'Пламя1',ms_item_id:null};
  const r=calculateLiveOrder({...base,sourceLines:[row,manual]});
- assert.equal(r.reason,'manual_stock_scope_unverified');assert.equal(r.missing,null);
+ assert.equal(r.status,'calculated');assert.equal(r.lines.length,1);
+ for(const changed of [{ms_item_id:item},{order_key:'AS63:wb:other:123'},{quantity:0}]){
+  const bad=calculateLiveOrder({...base,sourceLines:[row,{...manual,...changed}]});
+  assert.equal(bad.reason,'manual_stock_scope_unverified');assert.equal(bad.missing,null);
+ }
+ assert.equal(calculateLiveOrder({...base,sourceCoverage:{complete:false},sourceLines:[row,manual]}).missing,null);
+ assert.equal(assembleLiveCohort([manual],[],item,store,manual.order_key).status,'requires_review');
 });
