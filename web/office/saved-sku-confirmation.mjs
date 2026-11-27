@@ -126,8 +126,8 @@ if(typeof document!=='undefined')(()=>{
     status.textContent='SKU уже утверждён. Обновите список.';return;
    }
    if(!['matched_stock_report','matched_stock_unknown','catalogue_candidate'].includes(found.status)){
-    const hasCandidates=showManualCandidates(entry,Array.isArray(found.possibleNameCandidates)?
-       found.possibleNameCandidates:[]);
+    const hasCandidates=showManualCandidates(entry,Array.isArray(found.catalogueEvidence?.nameLeads)&&found.catalogueEvidence.nameLeads.length?
+       found.catalogueEvidence.nameLeads:Array.isArray(found.possibleNameCandidates)?found.possibleNameCandidates:[]);
     status.textContent='Точного совпадения артикула/кода нет ('+
       (found.reason||found.status)+'). '+
       (hasCandidates?'Показаны варианты по названию для РУЧНОЙ проверки.':
