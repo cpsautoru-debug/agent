@@ -38,3 +38,5 @@ test('all five sources rotate every 25 minutes and directories every 60',()=>{
 test('worker exposes safe upstream failure reason',async()=>{
  await assert.rejects(refreshOrderSource({secret,source:'wb',now,fetcher:async()=>Response.json({reason:'order_feed_limit_reached'},{status:503})}),/order_sync_wb_503_order_feed_limit_reached/);
 });
+
+test('scheduled refresh preserves only allowlisted snapshot save failures',async()=>{for(const code of ['snapshot_incomplete_or_too_large','snapshot_unverified','persistent_queue_storage_unavailable','private upstream detail']){const handler=createScheduledRefresh({now,makeManual:()=>async()=>Response.json({complete:true}),save:async()=>Response.json({code},{status:503})});const r=await handler({request:await signed(),env});assert.equal(r.status,503);assert.equal((await r.json()).reason,code==='private upstream detail'?'snapshot_save_failed':code);}});
