@@ -137,3 +137,7 @@ test('history display cap does not imply operational truncation; unknown or miss
  for(const n of [null,1,3,-1,2.5])assert.equal(operationalTruncated(rows,n),true);
  assert.equal(operationalTruncated([...rows,{source:'ozon_fbo',queue_bucket:'review'}],2),false);
 });
+
+ test('packed Ozon orders remain review-only and cannot authorize sewing',()=>{
+ assert.deepEqual(classifyOrderBucket({source:'ozon',source_status:'awaiting_deliver'}),{bucket:'review',reason:'awaiting_dispatch_no_sewing',sewingAllowed:false});
+ });
