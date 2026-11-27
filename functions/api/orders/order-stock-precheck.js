@@ -31,15 +31,17 @@ export function validateStockRow(row,type,id){
  }
  return stores;
 }
-export function createStockPrecheck({fetcher=fetch}={}){
+export function createStockPrecheck({fetcher=fetch,authorizeServer=null}={}){
  return async({request,env})=>{
   if(request.method!=='POST')return response(405,{code:'method_not_allowed'});
   const url=new URL(request.url);
   if(url.origin!==ORIGIN||url.pathname!==PATH||url.search||url.hash)
    return response(400,{code:'invalid_scope'});
-  if(request.headers.get('Origin')!==ORIGIN||
-   request.headers.get('Sec-Fetch-Site')==='cross-site')
+  const serverAuthorized=authorizeServer?await authorizeServer(request,env):false;
+  if(!serverAuthorized&&(request.headers.get('Origin')!==ORIGIN||
+   request.headers.get('Sec-Fetch-Site')==='cross-site'))
    return response(403,{code:'origin_not_allowed'});
+  if(!serverAuthorized){
   if(!env?.OFFICE_SESSION_SECRET||!env.OFFICE_ALLOWED_EMAIL||!env.OZON_FINANCE_DB)
    return response(503,{code:'auth_unavailable'});
   let sub;try{sub=await verifySession(request,env.OFFICE_SESSION_SECRET);}catch{}
@@ -51,6 +53,8 @@ export function createStockPrecheck({fetcher=fetch}={}){
     .bind(sub,env.OFFICE_ALLOWED_EMAIL).first();
    if(x?.allowed!==1)return response(403,{code:'owner_only'});
   }catch{return response(503,{code:'auth_unavailable'});}
+  }
+  const db=env.OZON_FINANCE_DB;
   let key;
   try{
    const b=await request.json();
