@@ -43,7 +43,8 @@ export function classifyOrderBucket(order){
  if(source==='wb'){
   if(['cancel','cancelled','canceled','delivered'].includes(status.toLowerCase()))
    return {bucket:'history',reason:'finished_or_cancelled',sewingAllowed:false};
-  if(status==='new_fbs_assembly_order')
+  if(status==='wb_in_delivery')return {bucket:'transit',reason:'in_delivery',sewingAllowed:false};
+  if(status==='new_fbs_assembly_order'||status==='wb_confirmed_assembly')
    return {bucket:'active',reason:'needs_stock_and_sku_check',sewingAllowed:false};
  }
  return {bucket:'review',reason:'unrecognized_source_status',sewingAllowed:false};
