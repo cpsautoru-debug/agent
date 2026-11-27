@@ -8,3 +8,5 @@ test('name leads exclude cut pieces, archives and conflicting model or stitching
  assert.deepEqual(leads.map(x=>x.id),['a']);assert.equal(leads[0].automaticApproval,false);
  assert.deepEqual(catalogueNameLeads('Пламя1',rows),[]);
 });
+
+test('requested grey cannot match black-only or unspecified colour, and Cross remains distinct',()=>{const rows=[item('a','Чехлы Веста Кросс серыми сотами'),item('b','Чехлы Веста Кросс черными сотами'),item('c','Чехлы Веста Кросс соты')];assert.deepEqual(catalogueNameLeads('веста кросс серые соты',rows).map(x=>x.id),['a']);assert.deepEqual(catalogueNameLeads('веста серые соты',rows),[]);});
