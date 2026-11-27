@@ -34,12 +34,13 @@ export async function syncDirectoryType({db,secret,type,fetcher=fetch,now=Date.n
  throw Error('sales_sync_page_cap');
 }
 const SOURCES=['ozon','ozon_fbo','wb','yandex','manual'];
+export function orderRotation(slot){return {source:SOURCES[((slot%5)+5)%5],directory:slot%3===1?TYPES[((Math.floor(slot/3)%4)+4)%4]:null};}
 export async function refreshOrderSource({secret,source,fetcher=fetch,now=Date.now}){
  if(!validBridgeSecret(secret)||!SOURCES.includes(source))throw Error('order_sync_configuration');
  const path='/api/orders/scheduled-refresh?'+new URLSearchParams({source});
  const stamp=now();
  const response=await fetcher(ORIGIN+path,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(90000),headers:{'X-MS-Bridge-Time':String(stamp),'X-MS-Bridge-Signature':await signBridgeRequest(secret,stamp,path)}});
- if(!response.ok){await response.body?.cancel().catch(()=>{});throw Error('order_sync_http_'+response.status);}
+ if(!response.ok){let reason='unknown';try{const data=await response.json();if(typeof data.reason==='string'&&/^[a-z_]{1,80}$/.test(data.reason))reason=data.reason;}catch{}throw Error('order_sync_'+source+'_'+response.status+'_'+reason);}
  const reader=response.body?.getReader();if(!reader)throw Error('order_sync_body');
  let raw='',bytes=0;const decoder=new TextDecoder('utf-8',{fatal:true});
  try{for(;;){const {done,value}=await reader.read();if(done){raw+=decoder.decode();break;}bytes+=value.byteLength;if(bytes>8192)throw Error('order_sync_payload');raw+=decoder.decode(value,{stream:true});}}finally{await reader.cancel().catch(()=>{});}
@@ -59,12 +60,14 @@ export default {async scheduled(event,env){
   catch(error){console.warn('assortment_sync_failed',String(error?.message||'unknown').slice(0,100));}
  }
  // One existing rotation operation per tick, plus the opt-in catalogue page above.
- // With a five-minute Cron, every directory and source
- // is visited once per 45 minutes. Keep legacy directory-only mode by default.
+ // Orders rotate every 25 minutes; directories every 60 minutes. Keep legacy directory-only mode by default.
  if(env.MS_ORDER_AUTO_SYNC==='enabled'){
-  const index=((slot%9)+9)%9;
-  if(index>=4){await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:SOURCES[index-4]});return;}
-  await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:TYPES[index]});return;
+  const rotation=orderRotation(slot);
+  try{await refreshOrderSource({secret:env.MS_SALES_BRIDGE_SECRET,source:rotation.source});}
+  finally{
+   if(rotation.directory)await syncDirectoryType({db:env.MS_PRODUCTION_DB,secret:env.MS_SALES_BRIDGE_SECRET,type:rotation.directory});
+  }
+  return;
  }
  const hour=Math.floor(event.scheduledTime/3600000);
  const type=TYPES[((hour%4)+4)%4];

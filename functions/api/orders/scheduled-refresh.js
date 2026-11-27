@@ -26,7 +26,11 @@ export function createScheduledRefresh({now=Date.now,fetcher=fetch,makeMarketpla
    const options={fetcher,now,authorizeServer:async candidate=>candidate===internal};
    const handler=source==='manual'?makeManual(options):source==='yandex'?makeYandex(options):makeMarketplace(options);
    const response=await handler({request:internal,env});
-   if(response.status!==200)return reply(503,{code:'scheduled_source_unverified',source,upstreamStatus:response.status});
+   if(response.status!==200){
+    let reason='source_error';try{const data=await response.json();if(['token_rejected','permission_denied','rate_limited','unexpected_order_feed','unmapped_order_line','order_pagination_unverified','order_feed_limit_reached','order_page_limit_reached','upstream_response_too_large','import_preview_unavailable','marketplace_credentials_missing','moysklad_credentials_missing'].includes(data.code))reason=data.code;}catch{}
+    console.warn('scheduled_order_source_failed',source,reason,response.status);
+    return reply(503,{code:'scheduled_source_unverified',source,reason,upstreamStatus:response.status});
+   }
    const upstream=await response.json();
    return await save(db,source,upstream,now);
   }catch{return reply(503,{code:'scheduled_refresh_failed',source});}
