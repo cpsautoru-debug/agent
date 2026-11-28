@@ -1,4 +1,4 @@
-import {sadUnitEvidence,sadQuantityEvidence,attachSadWbCostReview,sadOrderReview} from './shop-unit-evidence.mjs';
+import {sadUnitEvidence,sadQuantityEvidence,attachSadWbCostReview} from './shop-unit-evidence.mjs';
 import {monthValid,previousClosedMonth} from './sales-analytics-core.mjs';
 const by=id=>document.getElementById(id);
 const month=by('unitSadMonth'),button=by('unitSadLoad'),body=by('unitSadRows'),status=by('unitSadStatus'),form=by('unitPlannerForm');
@@ -27,18 +27,17 @@ if(month&&financeButton&&financeStatus){
  let revision=0;
  const clear=()=>{revision++;financeButton.disabled=false;financeStatus.textContent='Доход по товарам требует отдельной сверки состава заказов.';};
  month.addEventListener('change',clear);window.addEventListener('hashchange',clear);
- const get=async path=>{const r=await fetch(path,{method:'GET',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(25000)});return r.ok?await r.json():null;};
  financeButton.addEventListener('click',async()=>{
   clear();const g=revision,m=month.value;if(!monthValid(m)||m>=new Date().toISOString().slice(0,7))return;
   financeButton.disabled=true;financeStatus.textContent='Сверяем отчёты по заказам и доставкам Сада…';
   try{
-   const jobs=await get('/api/yandex/report-jobs?month='+encodeURIComponent(m));if(g!==revision)return;
-   const select=(scope,type)=>jobs?.code==='yandex_report_jobs_saved'&&jobs.readOnly===true&&Array.isArray(jobs.jobs)?jobs.jobs.filter(x=>x.month===m&&x.scope===scope&&x.reportType===type&&x.status==='DONE'&&/^[a-zA-Z0-9_-]{1,255}$/.test(x.reportId||'')):[];
-   const a=select('all','orders'),b=select('149082506','realization');
-   if(a.length!==1||b.length!==1){financeStatus.textContent='Нет двух подтверждённых отчётов для сверки.';return;}
-   const [orders,realization]=await Promise.all([a,b].map(x=>get('/api/yandex/report-audit?reportId='+encodeURIComponent(x[0].reportId))));
-   if(g!==revision)return;const result=sadOrderReview(m,jobs,orders,realization);
-   financeStatus.textContent=result?'Заказов в доставках Сада: '+result.orders+'; найдено в отчёте доходов: '+result.matched+'; без совпадения: '+result.unmatched+'; с несколькими доставленными SKU: '+result.multiSku+'. Доход на SKU не подтверждён: нужен полный состав заказа.':'Состав или суммы отчётов не прошли проверку. Доход по SKU не подтверждён.';
+   const r=await fetch('/api/yandex/sad-order-review?month='+encodeURIComponent(m),{method:'GET',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(60000)});
+   const d=await r.json().catch(()=>null);if(g!==revision)return;
+   const good=r.ok&&d?.code==='sad_order_review'&&d.month===m&&d.campaignId===149082506&&d.readOnly===true&&d.changedRecords===0&&d.skuIncomeVerified===false&&d.netProfit===null&&[d.orders,d.matched,d.unmatched,d.multiSku].every(x=>Number.isSafeInteger(x)&&x>=0)&&d.matched+d.unmatched===d.orders&&d.multiSku<=d.orders;
+   if(good){financeStatus.textContent='Заказов в доставках Сада: '+d.orders+'; найдено в отчёте доходов: '+d.matched+'; без совпадения: '+d.unmatched+'; с несколькими доставленными SKU: '+d.multiSku+'. Доход на SKU не подтверждён: нужен полный состав заказа.';return;}
+   const allowed=['orders_registry_not_ready','sad_realization_registry_not_ready','orders_archive_unavailable','sad_archive_unavailable','orders_archive_not_verified','sad_archive_not_verified','report_registry_changed','order_ledger_coverage_invalid','review_source_unavailable'];
+   const reason=r.status===401||r.status===403?'owner_access_required':allowed.includes(d?.reason)?d.reason:'response_unverified';
+   financeStatus.textContent='Сверка не завершена. Код: '+reason+'; HTTP '+r.status;
   }catch{if(g===revision)financeStatus.textContent='Источник сверки недоступен.';}finally{if(g===revision)financeButton.disabled=false;}
  });
 }
