@@ -22,13 +22,20 @@ export function adaptWb(month,d){
  out.amount=d.productPayoutKopecks;out.status='source_report';return out;
 }
 export function adaptYandex(month,d){
- const out=empty('Яндекс Маркет','Доход по заказам после учтённых услуг');
+ const out=empty('Яндекс Маркет · Сад','Доход после услуг (только Сад)');
  if(d?.code!=='yandex_month_evidence_available'||d.month!==month||d.readOnly!==true||d.sourceKind!=='owner_browser_audited_summary'||d.evidence?.ownerEntity!=='ИП Жилина Ольга')return out;
  const e=d.evidence;
- // Existing snapshot covers two campaign IDs; do not represent it as a single shop.
- out.meaning+=' (оба магазина в сохранённом отчёте)';
- if(integer(e.orderAfterServiceKopecks)){out.amount=e.orderAfterServiceKopecks;out.status='saved_summary';}
- // SKU data needs independent shop identity/coverage verification before being displayed.
- return out;
+ // All-shop monetary evidence is deliberately excluded from SAD analytics.
+ if(month<'2026-10'||!Array.isArray(e.skus)||!Array.isArray(e.issues)||e.issues.some(x=>x.partnerId===149082506)||!e.skus.some(x=>x.partnerId===149082506))return out;
+ const rows=e.skus.filter(x=>x.partnerId===149082506);
+ if(rows.some(x=>typeof x.shopSku!=='string'||!x.shopSku||!count(x.deliveredUnits)||!count(x.returnedUnits))||new Set(rows.map(x=>x.shopSku)).size!==rows.length)return out;
+ out.rows=rows.map(x=>({sku:x.shopSku,name:x.name||'',sold:x.deliveredUnits,returned:x.returnedUnits}));
+ out.sold=sum(rows.map(x=>x.deliveredUnits));out.returned=sum(rows.map(x=>x.returnedUnits));out.status='saved_summary';return out;
 }
+export function attachWbSku(month,out,d){
+ if(d?.code!=='wb_sales_sku'||d.month!==month||d.readOnly!==true||d.changedRecords!==0||d.coverageComplete!==true||!Array.isArray(d.rows)||d.rows.length>500)return out;
+ const rows=d.rows;if(rows.some(x=>typeof x.sku!=='string'||!x.sku||!count(x.sold)||!count(x.returned))||new Set(rows.map(x=>x.sku)).size!==rows.length)return out;
+ return {...out,rows:rows.map(x=>({sku:x.sku,name:'',sold:x.sold,returned:x.returned})),sold:sum(rows.map(x=>x.sold)),returned:sum(rows.map(x=>x.returned))};
+}
+export function rankSalesRows(rows){return [...rows].filter(x=>count(x.sold)).sort((a,b)=>b.sold-a.sold||String(a.sku).localeCompare(String(b.sku),'ru'));}
 export function compareAmounts(a,b){if(a.channel!==b.channel||a.meaning!==b.meaning||a.status!==b.status||!integer(a.amount)||!integer(b.amount)||!integer(a.amount-b.amount))return null;const delta=a.amount-b.amount;const bps=b.amount>0?Math.round(delta/b.amount*10000):null;return {delta,bps:integer(bps)?bps:null};}
