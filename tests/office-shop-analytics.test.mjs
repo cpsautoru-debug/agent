@@ -23,3 +23,26 @@ test('both navigation implementations recognize the analytics title',()=>{
   assert.ok(js.includes("analytics:'Аналитика магазина'"));
  }
 });
+
+test('hash navigation opens analytics and marks sidebar link active',async()=>{
+ const saved={document:globalThis.document,window:globalThis.window,location:globalThis.location,CSS:globalThis.CSS};
+ const handlers={};
+ const attrs=new Map(),classes=new Set();
+ const link={dataset:{page:'analytics'},classList:{toggle:(k,on)=>on?classes.add(k):classes.delete(k)},setAttribute:(k,v)=>attrs.set(k,v),removeAttribute:k=>attrs.delete(k)};
+ const home={hidden:false},analytics={hidden:true},breadcrumb={textContent:''};
+ const loc={hash:'#dashboard'};
+ const doc={title:'',querySelector:s=>s==='[data-section="dashboard"]'?home:s==='[data-section="analytics"]'?analytics:null,
+ querySelectorAll:s=>s==='[data-section]'?[home,analytics]:s==='.sidebar nav [data-page]'?[link]:[],
+ getElementById:id=>id==='breadcrumb'?breadcrumb:null,addEventListener:()=>{}};
+ try{
+  Object.assign(globalThis,{document:doc,window:{addEventListener:(k,fn)=>handlers[k]=fn},location:loc,CSS:{escape:s=>s}});
+  await import('../web/office/office-shell.mjs?analytics-routing-test');
+  assert.equal(analytics.hidden,true);
+  loc.hash='#analytics';handlers.hashchange();
+  assert.equal(analytics.hidden,false);assert.equal(home.hidden,true);
+  assert.equal(attrs.get('aria-current'),'page');assert.ok(classes.has('active'));
+  assert.equal(breadcrumb.textContent,'Аналитика магазина');
+  loc.hash='#dashboard';handlers.hashchange();
+  assert.equal(analytics.hidden,true);assert.equal(home.hidden,false);assert.equal(attrs.has('aria-current'),false);
+ }finally{for(const [k,v] of Object.entries(saved)){if(v===undefined)delete globalThis[k];else globalThis[k]=v;}}
+});
