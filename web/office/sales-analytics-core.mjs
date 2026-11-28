@@ -61,3 +61,11 @@ export function ozonDailyUnits(month,d){
  const x=days.get(r.date),k=r.service==='Выручка'?'sold':'returned';if(!integer(x[k]+r.quantity))return null;x[k]+=r.quantity;}
  const rows=[...days.values()];return sum(rows.map(x=>x.sold))===a.sold&&sum(rows.map(x=>x.returned))===a.returned?rows:null;
 }
+
+export function attachSadSku(month,out,d){
+ if(d?.code!=='sad_sales_sku'||d.month!==month||d.campaignId!==149082506||d.readOnly!==true||d.changedRecords!==0||d.coverageComplete!==true||!Array.isArray(d.rows)||d.rows.length>500)return out;
+ const rows=d.rows;if(rows.some(x=>typeof x.sku!=='string'||!x.sku||!count(x.sold)||!count(x.returned))||new Set(rows.map(x=>x.sku)).size!==rows.length)return out;
+ return {...out,rows,sold:sum(rows.map(x=>x.sold)),returned:sum(rows.map(x=>x.returned)),status:'source_report'};
+}
+export function returnRatio(sold,returned){return count(sold)&&sold>0&&count(returned)?returned/sold:null;}
+export function salesSignal(s){const ratio=returnRatio(s.sold,s.returned);return s.returned>=3&&ratio!==null&&ratio>=0.1?'Проверить причины возвратов':s.group==='A'?'Проверить наличие':'Наблюдать';}
