@@ -1,7 +1,7 @@
 name: Persistent order queue safety checks
 on:
   push:
-    branches: [office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
+    branches: [office-35-staff-visual-preview, office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
     paths:
       - 'functions/api/orders/staff-projection.mjs'
       - 'functions/api/orders/staff-preview.js'
@@ -29,6 +29,8 @@ on:
       - 'migrations/20261125_order_workflow_review.sql'
       - 'tests/order-workflow-review.test.mjs'
       - 'web/office/persistent-order-queue.mjs'
+      - 'web/office/staff-preview.mjs'
+      - 'web/office/index.html'
       - 'web/office/sewing-demand.mjs'
       - 'migrations/20261125_persistent_order_queue.sql'
       - 'tests/persistent-order-queue.test.mjs'
@@ -48,4 +50,4 @@ jobs:
       - name: Validate D1 mirror and trusted-source boundaries
         run: node --test tests/source-snapshot-audit.test.mjs tests/ozon-open-audit.test.mjs tests/ozon-unfulfilled-audit.test.mjs tests/persistent-order-queue.test.mjs tests/order-workflow-review.test.mjs tests/order-stock-precheck.test.mjs tests/fulfillment-*.test.mjs tests/warehouse-route-approval.test.mjs
       - name: Check browser queue syntax
-        run: node --check web/office/sewing-demand.mjs && node --check web/office/persistent-order-queue.mjs && node --check web/office/warehouse-route-approval.mjs && node --check web/office/saved-sku-confirmation.mjs && node --check web/office/approved-sku-stock-diagnostic.mjs
+        run: node --check web/office/staff-preview.mjs && node --check web/office/sewing-demand.mjs && node --check web/office/persistent-order-queue.mjs && node --check web/office/warehouse-route-approval.mjs && node --check web/office/saved-sku-confirmation.mjs && node --check web/office/approved-sku-stock-diagnostic.mjs
