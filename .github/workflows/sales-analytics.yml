@@ -1,7 +1,7 @@
 name: Sales analytics focused checks
 on:
   push:
-    branches: [office-40-sales-sku, office-39-sales-analytics, feature/marketplace-agents-staging]
+    branches: [office-41-sales-abc, office-40-sales-sku, office-39-sales-analytics, feature/marketplace-agents-staging]
     paths:
       - 'functions/api/wb/sales-sku.js'
       - 'web/office/sales-analytics*.mjs'
