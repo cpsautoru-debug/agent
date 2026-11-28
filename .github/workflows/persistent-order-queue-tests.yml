@@ -1,8 +1,10 @@
 name: Persistent order queue safety checks
 on:
   push:
-    branches: [office-37-staff-readable-status, office-35-staff-visual-preview, office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
+    branches: [office-38-staff-access-foundation, office-37-staff-readable-status, office-35-staff-visual-preview, office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
     paths:
+      - 'functions/api/auth/staff-session.mjs'
+      - 'migrations/20261128_staff_access.sql'
       - 'functions/api/orders/staff-projection.mjs'
       - 'functions/api/orders/staff-preview.js'
       - 'functions/api/orders/persistent-queue.js'
@@ -38,6 +40,8 @@ on:
   pull_request:
     branches: [feature/marketplace-agents-staging]
     paths:
+      - 'functions/api/auth/staff-session.mjs'
+      - 'tests/fulfillment-staff-session.test.mjs'
       - 'web/office/staff-preview.mjs'
       - 'tests/fulfillment-staff-preview-ui.test.mjs'
       - '.github/workflows/persistent-order-queue-tests.yml'
