@@ -54,7 +54,8 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
         env.WB_REPORT_ACCOUNT_ID!==WB_ACCOUNT)
         return json(503,{code:'configuration_unavailable'});
       const url=new URL(request.url);
-      if(url.search||url.hash)return json(400,{code:'scope_not_supported'});
+      const reportMonth=url.searchParams.get('reportMonth');
+      if(url.hash||(url.search&&(url.searchParams.size!==1||!/^20\d{2}-(0[1-9]|1[0-2])$/.test(reportMonth||'')||reportMonth>new Date(now()).toISOString().slice(0,7))))return json(400,{code:'scope_not_supported'});
       const sub=await verifySession(request,env.OFFICE_SESSION_SECRET);
       if(!sub)return json(401,{code:'unauthorized'});
       const owner=await env.OZON_FINANCE_DB.prepare(ownerQuery)
@@ -63,9 +64,13 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
 
       const db=env.WB_REPORT_SNAPSHOT_DB;
       step='completed_report_aggregation';
+      // Select only whole reports contained in the requested month. Never prorate a crossing report.
+      const args=reportMonth?[WB_ACCOUNT,reportMonth,reportMonth]:[WB_ACCOUNT];
+      const statsSql=reportMonth?STATS_SQL+' AND substr(date_from,1,7)=? AND substr(date_to,1,7)=?':STATS_SQL;
+      const groupSql=reportMonth?GROUP_SQL.replace("AND p.status='complete'","AND p.status='complete' AND substr(p.date_from,1,7)=? AND substr(p.date_to,1,7)=?"):GROUP_SQL;
       const [stats,groupsRaw]=await Promise.all([
-        db.prepare(STATS_SQL).bind(WB_ACCOUNT).first(),
-        db.prepare(GROUP_SQL).bind(WB_ACCOUNT).all()
+        db.prepare(statsSql).bind(...args).first(),
+        db.prepare(groupSql).bind(...args).all()
       ]);
       if(!stats||!Array.isArray(groupsRaw?.results)||
         groupsRaw.results.length>MAX_GROUPS)
@@ -96,7 +101,7 @@ export function createWbUnitEconomicsHandler({now=Date.now}={}){
         code:'wb_unit_economics_preview',
         source:'WB_FINANCE_API_D1',
         readOnly:true,changedRecords:0,asOfMs:now(),
-        costRegistry,profitVerified:false
+        costRegistry,reportMonth,reportSelection:reportMonth?'WHOLE_REPORTS_WITHIN_MONTH':'ALL_COMPLETED_REPORTS',calendarCoverageVerified:false,profitVerified:false
       });
     }catch(error){
       // Fixed, non-sensitive diagnostic codes. Never disclose DB error text,
