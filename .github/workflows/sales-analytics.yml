@@ -1,0 +1,24 @@
+name: Sales analytics focused checks
+on:
+  push:
+    branches: [office-39-sales-analytics, feature/marketplace-agents-staging]
+    paths:
+      - 'web/office/sales-analytics*.mjs'
+      - 'tests/sales-analytics.test.mjs'
+      - '.github/workflows/sales-analytics.yml'
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'web/office/sales-analytics*.mjs'
+      - 'tests/sales-analytics.test.mjs'
+      - '.github/workflows/sales-analytics.yml'
+jobs:
+  analytics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/sales-analytics.test.mjs
+      - run: node --check web/office/sales-analytics.mjs
