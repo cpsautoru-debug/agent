@@ -1,14 +1,16 @@
 name: Sales analytics focused checks
 on:
   push:
-    branches: [office-39-sales-analytics, feature/marketplace-agents-staging]
+    branches: [office-40-sales-sku, office-39-sales-analytics, feature/marketplace-agents-staging]
     paths:
+      - 'functions/api/wb/sales-sku.js'
       - 'web/office/sales-analytics*.mjs'
       - 'tests/sales-analytics.test.mjs'
       - '.github/workflows/sales-analytics.yml'
   pull_request:
     branches: [feature/marketplace-agents-staging]
     paths:
+      - 'functions/api/wb/sales-sku.js'
       - 'web/office/sales-analytics*.mjs'
       - 'tests/sales-analytics.test.mjs'
       - '.github/workflows/sales-analytics.yml'
@@ -22,3 +24,5 @@ jobs:
           node-version: '22'
       - run: node --test tests/sales-analytics.test.mjs
       - run: node --check web/office/sales-analytics.mjs
+
+      - run: node --check functions/api/wb/sales-sku.js
