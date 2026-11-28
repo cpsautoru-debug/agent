@@ -1,10 +1,19 @@
 import {wbUnitEvidence,wbEvidenceDiagnostic} from './unit-wb-evidence.mjs';
+import {wbContributionRanking} from './shop-unit-evidence.mjs';
 const by=id=>document.getElementById(id);
-const button=by('unitWbLoad'),body=by('unitWbRows'),status=by('unitWbStatus');
+const button=by('unitWbLoad'),body=by('unitWbRows'),status=by('unitWbStatus'),sort=by('unitWbSort');
 const rub=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(n/100):'Н/Д';
-if(button&&body&&status){
- let generation=0;
- function clear(){generation++;body.replaceChildren();button.disabled=false;status.textContent='Загрузите сверенные отчёты WB.';}
+if(button&&body&&status&&sort){
+ let generation=0,items=[];
+ function clear(){generation++;items=[];body.replaceChildren();button.disabled=false;status.textContent='Загрузите сверенные отчёты WB.';}
+ function render(){
+  body.replaceChildren();
+  const ranking=sort.value==='sales'?items:wbContributionRanking(items);
+  const rows=sort.value==='negative'?ranking.filter(x=>x.contribution<0):ranking;
+  for(const x of rows){const tr=document.createElement('tr');for(const v of [x.sku,x.sold,x.returned,rub(x.payout),rub(x.fees),rub(x.cost),rub(x.contribution),x.signal||x.review]){const td=document.createElement('td');td.textContent=String(v);tr.append(td);}body.append(tr);}
+  status.textContent='Артикулов: '+rows.length+' из '+items.length+'. Только завершённые сверенные отчёты, не календарный месяц. Вклад не равен чистой прибыли; рекламный бюджет не утверждён.'+(sort.value==='sales'?'':' Неизвестный вклад не включён в рейтинг.')+(!rows.length&&items.length?' Нет товаров с подтверждённым вкладом для выбранного фильтра.':'');
+ }
+ sort.addEventListener('change',()=>{if(items.length)render();});
  window.addEventListener('hashchange',clear);
  button.addEventListener('click',async()=>{
   clear();const g=generation;button.disabled=true;status.textContent='Загрузка…';
@@ -15,8 +24,7 @@ if(button&&body&&status){
    if(diagnostic!=='ok'){status.textContent='Финансовые данные WB не подтверждены. Код: '+diagnostic+'; HTTP '+r.status;return;}
    const rows=wbUnitEvidence(d);
    if(!rows){status.textContent='Нет подтверждённых данных WB.';return;}
-   for(const x of rows){const tr=document.createElement('tr');for(const v of [x.sku,x.sold,x.returned,rub(x.payout),rub(x.fees),rub(x.cost),rub(x.contribution),x.review]){const td=document.createElement('td');td.textContent=String(v);tr.append(td);}body.append(tr);}
-   status.textContent='Артикулов: '+rows.length+'. Только завершённые сверенные отчёты, не календарный месяц. Вклад не равен чистой прибыли; рекламный бюджет не утверждён.';
+   items=rows;render();
   }catch{if(g===generation)status.textContent='Источник WB недоступен.';}
   finally{if(g===generation)button.disabled=false;}
  });
