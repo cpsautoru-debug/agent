@@ -1,4 +1,4 @@
-import {monthValid,previousClosedMonth,adaptOzon,adaptWb,adaptYandex,compareAmounts} from './sales-analytics-core.mjs';
+import {monthValid,previousClosedMonth,adaptOzon,adaptWb,adaptYandex,compareAmounts,attachWbSku,rankSalesRows} from './sales-analytics-core.mjs';
 const by=id=>document.getElementById(id);
 const month=by('salesAnalyticsMonth'),button=by('salesAnalyticsLoad'),body=by('salesAnalyticsRows'),skuBody=by('salesAnalyticsSkuRows'),status=by('salesAnalyticsStatus');
 const money=n=>Number.isSafeInteger(n)?new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(n/100):'Н/Д';
@@ -17,10 +17,11 @@ if(month&&button&&body&&skuBody&&status){
   button.disabled=true;status.textContent='Загрузка сохранённых отчётов…';
   try{const prev=previousClosedMonth(m);
    for(const [path,adapt] of sources){
-    const [a,b]=await Promise.all([load(path,adapt,m),load(path,adapt,prev)]);if(g!==generation)return;
+    let [a,b]=await Promise.all([load(path,adapt,m),load(path,adapt,prev)]);if(g!==generation)return;
+    if(adapt===adaptWb){a=await load('/api/wb/sales-sku',(m,d)=>attachWbSku(m,a,d),m);if(g!==generation)return;}
     const c=compareAmounts(a,b);
     row(body,[a.channel,a.meaning,money(a.amount),money(b.amount),c?money(c.delta):'Н/Д',c?.bps!=null?(c.bps/100).toFixed(1)+'%':'Н/Д',number(a.sold),number(a.returned)]);
-    for(const s of a.rows)row(skuBody,[a.channel,s.sku,s.name,number(s.sold),number(s.returned)]);
+    for(const s of rankSalesRows(a.rows))row(skuBody,[a.channel,s.sku,s.name,number(s.sold),number(s.returned)]);
    }
    status.textContent='Показаны доступные данные за '+m+' и '+prev+'. Н/Д — нет подтверждённого значения. Суммы разных каналов не складываются.';
   }finally{if(g===generation)button.disabled=false;}
