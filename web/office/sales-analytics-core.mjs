@@ -39,3 +39,25 @@ export function attachWbSku(month,out,d){
 }
 export function rankSalesRows(rows){return [...rows].filter(x=>count(x.sold)).sort((a,b)=>b.sold-a.sold||String(a.sku).localeCompare(String(b.sku),'ru'));}
 export function compareAmounts(a,b){if(a.channel!==b.channel||a.meaning!==b.meaning||a.status!==b.status||!integer(a.amount)||!integer(b.amount)||!integer(a.amount-b.amount))return null;const delta=a.amount-b.amount;const bps=b.amount>0?Math.round(delta/b.amount*10000):null;return {delta,bps:integer(bps)?bps:null};}
+
+ // Volume ABC, not revenue or profitability. Boundary-crossing item stays in
+ // the class it started in; zero-sale items are C and ties sort by SKU.
+export function volumeAbc(rows){
+ const ranked=rankSalesRows(rows),total=sum(ranked.map(x=>x.sold));
+ if(ranked.length!==rows.length||!total)return [];
+ let running=0;
+ return ranked.map(x=>{const group=x.sold===0?'C':running/total<0.8?'A':running/total<0.95?'B':'C';running+=x.sold;return {...x,group,share:x.sold/total,cumulative:running/total};});
+}
+// Accrual-operation date, not order date. Reconcile units independently
+// against the already verified SKU totals before showing any daily series.
+export function ozonDailyUnits(month,d){
+ const a=adaptOzon(month,d),raw=d?.configuration?.month?.rows;
+ if(a.sold===null||a.returned===null||!Array.isArray(raw)||!Array.isArray(d?.result?.duplicateCandidates)||d.result.duplicateCandidates.length)return null;
+ const start=new Date(month+'-01T00:00:00Z'),end=new Date(start);end.setUTCMonth(end.getUTCMonth()+1);
+ const days=new Map();for(let t=+start;t<+end;t+=86400000){const date=new Date(t).toISOString().slice(0,10);days.set(date,{date,sold:0,returned:0});}
+ const seen=new Set();
+ for(const r of raw){if(!['Выручка','Возврат выручки'].includes(r.service))continue;
+ if(!days.has(r.date)||!count(r.quantity)||!Number.isSafeInteger(r.row)||seen.has(r.row))return null;seen.add(r.row);
+ const x=days.get(r.date),k=r.service==='Выручка'?'sold':'returned';if(!integer(x[k]+r.quantity))return null;x[k]+=r.quantity;}
+ const rows=[...days.values()];return sum(rows.map(x=>x.sold))===a.sold&&sum(rows.map(x=>x.returned))===a.returned?rows:null;
+}
