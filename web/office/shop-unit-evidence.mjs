@@ -18,3 +18,10 @@ export function wbContributionRanking(rows){
  if(!Array.isArray(rows))return [];
  return rows.filter(x=>int(x.contribution)&&int(x.sold)&&x.sold>0).slice().sort((a,b)=>b.contribution-a.contribution||a.sku.localeCompare(b.sku)).map(x=>({...x,signal:x.contribution<0?'Отрицательный вклад: проверить расходы и цену':x.contribution>0?'Положительный вклад: проверить полную прибыль':'Нулевой вклад',netProfit:null,approvedBudget:null}));
 }
+
+export function sadQuantityEvidence(month,d){
+ if(!monthValid(month)||d?.code!=='sad_sales_sku'||d.month!==month||d.campaignId!==149082506||d.readOnly!==true||d.changedRecords!==0||d.coverageComplete!==true||!Array.isArray(d.rows)||d.rows.length>500)return null;
+ const seen=new Set(),rows=[];
+ for(const x of d.rows){if(!x||typeof x.sku!=='string'||!x.sku||seen.has(x.sku)||!int(x.sold)||x.sold<0||!int(x.returned)||x.returned<0)return null;seen.add(x.sku);rows.push({sku:x.sku,name:String(x.name||''),sold:x.sold,returned:x.returned,cost:null,total:null,payout:null,contribution:null,netProfit:null,approvedBudget:null,review:'Нужна сверка себестоимости и дохода'});}
+ return rows.sort((a,b)=>b.sold-a.sold||a.sku.localeCompare(b.sku));
+}
