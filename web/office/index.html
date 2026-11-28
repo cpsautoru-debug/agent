@@ -109,7 +109,7 @@
   </header>
 
   <div class="content">
-<section class="page" data-section="finance" hidden><div class="page-heading"><h1>Финансы</h1><p>Общая картина и проверенные источники по маркетплейсам. Предварительные расчёты не равны подтверждённой чистой прибыли.</p></div><section class="office-panel"><label>Период финансов <input id="officeFinanceMonth" type="month"></label><button type="button" class="button light" id="officeFinanceRefresh">Обновить показатели</button><p>В сводке только Ozon, Wildberries и Яндекс Маркет. Авито и «Пламя» исключены. Неизвестные расходы не считаются нулевыми.</p><div class="office-kpis" id="officeFinanceMetrics" aria-live="polite"></div></section>
+<section class="page" data-section="finance" hidden><section class="office-panel" aria-labelledby="salesAnalyticsTitle"><h2 id="salesAnalyticsTitle">Аналитика продаж маркетплейсов</h2><label>Закрытый месяц <input id="salesAnalyticsMonth" type="month"></label> <button type="button" class="button light" id="salesAnalyticsLoad">Загрузить аналитику</button><p id="salesAnalyticsStatus" role="status">Данные загружаются по запросу.</p><div style="overflow-x:auto"><table><thead><tr><th>Канал</th><th>Вид суммы</th><th>Месяц</th><th>Предыдущий</th><th>Изменение, ₽</th><th>Изменение, %</th><th>Продано</th><th>Возвращено</th></tr></thead><tbody id="salesAnalyticsRows"></tbody></table></div><details><summary>Продажи по артикулам (подтверждённые количества)</summary><div style="overflow-x:auto"><table><thead><tr><th>Канал</th><th>SKU</th><th>Название</th><th>Продано</th><th>Возвращено</th></tr></thead><tbody id="salesAnalyticsSkuRows"></tbody></table></div></details></section><div class="page-heading"><h1>Финансы</h1><p>Общая картина и проверенные источники по маркетплейсам. Предварительные расчёты не равны подтверждённой чистой прибыли.</p></div><section class="office-panel"><label>Период финансов <input id="officeFinanceMonth" type="month"></label><button type="button" class="button light" id="officeFinanceRefresh">Обновить показатели</button><p>В сводке только Ozon, Wildberries и Яндекс Маркет. Авито и «Пламя» исключены. Неизвестные расходы не считаются нулевыми.</p><div class="office-kpis" id="officeFinanceMetrics" aria-live="polite"></div></section>
 <div id="officeFinanceSummary"><div class="office-summary-links"><a href="#ozonProfit">Ozon · прибыль и начисления</a><a href="#wbFinance">Wildberries · отчёты</a><a href="#yandexFinance">Яндекс Маркет · отчёты</a></div><p>Общая финансовая сводка доступна на <a href="#dashboard">главной</a>. Расходы Авито и «Пламя» не включаются в прибыль маркетплейсов.</p></div></section>
 <section class="page" data-section="warehouse" hidden><div class="page-heading"><h1>Склад</h1><p>Учётное наличие по двум складам. Неизвестные остатки не считаются доступными.</p></div></section>
 
@@ -2572,5 +2572,6 @@
 <script type="module" src="/office-orders.mjs?v=20261127-manual-wb"></script>
 <script type="module" src="/office-production.mjs?v=20261126-2"></script>
 <script type="module" src="/office-finance.mjs?v=20261127-stage8"></script>
+<script type="module" src="./sales-analytics.mjs?v=20261128"></script>
 </body>
 </html>
