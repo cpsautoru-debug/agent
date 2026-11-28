@@ -2,7 +2,7 @@ export const sectionForRoute=route=>{
  if(['dashboard','overview'].includes(route))return 'dashboard';
  if(['finance','ozonProfit','ozonFinance','wbFinance','yandexFinance'].includes(route))return 'finance';
  if(['agents','departments','workflow','studio','connections'].includes(route))return 'agents';
- return ['orders','production','warehouse','orchestrator'].includes(route)?route:'dashboard';
+ return ['orders','production','warehouse','orchestrator','analytics'].includes(route)?route:'dashboard';
 };
 export const financeTabForRoute=route=>({ozonProfit:'ozon',ozonFinance:'ozon',wbFinance:'wb',yandexFinance:'yandex'}[route]||'summary');
 if(typeof document!=='undefined'){
@@ -26,7 +26,7 @@ if(typeof document!=='undefined'){
   document.querySelectorAll('[data-section]').forEach(s=>s.hidden=s!==target&&!(s===overview&&target===home));
   document.querySelectorAll('.sidebar nav [data-page]').forEach(a=>{const active=a.dataset.page===group;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
   document.querySelectorAll('[data-office-tab]').forEach(a=>{const active=group==='finance'?financeTabForRoute(a.dataset.officeTab)===financeTabForRoute(route):a.dataset.officeTab===route;a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-  const title={dashboard:'Главная',orders:'Заказы',production:'Производство',finance:'Финансы',warehouse:'Склад',agents:'Команда',orchestrator:'Служебная страница'}[group];
+  const title={dashboard:'Главная',orders:'Заказы',production:'Производство',finance:'Финансы',analytics:'Аналитика магазина',warehouse:'Склад',agents:'Команда',orchestrator:'Служебная страница'}[group];
   const breadcrumb=document.getElementById('breadcrumb');if(breadcrumb)breadcrumb.textContent=title;
   document.title=title+' · АвтоСклад63';
  }
