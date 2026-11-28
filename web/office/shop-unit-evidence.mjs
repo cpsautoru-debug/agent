@@ -41,3 +41,21 @@ export function attachSadWbCostReview(month,rows,audit){
   return {...x,candidateCost:c.costKopecks,candidateTotal:estimate,candidateSource:'WB_EXACT_ARTICLE_FULL_MONTH',review:'Точный артикул WB: подтвердить идентичность изделия и вид себестоимости'};
  });
 }
+
+export function sadOrderReview(month,jobs,orders,realization){
+ if(!monthValid(month)||jobs?.code!=='yandex_report_jobs_saved'||jobs.readOnly!==true||!Array.isArray(jobs.jobs))return null;
+ const matches=(scope,type)=>jobs.jobs.filter(x=>x.month===month&&x.scope===scope&&x.reportType===type&&x.status==='DONE');
+ if(matches('all','orders').length!==1||matches('149082506','realization').length!==1)return null;
+ const verified=x=>x?.code==='yandex_report_archive_audited'&&x.readOnly===true&&x.changedRecords===0&&Array.isArray(x.sheets);
+ if(!verified(orders)||!verified(realization))return null;
+ const o=orders.sheets.find(x=>x.sheet==='services_and_orders_margin.json'),r=realization.sheets.find(x=>x.sheet==='delivered.json');
+ if(!o||!r||!Array.isArray(o.marginOrderLedger)||!Array.isArray(r.deliveryOrderLedger)||o.rows!==o.marginOrderLedger.length||r.rows!==r.deliveryOrderLedger.length||o.rows>2000||r.rows>2000||o.duplicateOrderIds!==0||o.ordersWithIds!==o.rows)return null;
+ const id=x=>typeof x==='string'&&/^\d{1,20}$/.test(x);
+ const map=new Map(),delivered=new Map();
+ for(const x of o.marginOrderLedger){if(!id(x.orderId)||map.has(x.orderId)||!int(x.incomeKopecks))return null;map.set(x.orderId,x.incomeKopecks);}
+ for(const x of r.deliveryOrderLedger){if(!id(x.orderId)||typeof x.shopSku!=='string'||!x.shopSku||!int(x.units)||x.units<0)return null;const set=delivered.get(x.orderId)||new Set();set.add(x.shopSku);delivered.set(x.orderId,set);}
+ let matched=0,multi=0;for(const [key,skus] of delivered){if(map.has(key))matched++;if(skus.size>1)multi++;}
+ // A realization row does not establish full order composition. Never assign
+ // order-level income to a SKU simply because it is the sole delivered SKU.
+ return {orders:delivered.size,matched,unmatched:delivered.size-matched,multiSku:multi,skuIncomeVerified:false,netProfit:null};
+}
