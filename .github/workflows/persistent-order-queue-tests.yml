@@ -35,6 +35,12 @@ on:
       - 'migrations/20261125_persistent_order_queue.sql'
       - 'tests/persistent-order-queue.test.mjs'
       - '.github/workflows/persistent-order-queue-tests.yml'
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths:
+      - 'web/office/staff-preview.mjs'
+      - 'tests/fulfillment-staff-preview-ui.test.mjs'
+      - '.github/workflows/persistent-order-queue-tests.yml'
   workflow_dispatch:
 permissions:
   contents: read
