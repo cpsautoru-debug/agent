@@ -1,11 +1,11 @@
 name: Unit planner focused checks
 on:
   push:
-    branches: [office-48-wb-acceptance-reconciliation, office-47-shop-analytics, office-45-unit-wb, office-44-unit-sku-evidence, office-43-unit-planner, feature/marketplace-agents-staging]
-    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/office-shell.mjs','web/office/app.js','tests/office-shop-analytics.test.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','web/office/wb-unit-economics-core.mjs','functions/api/wb/unit-economics.js','tests/wb/wb-unit-economics-core.test.mjs','tests/wb/wb-unit-economics-api.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+    branches: [office-49-analytics-mobile-sad, office-48-wb-acceptance-reconciliation, office-47-shop-analytics, office-45-unit-wb, office-44-unit-sku-evidence, office-43-unit-planner, feature/marketplace-agents-staging]
+    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/shop-unit-evidence*.mjs','web/office/shop-analytics.css','tests/shop-unit-evidence.test.mjs','web/office/office-shell.mjs','web/office/app.js','tests/office-shop-analytics.test.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','web/office/wb-unit-economics-core.mjs','functions/api/wb/unit-economics.js','tests/wb/wb-unit-economics-core.test.mjs','tests/wb/wb-unit-economics-api.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
   pull_request:
     branches: [feature/marketplace-agents-staging]
-    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/office-shell.mjs','web/office/app.js','tests/office-shop-analytics.test.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','web/office/wb-unit-economics-core.mjs','functions/api/wb/unit-economics.js','tests/wb/wb-unit-economics-core.test.mjs','tests/wb/wb-unit-economics-api.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/shop-unit-evidence*.mjs','web/office/shop-analytics.css','tests/shop-unit-evidence.test.mjs','web/office/office-shell.mjs','web/office/app.js','tests/office-shop-analytics.test.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','web/office/wb-unit-economics-core.mjs','functions/api/wb/unit-economics.js','tests/wb/wb-unit-economics-core.test.mjs','tests/wb/wb-unit-economics-api.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
 jobs:
   unit:
     runs-on: ubuntu-latest
@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tests/wb/wb-unit-economics-core.test.mjs tests/wb/wb-unit-economics-api.test.mjs tests/office-shop-analytics.test.mjs tests/unit-planner.test.mjs tests/unit-sku-evidence.test.mjs tests/unit-wb-evidence.test.mjs
+      - run: node --test tests/shop-unit-evidence.test.mjs tests/wb/wb-unit-economics-core.test.mjs tests/wb/wb-unit-economics-api.test.mjs tests/office-shop-analytics.test.mjs tests/unit-planner.test.mjs tests/unit-sku-evidence.test.mjs tests/unit-wb-evidence.test.mjs
       - run: node --check web/office/unit-planner.mjs
 
       - run: node --check web/office/unit-sku-evidence-ui.mjs
@@ -22,3 +22,5 @@ jobs:
       - run: node --check web/office/unit-wb-evidence.mjs
 
       - run: node --check web/office/unit-wb-evidence-ui.mjs
+
+      - run: node --check web/office/shop-unit-evidence-ui.mjs
