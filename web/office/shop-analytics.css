@@ -1,0 +1,64 @@
+/* Scoped to analytics: desktop tables, readable mobile cards without sideways scrolling. */
+[data-section="analytics"] .office-panel{min-width:0;max-width:100%;overflow-wrap:anywhere}
+[data-section="analytics"] table{width:100%;border-collapse:collapse}
+[data-section="analytics"] th,[data-section="analytics"] td{padding:.65rem .5rem;text-align:left;border-bottom:1px solid rgba(120,130,150,.22);vertical-align:top}
+@media(max-width:700px){
+ [data-section="analytics"] .office-panel{padding:12px}
+ [data-section="analytics"] table,[data-section="analytics"] tbody{display:block;width:100%;min-width:0!important}
+ [data-section="analytics"] thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ [data-section="analytics"] tbody tr{display:block;margin:.75rem 0;padding:.6rem;border:1px solid rgba(120,130,150,.35);border-radius:10px;min-width:0}
+ [data-section="analytics"] tbody td{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:.5rem;white-space:normal!important;overflow-wrap:anywhere;min-width:0;text-align:left;padding:.45rem .15rem}
+ [data-section="analytics"] tbody td::before{content:var(--analytics-label,"");font-weight:500;opacity:.78;font-size:.86em}
+ [data-section="analytics"] tbody td:first-child{font-weight:700}
+ [data-section="analytics"] .button{max-width:100%;white-space:normal}
+ [data-section="analytics"] select,[data-section="analytics"] input{max-width:100%}
+ #unitSkuRows td:nth-child(1){--analytics-label:"SKU"}
+ #unitSkuRows td:nth-child(2){--analytics-label:"Товар"}
+ #unitSkuRows td:nth-child(3){--analytics-label:"Продано"}
+ #unitSkuRows td:nth-child(4){--analytics-label:"Возвраты"}
+ #unitSkuRows td:nth-child(5){--analytics-label:"Выручка/шт."}
+ #unitSkuRows td:nth-child(6){--analytics-label:"Себестоимость/шт."}
+ #unitSkuRows td:nth-child(7){--analytics-label:"Вознаграждение, месяц"}
+ #unitSkuRows td:nth-child(8){--analytics-label:"Доставка, месяц"}
+ #unitSkuRows td:nth-child(9){--analytics-label:"Реклама, месяц"}
+ #unitSkuRows td:nth-child(10){--analytics-label:"Проверка"}
+ #unitSkuRows td:nth-child(11){--analytics-label:"Сценарий"}
+ #unitWbRows td:nth-child(1){--analytics-label:"Артикул"}
+ #unitWbRows td:nth-child(2){--analytics-label:"Продано"}
+ #unitWbRows td:nth-child(3){--analytics-label:"Возвраты"}
+ #unitWbRows td:nth-child(4){--analytics-label:"Выплаты"}
+ #unitWbRows td:nth-child(5){--analytics-label:"Удержания"}
+ #unitWbRows td:nth-child(6){--analytics-label:"Себестоимость"}
+ #unitWbRows td:nth-child(7){--analytics-label:"Вклад после пошива"}
+ #unitWbRows td:nth-child(8){--analytics-label:"Проверка"}
+ #unitSadRows td:nth-child(1){--analytics-label:"Артикул"}
+ #unitSadRows td:nth-child(2){--analytics-label:"Товар"}
+ #unitSadRows td:nth-child(3){--analytics-label:"Продано"}
+ #unitSadRows td:nth-child(4){--analytics-label:"Возвраты"}
+ #unitSadRows td:nth-child(5){--analytics-label:"Себестоимость/шт."}
+ #unitSadRows td:nth-child(6){--analytics-label:"Себестоимость поставок"}
+ #unitSadRows td:nth-child(7){--analytics-label:"Доход по SKU"}
+ #unitSadRows td:nth-child(8){--analytics-label:"Проверка"}
+ #unitSadRows td:nth-child(9){--analytics-label:"Сценарий"}
+ #salesAnalyticsRows td:nth-child(1){--analytics-label:"Канал"}
+ #salesAnalyticsRows td:nth-child(2){--analytics-label:"Вид суммы"}
+ #salesAnalyticsRows td:nth-child(3){--analytics-label:"Месяц"}
+ #salesAnalyticsRows td:nth-child(4){--analytics-label:"Предыдущий"}
+ #salesAnalyticsRows td:nth-child(5){--analytics-label:"Изменение, ₽"}
+ #salesAnalyticsRows td:nth-child(6){--analytics-label:"Изменение, %"}
+ #salesAnalyticsRows td:nth-child(7){--analytics-label:"Продано"}
+ #salesAnalyticsRows td:nth-child(8){--analytics-label:"Возвращено"}
+ #salesAnalyticsRows td:nth-child(9){--analytics-label:"Возвраты / продажи"}
+ #salesAnalyticsSkuRows td:nth-child(1){--analytics-label:"Канал"}
+ #salesAnalyticsSkuRows td:nth-child(2){--analytics-label:"SKU"}
+ #salesAnalyticsSkuRows td:nth-child(3){--analytics-label:"Название"}
+ #salesAnalyticsSkuRows td:nth-child(4){--analytics-label:"Продано"}
+ #salesAnalyticsSkuRows td:nth-child(5){--analytics-label:"Возвращено"}
+ #salesAnalyticsSkuRows td:nth-child(6){--analytics-label:"ABC (шт.)"}
+ #salesAnalyticsSkuRows td:nth-child(7){--analytics-label:"Доля продаж"}
+ #salesAnalyticsSkuRows td:nth-child(8){--analytics-label:"Возвраты / продажи"}
+ #salesAnalyticsSkuRows td:nth-child(9){--analytics-label:"Действие"}
+ #salesAnalyticsDailyRows td:nth-child(1){--analytics-label:"Дата"}
+ #salesAnalyticsDailyRows td:nth-child(2){--analytics-label:"Продано"}
+ #salesAnalyticsDailyRows td:nth-child(3){--analytics-label:"Возвращено"}
+}
