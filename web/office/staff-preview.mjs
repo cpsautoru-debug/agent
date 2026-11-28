@@ -1,3 +1,6 @@
+const channelLabels={ozon:'Ozon',wb:'Wildberries',yandex:'Яндекс Маркет',avito:'Авито',plamya:'Пламя',dealer_ruslan:'Дилер Руслан',dealer_irina:'Дилер Ирина'};
+const reasonLabels={awaiting_dispatch_no_sewing:'Ожидает отгрузки по данным площадки',needs_stock_and_sku_check:'Проверить товар и остаток',not_in_latest_source_snapshot:'Не найден в последнем снимке',source_snapshot_missing:'Нет актуального снимка',manual_status_requires_verification:'Проверить ручной заказ',payment_unverified:'Проверить оплату',fbo_no_direct_sewing:'FBO — без прямого пошива',unrecognized_source_status:'Уточнить статус'};
+function displayOrder(key){const parts=typeof key==='string'?key.split(':'):[];return parts.length===4&&parts[0]==='AS63'?parts[3]:key;}
 const role=document.getElementById('staffPreviewRole'),button=document.getElementById('staffPreviewRefresh'),status=document.getElementById('staffPreviewStatus'),rows=document.getElementById('staffPreviewRows');
 if(role&&button&&status&&rows){
  let generation=0;
@@ -14,8 +17,10 @@ if(role&&button&&status&&rows){
    for(const order of data.rows){
     for(const item of order.items||[order]){
      const tr=document.createElement('tr');
-     for(const value of [order.orderKey,order.source,item.sku,item.quantity]){
-      const td=document.createElement('td');td.textContent=String(value??'—');tr.append(td);
+     const channel=order.source||order.orderKey?.split(':')[1];
+     const reason=reasonLabels[order.reason]||(selected==='dispatch'?'Ожидает отгрузки по данным площадки':data.complete?'Предварительно проверено':'Требуется проверка');
+     for(const [index,value] of [displayOrder(order.orderKey),channelLabels[channel]||channel,item.sku,item.quantity,reason].entries()){
+      const td=document.createElement('td');td.textContent=String(value??'—');if(index===0)td.title=String(order.orderKey??'');tr.append(td);
      }
      rows.append(tr);
     }
