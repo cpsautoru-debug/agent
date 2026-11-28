@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {adaptOzon,adaptWb,adaptYandex,compareAmounts,previousClosedMonth,attachWbSku,rankSalesRows} from '../web/office/sales-analytics-core.mjs';
+import {adaptOzon,adaptWb,adaptYandex,compareAmounts,previousClosedMonth,attachWbSku,rankSalesRows,volumeAbc,ozonDailyUnits} from '../web/office/sales-analytics-core.mjs';
 const month='2026-10',target='ce9dd331-929d-4c3e-9073-368de3346bc9';
 const oz={target,configuration:{month:{month}},result:{report:{periodVerified:true,quantityVerified:true,salesKopecks:100000},skuRows:[{sku:'x',soldUnits:4,returnedUnits:1}]}};
 const wb={code:'wb_month_settlement',month,readOnly:true,changedRecords:0,source:'WB_FINANCE_API_D1',reportPeriodCovered:true,settlementReconciled:true,productPayoutKopecks:50000};
@@ -24,3 +24,6 @@ test('month change uses same metric and zero denominator stays unknown',()=>{
 });
 
 test('SKU rankings and scope are conservative',()=>{const a=adaptWb(month,wb);const d={code:'wb_sales_sku',month,readOnly:true,changedRecords:0,coverageComplete:true,rows:[{sku:'a',sold:2,returned:0},{sku:'b',sold:8,returned:1}]};assert.equal(attachWbSku(month,a,d).sold,10);assert.equal(rankSalesRows(attachWbSku(month,a,d).rows)[0].sku,'b');assert.equal(attachWbSku(month,a,{...d,coverageComplete:false}).sold,null);assert.equal(adaptYandex(month,{...ya,evidence:{...ya.evidence,issues:[{partnerId:149082506,reason:'source_missing'}]}}).sold,null);});
+
+test('volume ABC uses units and handles zero',()=>{assert.deepEqual(volumeAbc([{sku:'a',sold:80},{sku:'b',sold:15},{sku:'c',sold:5}]).map(x=>x.group),['A','B','C']);assert.deepEqual(volumeAbc([{sku:'a',sold:0}]),[]);});
+test('daily Ozon reconciles verified SKU totals and rejects duplicate candidates',()=>{const d=structuredClone(oz);d.configuration.month.rows=[{row:1,date:'2026-10-02',service:'Выручка',quantity:4},{row:2,date:'2026-10-03',service:'Возврат выручки',quantity:1}];d.result.duplicateCandidates=[];const x=ozonDailyUnits(month,d);assert.equal(x.length,31);assert.equal(x[1].sold,4);assert.equal(x[2].returned,1);d.result.duplicateCandidates=[{}];assert.equal(ozonDailyUnits(month,d),null);d.result.duplicateCandidates=[];d.configuration.month.rows[0].quantity=3;assert.equal(ozonDailyUnits(month,d),null);});
