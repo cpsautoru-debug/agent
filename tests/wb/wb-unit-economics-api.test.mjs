@@ -36,7 +36,7 @@ const costs=[
     cost_kopecks:12000,status:'confirmed',source:'Техкарта вставки'}
 ];
 function fixture({allowed=true,groups=rows,savedCosts=costs,
-  noCostTable=false,summary=stats}={}){
+  noCostTable=false,summary=stats,reportMonth=null}={}){
   const queries=[];
   const owner={prepare(sql){
     queries.push(sql);
@@ -50,14 +50,14 @@ function fixture({allowed=true,groups=rows,savedCosts=costs,
     assert.match(sql,/^SELECT /);
     assert.doesNotMatch(sql,/^(?:INSERT|UPDATE|DELETE|DROP|ALTER)/);
     if(sql.includes('FROM wb_finance_api_reports WHERE account_id=?')){
-      return{bind(id){assert.equal(id,account);
+      return{bind(id,...args){assert.equal(id,account);assert.deepEqual(args,reportMonth?[reportMonth,reportMonth]:[]);if(reportMonth)assert.match(sql,/substr\((?:p\.)?date_from,1,7\)=\? AND substr\((?:p\.)?date_to,1,7\)=\?/);
         return{async first(){return summary;}};
       }};
     }
     if(sql.includes('FROM wb_finance_api_rows r')){
       assert.match(sql,/p\.status='complete'/);
       assert.match(sql,/GROUP BY r\.report_id,r\.vendor_code/);
-      return{bind(id){assert.equal(id,account);
+      return{bind(id,...args){assert.equal(id,account);assert.deepEqual(args,reportMonth?[reportMonth,reportMonth]:[]);if(reportMonth)assert.match(sql,/substr\((?:p\.)?date_from,1,7\)=\? AND substr\((?:p\.)?date_to,1,7\)=\?/);
         return{async all(){return{results:groups};}};
       }};
     }
@@ -243,4 +243,11 @@ test('owner endpoint reconciles paid acceptance without bypassing the payout gat
  assert.equal(data.changedRecords,0);
  const mismatch=await handler({request:await request(),env:fixture({groups}).env});
  assert.equal(mismatch.status,503);
+});
+
+test('whole-report month is bounded in both queries and never claims calendar coverage',async()=>{
+ const f=fixture({reportMonth:'2026-10'});
+ const r=await handler({request:await request('owner','GET','?reportMonth=2026-10'),env:f.env});
+ assert.equal(r.status,200);const d=await r.json();assert.equal(d.reportMonth,'2026-10');assert.equal(d.reportSelection,'WHOLE_REPORTS_WITHIN_MONTH');assert.equal(d.calendarCoverageVerified,false);
+ for(const suffix of ['?reportMonth=2026-13','?reportMonth=2026-12','?reportMonth=2026-10&x=1','?month=2026-10']){const f=fixture();assert.equal((await handler({request:await request('owner','GET',suffix),env:f.env})).status,400);assert.equal(f.queries.length,0);}
 });
