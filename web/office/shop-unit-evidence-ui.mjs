@@ -1,4 +1,4 @@
-import {sadUnitEvidence} from './shop-unit-evidence.mjs';
+import {sadUnitEvidence,sadQuantityEvidence} from './shop-unit-evidence.mjs';
 import {monthValid,previousClosedMonth} from './sales-analytics-core.mjs';
 const by=id=>document.getElementById(id);
 const month=by('unitSadMonth'),button=by('unitSadLoad'),body=by('unitSadRows'),status=by('unitSadStatus'),form=by('unitPlannerForm');
@@ -18,6 +18,6 @@ if(month&&button&&body&&status&&form){
   }
  }
  button.addEventListener('click',async()=>{clear();const m=month.value,g=generation;if(!monthValid(m)||m>last)return;button.disabled=true;status.textContent='Загрузка…';
-  try{const r=await fetch('/api/yandex/evidence-snapshot?month='+encodeURIComponent(m),{method:'GET',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(25000)});const d=r.ok?await r.json():null;if(g!==generation)return;const rows=sadUnitEvidence(m,d);if(!rows){status.textContent='Нет полной сохранённой сверки SKU магазина Сад за месяц. Доход и прибыль не подтверждены.';return;}render(rows,m);status.textContent='Артикулов: '+rows.length+'. Только Сад. Доход после услуг по SKU не подтверждён; прибыль и рекламный бюджет не рассчитываются.';}catch{if(g===generation)status.textContent='Источник Яндекс недоступен.';}finally{if(g===generation)button.disabled=false;}
+  try{const r=await fetch('/api/yandex/evidence-snapshot?month='+encodeURIComponent(m),{method:'GET',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(25000)});const d=r.ok?await r.json().catch(()=>null):null;if(g!==generation)return;let rows=sadUnitEvidence(m,d),quantityOnly=false;if(!rows){const q=await fetch('/api/yandex/sales-sku?month='+encodeURIComponent(m),{method:'GET',credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(25000)});const payload=await q.json().catch(()=>null);if(g!==generation)return;rows=q.ok?sadQuantityEvidence(m,payload):null;quantityOnly=true;if(!rows){const allowed=['sad_report_not_ready','archive_unavailable','quantity_coverage_incomplete','source_unavailable'];const reason=allowed.includes(payload?.reason)?payload.reason:'response_unverified';status.textContent='Сверка Сад недоступна. Код: '+reason+'; HTTP '+q.status;return;}}render(rows,m);status.textContent='Артикулов: '+rows.length+'. Только Сад. '+(quantityOnly?'Количество из отчёта реализации; себестоимость не подтверждена. ':'')+'Доход после услуг по SKU не подтверждён; прибыль и рекламный бюджет не рассчитываются.';}catch{if(g===generation)status.textContent='Источник Яндекс недоступен.';}finally{if(g===generation)button.disabled=false;}
  });
 }
