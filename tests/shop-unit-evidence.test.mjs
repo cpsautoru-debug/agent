@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {sadUnitEvidence,wbContributionRanking} from '../web/office/shop-unit-evidence.mjs';
+import {sadUnitEvidence,wbContributionRanking,sadQuantityEvidence} from '../web/office/shop-unit-evidence.mjs';
 const m='2026-10';
 const item={partnerId:149082506,shopSku:'A',name:'Чехлы',deliveredUnits:4,returnedUnits:1,costKopecks:370000,costStatus:'matched_owner'};
 const d={code:'yandex_month_evidence_available',month:m,readOnly:true,sourceKind:'owner_browser_audited_summary',evidence:{ownerEntity:'ИП Жилина Ольга',netProfitKopecks:null,orderAfterServiceKopecks:99999999,skus:[item,{...item,partnerId:149106500,shopSku:'B'}],issues:[]}};
@@ -9,3 +9,9 @@ test('SAD evidence isolates campaign and never attributes combined revenue',()=>
 test('SAD rejects incomplete scope and duplicate SKU; unknown costs stay null',()=>{assert.equal(sadUnitEvidence('2026-11',d),null);assert.equal(sadUnitEvidence(m,{...d,evidence:{...d.evidence,issues:[{partnerId:149082506,reason:'missing'}]}}),null);assert.equal(sadUnitEvidence(m,{...d,evidence:{...d.evidence,skus:[item,item]}}),null);const [r]=sadUnitEvidence(m,{...d,evidence:{...d.evidence,skus:[{...item,costStatus:'missing'}]}});assert.equal(r.cost,null);assert.equal(r.total,null);});
 test('rank only known WB contribution and never grant advertising budget',()=>{const r=wbContributionRanking([{sku:'A',sold:4,contribution:null},{sku:'B',sold:2,contribution:-100},{sku:'C',sold:1,contribution:200}]);assert.deepEqual(r.map(x=>x.sku),['C','B']);assert.match(r[1].signal,/Отрицательный/);assert.ok(r.every(x=>x.netProfit===null&&x.approvedBudget===null));});
 test('mobile layout and SAD controls are scoped to analytics',()=>{const html=readFileSync(new URL('../web/office/index.html',import.meta.url),'utf8');const css=readFileSync(new URL('../web/office/shop-analytics.css',import.meta.url),'utf8');const start=html.indexOf('data-section="analytics"'),end=html.indexOf('data-section="finance"',start);for(const id of ['unitSadRows','unitSadLoad','unitWbSort'])assert.ok(html.slice(start,end).includes('id="'+id+'"'));assert.match(css,/@media\(max-width:700px\)/);assert.ok(css.includes('#unitWbRows td:nth-child(8)'));assert.ok(html.includes('shop-unit-evidence-ui.mjs'));});
+
+test('SAD fallback only accepts reconciled quantities and keeps all money unknown',()=>{
+ const d={code:'sad_sales_sku',month:m,campaignId:149082506,readOnly:true,changedRecords:0,coverageComplete:true,rows:[{sku:'A',name:'A',sold:4,returned:1,cost:123}]};
+ const r=sadQuantityEvidence(m,d);assert.equal(r.length,1);assert.equal(r[0].sold,4);for(const k of ['cost','total','payout','contribution','netProfit','approvedBudget'])assert.equal(r[0][k],null);
+ for(const patch of [{campaignId:149106500},{coverageComplete:false},{changedRecords:1},{month:'2026-11'},{rows:[d.rows[0],d.rows[0]]}])assert.equal(sadQuantityEvidence(m,{...d,...patch}),null);
+});
