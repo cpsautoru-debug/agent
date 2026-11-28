@@ -1,0 +1,18 @@
+name: Unit planner focused checks
+on:
+  push:
+    branches: [office-43-unit-planner, feature/marketplace-agents-staging]
+    paths: ['web/office/unit-planner*.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+  pull_request:
+    branches: [feature/marketplace-agents-staging]
+    paths: ['web/office/unit-planner*.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/unit-planner.test.mjs
+      - run: node --check web/office/unit-planner.mjs
