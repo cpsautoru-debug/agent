@@ -2,10 +2,10 @@ name: Unit planner focused checks
 on:
   push:
     branches: [office-45-unit-wb, office-44-unit-sku-evidence, office-43-unit-planner, feature/marketplace-agents-staging]
-    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
   pull_request:
     branches: [feature/marketplace-agents-staging]
-    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
+    paths: ['web/office/unit-planner*.mjs','web/office/unit-sku-evidence*.mjs','web/office/index.html','web/office/unit-wb-evidence*.mjs','tests/unit-wb-evidence.test.mjs','tests/unit-sku-evidence.test.mjs','tests/unit-planner.test.mjs','.github/workflows/unit-planner.yml']
 jobs:
   unit:
     runs-on: ubuntu-latest
@@ -20,3 +20,5 @@ jobs:
       - run: node --check web/office/unit-sku-evidence-ui.mjs
 
       - run: node --check web/office/unit-wb-evidence.mjs
+
+      - run: node --check web/office/unit-wb-evidence-ui.mjs
