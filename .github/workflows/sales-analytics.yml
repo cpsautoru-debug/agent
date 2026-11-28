@@ -1,8 +1,9 @@
 name: Sales analytics focused checks
 on:
   push:
-    branches: [office-41-sales-abc, office-40-sales-sku, office-39-sales-analytics, feature/marketplace-agents-staging]
+    branches: [office-42-sales-source-and-ui, office-41-sales-abc, office-40-sales-sku, office-39-sales-analytics, feature/marketplace-agents-staging]
     paths:
+      - 'functions/api/yandex/sales-sku.js'
       - 'functions/api/wb/sales-sku.js'
       - 'web/office/sales-analytics*.mjs'
       - 'tests/sales-analytics.test.mjs'
@@ -10,6 +11,7 @@ on:
   pull_request:
     branches: [feature/marketplace-agents-staging]
     paths:
+      - 'functions/api/yandex/sales-sku.js'
       - 'functions/api/wb/sales-sku.js'
       - 'web/office/sales-analytics*.mjs'
       - 'tests/sales-analytics.test.mjs'
@@ -26,3 +28,5 @@ jobs:
       - run: node --check web/office/sales-analytics.mjs
 
       - run: node --check functions/api/wb/sales-sku.js
+
+      - run: node --check functions/api/yandex/sales-sku.js
