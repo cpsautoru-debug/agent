@@ -230,3 +230,17 @@ test('end-to-end: authenticated API response renders real SKU cards in the uncha
   assert.match(nodes.wbUnitStatus.textContent,/сверка пройдена только по завершённым отчётам/);
   assert.ok(nodes.wbUnitCostVendor.children.some(x=>x.value==='VESTA-1'));
 });
+
+test('owner endpoint reconciles paid acceptance without bypassing the payout gate',async()=>{
+ const groups=[{...rows[0],paid_acceptance_kop:12000},...rows.slice(1)];
+ const f=fixture({groups,summary:{...stats,bank_payout_kop:60000}});
+ const response=await handler({request:await request(),env:f.env});
+ assert.equal(response.status,200);
+ const data=await response.json();
+ assert.equal(data.reconciliation,'matched');
+ assert.equal(data.articles.find(x=>x.vendorCode==='VESTA-1').platformFeesKopecks,14000);
+ assert.equal(data.netProfitKopecks,null);
+ assert.equal(data.changedRecords,0);
+ const mismatch=await handler({request:await request(),env:fixture({groups}).env});
+ assert.equal(mismatch.status,503);
+});

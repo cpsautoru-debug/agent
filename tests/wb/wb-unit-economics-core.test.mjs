@@ -112,3 +112,21 @@ test('final profit gate requires explicit ads, taxes, overhead and complete sour
   }),{netProfitKopecks:140000,status:'verified'});
   assert.throws(()=>findCostForReport([], 'A','2026-15-51','2026-15-56'));
 });
+
+test('paid acceptance is included once for coded and unassigned operations',()=>{
+ const rows=[{...sample[0],paid_acceptance_kop:7000},{...sample[1]},{...sample[2],paid_acceptance_kop:5000}];
+ const s={...stats,bank_payout_kop:60000};
+ const r=calculateWbSkuBreakdown(rows,costs,s);
+ const a=r.articles.find(x=>x.vendorCode==='VESTA-1');
+ assert.equal(a.platformFeesKopecks,9000);
+ assert.equal(a.payoutKopecks,41000);
+ assert.equal(a.contributionAfterKnownCogsKopecks,-31000);
+ assert.equal(r.unassignedFeesKopecks,10000);
+ assert.equal(r.unassignedPayoutKopecks,-10000);
+ assert.equal(r.articles.reduce((n,x)=>n+x.payoutKopecks,0)+r.unassignedPayoutKopecks,60000);
+ assert.equal(r.unreconciledAdditionalFieldsKopecks,0);
+ assert.equal(r.netProfitKopecks,null);
+ assert.throws(()=>calculateWbSkuBreakdown(rows,costs,stats),/reconciliation_failed/);
+ const additional=calculateWbSkuBreakdown([{...rows[0],additional_payment_kop:1},...rows.slice(1)],costs,s);
+ assert.ok(additional.blockers.includes('additional_payment_fields_not_reconciled'));
+});

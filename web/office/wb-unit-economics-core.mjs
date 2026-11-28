@@ -82,13 +82,14 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
   for(const raw of groups){
     const row=validateGroup(raw);
     totalGroupOperations=safeAdd(totalGroupOperations,row.operation_count);
-    const payout=safeAdd(row.product_payout_kop,-row.platform_fees_kop);
+    // Paid acceptance is a WB charge, separate from the legacy SQL fee subtotal.
+    const fees=safeAdd(row.platform_fees_kop,row.paid_acceptance_kop);
+    const payout=safeAdd(row.product_payout_kop,-fees);
     totalPayout=safeAdd(totalPayout,payout);
-    unmodelledMoney=safeAdd(unmodelledMoney,
-      safeAdd(row.additional_payment_kop,row.paid_acceptance_kop));
+    unmodelledMoney=safeAdd(unmodelledMoney,row.additional_payment_kop);
     if(row.vendor_code===null){
       uncodedMoney=safeAdd(uncodedMoney,payout);
-      unattributedFees=safeAdd(unattributedFees,row.platform_fees_kop);
+      unattributedFees=safeAdd(unattributedFees,fees);
       continue;
     }
     let sku=bySku.get(row.vendor_code);
@@ -105,7 +106,7 @@ export function calculateWbSkuBreakdown(groups,rawCosts,stats){
     sku.soldUnits=safeAdd(sku.soldUnits,row.sold_units);
     sku.returnedUnits=safeAdd(sku.returnedUnits,row.returned_units);
     sku.payoutKopecks=safeAdd(sku.payoutKopecks,payout);
-    sku.feesKopecks=safeAdd(sku.feesKopecks,row.platform_fees_kop);
+    sku.feesKopecks=safeAdd(sku.feesKopecks,fees);
     if(row.returned_units){
       sku.blockers.add('return_condition_unverified');
       returnUnits=safeAdd(returnUnits,row.returned_units);
