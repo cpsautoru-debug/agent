@@ -1,7 +1,7 @@
 name: Persistent order queue safety checks
 on:
   push:
-    branches: [office-35-staff-visual-preview, office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
+    branches: [office-37-staff-readable-status, office-35-staff-visual-preview, office-34-staff-preview, office-33-staff-role-foundation, office-32-operational-view-safety, office-31-manual-audit-and-demand-safety, office-30-wb-yandex-snapshot-audit, office-29-order-audit-integration, office-27-manual-demand, office-26-manual-cohort-guard, office-24-operational-queue, feature/marketplace-agents-staging, office-21-stage9-freshness, office-21-stage9-batch-sku, office-21-sewing-demand, office-21-demand-priority, office-21-sewing-supervisor, office-21-picking-preview, office-21-wb-capacity]
     paths:
       - 'functions/api/orders/staff-projection.mjs'
       - 'functions/api/orders/staff-preview.js'
